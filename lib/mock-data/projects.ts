@@ -1,3 +1,8 @@
+// ⚠️ DEPRECATED: This file is kept for backward compatibility only
+// USE lib/mock-data/streams.ts INSTEAD
+// Projects have been replaced with Streams (many-to-many relationships)
+// This file will be removed in a future version
+
 // TODO: DATABASE SCHEMA - Projects Table
 // When implementing database, create projects table with:
 // - id (uuid, primary key)

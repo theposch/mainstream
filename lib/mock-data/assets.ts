@@ -36,7 +36,8 @@ export interface Asset {
   url: string; // Full-size image URL
   mediumUrl?: string; // Medium-sized image URL (800px)
   thumbnailUrl?: string; // Thumbnail URL (300px)
-  projectId?: string; // TODO: Foreign key to projects table (optional - assets can exist without project)
+  streamIds?: string[]; // NEW: Array of stream IDs (many-to-many relationship)
+  projectId?: string; // DEPRECATED: Use streamIds instead. Kept for backward compatibility during migration
   uploaderId: string; // TODO: Foreign key to users table
   createdAt: string;
   width?: number;
@@ -74,7 +75,8 @@ export let assets: Asset[] = [
     title: "Modern Dashboard Interface",
     type: "image",
     url: "https://images.unsplash.com/photo-1618005198919-d3d4b5a92ead?w=800&q=80",
-    projectId: "proj-3",
+    streamIds: ["stream-3", "stream-8"], // Component Library + Dark Mode
+    projectId: "proj-3", // DEPRECATED: kept for backward compatibility
     uploaderId: "user-2",
     createdAt: "2024-03-01T10:30:00.000Z",
     width: 600,
@@ -87,6 +89,7 @@ export let assets: Asset[] = [
     title: "Minimalist Product Card",
     type: "image",
     url: "https://images.unsplash.com/photo-1558655146-364adaf1fcc9?w=800&q=80",
+    streamIds: ["stream-3"], // Component Library
     projectId: "proj-3",
     uploaderId: "user-2",
     createdAt: "2024-03-02T14:20:00.000Z",
@@ -100,6 +103,7 @@ export let assets: Asset[] = [
     title: "Typography Exploration",
     type: "image",
     url: "https://images.unsplash.com/photo-1507238691740-187a5b1d37b8?w=800&q=80",
+    streamIds: ["stream-1"], // Personal Inspiration
     projectId: "proj-1",
     uploaderId: "user-1",
     createdAt: "2024-03-03T09:15:00.000Z",
@@ -113,6 +117,7 @@ export let assets: Asset[] = [
     title: "Mobile App Mockup",
     type: "image",
     url: "https://images.unsplash.com/photo-1512941937669-90a1b58e7e9c?w=800&q=80",
+    streamIds: ["stream-4", "stream-6", "stream-7"], // iOS App + Mobile + Growth Team
     projectId: "proj-4",
     uploaderId: "user-2",
     createdAt: "2024-03-04T11:45:00.000Z",
@@ -126,6 +131,7 @@ export let assets: Asset[] = [
     title: "Brand Color Palette",
     type: "image",
     url: "https://images.unsplash.com/photo-1541701494587-cb58502866ab?w=800&q=80",
+    streamIds: ["stream-5"], // Brand Guidelines
     projectId: "proj-5",
     uploaderId: "user-3",
     createdAt: "2024-03-05T16:00:00.000Z",
@@ -139,6 +145,7 @@ export let assets: Asset[] = [
     title: "Geometric Pattern Design",
     type: "image",
     url: "https://images.unsplash.com/photo-1557672172-298e090bd0f1?w=800&q=80",
+    streamIds: ["stream-2"], // UI Experiments
     projectId: "proj-2",
     uploaderId: "user-1",
     createdAt: "2024-03-06T13:30:00.000Z",
@@ -152,6 +159,7 @@ export let assets: Asset[] = [
     title: "Dark Mode Interface",
     type: "image",
     url: "https://images.unsplash.com/photo-1586023492125-27b2c045efd7?w=800&q=80",
+    streamIds: ["stream-3", "stream-8"], // Component Library + Dark Mode
     projectId: "proj-3",
     uploaderId: "user-2",
     createdAt: "2024-03-07T10:00:00.000Z",
@@ -165,6 +173,7 @@ export let assets: Asset[] = [
     title: "Colorful Gradient Mesh",
     type: "image",
     url: "https://images.unsplash.com/photo-1579546929518-9e396f3cc809?w=800&q=80",
+    streamIds: ["stream-1"], // Personal Inspiration
     projectId: "proj-1",
     uploaderId: "user-1",
     createdAt: "2024-03-08T15:20:00.000Z",
@@ -178,6 +187,7 @@ export let assets: Asset[] = [
     title: "Clean Landing Page",
     type: "image",
     url: "https://images.unsplash.com/photo-1558655146-d09347e92766?w=800&q=80",
+    streamIds: ["stream-4", "stream-6"], // iOS App + Mobile
     projectId: "proj-4",
     uploaderId: "user-2",
     createdAt: "2024-03-09T12:10:00.000Z",
@@ -191,6 +201,7 @@ export let assets: Asset[] = [
     title: "Abstract 3D Shapes",
     type: "image",
     url: "https://images.unsplash.com/photo-1552664730-d307ca884978?w=800&q=80",
+    streamIds: ["stream-2"], // UI Experiments
     projectId: "proj-2",
     uploaderId: "user-1",
     createdAt: "2024-03-10T09:45:00.000Z",
@@ -204,6 +215,7 @@ export let assets: Asset[] = [
     title: "Neumorphic Button Set",
     type: "image",
     url: "https://images.unsplash.com/photo-1561070791-2526d30994b5?w=800&q=80",
+    streamIds: ["stream-3"], // Component Library
     projectId: "proj-3",
     uploaderId: "user-3",
     createdAt: "2024-03-11T14:30:00.000Z",
@@ -217,6 +229,7 @@ export let assets: Asset[] = [
     title: "Vintage Poster Design",
     type: "image",
     url: "https://images.unsplash.com/photo-1567095761054-7a02e69e5c43?w=800&q=80",
+    streamIds: ["stream-5"], // Brand Guidelines
     projectId: "proj-5",
     uploaderId: "user-3",
     createdAt: "2024-03-12T11:00:00.000Z",
@@ -230,6 +243,7 @@ export let assets: Asset[] = [
     title: "Data Visualization Dashboard",
     type: "image",
     url: "https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=800&q=80",
+    streamIds: ["stream-4", "stream-6", "stream-7"], // iOS App + Mobile + Growth Team
     projectId: "proj-4",
     uploaderId: "user-2",
     createdAt: "2024-03-13T16:15:00.000Z",
@@ -243,6 +257,7 @@ export let assets: Asset[] = [
     title: "Minimalist Icon Set",
     type: "image",
     url: "https://images.unsplash.com/photo-1523726491678-bf852e717f6a?w=800&q=80",
+    streamIds: ["stream-3"], // Component Library
     projectId: "proj-3",
     uploaderId: "user-2",
     createdAt: "2024-03-14T10:30:00.000Z",
@@ -256,6 +271,7 @@ export let assets: Asset[] = [
     title: "Elegant E-commerce Product Page",
     type: "image",
     url: "https://images.unsplash.com/photo-1611162617474-5b21e879e113?w=800&q=80",
+    streamIds: ["stream-4", "stream-6"], // iOS App + Mobile
     projectId: "proj-4",
     uploaderId: "user-1",
     createdAt: "2024-03-15T13:45:00.000Z",
@@ -269,6 +285,7 @@ export let assets: Asset[] = [
     title: "Futuristic UI Components",
     type: "image",
     url: "https://images.unsplash.com/photo-1581291518633-83b4ebd1d83e?w=800&q=80",
+    streamIds: ["stream-2"], // UI Experiments
     projectId: "proj-2",
     uploaderId: "user-1",
     createdAt: "2024-03-16T15:00:00.000Z",
@@ -282,6 +299,7 @@ export let assets: Asset[] = [
     title: "Nature-Inspired Color Scheme",
     type: "image",
     url: "https://images.unsplash.com/photo-1501436513145-30f24e19fcc8?w=800&q=80",
+    streamIds: ["stream-5"], // Brand Guidelines
     projectId: "proj-5",
     uploaderId: "user-3",
     createdAt: "2024-03-17T12:20:00.000Z",
@@ -295,6 +313,7 @@ export let assets: Asset[] = [
     title: "Retro Gaming Interface",
     type: "image",
     url: "https://images.unsplash.com/photo-1538481199705-c710c4e965fc?w=800&q=80",
+    streamIds: ["stream-1", "stream-2"], // Personal Inspiration + UI Experiments
     projectId: "proj-1",
     uploaderId: "user-1",
     createdAt: "2024-03-18T14:50:00.000Z",
