@@ -4,16 +4,16 @@ import * as React from "react";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 
-export type TeamTab = "projects" | "posts";
+export type TeamTab = "streams" | "posts";
 
 interface TeamTabsProps {
   activeTab: TeamTab;
   onTabChange: (tab: TeamTab) => void;
   postsCount: number;
-  projectsCount: number;
+  streamsCount: number;
 }
 
-export const TeamTabs = React.memo(function TeamTabs({ activeTab, onTabChange, postsCount, projectsCount }: TeamTabsProps) {
+export const TeamTabs = React.memo(function TeamTabs({ activeTab, onTabChange, postsCount, streamsCount }: TeamTabsProps) {
   return (
     <div className="flex justify-center w-full">
       <div className="flex p-1.5 bg-muted/80 backdrop-blur-md rounded-full border border-border shadow-sm">

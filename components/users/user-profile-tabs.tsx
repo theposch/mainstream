@@ -4,7 +4,7 @@ import * as React from "react";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 
-export type UserProfileTab = "shots" | "projects" | "liked";
+export type UserProfileTab = "shots" | "streams" | "liked";
 
 // TODO: Future tabs to implement:
 // - "activity" tab - Recent comments, uploads, project updates (requires activity feed)
@@ -13,7 +13,7 @@ interface UserProfileTabsProps {
   activeTab: UserProfileTab;
   onTabChange: (tab: UserProfileTab) => void;
   shotsCount: number;
-  projectsCount: number;
+  streamsCount: number;
   likedCount: number;
 }
 
@@ -25,27 +25,27 @@ interface TabConfig {
 
 /**
  * Tab navigation component for user profiles.
- * Displays three tabs: Shots, Projects, and Liked with animated transitions.
+ * Displays three tabs: Shots, Streams, and Liked with animated transitions.
  * 
  * @param activeTab - Currently active tab
  * @param onTabChange - Callback when tab is changed
  * @param shotsCount - Number of shots to display
- * @param projectsCount - Number of projects to display
+ * @param streamsCount - Number of streams to display
  * @param likedCount - Number of liked assets to display
  */
 export const UserProfileTabs = React.memo(function UserProfileTabs({ 
   activeTab, 
   onTabChange, 
   shotsCount, 
-  projectsCount,
+  streamsCount,
   likedCount
 }: UserProfileTabsProps) {
   // Issue #6 Fix: Reduce duplication with array mapping
   const tabs: TabConfig[] = React.useMemo(() => [
     { id: "shots" as const, label: "Shots", count: shotsCount },
-    { id: "projects" as const, label: "Projects", count: projectsCount },
+    { id: "streams" as const, label: "Streams", count: streamsCount },
     { id: "liked" as const, label: "Liked", count: likedCount },
-  ], [shotsCount, projectsCount, likedCount]);
+  ], [shotsCount, streamsCount, likedCount]);
 
   const handleTabChange = React.useCallback((tab: UserProfileTab, e: React.MouseEvent) => {
     e.preventDefault();
