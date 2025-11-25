@@ -6,11 +6,11 @@ import { useRouter } from "next/navigation";
 import { SearchResultsTabs, SearchTab } from "./search-results-tabs";
 import { SearchEmptyState } from "./search-empty-state";
 import { MasonryGrid } from "@/components/assets/masonry-grid";
-import { ProjectGrid } from "@/components/projects/project-grid";
+import { StreamGrid } from "@/components/streams/stream-grid";
 import { useSearch } from "@/lib/contexts/search-context";
 import { searchAll } from "@/lib/utils/search";
 import { assets } from "@/lib/mock-data/assets";
-import { projects } from "@/lib/mock-data/projects";
+import { streams } from "@/lib/mock-data/streams";
 import { users } from "@/lib/mock-data/users";
 import { teams } from "@/lib/mock-data/teams";
 import { Avatar } from "@/components/ui/avatar";
@@ -54,21 +54,21 @@ export function SearchResults({ initialQuery, initialColor }: SearchResultsProps
       
       return {
         assets: matchingAssets,
-        projects: [],
+        streams: [],
         users: [],
         teams: [],
         total: matchingAssets.length,
       };
     }
     
-    return searchAll(query, { assets, projects, users, teams });
+    return searchAll(query, { assets, streams, users, teams });
   }, [query, colorFilter, initialColor]);
 
   // Tab counts
   const counts = {
     all: results.total,
     assets: results.assets.length,
-    projects: results.projects.length,
+    streams: results.streams.length,
     users: results.users.length,
     teams: results.teams.length,
   };
@@ -196,8 +196,8 @@ export function SearchResults({ initialQuery, initialColor }: SearchResultsProps
       case "assets":
         return <MasonryGrid assets={results.assets} />;
 
-      case "projects":
-        return <ProjectGrid projects={results.projects} />;
+      case "streams":
+        return <StreamGrid streams={results.streams} />;
 
       case "users":
         return (
@@ -256,7 +256,7 @@ export function SearchResults({ initialQuery, initialColor }: SearchResultsProps
         <div className="text-6xl mb-4">🔍</div>
         <h3 className="text-xl font-semibold mb-2">Start searching</h3>
         <p className="text-muted-foreground">
-          Enter a search term to find assets, projects, users, and teams
+          Enter a search term to find assets, streams, users, and teams
         </p>
       </div>
     );

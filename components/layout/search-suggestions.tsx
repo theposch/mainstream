@@ -7,7 +7,7 @@ import { Clock, Search, Image as ImageIcon, Folder, User, Users } from "lucide-r
 import { cn } from "@/lib/utils";
 import { searchAll, type SearchResults } from "@/lib/utils/search";
 import { assets, type Asset } from "@/lib/mock-data/assets";
-import { projects, type Project } from "@/lib/mock-data/projects";
+import { streams, type Stream } from "@/lib/mock-data/streams";
 import { users, type User } from "@/lib/mock-data/users";
 import { teams, type Team } from "@/lib/mock-data/teams";
 import { Avatar } from "@/components/ui/avatar";
@@ -35,20 +35,20 @@ export function SearchSuggestions({
   // Search results
   const results = React.useMemo(() => {
     if (!query.trim()) return null;
-    return searchAll(query, { assets, projects, users, teams });
+    return searchAll(query, { assets, streams, users, teams });
   }, [query]);
 
   // Build suggestions list with full data for rendering
   const suggestions = React.useMemo(() => {
     const items: Array<{
-      type: "recent" | "asset" | "project" | "user" | "team" | "viewAll";
+      type: "recent" | "asset" | "stream" | "user" | "team" | "viewAll";
       id: string;
       label: string;
       href?: string;
       icon?: React.ReactNode;
       thumbnail?: string;
       subtitle?: string;
-      data?: Asset | Project | User | Team;
+      data?: Asset | Stream | User | Team;
     }> = [];
 
     // Show recent searches if no query
