@@ -1,20 +1,21 @@
 import { Asset } from "@/lib/mock-data/assets";
-import { Project } from "@/lib/mock-data/projects";
+import { Stream } from "@/lib/mock-data/streams";
 import { User } from "@/lib/mock-data/users";
 import { Team } from "@/lib/mock-data/teams";
+import { getAssetStreamObjects } from "@/lib/mock-data/migration-helpers";
 
 /**
- * Search assets by title, uploader name, or project
+ * Search assets by title, uploader name, or stream
  * Case-insensitive fuzzy matching
  */
-export function searchAssets(query: string, assets: Asset[], users: User[], projects: Project[]): Asset[] {
+export function searchAssets(query: string, assets: Asset[], users: User[], streams: Stream[]): Asset[] {
   if (!query.trim()) return assets;
   
   const lowerQuery = query.toLowerCase().trim();
   
   // Create lookup maps for performance (O(n) instead of O(n*m))
   const userMap = new Map(users.map(u => [u.id, u]));
-  const projectMap = new Map(projects.map(p => [p.id, p]));
+  const streamMap = new Map(streams.map(s => [s.id, s]));
   
   return assets.filter((asset) => {
     // Search by title
@@ -25,25 +26,27 @@ export function searchAssets(query: string, assets: Asset[], users: User[], proj
     if (uploader?.displayName.toLowerCase().includes(lowerQuery)) return true;
     if (uploader?.username.toLowerCase().includes(lowerQuery)) return true;
     
-    // Search by project name
-    const project = projectMap.get(asset.projectId);
-    if (project?.name.toLowerCase().includes(lowerQuery)) return true;
+    // Search by stream name (check all streams asset belongs to)
+    const assetStreams = getAssetStreamObjects(asset);
+    for (const stream of assetStreams) {
+      if (stream.name.toLowerCase().includes(lowerQuery)) return true;
+    }
     
     return false;
   });
 }
 
 /**
- * Search projects by name or description
+ * Search streams by name or description
  */
-export function searchProjects(query: string, projects: Project[]): Project[] {
-  if (!query.trim()) return projects;
+export function searchStreams(query: string, streams: Stream[]): Stream[] {
+  if (!query.trim()) return streams;
   
   const lowerQuery = query.toLowerCase().trim();
   
-  return projects.filter((project) => {
-    if (project.name.toLowerCase().includes(lowerQuery)) return true;
-    if (project.description?.toLowerCase().includes(lowerQuery)) return true;
+  return streams.filter((stream) => {
+    if (stream.name.toLowerCase().includes(lowerQuery)) return true;
+    if (stream.description?.toLowerCase().includes(lowerQuery)) return true;
     return false;
   });
 }
@@ -85,7 +88,7 @@ export function searchTeams(query: string, teams: Team[]): Team[] {
  */
 export interface SearchResults {
   assets: Asset[];
-  projects: Project[];
+  streams: Stream[];
   users: User[];
   teams: Team[];
   total: number;
@@ -98,22 +101,22 @@ export function searchAll(
   query: string,
   data: {
     assets: Asset[];
-    projects: Project[];
+    streams: Stream[];
     users: User[];
     teams: Team[];
   }
 ): SearchResults {
-  const assets = searchAssets(query, data.assets, data.users, data.projects);
-  const projects = searchProjects(query, data.projects);
+  const assets = searchAssets(query, data.assets, data.users, data.streams);
+  const streams = searchStreams(query, data.streams);
   const users = searchUsers(query, data.users);
   const teams = searchTeams(query, data.teams);
   
   return {
     assets,
-    projects,
+    streams,
     users,
     teams,
-    total: assets.length + projects.length + users.length + teams.length,
+    total: assets.length + streams.length + users.length + teams.length,
   };
 }
 

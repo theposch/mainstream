@@ -6,7 +6,7 @@
 export const SEARCH_CONSTANTS = {
   // Number of items to show in autocomplete suggestions
   MAX_ASSET_SUGGESTIONS: 5,
-  MAX_PROJECT_SUGGESTIONS: 3,
+  MAX_STREAM_SUGGESTIONS: 3,
   MAX_USER_SUGGESTIONS: 2,
   MAX_TEAM_SUGGESTIONS: 2,
   MAX_RECENT_SEARCHES_SHOWN: 5,
