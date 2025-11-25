@@ -35,13 +35,13 @@ export const TeamTabs = React.memo(function TeamTabs({ activeTab, onTabChange, p
           Posts ({postsCount})
         </button>
         <button
-          onClick={() => onTabChange("projects")}
+          onClick={() => onTabChange("streams")}
           className={cn(
             "relative px-8 py-2.5 rounded-full text-sm font-semibold transition-colors z-10",
-            activeTab === "projects" ? "text-foreground" : "text-muted-foreground hover:text-foreground"
+            activeTab === "streams" ? "text-foreground" : "text-muted-foreground hover:text-foreground"
           )}
         >
-          {activeTab === "projects" && (
+          {activeTab === "streams" && (
             <motion.div
               layoutId="activeTeamTab"
               className="absolute inset-0 bg-secondary rounded-full shadow-sm"
@@ -49,7 +49,7 @@ export const TeamTabs = React.memo(function TeamTabs({ activeTab, onTabChange, p
               style={{ zIndex: -1 }}
             />
           )}
-          Projects ({projectsCount})
+          Streams ({streamsCount})
         </button>
       </div>
     </div>
