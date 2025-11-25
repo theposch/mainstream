@@ -26,10 +26,10 @@ export function Navbar() {
                 Teams
               </Link>
               <Link 
-                href="/projects" 
+                href="/streams" 
                 className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
               >
-                Projects
+                Streams
               </Link>
             </div>
           </div>
