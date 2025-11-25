@@ -1,0 +1,147 @@
+import React from "react";
+import { Comment } from "@/lib/mock-data/comments";
+import { User } from "@/lib/mock-data/users";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
+import { formatRelativeTime } from "@/lib/utils/time";
+import { CommentInput } from "./comment-input";
+import { cn } from "@/lib/utils";
+import { MoreHorizontal, Trash2, Edit2, Heart } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+
+interface CommentItemProps {
+  comment: Comment;
+  author?: User;
+  currentUser: User;
+  onReply: (commentId: string) => void;
+  onEdit: (commentId: string, newContent: string) => Promise<void>;
+  onStartEdit: (commentId: string) => void;
+  onDelete: (commentId: string) => Promise<void>;
+  onLike: (commentId: string) => void;
+  isEditing: boolean;
+  onCancelEdit: () => void;
+}
+
+export const CommentItem = React.memo(function CommentItem({
+  comment,
+  author,
+  currentUser,
+  onReply,
+  onEdit,
+  onStartEdit,
+  onDelete,
+  onLike,
+  isEditing,
+  onCancelEdit
+}: CommentItemProps) {
+  const isOwner = currentUser.id === comment.userId;
+  const [isHovered, setIsHovered] = React.useState(false);
+
+  if (isEditing) {
+    return (
+      <div className="py-2 pl-11">
+        <CommentInput
+          currentUser={currentUser}
+          onSubmit={(content) => onEdit(comment.id, content)}
+          isSubmitting={false}
+          initialValue={comment.content}
+          onCancel={onCancelEdit}
+          autoFocus
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div 
+      className="group flex gap-3 py-3"
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+    >
+      <Avatar className="h-8 w-8 shrink-0 border border-border mt-0.5 cursor-pointer hover:opacity-80 transition-opacity">
+        <AvatarImage src={author?.avatarUrl} alt={author?.displayName} />
+        <AvatarFallback>{author?.username?.charAt(0).toUpperCase() || "?"}</AvatarFallback>
+      </Avatar>
+
+      <div className="flex-1 min-w-0">
+        <div className="flex items-baseline justify-between gap-2">
+          <div className="flex items-baseline gap-2">
+            <span className="text-sm font-medium text-white hover:underline cursor-pointer">
+              {author?.displayName || "Unknown User"}
+            </span>
+            <span className="text-xs text-zinc-500">
+              {formatRelativeTime(comment.createdAt)}
+            </span>
+            {comment.isEdited && (
+              <span className="text-xs text-zinc-600 italic">(edited)</span>
+            )}
+          </div>
+          
+          {/* Actions Menu (Mobile/Desktop) */}
+          {isOwner && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button 
+                  variant="ghost" 
+                  size="icon-sm" 
+                  className={cn(
+                    "h-6 w-6 text-zinc-500 hover:text-white opacity-0 group-hover:opacity-100 transition-opacity focus:opacity-100 data-[state=open]:opacity-100"
+                  )}
+                >
+                  <MoreHorizontal className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-32 bg-zinc-950 border border-zinc-700 text-zinc-200 shadow-xl z-[100]">
+                <DropdownMenuItem onClick={() => onStartEdit(comment.id)} className="cursor-pointer hover:bg-zinc-800 hover:text-white focus:bg-zinc-800 focus:text-white">
+                  <Edit2 className="mr-2 h-3.5 w-3.5" />
+                  <span>Edit</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem 
+                  onClick={() => onDelete(comment.id)}
+                  className="text-red-400 hover:text-red-300 hover:bg-red-950/50 focus:text-red-300 focus:bg-red-950/50 cursor-pointer"
+                >
+                  <Trash2 className="mr-2 h-3.5 w-3.5" />
+                  <span>Delete</span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
+        </div>
+
+        <p className="text-sm text-zinc-300 mt-0.5 whitespace-pre-wrap leading-relaxed break-words">
+          {comment.content}
+        </p>
+
+        <div className="flex items-center gap-4 mt-1.5">
+          <button 
+            onClick={() => onReply(comment.id)}
+            className="text-xs font-medium text-zinc-500 hover:text-white transition-colors flex items-center gap-1"
+          >
+            Reply
+          </button>
+          
+          <button 
+            onClick={() => onLike(comment.id)}
+            className={cn(
+              "text-xs font-medium transition-colors flex items-center gap-1 group/like",
+              comment.hasLiked ? "text-red-500" : "text-zinc-500 hover:text-white"
+            )}
+          >
+            <Heart 
+                className={cn(
+                    "h-3 w-3 transition-transform group-active/like:scale-75", 
+                    comment.hasLiked ? "fill-current" : ""
+                )} 
+            />
+            {comment.likes > 0 && <span>{comment.likes}</span>}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+});
