@@ -80,17 +80,7 @@ export function SearchSuggestions({
         });
       });
 
-      // Projects
-      results.projects.slice(0, SEARCH_CONSTANTS.MAX_PROJECT_SUGGESTIONS).forEach((project) => {
-        items.push({
-          type: "project",
-          id: project.id,
-          label: project.name,
-          href: `/project/${project.id}`,
-          icon: <Folder className="h-4 w-4" />,
-          subtitle: project.description,
-        });
-      });
+      // Streams (already added above)
 
       // Users - with avatars
       results.users.slice(0, SEARCH_CONSTANTS.MAX_USER_SUGGESTIONS).forEach((user) => {
@@ -282,11 +272,7 @@ export function SearchSuggestions({
                     </div>
                   )}
                 </div>
-                {suggestion.type === "user" ? (
-                  <User className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                ) : (
-                  <Users className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                )}
+                <Users className="h-4 w-4 text-muted-foreground flex-shrink-0" />
               </button>
             );
           }
@@ -307,7 +293,7 @@ export function SearchSuggestions({
               <span className="text-muted-foreground flex-shrink-0">{suggestion.icon}</span>
               <div className="flex-1 min-w-0">
                 <div className="truncate">{suggestion.label}</div>
-                {suggestion.subtitle && suggestion.type === "project" && (
+                {suggestion.subtitle && (
                   <div className="text-xs text-muted-foreground truncate line-clamp-1">
                     {suggestion.subtitle}
                   </div>
