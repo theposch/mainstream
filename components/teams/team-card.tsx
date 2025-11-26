@@ -13,7 +13,7 @@ export interface TeamCardData {
   slug: string;
   avatarUrl: string;
   description?: string;
-  projectsCount: number;
+  streamsCount: number;  // Updated from projectsCount
   membersCount: number;
   postsCount: number;
   recentPosts: Array<{
@@ -74,7 +74,7 @@ export const TeamCard = React.memo(function TeamCard({ team }: TeamCardProps) {
               {team.name}
             </h3>
             <p className="text-sm text-muted-foreground mt-0.5">
-              {team.projectsCount} {team.projectsCount === 1 ? 'project' : 'projects'} • {team.membersCount} {team.membersCount === 1 ? 'Member' : 'Members'} • {team.postsCount} {team.postsCount === 1 ? 'post' : 'posts'}
+              {team.streamsCount} {team.streamsCount === 1 ? 'stream' : 'streams'} • {team.membersCount} {team.membersCount === 1 ? 'Member' : 'Members'} • {team.postsCount} {team.postsCount === 1 ? 'post' : 'posts'}
             </p>
           </div>
         </Link>
