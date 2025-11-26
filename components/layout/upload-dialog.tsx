@@ -1,7 +1,6 @@
 "use client";
 
 import * as React from "react";
-import { useRouter } from "next/navigation";
 import {
   Dialog,
   DialogContent,
@@ -12,10 +11,12 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Loader2, Upload, X, AlertCircle } from "lucide-react";
+import { Loader2, Upload, X, AlertCircle, Type, Smile, AtSign, Image as ImageIcon, Link as LinkIcon, ChevronDown } from "lucide-react";
 import { StreamPicker } from "@/components/streams/stream-picker";
+import { RichTextArea } from "@/components/ui/rich-text-area";
+import { StreamMentionDropdown } from "@/components/streams/stream-mention-dropdown";
+import { useStreamMentions } from "@/lib/hooks/use-stream-mentions";
+import { streams as allStreams } from "@/lib/mock-data/streams";
 
 interface UploadDialogProps {
   open: boolean;
@@ -23,7 +24,6 @@ interface UploadDialogProps {
 }
 
 export function UploadDialog({ open, onOpenChange }: UploadDialogProps) {
-  const router = useRouter();
   const [isLoading, setIsLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [isDragging, setIsDragging] = React.useState(false);
@@ -34,8 +34,17 @@ export function UploadDialog({ open, onOpenChange }: UploadDialogProps) {
   const [title, setTitle] = React.useState("");
   const [description, setDescription] = React.useState("");
   const [streamIds, setStreamIds] = React.useState<string[]>([]);
+  
+  // Stream mentions state
+  const [mentionQuery, setMentionQuery] = React.useState("");
+  const [mentionPosition, setMentionPosition] = React.useState<{ top: number; left: number } | null>(null);
+  const [showMentionDropdown, setShowMentionDropdown] = React.useState(false);
+  const replaceHashtagRef = React.useRef<((newText: string) => void) | null>(null);
 
   const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+  // Sync hashtags in description with streams
+  useStreamMentions(description, allStreams, streamIds, setStreamIds);
 
   // Reset form when dialog closes
   React.useEffect(() => {
@@ -52,6 +61,9 @@ export function UploadDialog({ open, onOpenChange }: UploadDialogProps) {
     setStreamIds([]);
     setError(null);
     setIsLoading(false);
+    setShowMentionDropdown(false);
+    setMentionQuery("");
+    setMentionPosition(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
@@ -123,10 +135,76 @@ export function UploadDialog({ open, onOpenChange }: UploadDialogProps) {
     setDescription("");
     setStreamIds([]);
     setError(null);
+    setShowMentionDropdown(false);
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
   };
+
+  // Handle hashtag trigger in description
+  const handleHashtagTrigger = React.useCallback((
+    query: string, 
+    position: { top: number; left: number },
+    replaceHashtag: (newText: string) => void
+  ) => {
+    setMentionQuery(query);
+    setMentionPosition(position);
+    setShowMentionDropdown(true);
+    replaceHashtagRef.current = replaceHashtag;
+  }, []);
+
+  const handleHashtagComplete = React.useCallback(() => {
+    setShowMentionDropdown(false);
+    replaceHashtagRef.current = null;
+  }, []);
+
+  // Handle stream selection from dropdown
+  const handleStreamSelect = React.useCallback(async (streamName: string, isNew: boolean) => {
+    setShowMentionDropdown(false);
+
+    // Replace the hashtag text with the selected stream name
+    if (replaceHashtagRef.current) {
+      const fullHashtag = streamName.startsWith('#') ? streamName : `#${streamName}`;
+      replaceHashtagRef.current(fullHashtag);
+      replaceHashtagRef.current = null;
+    }
+
+    if (isNew) {
+      // Create new stream
+      try {
+        const response = await fetch('/api/streams', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: streamName.replace(/^#/, ''), // Remove # prefix if present
+            ownerType: 'user',
+            isPrivate: false,
+          }),
+        });
+
+        if (response.ok) {
+          const { stream } = await response.json();
+          // Add to localStorage for immediate availability
+          const { addStream } = await import('@/lib/utils/stream-storage');
+          addStream(stream);
+          setStreamIds(prev => [...new Set([...prev, stream.id])]);
+        }
+      } catch (error) {
+        console.error('Failed to create stream:', error);
+      }
+    } else {
+      // Find and add existing stream (use storage utils to include persisted streams)
+      const { getStreams } = await import('@/lib/utils/stream-storage');
+      const allAvailableStreams = getStreams();
+      const stream = allAvailableStreams.find(s => 
+        s.name.toLowerCase() === streamName.toLowerCase()
+      );
+      
+      if (stream && !streamIds.includes(stream.id)) {
+        setStreamIds(prev => [...prev, stream.id]);
+      }
+    }
+  }, [streamIds]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -207,18 +285,20 @@ export function UploadDialog({ open, onOpenChange }: UploadDialogProps) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px]">
-        <DialogHeader>
+      <DialogContent className={`sm:max-w-[650px] ${file ? 'p-0 gap-0 bg-zinc-950 border-zinc-800' : 'sm:max-w-[500px]'}`}>
+        {/* Initial Upload State */}
+        {!file && (
+          <>
+            <DialogHeader className="p-6 pb-2">
           <DialogTitle>Upload Image</DialogTitle>
           <DialogDescription>
             Upload a single image file. Drag and drop or click to browse.
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit}>
-          <div className="space-y-4 py-4">
+            <form onSubmit={handleSubmit} className="p-6 pt-2">
+              <div className="space-y-4">
             {/* Drag and Drop Zone */}
-            {!file && (
               <div
                 onDragOver={handleDragOver}
                 onDragLeave={handleDragLeave}
@@ -248,73 +328,6 @@ export function UploadDialog({ open, onOpenChange }: UploadDialogProps) {
                   className="hidden"
                 />
               </div>
-            )}
-
-            {/* Preview and Form */}
-            {file && preview && (
-              <div className="space-y-4">
-                {/* Image Preview */}
-                <div className="relative">
-                  <img
-                    src={preview}
-                    alt="Preview"
-                    className="w-full h-48 object-cover rounded-lg"
-                  />
-                  <Button
-                    type="button"
-                    variant="destructive"
-                    size="icon"
-                    className="absolute top-2 right-2"
-                    onClick={handleRemoveFile}
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
-                </div>
-
-                {/* Title Field */}
-                <div className="space-y-2">
-                  <Label htmlFor="title">
-                    Title <span className="text-destructive">*</span>
-                  </Label>
-                  <Input
-                    id="title"
-                    value={title}
-                    onChange={(e) => setTitle(e.target.value)}
-                    placeholder="Enter image title"
-                    required
-                  />
-                </div>
-
-                {/* Description Field */}
-                <div className="space-y-2">
-                  <Label htmlFor="description">
-                    Description <span className="text-muted-foreground text-xs">(optional)</span>
-                  </Label>
-                  <Textarea
-                    id="description"
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
-                    placeholder="Add a description for your image"
-                    rows={3}
-                  />
-                </div>
-
-                {/* Stream Picker */}
-                <div className="space-y-2">
-                  <Label htmlFor="streams">
-                    Streams <span className="text-muted-foreground text-xs">(optional)</span>
-                  </Label>
-                  <StreamPicker
-                    selectedStreamIds={streamIds}
-                    onSelectStreams={setStreamIds}
-                    disabled={isLoading}
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Tag this image with one or more streams to organize your work
-                  </p>
-                </div>
-              </div>
-            )}
 
             {/* Error Message */}
             {error && (
@@ -325,7 +338,7 @@ export function UploadDialog({ open, onOpenChange }: UploadDialogProps) {
             )}
           </div>
 
-          <DialogFooter>
+              <DialogFooter className="mt-6">
             <Button
               type="button"
               variant="outline"
@@ -334,18 +347,129 @@ export function UploadDialog({ open, onOpenChange }: UploadDialogProps) {
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={!file || isLoading}>
+              </DialogFooter>
+            </form>
+          </>
+        )}
+
+        {/* File Selected State - Pixel Perfect Match */}
+        {file && preview && (
+          <form onSubmit={handleSubmit} className="flex flex-col">
+            {/* Preview Area */}
+            <div className="p-6 pb-0">
+              <div className="relative w-full aspect-[1.85/1] rounded-t-xl overflow-hidden bg-zinc-900 border border-zinc-800 border-b-0">
+                <img
+                  src={preview}
+                  alt="Preview"
+                  className="w-full h-full object-cover"
+                />
+                {/* Close Button */}
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="icon"
+                  className="absolute top-3 right-3 h-8 w-8 rounded-full bg-black/50 hover:bg-black/70 text-white border-none backdrop-blur-sm"
+                  onClick={handleRemoveFile}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+
+            {/* Content Area */}
+            <div className="px-6 pt-4 pb-6 space-y-6 bg-zinc-950 rounded-b-xl relative">
+              {/* Error Message */}
+              {error && (
+                <div className="flex items-start gap-2 p-3 bg-destructive/10 border border-destructive/20 rounded-md">
+                  <AlertCircle className="h-4 w-4 text-destructive mt-0.5" />
+                  <p className="text-sm text-destructive">{error}</p>
+                </div>
+              )}
+
+              {/* Stream Mention Dropdown */}
+              {showMentionDropdown && mentionPosition && (
+                <StreamMentionDropdown
+                  query={mentionQuery}
+                  streams={allStreams}
+                  position={mentionPosition}
+                  onSelect={handleStreamSelect}
+                  onClose={handleHashtagComplete}
+                  selectedStreamIds={streamIds}
+                />
+              )}
+
+              <div className="space-y-3">
+                <Input
+                  id="title"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  placeholder="Give it a title"
+                  className="border-none shadow-none bg-transparent !text-[19px] font-bold text-white px-0 h-auto focus-visible:ring-0 placeholder:text-zinc-600 leading-snug"
+                  required
+                  autoFocus
+                />
+                
+                <RichTextArea
+                  value={description}
+                  onChange={setDescription}
+                  placeholder="type something..."
+                  onHashtagTrigger={handleHashtagTrigger}
+                  onHashtagComplete={handleHashtagComplete}
+                  disabled={isLoading}
+                  className="border-none shadow-none bg-transparent px-0 min-h-[40px] !text-[15px] text-zinc-400"
+                />
+
+                <div className="pt-1">
+                  <StreamPicker
+                    selectedStreamIds={streamIds}
+                    onSelectStreams={setStreamIds}
+                    disabled={isLoading}
+                    variant="compact"
+                  />
+                </div>
+              </div>
+
+              {/* Footer */}
+              <div className="pt-4 border-t border-zinc-800 flex items-center justify-between">
+                {/* Left Actions */}
+                <div className="flex items-center gap-5 text-zinc-500">
+                  <Type className="h-5 w-5 hover:text-white cursor-pointer transition-colors" />
+                  <Smile className="h-5 w-5 hover:text-white cursor-pointer transition-colors" />
+                  <AtSign className="h-5 w-5 hover:text-white cursor-pointer transition-colors" />
+                  <ImageIcon className="h-5 w-5 hover:text-white cursor-pointer transition-colors" />
+                  <LinkIcon className="h-5 w-5 hover:text-white cursor-pointer transition-colors" />
+                </div>
+
+                {/* Right Actions */}
+                <div className="flex items-center gap-3">
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    className="bg-zinc-900 border-zinc-800 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-300 h-9 px-3 text-sm"
+                  >
+                    <div className="w-4 h-4 mr-2 rounded-sm bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 flex items-center justify-center">
+                      <span className="text-[8px] font-bold text-white">#</span>
+                    </div>
+                    Select Slack Channels
+                    <ChevronDown className="ml-2 h-3 w-3 opacity-50" />
+                  </Button>
+
+                  <Button 
+                    type="submit" 
+                    disabled={isLoading}
+                    className="bg-white text-black hover:bg-zinc-200 h-9 px-4 font-medium"
+                  >
               {isLoading ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Uploading...
-                </>
+                      <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
-                'Upload'
+                      'Post'
               )}
             </Button>
-          </DialogFooter>
+                </div>
+              </div>
+            </div>
         </form>
+        )}
       </DialogContent>
     </Dialog>
   );

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { streams } from '@/lib/mock-data/streams';
+import { streams, getStreamBySlug } from '@/lib/mock-data/streams';
 import { assets } from '@/lib/mock-data/assets';
 import { getAssetsForStream, addAssetToStream, removeAssetFromStream, validateAssetStreams } from '@/lib/mock-data/migration-helpers';
 import { requireAuth, canUserModifyResource } from '@/lib/auth/middleware';
@@ -36,8 +36,8 @@ export const GET = requireAuth(async (request: NextRequest, user, context: Route
     const limit = searchParams.get('limit');
     const offset = searchParams.get('offset');
 
-    // Find stream
-    const stream = streams.find(s => s.id === streamId);
+    // Find stream by slug first, fallback to ID for backward compatibility
+    const stream = getStreamBySlug(streamId) || streams.find(s => s.id === streamId);
 
     if (!stream) {
       return NextResponse.json(
@@ -129,8 +129,8 @@ export const POST = requireAuth(async (request: NextRequest, user, context: Rout
   try {
     const { id: streamId } = await context.params;
 
-    // Find stream
-    const stream = streams.find(s => s.id === streamId);
+    // Find stream by slug first, fallback to ID for backward compatibility
+    const stream = getStreamBySlug(streamId) || streams.find(s => s.id === streamId);
 
     if (!stream) {
       return NextResponse.json(
@@ -258,8 +258,8 @@ export const DELETE = requireAuth(async (request: NextRequest, user, context: Ro
       );
     }
 
-    // Find stream
-    const stream = streams.find(s => s.id === streamId);
+    // Find stream by slug first, fallback to ID for backward compatibility
+    const stream = getStreamBySlug(streamId) || streams.find(s => s.id === streamId);
 
     if (!stream) {
       return NextResponse.json(

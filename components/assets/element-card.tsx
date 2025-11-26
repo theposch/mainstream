@@ -89,11 +89,11 @@ export const ElementCard = React.memo(
 
             {/* Bottom Section */}
             <div className="absolute bottom-0 left-0 right-0 p-4 flex flex-col gap-2" onClick={(e) => e.preventDefault()}>
-              {/* Streams - Show on hover */}
+              {/* Streams - Show on hover (clickable=false to avoid nested <a> tags) */}
               {assetStreams.length > 0 && (
                 <div className="flex items-center gap-1.5 flex-wrap">
                   {visibleStreams.map((stream) => (
-                    <StreamBadge key={stream.id} stream={stream} className="text-xs" />
+                    <StreamBadge key={stream.id} stream={stream} clickable={false} className="text-xs" />
                   ))}
                   {overflowCount > 0 && (
                     <span className="text-xs text-white/70 px-2 py-1 bg-white/10 backdrop-blur-md rounded-md">
@@ -105,46 +105,46 @@ export const ElementCard = React.memo(
               
               {/* User Info Row */}
               <div className="flex items-center justify-between gap-3">
-                {/* Left: User Info */}
-                <div className="flex items-center gap-2 flex-1 min-w-0">
-                  <Avatar className="h-8 w-8 border-2 border-white/20 shrink-0">
-                    <AvatarImage src={uploader?.avatarUrl} />
-                    <AvatarFallback className="text-xs">
-                      {uploader?.username?.substring(0, 2).toUpperCase() || 'UN'}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="flex flex-col min-w-0">
-                    <span className="text-sm font-semibold text-white truncate leading-tight">
-                      {asset.title}
-                    </span>
-                    <span className="text-xs text-white/80 truncate">
-                      @{uploader?.username || 'unknown'}
-                    </span>
-                  </div>
+              {/* Left: User Info */}
+              <div className="flex items-center gap-2 flex-1 min-w-0">
+                <Avatar className="h-8 w-8 border-2 border-white/20 shrink-0">
+                  <AvatarImage src={uploader?.avatarUrl} />
+                  <AvatarFallback className="text-xs">
+                    {uploader?.username?.substring(0, 2).toUpperCase() || 'UN'}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="flex flex-col min-w-0">
+                  <span className="text-sm font-semibold text-white truncate leading-tight">
+                    {asset.title}
+                  </span>
+                  <span className="text-xs text-white/80 truncate">
+                    @{uploader?.username || 'unknown'}
+                  </span>
                 </div>
+              </div>
 
-                {/* Right: Like Button */}
-                {/* TODO: Replace with real like functionality
-                    - Check authentication state first
-                    - POST /api/assets/:assetId/like or DELETE /api/assets/:assetId/like
-                    - Update like count in UI
-                    - Handle optimistic updates
-                    - Show login prompt if not authenticated
-                */}
-                <button 
-                  className={cn(
-                    "p-2.5 rounded-full backdrop-blur-md transition-all shadow-lg shrink-0",
-                    isLiked 
-                      ? "bg-red-500 text-white" 
-                      : "bg-white/90 hover:bg-white text-black"
-                  )}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    setIsLiked(!isLiked);
-                  }}
-                >
-                  <Heart className={cn("w-4 h-4", isLiked && "fill-current")} />
-                </button>
+              {/* Right: Like Button */}
+              {/* TODO: Replace with real like functionality
+                  - Check authentication state first
+                  - POST /api/assets/:assetId/like or DELETE /api/assets/:assetId/like
+                  - Update like count in UI
+                  - Handle optimistic updates
+                  - Show login prompt if not authenticated
+              */}
+              <button 
+                className={cn(
+                  "p-2.5 rounded-full backdrop-blur-md transition-all shadow-lg shrink-0",
+                  isLiked 
+                    ? "bg-red-500 text-white" 
+                    : "bg-white/90 hover:bg-white text-black"
+                )}
+                onClick={(e) => {
+                  e.preventDefault();
+                  setIsLiked(!isLiked);
+                }}
+              >
+                <Heart className={cn("w-4 h-4", isLiked && "fill-current")} />
+              </button>
               </div>
             </div>
           </div>

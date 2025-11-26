@@ -123,19 +123,19 @@ export default function UserProfile({ params }: UserProfileProps) {
   // TODO: Replace with database query - only show public streams unless it's the user's own profile
   const userStreams = React.useMemo(
     () => user ? streams.filter(s => s.ownerId === user.id && s.ownerType === 'user') : [],
-    [user?.id]
+    [user]
   );
 
   // TODO: Replace with database query - GET /api/users/:userId/assets
   const userAssets = React.useMemo(
     () => user ? assets.filter(asset => asset.uploaderId === user.id) : [],
-    [user?.id]
+    [user]
   );
 
   // TODO: Replace with database query - GET /api/users/:userId/likes
   const likedAssetIds = React.useMemo(
     () => user ? getLikedAssetIds(user.id) : [],
-    [user?.id]
+    [user]
   );
 
   const likedAssets = React.useMemo(
@@ -146,7 +146,7 @@ export default function UserProfile({ params }: UserProfileProps) {
   // Get user's team if they have one
   const userTeam = React.useMemo(
     () => user?.teamId ? teams.find(t => t.id === user.teamId) : undefined,
-    [user?.teamId]
+    [user]
   );
 
   // Check if viewing own profile

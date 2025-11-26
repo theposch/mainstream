@@ -1,23 +1,23 @@
 import { notFound } from "next/navigation";
 // TODO: Replace with database queries
-import { streams } from "@/lib/mock-data/streams";
 import { teams } from "@/lib/mock-data/teams";
 import { users } from "@/lib/mock-data/users";
 import { readAssets } from "@/lib/utils/assets-storage";
 import { assetStreams } from "@/lib/mock-data/streams";
 import { StreamHeader } from "@/components/streams/stream-header";
 import { MasonryGrid } from "@/components/assets/masonry-grid";
+import { getStreamBySlug } from "@/lib/utils/stream-storage";
 
 interface StreamPageProps {
   params: Promise<{
-    id: string;
+    slug: string;
   }>;
 }
 
 // TODO: Convert to async server component and fetch from database
-// async function getStream(streamId: string) {
+// async function getStream(streamSlug: string) {
 //   const stream = await db.query.streams.findFirst({
-//     where: eq(streams.id, streamId),
+//     where: eq(streams.name, streamSlug),
 //     with: {
 //       owner: true,
 //       members: true,
@@ -38,10 +38,10 @@ interface StreamPageProps {
 
 export default async function StreamPage({ params }: StreamPageProps) {
   // Next.js 15+ requires awaiting params
-  const { id } = await params;
+  const { slug } = await params;
   
-  // TODO: Replace with: const stream = await getStream(id);
-  const stream = streams.find((s) => s.id === id);
+  // TODO: Replace with: const stream = await getStream(slug);
+  const stream = getStreamBySlug(slug);
 
   if (!stream) {
     notFound();

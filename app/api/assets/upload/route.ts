@@ -49,10 +49,10 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { requireAuth, rateLimit, canUserModifyResource } from '@/lib/auth/middleware';
+import { requireAuthNoParams, rateLimit, canUserModifyResource } from '@/lib/auth/middleware';
 import { addAsset } from '@/lib/utils/assets-storage';
-import { streams } from '@/lib/mock-data/streams';
 import type { Asset } from '@/lib/mock-data/assets';
+import { getStreams } from '@/lib/utils/stream-storage';
 import {
   generateUniqueFilename,
   saveImageToPublic,
@@ -84,7 +84,7 @@ export const runtime = 'nodejs';
  *   "asset": { ... asset object with URLs for all sizes ... }
  * }
  */
-export const POST = requireAuth(async (request: NextRequest, user) => {
+export const POST = requireAuthNoParams(async (request: NextRequest, user) => {
   try {
     console.log('[POST /api/assets/upload] 📤 Starting upload...');
     console.log(`  - User: ${user.username} (${user.id})`);
@@ -132,8 +132,10 @@ export const POST = requireAuth(async (request: NextRequest, user) => {
 
     // Stream IDs are optional - if provided, verify they exist and user has access
     if (streamIds && streamIds.length > 0) {
+      const allStreams = getStreams(); // Get merged mock + localStorage streams
+      
       for (const streamId of streamIds) {
-        const stream = streams.find(s => s.id === streamId);
+        const stream = allStreams.find(s => s.id === streamId);
         if (!stream) {
           return NextResponse.json(
             { error: `Stream not found: ${streamId}` },

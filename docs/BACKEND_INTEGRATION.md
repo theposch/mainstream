@@ -94,15 +94,28 @@ CREATE TABLE team_members (
 ```sql
 CREATE TABLE streams (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  name TEXT NOT NULL,
+  name TEXT NOT NULL UNIQUE,  -- Slug format: lowercase, hyphens, alphanumeric only (e.g., "ios-app", "growth-team")
   description TEXT,
   cover_image_url TEXT,
   owner_type TEXT NOT NULL CHECK (owner_type IN ('user', 'team')),
   owner_id UUID NOT NULL,
   is_private BOOLEAN DEFAULT FALSE,
-  created_at TIMESTAMP DEFAULT NOW(),
-  updated_at TIMESTAMP DEFAULT NOW()
+  status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'archived')),
+  created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+  
+  -- Ensure name is valid slug format
+  CONSTRAINT valid_stream_name 
+    CHECK (name ~ '^[a-z0-9]+(?:-[a-z0-9]+)*$'),
+  CONSTRAINT stream_name_length 
+    CHECK (char_length(name) BETWEEN 2 AND 50)
 );
+
+-- Index for fast slug lookups
+CREATE UNIQUE INDEX idx_streams_name ON streams(name);
+
+-- Index for owner lookups
+CREATE INDEX idx_streams_owner ON streams(owner_type, owner_id) WHERE status = 'active';
 ```
 
 #### Assets Table

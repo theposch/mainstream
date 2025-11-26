@@ -315,14 +315,14 @@ export function AssetDetailDesktop({ asset }: AssetDetailDesktopProps) {
 
                {/* Streams */}
                {assetStreams.length > 0 && (
-                 <div className="space-y-3">
+               <div className="space-y-3">
                     <h3 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Streams</h3>
-                    <div className="flex flex-wrap gap-2">
+                  <div className="flex flex-wrap gap-2">
                       {assetStreams.map((stream) => (
                         <StreamBadge key={stream.id} stream={stream} clickable={true} className="text-sm" />
                       ))}
-                    </div>
-                </div>
+                       </div>
+                  </div>
                )}
 
               {/* Comments List */}

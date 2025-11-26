@@ -1,8 +1,8 @@
 // TODO: Replace with database queries
-import { streams } from "@/lib/mock-data/streams";
 import { assets } from "@/lib/mock-data/assets";
 import { assetStreams } from "@/lib/mock-data/streams";
 import { StreamsGrid, StreamGridData } from "@/components/streams/streams-grid";
+import { getStreams } from "@/lib/utils/stream-storage";
 
 // TODO: Convert to async server component with real API calls
 // async function getStreamsData() {
@@ -33,8 +33,11 @@ import { StreamsGrid, StreamGridData } from "@/components/streams/streams-grid";
 export default function StreamsPage() {
   // TODO: Replace with: const streamsData = await getStreamsData();
   
+  // Get all streams (mock + persisted)
+  const allStreams = getStreams();
+  
   // Aggregate data for each stream
-  const streamsData: StreamGridData[] = streams.map((stream) => {
+  const streamsData: StreamGridData[] = allStreams.map((stream) => {
     // Get all asset IDs for this stream from the many-to-many relationship
     const streamAssetIds = assetStreams
       .filter((as) => as.streamId === stream.id)

@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { streams, Stream, STREAM_VALIDATION } from '@/lib/mock-data/streams';
+import { Stream, STREAM_VALIDATION } from '@/lib/mock-data/streams';
 import { sanitizeInput } from '@/lib/utils/image';
-import { requireAuth, canUserModifyResource, rateLimit } from '@/lib/auth/middleware';
+import { requireAuthNoParams, canUserModifyResource, rateLimit } from '@/lib/auth/middleware';
+import { getStreams, addStream } from '@/lib/utils/stream-storage';
 
 export const runtime = 'nodejs';
 
@@ -25,7 +26,7 @@ export const runtime = 'nodejs';
  *   "stream": { ... stream object ... }
  * }
  */
-export const POST = requireAuth(async (request: NextRequest, user) => {
+export const POST = requireAuthNoParams(async (request: NextRequest, user) => {
   try {
     // Rate limiting: max 10 streams per minute
     const rateLimitResult = await rateLimit(10, 60000)(request, user);
@@ -106,8 +107,9 @@ export const POST = requireAuth(async (request: NextRequest, user) => {
       );
     }
 
-    // Check for duplicate stream name in same workspace
-    const duplicateStream = streams.find(s => 
+    // Check for duplicate stream name (check both mock and persisted)
+    const allStreams = getStreams();
+    const duplicateStream = allStreams.find(s => 
       s.name.toLowerCase() === trimmedName.toLowerCase() &&
       s.ownerId === finalOwnerId &&
       s.ownerType === ownerType
@@ -137,9 +139,9 @@ export const POST = requireAuth(async (request: NextRequest, user) => {
       updatedAt: now,
     };
 
-    // Add to mock streams array (in-memory)
+    // NOTE: Don't call addStream() here - it's server-side and can't access localStorage
+    // Client-side code will call addStream() after receiving the response
     // TODO: Replace with database INSERT operation
-    streams.push(newStream);
 
     return NextResponse.json(
       { stream: newStream },
@@ -172,16 +174,17 @@ export const POST = requireAuth(async (request: NextRequest, user) => {
  *   "streams": [ ... array of streams ... ]
  * }
  */
-export const GET = requireAuth(async (request: NextRequest, user) => {
+export const GET = requireAuthNoParams(async (request: NextRequest, user) => {
   try {
     const { searchParams } = new URL(request.url);
     const workspace = searchParams.get('workspace');
     const status = searchParams.get('status') || 'active';
     const limit = searchParams.get('limit');
 
+    // Get all streams (mock + localStorage)
     // TODO: In production, fetch from database with proper filtering and permissions
     
-    let filteredStreams = streams;
+    let filteredStreams = getStreams();
 
     // Filter by status
     if (status === 'active' || status === 'archived') {

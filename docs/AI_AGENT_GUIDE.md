@@ -11,16 +11,16 @@
 **What**: Near-complete Cosmos.so clone (Pinterest-style design collaboration tool)  
 **Status**: Frontend 99% + API structure ready, Database pending  
 **Tech**: Next.js 15, TypeScript, Tailwind, shadcn/ui, Framer Motion, Embla Carousel, react-colorful  
-**Data**: Mock data with SQL schemas (mutable for API testing)  
-**APIs**: 3 routes functional, auth middleware ready, error handling complete  
-**TODOs**: 80+ inline comments (30+ completed!)  
-**Docs**: 35,000+ words across documentation files  
+**Data**: Mock data with SQL schemas + localStorage persistence (mutable for API testing)  
+**APIs**: 5+ routes functional, auth middleware ready, error handling complete  
+**TODOs**: 80+ inline comments (40+ completed!)  
+**Docs**: 40,000+ words across documentation files  
 
 **Your task**: Connect database OR enhance existing features
 
-**Recent (v1.7.0)**: ✅ Settings modal with tabs | ✅ Account/Notifications/Privacy/Connected accounts | ✅ Full form validation | ✅ Responsive design
+**Recent (v1.8.0)**: ✅ Streams feature (replaces Projects) | ✅ Many-to-many relationships | ✅ Semantic URLs | ✅ Hashtag mentions | ✅ localStorage persistence | ✅ Rich text input
 
-**Previous (v1.6.0)**: ✅ Color search with visual picker | ✅ Similarity matching algorithm | ✅ Hex code input | ✅ Results sorted by closeness
+**Previous (v1.7.0)**: ✅ Settings modal with tabs | ✅ Account/Notifications/Privacy/Connected accounts | ✅ Full form validation | ✅ Responsive design
 
 ---
 
@@ -30,7 +30,7 @@
 ```
 lib/mock-data/users.ts          - 4 users with job titles, SQL schema
 lib/mock-data/teams.ts          - 3 teams, includes SQL schema  
-lib/mock-data/projects.ts       - 5 projects, includes SQL schema
+lib/mock-data/streams.ts        - 8 streams (replaces projects), SQL schema
 lib/mock-data/assets.ts         - 18 assets, includes SQL schema
 lib/mock-data/comments.ts       - Comment system with likes, SQL schema
 lib/mock-data/notifications.ts  - Activity feed, SQL schema
@@ -38,12 +38,15 @@ lib/mock-data/likes.ts          - Like tracking with helper functions
 ```
 Each file has complete `CREATE TABLE` statements in comments.
 
+**⚠️ IMPORTANT**: "Projects" have been replaced with "Streams" - a more flexible organizational unit that supports many-to-many relationships with assets.
+
 ### 2. Main Pages (Understand routing)
 ```
 app/home/page.tsx          - Main feed, masonry grid
 app/e/[id]/page.tsx        - Asset detail modal
-app/project/[id]/page.tsx  - Project page
-app/u/[username]/page.tsx  - User profile with tabs (Shots/Projects/Liked)
+app/stream/[slug]/page.tsx - Stream page (uses semantic URLs)
+app/streams/page.tsx       - All streams listing
+app/u/[username]/page.tsx  - User profile with tabs (Shots/Streams/Liked)
 app/t/[slug]/page.tsx      - Team page
 app/library/page.tsx       - Discover/browse
 ```
@@ -84,27 +87,35 @@ lib/mock-data/likes.ts                       - Like data with helper functions
 ```
 User (4 mock users)
   ├─ username, displayName, email, avatarUrl
-  ├─ Personal Projects (owned by user)
+  ├─ Personal Streams (owned by user)
   └─ Team Memberships
        └─ Team
             ├─ name, slug, memberIds[]
-            └─ Team Projects (owned by team)
-                 └─ Assets
+            └─ Team Streams (owned by team)
+                 └─ Assets (many-to-many relationship)
                       ├─ title, url, width, height
                       ├─ uploaderId → User
-                      └─ projectId → Project
+                      └─ streamIds[] → Streams
 
-Project
+Stream (NEW - replaces Projects)
+  ├─ name: slug format (e.g., "ux-design", "ios-app")
   ├─ ownerType: 'user' | 'team'
   ├─ ownerId: userId or teamId
-  └─ isPrivate: boolean
+  ├─ isPrivate: boolean
+  ├─ status: 'active' | 'archived'
+  └─ Many-to-many with Assets via asset_streams table
 
 Asset
   ├─ Dimensions: width, height (varied for masonry)
+  ├─ streamIds: string[] (can belong to multiple streams)
   └─ Mock source: Unsplash URLs
 ```
 
-**Key Insight**: Everything is owned by either a User or Team. Projects can be personal or team-owned.
+**Key Insights**: 
+- Everything is owned by either a User or Team
+- **Streams replace Projects** - more flexible organizational unit
+- **Assets can belong to multiple Streams** (many-to-many)
+- **Stream names are slugs** - used directly in URLs (e.g., `/stream/ux-design`)
 
 ---
 
@@ -379,7 +390,44 @@ const user = users.find(u => u.id === userId);
 
 ---
 
-## 🎨 Recent Improvements (Latest - v1.7.0)
+## 🎨 Recent Improvements (Latest - v1.8.0)
+
+### Streams Feature - Complete Refactor (v1.8.0) 🚀
+- ✅ **Streams Replace Projects** - More flexible organizational model
+- ✅ **Many-to-Many Relationships** - Assets can belong to multiple streams
+- ✅ **Semantic URLs** - `/stream/ux-design` instead of `/project/abc123`
+- ✅ **Slug-Based Naming** - Stream names are lowercase, hyphenated slugs
+- ✅ **Hashtag Mentions** - Type `#stream-name` to tag/create streams
+- ✅ **Rich Text Input** - ContentEditable for advanced text editing
+- ✅ **Auto-Complete Dropdown** - Stream suggestions while typing hashtags
+- ✅ **localStorage Persistence** - Client-side storage for created streams
+- ✅ **Cross-Component Sync** - Real-time updates via custom events
+- ✅ **Multi-Stream Picker** - Select multiple streams for uploads
+- ✅ **Stream Badges** - Visual pills with # icon for stream tags
+- ✅ **Archive Support** - Streams can be active or archived
+- ✅ **Privacy Settings** - Public/private streams
+- ✅ **Global Unique Slugs** - Stream names are unique across platform
+- ✅ **Migration Helpers** - Utilities for converting old projects data
+- ✅ **Comprehensive API** - Full CRUD for streams and relationships
+
+**Files Created**: 
+- `lib/mock-data/streams.ts` - Stream data model
+- `lib/utils/stream-storage.ts` - localStorage persistence layer
+- `lib/utils/slug.ts` - Slug validation and sanitization
+- `lib/hooks/use-stream-mentions.ts` - Hashtag parsing logic
+- `components/ui/rich-text-area.tsx` - ContentEditable component
+- `components/streams/stream-mention-dropdown.tsx` - Autocomplete UI
+- `components/streams/stream-picker.tsx` - Multi-select picker
+- `components/streams/stream-badge.tsx` - Stream tag display
+- `app/api/streams/` - Stream CRUD APIs
+
+**Files Updated**: 30+ components and pages refactored from "project" to "stream"
+
+---
+
+## 🎨 Previous Improvements
+
+### Settings Modal Implementation (v1.7.0)
 
 ### Settings Modal Implementation (NEW!) 🆕
 - ✅ **Comprehensive Settings Dialog** - Full-featured modal with tabbed interface

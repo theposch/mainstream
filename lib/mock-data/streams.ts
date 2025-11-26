@@ -61,10 +61,10 @@ export interface AssetStream {
 // NOTE: This is a mutable array for local development (in-memory storage)
 // In production, this will be replaced with database operations
 export let streams: Stream[] = [
-  // Personal Streams (converted from projects)
+  // Personal Streams (migrated to slug format)
   {
     id: "stream-1",
-    name: "# Personal Inspiration",
+    name: "personal-inspiration",
     description: "My personal collection of inspiring designs",
     ownerType: 'user',
     ownerId: 'user-1',
@@ -75,7 +75,7 @@ export let streams: Stream[] = [
   },
   {
     id: "stream-2",
-    name: "# UI Experiments",
+    name: "ui-experiments",
     description: "Experimental UI concepts and prototypes",
     ownerType: 'user',
     ownerId: 'user-1',
@@ -85,10 +85,10 @@ export let streams: Stream[] = [
     updatedAt: "2024-02-15T00:00:00.000Z",
   },
   
-  // Team Streams (converted from projects)
+  // Team Streams (migrated to slug format)
   {
     id: "stream-3",
-    name: "# Component Library",
+    name: "component-library",
     description: "Design system components and patterns",
     ownerType: 'team',
     ownerId: 'team-1',
@@ -99,7 +99,7 @@ export let streams: Stream[] = [
   },
   {
     id: "stream-4",
-    name: "# iOS App Redesign",
+    name: "ios-app-redesign",
     description: "New design direction for our mobile app",
     ownerType: 'team',
     ownerId: 'team-2',
@@ -110,7 +110,7 @@ export let streams: Stream[] = [
   },
   {
     id: "stream-5",
-    name: "# Brand Guidelines 2024",
+    name: "brand-guidelines-2024",
     description: "Updated brand identity and visual language",
     ownerType: 'team',
     ownerId: 'team-3',
@@ -123,7 +123,7 @@ export let streams: Stream[] = [
   // Additional streams for multi-tagging demonstration
   {
     id: "stream-6",
-    name: "# Mobile",
+    name: "mobile",
     description: "All mobile-related design work across teams",
     ownerType: 'team',
     ownerId: 'team-2',
@@ -134,7 +134,7 @@ export let streams: Stream[] = [
   },
   {
     id: "stream-7",
-    name: "# Growth Team",
+    name: "growth-team",
     description: "Growth initiatives, experiments, and feature launches",
     ownerType: 'team',
     ownerId: 'team-3',
@@ -145,7 +145,7 @@ export let streams: Stream[] = [
   },
   {
     id: "stream-8",
-    name: "# Dark Mode",
+    name: "dark-mode",
     description: "Dark mode designs and theming work",
     ownerType: 'team',
     ownerId: 'team-1',
@@ -301,6 +301,11 @@ export function getStreamsForAssetById(assetId: string): string[] {
   return assetStreams
     .filter(as => as.assetId === assetId)
     .map(as => as.streamId);
+}
+
+// Helper function to get a stream by its slug (name)
+export function getStreamBySlug(slug: string): Stream | undefined {
+  return streams.find(s => s.name === slug);
 }
 
 // Helper function to get assets in a specific stream

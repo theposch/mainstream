@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Clock, Search, Image as ImageIcon, Folder, Users } from "lucide-react";
+import { Clock, Search, Image as ImageIcon, Hash, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { searchAll, type SearchResults } from "@/lib/utils/search";
 import { assets, type Asset } from "@/lib/mock-data/assets";
@@ -80,7 +80,18 @@ export function SearchSuggestions({
         });
       });
 
-      // Streams (already added above)
+      // Streams - with hash icon
+      results.streams.slice(0, SEARCH_CONSTANTS.MAX_STREAM_SUGGESTIONS).forEach((stream) => {
+        items.push({
+          type: "stream",
+          id: stream.id,
+          label: stream.name,
+          href: `/stream/${stream.name}`,
+          icon: <Hash className="h-4 w-4" />,
+          subtitle: stream.description || `${stream.ownerType === 'team' ? 'Team stream' : 'Personal stream'}`,
+          data: stream,
+        });
+      });
 
       // Users - with avatars
       results.users.slice(0, SEARCH_CONSTANTS.MAX_USER_SUGGESTIONS).forEach((user) => {
@@ -272,12 +283,12 @@ export function SearchSuggestions({
                     </div>
                   )}
                 </div>
-                <Users className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                  <Users className="h-4 w-4 text-muted-foreground flex-shrink-0" />
               </button>
             );
           }
 
-          // Render other types (recent, project, viewAll)
+          // Render other types (recent, stream, viewAll)
           return (
             <button
               key={suggestion.id}

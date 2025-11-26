@@ -6,11 +6,13 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Loader2, Lock, Globe, WifiOff, Hash } from "lucide-react";
+import { Loader2, Lock, Globe, WifiOff, Hash, CheckCircle2, XCircle } from "lucide-react";
 import { currentUser } from "@/lib/mock-data/users";
 import { teams } from "@/lib/mock-data/teams";
 import { STREAM_VALIDATION } from "@/lib/mock-data/streams";
 import { fetchWithRetry, getUserFriendlyErrorMessage, isOnline, deduplicatedRequest } from "@/lib/utils/api";
+import { isValidSlug } from "@/lib/utils/slug";
+import { getStreams, addStream, isStreamNameAvailable } from "@/lib/utils/stream-storage";
 
 interface CreateStreamDialogProps {
   open: boolean;
@@ -30,6 +32,13 @@ export function CreateStreamDialog({ open, onOpenChange }: CreateStreamDialogPro
   const [ownerType, setOwnerType] = React.useState<"user" | "team">("user");
   const [ownerId, setOwnerId] = React.useState(currentUser.id);
 
+  // Slug validation state
+  const [validationState, setValidationState] = React.useState<{
+    isValid: boolean;
+    message: string;
+    type: 'success' | 'error' | 'idle';
+  }>({ isValid: false, message: '', type: 'idle' });
+
   // Get user's teams
   const userTeams = teams.filter(team => team.memberIds.includes(currentUser.id));
 
@@ -48,6 +57,46 @@ export function CreateStreamDialog({ open, onOpenChange }: CreateStreamDialogPro
     };
   }, []);
 
+  // Validate slug on change
+  const handleNameChange = React.useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    let value = e.target.value;
+    
+    // Strip # prefix if user types it
+    value = value.replace(/^#/, '');
+    
+    setName(value);
+    
+    if (!value) {
+      setValidationState({ isValid: false, message: '', type: 'idle' });
+      return;
+    }
+    
+    if (!isValidSlug(value)) {
+      setValidationState({
+        isValid: false,
+        message: 'Use lowercase letters, numbers, and hyphens only',
+        type: 'error'
+      });
+      return;
+    }
+    
+    // Check against both mock and persisted streams
+    if (!isStreamNameAvailable(value)) {
+      setValidationState({
+        isValid: false,
+        message: 'Stream name already taken',
+        type: 'error'
+      });
+      return;
+    }
+    
+    setValidationState({
+      isValid: true,
+      message: 'Available',
+      type: 'success'
+    });
+  }, []);
+
   // Reset form when dialog closes
   React.useEffect(() => {
     if (!open) {
@@ -57,6 +106,7 @@ export function CreateStreamDialog({ open, onOpenChange }: CreateStreamDialogPro
       setOwnerType("user");
       setOwnerId(currentUser.id);
       setError(null);
+      setValidationState({ isValid: false, message: '', type: 'idle' });
     }
   }, [open]);
 
@@ -131,9 +181,12 @@ export function CreateStreamDialog({ open, onOpenChange }: CreateStreamDialogPro
         return responseData;
       });
 
+      // Add stream to localStorage for immediate availability
+      addStream(data.stream);
+      
       // Success! Close dialog and redirect to new stream
       onOpenChange(false);
-      router.push(`/stream/${data.stream.id}`);
+      router.push(`/stream/${data.stream.name}`);
       router.refresh(); // Refresh to show new stream in lists
     } catch (err) {
       setError(getUserFriendlyErrorMessage(err));
@@ -168,24 +221,45 @@ export function CreateStreamDialog({ open, onOpenChange }: CreateStreamDialogPro
                 <span>You're offline. Check your connection to create streams.</span>
               </div>
             )}
-            {/* Stream Name */}
+            {            /* Stream Name */}
             <div className="grid gap-2">
               <Label htmlFor="stream-name" className="text-foreground">
                 Stream Name <span className="text-red-500">*</span>
               </Label>
-              <Input
-                id="stream-name"
-                placeholder="e.g., # Mobile or # Growth Team"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                maxLength={STREAM_VALIDATION.MAX_STREAM_NAME_LENGTH}
-                className="bg-background border-border text-foreground"
-                disabled={isLoading}
-                autoFocus
-              />
-              <p className="text-xs text-muted-foreground">
-                {STREAM_VALIDATION.MIN_STREAM_NAME_LENGTH}-{STREAM_VALIDATION.MAX_STREAM_NAME_LENGTH} characters
-              </p>
+              <div className="relative">
+                <Input
+                  id="stream-name"
+                  placeholder="e.g., mobile or growth-team"
+                  value={name}
+                  onChange={handleNameChange}
+                  maxLength={STREAM_VALIDATION.MAX_STREAM_NAME_LENGTH}
+                  className={`bg-background border-border text-foreground pr-10 ${
+                    validationState.type === 'error' ? 'border-destructive focus:ring-destructive' :
+                    validationState.type === 'success' ? 'border-green-500 focus:ring-green-500' : ''
+                  }`}
+                  disabled={isLoading}
+                  autoFocus
+                />
+                {validationState.type !== 'idle' && (
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                    {validationState.type === 'success' ? (
+                      <CheckCircle2 className="h-4 w-4 text-green-500" />
+                    ) : (
+                      <XCircle className="h-4 w-4 text-destructive" />
+                    )}
+                  </div>
+                )}
+              </div>
+              <div className="flex items-center justify-between">
+                <p className="text-xs text-muted-foreground">
+                  Use lowercase, hyphens (e.g., ios-app)
+                </p>
+                {validationState.message && (
+                  <p className={`text-xs ${validationState.type === 'success' ? 'text-green-500' : 'text-destructive'}`}>
+                    {validationState.message}
+                  </p>
+                )}
+              </div>
             </div>
 
             {/* Description */}
@@ -306,7 +380,7 @@ export function CreateStreamDialog({ open, onOpenChange }: CreateStreamDialogPro
             </Button>
             <Button
               type="submit"
-              disabled={isLoading || !name.trim() || name.trim().length < STREAM_VALIDATION.MIN_STREAM_NAME_LENGTH}
+              disabled={isLoading || !validationState.isValid}
               className="bg-primary text-primary-foreground hover:bg-primary/90"
             >
               {isLoading ? (

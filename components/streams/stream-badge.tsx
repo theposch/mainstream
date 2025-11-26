@@ -7,32 +7,17 @@ import { Stream } from "@/lib/mock-data/streams";
 import { cn } from "@/lib/utils";
 
 interface StreamBadgeProps {
-  // Accept either full stream object or just id and name for flexibility
-  stream?: Stream;
-  id?: string;
-  name?: string;
+  stream: Stream;  // Required, no alternatives
   clickable?: boolean;
-  isLocked?: boolean;
   className?: string;
 }
 
 export const StreamBadge = React.memo(function StreamBadge({
   stream,
-  id,
-  name,
   clickable = true,
-  isLocked = false,
   className,
 }: StreamBadgeProps) {
-  // Support both APIs: full stream object or id+name
-  const streamId = stream?.id || id;
-  const streamName = stream?.name || name;
-  const isPrivate = stream?.isPrivate || isLocked;
-
-  if (!streamId || !streamName) {
-    console.error('StreamBadge requires either stream object or id+name');
-    return null;
-  }
+  const { name, isPrivate } = stream;
 
   const content = (
     <span className={cn(
@@ -49,7 +34,7 @@ export const StreamBadge = React.memo(function StreamBadge({
         <Hash className="h-3 w-3" />
       )}
       <span className="truncate max-w-[120px]">
-        {streamName.replace(/^# /, '')}
+        {name}
       </span>
     </span>
   );
@@ -59,7 +44,7 @@ export const StreamBadge = React.memo(function StreamBadge({
   }
 
   return (
-    <Link href={`/stream/${streamId}`} onClick={(e) => e.stopPropagation()}>
+    <Link href={`/stream/${name}`} onClick={(e) => e.stopPropagation()}>
       {content}
     </Link>
   );

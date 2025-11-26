@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { streams, Stream, STREAM_VALIDATION, getStreamMembers, getStreamResources } from '@/lib/mock-data/streams';
+import { Stream, STREAM_VALIDATION, getStreamMembers, getStreamResources } from '@/lib/mock-data/streams';
 import { getAssetsForStream } from '@/lib/mock-data/migration-helpers';
 import { assets } from '@/lib/mock-data/assets';
 import { sanitizeInput } from '@/lib/utils/image';
 import { requireAuth, canUserModifyResource } from '@/lib/auth/middleware';
+import { getStreamBySlug, getStreamById, updateStream, getStreams } from '@/lib/utils/stream-storage';
 
 export const runtime = 'nodejs';
 
@@ -16,7 +17,7 @@ interface RouteContext {
 /**
  * GET /api/streams/:id
  * 
- * Fetches a single stream by ID with its resources and members
+ * Fetches a single stream by ID or slug with its resources and members
  * 
  * Response:
  * {
@@ -30,8 +31,8 @@ export const GET = requireAuth(async (request: NextRequest, user, context: Route
   try {
     const { id } = await context.params;
 
-    // Find stream
-    const stream = streams.find(s => s.id === id);
+    // Find stream by slug first, fallback to ID for backward compatibility
+    const stream = getStreamBySlug(id) || getStreamById(id);
 
     if (!stream) {
       return NextResponse.json(
@@ -55,10 +56,10 @@ export const GET = requireAuth(async (request: NextRequest, user, context: Route
       }
     }
 
-    // Get related data
-    const members = getStreamMembers(id);
-    const resources = getStreamResources(id);
-    const streamAssets = getAssetsForStream(id, assets);
+    // Get related data (use stream.id, not the slug/id param)
+    const members = getStreamMembers(stream.id);
+    const resources = getStreamResources(stream.id);
+    const streamAssets = getAssetsForStream(stream.id, assets);
 
     return NextResponse.json(
       {
@@ -102,17 +103,15 @@ export const PUT = requireAuth(async (request: NextRequest, user, context: Route
   try {
     const { id } = await context.params;
 
-    // Find stream
-    const streamIndex = streams.findIndex(s => s.id === id);
-
-    if (streamIndex === -1) {
+    // Find stream by slug first, fallback to ID for backward compatibility
+    const stream = getStreamBySlug(id) || getStreamById(id);
+    
+    if (!stream) {
       return NextResponse.json(
         { error: 'Stream not found' },
         { status: 404 }
       );
     }
-
-    const stream = streams[streamIndex];
 
     // Authorization: user must be owner or have modify rights
     const canModify = 
@@ -131,8 +130,10 @@ export const PUT = requireAuth(async (request: NextRequest, user, context: Route
 
     const body = await request.json();
     const { name, description, isPrivate } = body;
+    
+    const updates: any = {};
 
-    // Validation
+    // Validation for name
     if (name !== undefined) {
       if (typeof name !== 'string') {
         return NextResponse.json(
@@ -158,7 +159,8 @@ export const PUT = requireAuth(async (request: NextRequest, user, context: Route
       }
 
       // Check for duplicate stream name in same workspace
-      const duplicateStream = streams.find(s => 
+      const allStreams = getStreams();
+      const duplicateStream = allStreams.find(s => 
         s.id !== id &&
         s.name.toLowerCase() === trimmedName.toLowerCase() &&
         s.ownerId === stream.ownerId &&
@@ -172,9 +174,10 @@ export const PUT = requireAuth(async (request: NextRequest, user, context: Route
         );
       }
 
-      stream.name = sanitizeInput(trimmedName);
+      updates.name = sanitizeInput(trimmedName);
     }
 
+    // Validation for description
     if (description !== undefined) {
       if (description && typeof description !== 'string') {
         return NextResponse.json(
@@ -190,22 +193,22 @@ export const PUT = requireAuth(async (request: NextRequest, user, context: Route
         );
       }
 
-      stream.description = description ? sanitizeInput(description) : undefined;
+      updates.description = description ? sanitizeInput(description) : undefined;
     }
 
     if (isPrivate !== undefined) {
-      stream.isPrivate = Boolean(isPrivate);
+      updates.isPrivate = Boolean(isPrivate);
     }
 
-    // Update timestamp
-    stream.updatedAt = new Date().toISOString();
-
-    // Update in array (in-memory)
+    // Update using storage utils
     // TODO: Replace with database UPDATE operation
-    streams[streamIndex] = stream;
+    updateStream(stream.id, updates);
+    
+    // Get updated stream
+    const updatedStream = getStreamById(stream.id);
 
     return NextResponse.json(
-      { stream },
+      { stream: updatedStream },
       { status: 200 }
     );
   } catch (error) {
@@ -235,17 +238,15 @@ export const DELETE = requireAuth(async (request: NextRequest, user, context: Ro
   try {
     const { id } = await context.params;
 
-    // Find stream
-    const streamIndex = streams.findIndex(s => s.id === id);
-
-    if (streamIndex === -1) {
+    // Find stream by slug first, fallback to ID for backward compatibility
+    const stream = getStreamBySlug(id) || getStreamById(id);
+    
+    if (!stream) {
       return NextResponse.json(
         { error: 'Stream not found' },
         { status: 404 }
       );
     }
-
-    const stream = streams[streamIndex];
 
     // Authorization: only owner can delete
     const isOwner = 
@@ -276,10 +277,9 @@ export const DELETE = requireAuth(async (request: NextRequest, user, context: Ro
       );
     }
 
-    // Remove from array (in-memory)
-    // TODO: Replace with database DELETE operation
-    // Also need to clean up stream_members and stream_resources tables
-    streams.splice(streamIndex, 1);
+    // Archive instead of delete (safer for now with localStorage)
+    // TODO: Replace with database DELETE operation and cleanup stream_members/stream_resources
+    updateStream(stream.id, { status: 'archived' });
 
     return NextResponse.json(
       { 
@@ -319,17 +319,15 @@ export const PATCH = requireAuth(async (request: NextRequest, user, context: Rou
   try {
     const { id } = await context.params;
 
-    // Find stream
-    const streamIndex = streams.findIndex(s => s.id === id);
-
-    if (streamIndex === -1) {
+    // Find stream by slug first, fallback to ID for backward compatibility
+    const stream = getStreamBySlug(id) || getStreamById(id);
+    
+    if (!stream) {
       return NextResponse.json(
         { error: 'Stream not found' },
         { status: 404 }
       );
     }
-
-    const stream = streams[streamIndex];
 
     // Authorization: user must be owner or have modify rights
     const canModify = 
@@ -357,16 +355,15 @@ export const PATCH = requireAuth(async (request: NextRequest, user, context: Rou
       );
     }
 
-    // Update status
-    stream.status = status;
-    stream.updatedAt = new Date().toISOString();
-
-    // Update in array (in-memory)
+    // Update status using storage utils
     // TODO: Replace with database UPDATE operation
-    streams[streamIndex] = stream;
+    updateStream(stream.id, { status });
+    
+    // Get updated stream
+    const updatedStream = getStreamById(stream.id);
 
     return NextResponse.json(
-      { stream },
+      { stream: updatedStream },
       { status: 200 }
     );
   } catch (error) {

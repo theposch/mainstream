@@ -7,6 +7,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { currentUser } from '@/lib/mock-data/users';
+import { teams, Team } from '@/lib/mock-data/teams';
 
 export interface AuthenticatedRequest extends NextRequest {
   user?: typeof currentUser;
@@ -36,10 +37,10 @@ export function getCurrentUser(): typeof currentUser | null {
  * Returns 401 if user is not authenticated
  * Supports dynamic route parameters by passing context as third argument
  */
-export function requireAuth<TContext = any>(
-  handler: (req: NextRequest, user: typeof currentUser, context?: TContext) => Promise<Response>
+export function requireAuth<TContext = unknown>(
+  handler: (req: NextRequest, user: typeof currentUser, context: TContext) => Promise<Response>
 ) {
-  return async (req: NextRequest, context?: TContext): Promise<Response> => {
+  return async (req: NextRequest, context: TContext): Promise<Response> => {
     const user = getCurrentUser();
 
     if (!user) {
@@ -53,6 +54,30 @@ export function requireAuth<TContext = any>(
     }
 
     return handler(req, user, context);
+  };
+}
+
+/**
+ * Middleware to require authentication (for routes without params)
+ * Returns 401 if user is not authenticated
+ */
+export function requireAuthNoParams(
+  handler: (req: NextRequest, user: typeof currentUser) => Promise<Response>
+) {
+  return async (req: NextRequest): Promise<Response> => {
+    const user = getCurrentUser();
+
+    if (!user) {
+      return NextResponse.json(
+        { 
+          error: 'Authentication required',
+          message: 'You must be logged in to perform this action'
+        },
+        { status: 401 }
+      );
+    }
+
+    return handler(req, user);
   };
 }
 
@@ -73,8 +98,7 @@ export function canUserModifyResource(
   if (resourceOwnerType === 'team') {
     // TODO: Check team membership from database
     // For now, using mock data
-    const { teams } = require('@/lib/mock-data/teams');
-    const team = teams.find((t: any) => t.id === resourceOwnerId);
+    const team = teams.find((t: Team) => t.id === resourceOwnerId);
     return team?.memberIds?.includes(user.id) || false;
   }
 

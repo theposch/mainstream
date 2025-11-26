@@ -2,20 +2,36 @@
 
 This document provides a quick reference to all files that contain TODO comments for backend integration.
 
-**Status Update (v2.0.0)**: Image Upload System Completely Rebuilt! 🎉
-- ✅ 40+ TODOs completed with functional code
+**Status Update (v2.1.0)**: Streams Feature Complete! 🎉
+- ✅ 50+ TODOs completed with functional code
+- ✅ **Projects → Streams**: Complete refactor to new organizational model
+- ✅ **Many-to-Many Relationships**: Assets can belong to multiple streams
+- ✅ **Semantic URLs**: Stream names are slugs (e.g., `/stream/ux-design`)
+- ✅ **Hashtag Mentions**: Auto-create streams with `#stream-name`
+- ✅ **localStorage Persistence**: Client-side storage for created streams
 - ✅ Complete image upload system with persistent storage
 - ✅ API structure ready for database connection
 - ✅ Auth middleware implemented
 - ✅ User profiles enhanced with tabs
 - ✅ Comment system fully functional (CRUD, likes, immediate deletion)
-- ✅ **NEW**: Local file storage with 3 image sizes
-- ✅ **NEW**: Persistent JSON storage (survives restarts)
-- ✅ **NEW**: Progressive image loading
-- ✅ **NEW**: Color extraction integration
-- 75+ TODOs remaining (mostly database & cloud storage migrations)
+- 70+ TODOs remaining (mostly database & cloud storage migrations)
 
-**New in v2.0.0 (Image Upload Rebuild):**
+**New in v2.1.0 (Streams Feature):**
+- ✅ Replaced "Projects" with "Streams" throughout entire codebase
+- ✅ Many-to-many asset-stream relationships
+- ✅ Stream names are slugs (lowercase, hyphenated)
+- ✅ Semantic URLs (`/stream/ux-design`)
+- ✅ Hashtag mention system (`#stream-name`)
+- ✅ Rich text contenteditable input
+- ✅ Autocomplete dropdown for stream suggestions
+- ✅ localStorage persistence layer
+- ✅ Cross-component event-based sync
+- ✅ Stream picker with multi-select
+- ✅ Stream badges with # icon
+- ✅ Archive/active status
+- ✅ 30+ files refactored
+
+**Previous in v2.0.0 (Image Upload Rebuild):**
 - ✅ Complete image upload system from scratch
 - ✅ Three image sizes (full, medium, thumbnail)
 - ✅ Persistent metadata storage (data/assets.json)
@@ -78,28 +94,73 @@ This document provides a quick reference to all files that contain TODO comments
 
 ---
 
-## 📁 Projects & Collections
+## 📁 Streams & Collections (NEW - Replaces Projects)
 
-### `lib/mock-data/projects.ts`
-- Replace with database schema
-- Add `project_members` table for sharing
-- Add `project_tags` for categorization
-- Fetch from: `GET /api/projects?workspace={id}`
+### ✅ `lib/mock-data/streams.ts` - **IMPLEMENTED**
+- ✅ Stream data model with slug-based naming
+- ✅ Many-to-many relationship with assets via `asset_streams`
+- ✅ Mock data with 8 streams
+- ✅ Helper functions for stream lookup by slug/id
+- ⬜ Replace `getStreams()` with database query
+- ⬜ Migrate to PostgreSQL with slug constraints
+- ⬜ Fetch from: `GET /api/streams?workspace={id}`
 
-### ✅ `app/project/[id]/page.tsx` - **UPDATED**
-- ✅ Now uses `readAssets()` from persistent storage
+### ✅ `lib/utils/stream-storage.ts` - **NEW** - localStorage Persistence
+- ✅ `getStreams()` - Merges mock data + localStorage
+- ✅ `getStreamBySlug()` - Finds stream by slug
+- ✅ `addStream()` - Creates new stream
+- ✅ `updateStream()` - Updates existing stream
+- ✅ `deleteStream()` - Removes stream
+- ✅ `isStreamNameAvailable()` - Validates uniqueness
+- ✅ Event-based cross-component sync
+- ⬜ **TODO**: Replace entire file with database queries
+
+### ✅ `app/stream/[slug]/page.tsx` - **UPDATED**
+- ✅ Now uses semantic URLs with slugs (e.g., `/stream/ux-design`)
+- ✅ Uses `getStreamBySlug()` from localStorage persistence
 - ⬜ Convert to async server component
-- ⬜ Replace `readAssets()` with database query
-- ⬜ Fetch project with authorization check: `GET /api/projects/:id`
+- ⬜ Replace `getStreamBySlug()` with database query
+- ⬜ Fetch stream with authorization check: `GET /api/streams/:slug`
 - ⬜ Implement pagination for assets
-- ⬜ Check if user can access project
+- ⬜ Check if user can access stream
 
-### `components/projects/project-header.tsx`
-- Fetch real project members: `GET /api/projects/:id/members`
-- Implement share functionality with permissions
-- Add asset upload: `POST /api/projects/:id/assets`
-- Show settings menu (owner/admin only)
-- Edit/delete project options
+### ✅ `components/streams/stream-header.tsx` - **UPDATED**
+- ✅ Renamed from `project-header.tsx`
+- ⬜ Fetch real stream members: `GET /api/streams/:id/members`
+- ⬜ Implement share functionality with permissions
+- ⬜ Add asset upload: `POST /api/streams/:id/assets`
+- ⬜ Show settings menu (owner/admin only)
+- ⬜ Edit/delete/archive stream options
+
+### ✅ `components/streams/stream-picker.tsx` - **NEW**
+- ✅ Multi-select checkbox list for tagging assets
+- ✅ Compact popover variant for upload dialog
+- ✅ Loads from `getStreams()` (mock + localStorage)
+- ✅ Real-time sync with event listeners
+- ⬜ Add stream creation from picker
+- ⬜ Fetch from database when ready
+
+### ✅ `components/streams/stream-badge.tsx` - **NEW**
+- ✅ Small clickable pills with # icon
+- ✅ Links to stream page with semantic URL
+- ✅ Supports locked/private streams
+- ✅ Used throughout app for stream tags
+
+### ✅ `lib/hooks/use-stream-mentions.ts` - **NEW**
+- ✅ Extracts hashtags from text (`#stream-name`)
+- ✅ Auto-creates streams via API
+- ✅ Syncs hashtags with stream IDs
+- ✅ Debounced for performance
+- ⬜ Add duplicate detection
+- ⬜ Add undo functionality
+
+### ✅ `components/ui/rich-text-area.tsx` - **NEW**
+- ✅ ContentEditable component for rich text
+- ✅ Cursor position tracking for dropdown placement
+- ✅ Text replacement for autocomplete
+- ✅ Escape key handling
+- ⬜ Add markdown support
+- ⬜ Add @ mentions for users
 
 ---
 

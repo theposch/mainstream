@@ -114,18 +114,18 @@ export function SearchResults({ initialQuery, initialColor }: SearchResultsProps
               </section>
             )}
 
-            {results.projects.length > 0 && (
+            {results.streams.length > 0 && (
               <section>
                 <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-lg font-semibold">Projects</h2>
+                  <h2 className="text-lg font-semibold">Streams</h2>
                   <button
-                    onClick={() => setActiveTab("projects")}
+                    onClick={() => setActiveTab("streams")}
                     className="text-sm text-muted-foreground hover:text-foreground transition-colors"
                   >
-                    View all {results.projects.length} →
+                    View all {results.streams.length} →
                   </button>
                 </div>
-                <ProjectGrid projects={results.projects.slice(0, 6)} />
+                <StreamGrid streams={results.streams.slice(0, 6)} />
               </section>
             )}
 

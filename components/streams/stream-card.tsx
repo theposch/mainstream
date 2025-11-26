@@ -22,7 +22,7 @@ export const StreamCard = React.memo(function StreamCard({ stream }: StreamCardP
   const assetsCount = stream.assetsCount ?? 0;
 
   return (
-    <Link href={`/stream/${stream.id}`} className="group block space-y-3">
+    <Link href={`/stream/${stream.name}`} className="group block space-y-3">
       <div className="relative aspect-[4/3] w-full overflow-hidden rounded-xl bg-secondary border border-border group-hover:border-input transition-colors">
         {stream.recentPosts && stream.recentPosts.length > 0 ? (
           <div className="grid grid-cols-2 gap-1 w-full h-full p-2">
