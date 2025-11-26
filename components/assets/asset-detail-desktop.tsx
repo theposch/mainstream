@@ -7,8 +7,9 @@ import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { Asset } from "@/lib/mock-data/assets";
 import { users } from "@/lib/mock-data/users";
-import { projects } from "@/lib/mock-data/projects";
 import { teams } from "@/lib/mock-data/teams";
+import { getAssetStreamObjects } from "@/lib/mock-data/migration-helpers";
+import { StreamBadge } from "@/components/streams/stream-badge";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { KEYS, ANIMATION_DURATION, ANIMATION_EASING, IMAGE_SIZES } from "@/lib/constants";
@@ -46,21 +47,11 @@ export function AssetDetailDesktop({ asset }: AssetDetailDesktopProps) {
   
   // Data fetching logic from original component
   const uploader = users.find(u => u.id === asset.uploaderId);
-  const project = projects.find(p => p.id === asset.projectId);
   
-  const owner = project?.ownerType === 'team' 
-    ? teams.find(t => t.id === project.ownerId)
-    : users.find(u => u.id === project?.ownerId);
-  
-  const ownerLink = project?.ownerType === 'team' && owner
-    ? `/t/${(owner as any).slug}`
-    : owner ? `/u/${(owner as any).username}` : '/home';
-  const projectLink = project ? `/project/${project.id}` : '/home';
-
-  // Get owner name - Team has 'name', User has 'displayName'
-  const ownerName = project?.ownerType === 'team' 
-    ? (owner as any)?.name 
-    : (owner as any)?.displayName;
+  // Get streams for this asset (many-to-many relationship)
+  const assetStreams = React.useMemo(() => getAssetStreamObjects(asset), [asset]);
+  const visibleStreams = assetStreams.slice(0, 3);
+  const overflowCount = Math.max(0, assetStreams.length - 3);
 
   // Recreate full asset list logic
   // TODO: This should probably move up or to context eventually
@@ -244,22 +235,17 @@ export function AssetDetailDesktop({ asset }: AssetDetailDesktopProps) {
                   </Button>
               </div>
 
-              {/* Breadcrumb */}
-              {owner && project && (
-                <div className="flex items-center gap-2 text-sm text-muted-foreground -mt-4">
-                  <Link 
-                    href={ownerLink}
-                    className="hover:text-foreground transition-colors truncate"
-                  >
-                    {ownerName}
-                  </Link>
-                  <ChevronRight className="h-3.5 w-3.5 shrink-0" />
-                  <Link 
-                    href={projectLink}
-                    className="hover:text-foreground transition-colors truncate"
-                  >
-                    {project.name}
-                  </Link>
+              {/* Stream Badges */}
+              {assetStreams.length > 0 && (
+                <div className="flex items-center gap-2 flex-wrap -mt-4">
+                  {visibleStreams.map((stream) => (
+                    <StreamBadge key={stream.id} stream={stream} clickable={true} />
+                  ))}
+                  {overflowCount > 0 && (
+                    <span className="text-xs text-white/70 px-2 py-1 bg-white/10 backdrop-blur-md rounded-md">
+                      +{overflowCount} more
+                    </span>
+                  )}
                 </div>
               )}
 
@@ -327,18 +313,17 @@ export function AssetDetailDesktop({ asset }: AssetDetailDesktopProps) {
                 </div>
               )}
 
-               {/* Connections / Projects */}
-               <div className="space-y-3">
-                  <h3 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Saved In</h3>
-                  <div className="flex flex-wrap gap-2">
-                       <div className="px-3 py-1.5 bg-zinc-900 rounded-md border border-zinc-800 text-sm text-zinc-300 hover:text-white hover:border-zinc-700 cursor-pointer transition-colors">
-                          Mobile App Redesign
-                       </div>
-                       <div className="px-3 py-1.5 bg-zinc-900 rounded-md border border-zinc-800 text-sm text-zinc-300 hover:text-white hover:border-zinc-700 cursor-pointer transition-colors">
-                          Inspiration
-                       </div>
-                  </div>
-              </div>
+               {/* Streams */}
+               {assetStreams.length > 0 && (
+                 <div className="space-y-3">
+                    <h3 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Streams</h3>
+                    <div className="flex flex-wrap gap-2">
+                      {assetStreams.map((stream) => (
+                        <StreamBadge key={stream.id} stream={stream} clickable={true} className="text-sm" />
+                      ))}
+                    </div>
+                </div>
+               )}
 
               {/* Comments List */}
               <div ref={commentsSectionRef} id="comments-section" className="space-y-6 pt-2">

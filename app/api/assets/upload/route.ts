@@ -26,7 +26,7 @@
  *   url: fullUrl,
  *   mediumUrl,
  *   thumbnailUrl,
- *   projectId: projectId || null,
+ *   streamIds: streamIds || [],
  *   uploaderId: user.id,
  *   width: metadata.width,
  *   height: metadata.height,
@@ -51,7 +51,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth, rateLimit, canUserModifyResource } from '@/lib/auth/middleware';
 import { addAsset } from '@/lib/utils/assets-storage';
-import { projects } from '@/lib/mock-data/projects';
+import { streams } from '@/lib/mock-data/streams';
 import type { Asset } from '@/lib/mock-data/assets';
 import {
   generateUniqueFilename,
@@ -77,7 +77,7 @@ export const runtime = 'nodejs';
  * - file: Image file
  * - title: Asset title (optional, will use filename if not provided)
  * - description: Asset description (optional)
- * - projectId: Project ID (optional)
+ * - streamIds: Array of stream IDs (optional, many-to-many relationship)
  * 
  * Response:
  * {
@@ -99,7 +99,7 @@ export const POST = requireAuth(async (request: NextRequest, user) => {
     const file = formData.get('file') as File | null;
     let title = formData.get('title') as string | null;
     const description = formData.get('description') as string | null;
-    const projectId = formData.get('projectId') as string | null;
+    const streamIds = formData.getAll('streamIds') as string[];  // Many-to-many streams
 
     // Validate file
     if (!file) {
@@ -130,25 +130,27 @@ export const POST = requireAuth(async (request: NextRequest, user) => {
       title = getFilenameWithoutExtension(file.name);
     }
 
-    // Project ID is optional - if provided, verify it exists and user has access
-    if (projectId) {
-      const project = projects.find(p => p.id === projectId);
-      if (!project) {
-        return NextResponse.json(
-          { error: 'Project not found' },
-          { status: 404 }
-        );
-      }
+    // Stream IDs are optional - if provided, verify they exist and user has access
+    if (streamIds && streamIds.length > 0) {
+      for (const streamId of streamIds) {
+        const stream = streams.find(s => s.id === streamId);
+        if (!stream) {
+          return NextResponse.json(
+            { error: `Stream not found: ${streamId}` },
+            { status: 404 }
+          );
+        }
 
-      // Verify user has permission to add assets to this project
-      if (!canUserModifyResource(user, project.ownerId, project.ownerType)) {
-        return NextResponse.json(
-          { 
-            error: 'Forbidden',
-            message: 'You do not have permission to add assets to this project'
-          },
-          { status: 403 }
-        );
+        // Verify user has permission to add assets to this stream
+        if (!canUserModifyResource(user, stream.ownerId, stream.ownerType)) {
+          return NextResponse.json(
+            { 
+              error: 'Forbidden',
+              message: `You do not have permission to add assets to stream: ${stream.name}`
+            },
+            { status: 403 }
+          );
+        }
       }
     }
 
@@ -230,7 +232,7 @@ export const POST = requireAuth(async (request: NextRequest, user) => {
       url: fullUrl,
       mediumUrl,
       thumbnailUrl,
-      projectId: projectId || undefined,
+      streamIds: streamIds.length > 0 ? streamIds : undefined,  // Many-to-many streams
       uploaderId: user.id,
       createdAt: new Date().toISOString(),
       width: metadata.width,
