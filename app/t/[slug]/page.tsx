@@ -5,12 +5,12 @@ import { notFound } from "next/navigation";
 // TODO: Replace with database queries
 import { teams } from "@/lib/mock-data/teams";
 import { users } from "@/lib/mock-data/users";
-import { projects } from "@/lib/mock-data/projects";
+import { streams } from "@/lib/mock-data/streams";
 import { assets } from "@/lib/mock-data/assets";
 import { TeamHeader } from "@/components/teams/team-header";
 import { TeamTabs, TeamTab } from "@/components/teams/team-tabs";
 import { ManageMembersDialog } from "@/components/teams/manage-members-dialog";
-import { ProjectGrid } from "@/components/projects/project-grid";
+import { StreamGrid } from "@/components/streams/stream-grid";
 import { MasonryGrid } from "@/components/assets/masonry-grid";
 
 interface TeamPageProps {
@@ -25,7 +25,7 @@ interface TeamPageProps {
 //     where: eq(teams.slug, slug),
 //     with: {
 //       members: { with: { user: true } },
-//       projects: { orderBy: desc(projects.createdAt) }
+//       streams: { orderBy: desc(streams.createdAt) }
 //     }
 //   });
 //   
@@ -83,14 +83,14 @@ export default function TeamPage({ params }: TeamPageProps) {
   }));
 
   // TODO: Replace with database query
-  // GET /api/teams/:teamId/projects
-  const teamProjects = projects.filter(
+  // GET /api/teams/:teamId/streams
+  const teamStreams = streams.filter(
     (p) => p.ownerId === team.id && p.ownerType === "team"
   );
 
   // TODO: Replace with database query
   // GET /api/teams/:teamId/posts - Get all team assets
-  const teamProjectIds = teamProjects.map((p) => p.id);
+  const teamStreamIds = teamStreams.map((s) => s.id);
   const teamAssets = assets.filter((asset) =>
     teamProjectIds.includes(asset.projectId)
   );
@@ -123,7 +123,7 @@ export default function TeamPage({ params }: TeamPageProps) {
   // TODO: Get from database with proper aggregation
   // GET /api/teams/:teamId/stats
   const stats = {
-    projectsCount: teamProjects.length,
+    streamsCount: teamStreams.length,
     membersCount: teamMembers.length,
     postsCount: teamAssets.length,
     followersCount: 0, // TODO: Implement followers feature
@@ -165,7 +165,7 @@ export default function TeamPage({ params }: TeamPageProps) {
           activeTab={activeTab} 
           onTabChange={setActiveTab}
           postsCount={teamAssets.length}
-          projectsCount={teamProjects.length}
+          streamsCount={teamStreams.length}
         />
       </div>
 
@@ -174,11 +174,11 @@ export default function TeamPage({ params }: TeamPageProps) {
         {activeTab === "posts" ? (
           <MasonryGrid assets={teamAssets} />
         ) : (
-          teamProjects.length > 0 ? (
-            <ProjectGrid projects={teamProjects} />
+          teamStreams.length > 0 ? (
+            <StreamGrid streams={teamStreams} />
           ) : (
             <div className="text-center py-24">
-              <p className="text-lg font-medium text-muted-foreground">No projects yet.</p>
+              <p className="text-lg font-medium text-muted-foreground">No streams yet.</p>
               <p className="text-sm text-muted-foreground mt-2">
                 Create your first project to get started.
               </p>

@@ -1,7 +1,7 @@
 // TODO: Replace with database queries and implement real discovery/search
-import { projects } from "@/lib/mock-data/projects";
+import { streams } from "@/lib/mock-data/streams";
 import { readAssets } from "@/lib/utils/assets-storage";
-import { ProjectGrid } from "@/components/projects/project-grid";
+import { StreamGrid } from "@/components/streams/stream-grid";
 import { MasonryGrid } from "@/components/assets/masonry-grid";
 import { Button } from "@/components/ui/button";
 
@@ -11,17 +11,17 @@ const CATEGORIES = [
 
 // TODO: Convert to async server component
 // async function getFeaturedContent(category?: string) {
-//   // Fetch featured projects and trending assets from database
+//   // Fetch featured streams and trending assets from database
 //   // GET /api/discover/featured
 //   // GET /api/discover/trending?category={category}
 //   // Implement category filtering
-//   return { featuredProjects, trendingAssets };
+//   return { featuredStreams, trendingAssets };
 // }
 
 export default function LibraryPage() {
-  // TODO: Replace with real featured projects from database
+  // TODO: Replace with real featured streams from database
   // Based on criteria like: most saves, most views, editor picks, etc.
-  const featuredProjects = projects.slice(0, 4);
+  const featuredStreams = streams.slice(0, 4);
   
   // Read assets from persistent storage
   const assets = readAssets();
@@ -47,18 +47,18 @@ export default function LibraryPage() {
           ))}
        </div>
 
-       {/* Featured Projects */}
-       {/* TODO: Fetch real featured projects
-           - GET /api/projects/featured
+       {/* Featured Streams */}
+       {/* TODO: Fetch real featured streams
+           - GET /api/streams/featured
            - Show based on admin curation or algorithm
            - Update when category filter changes
        */}
        <div className="space-y-6">
           <div className="flex items-center justify-between">
-             <h2 className="text-2xl font-bold text-white">Featured Projects</h2>
+             <h2 className="text-2xl font-bold text-white">Featured Streams</h2>
              <Button variant="link" className="text-zinc-400 hover:text-white">View all</Button>
           </div>
-          <ProjectGrid projects={featuredProjects} />
+          <StreamGrid streams={featuredStreams} />
        </div>
 
        {/* Trending Elements */}

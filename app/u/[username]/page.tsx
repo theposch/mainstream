@@ -5,13 +5,13 @@ import Link from "next/link";
 import { notFound, useRouter, useSearchParams } from "next/navigation";
 // TODO: Replace with database queries
 import { users, currentUser } from "@/lib/mock-data/users";
-import { projects } from "@/lib/mock-data/projects";
+import { streams } from "@/lib/mock-data/streams";
 import { teams } from "@/lib/mock-data/teams";
 import { assets } from "@/lib/mock-data/assets";
 import { getLikedAssetIds } from "@/lib/mock-data/likes";
 import { UserProfileHeader } from "@/components/users/user-profile-header";
 import { UserProfileTabs, UserProfileTab } from "@/components/users/user-profile-tabs";
-import { ProjectGrid } from "@/components/projects/project-grid";
+import { StreamGrid } from "@/components/streams/stream-grid";
 import { MasonryGrid } from "@/components/assets/masonry-grid";
 import { Button } from "@/components/ui/button";
 import { LoadingSpinner } from "@/components/ui/loading";
@@ -27,9 +27,9 @@ interface UserProfileProps {
 //   const user = await db.query.users.findFirst({
 //     where: eq(users.username, username),
 //     with: {
-//       projects: {
-//         where: eq(projects.isPrivate, false), // Only show public projects unless viewing own profile
-//         orderBy: desc(projects.createdAt)
+//       streams: {
+//         where: eq(streams.isPrivate, false), // Only show public streams unless viewing own profile
+//         orderBy: desc(streams.createdAt)
 //       },
 //       followers: true,
 //       following: true
@@ -40,7 +40,7 @@ interface UserProfileProps {
 
 /**
  * User profile page component displaying user information, tabs, and content.
- * Handles three tabs: Shots (user's uploads), Projects, and Liked assets.
+ * Handles three tabs: Shots (user's uploads), Streams, and Liked assets.
  * 
  * @param params - Next.js route params containing username
  */
@@ -51,7 +51,7 @@ export default function UserProfile({ params }: UserProfileProps) {
   
   // Bug #3 Fix: URL state synchronization
   const urlTab = searchParams.get('tab') as UserProfileTab | null;
-  const initialTab = urlTab && ['shots', 'projects', 'liked'].includes(urlTab) ? urlTab : 'shots';
+  const initialTab = urlTab && ['shots', 'streams', 'liked'].includes(urlTab) ? urlTab : 'shots';
   const [activeTab, setActiveTab] = React.useState<UserProfileTab>(initialTab);
   
   // Bug #6 Fix: Lazy initialization for Set
@@ -120,9 +120,9 @@ export default function UserProfile({ params }: UserProfileProps) {
   );
 
   // Issue #1 Fix: Memoize expensive computations - MUST be called before any conditional returns
-  // TODO: Replace with database query - only show public projects unless it's the user's own profile
-  const userProjects = React.useMemo(
-    () => user ? projects.filter(p => p.ownerId === user.id && p.ownerType === 'user') : [],
+  // TODO: Replace with database query - only show public streams unless it's the user's own profile
+  const userStreams = React.useMemo(
+    () => user ? streams.filter(s => s.ownerId === user.id && s.ownerType === 'user') : [],
     [user?.id]
   );
 
@@ -180,7 +180,7 @@ export default function UserProfile({ params }: UserProfileProps) {
           activeTab={activeTab} 
           onTabChange={handleTabChange}
           shotsCount={userAssets.length}
-          projectsCount={userProjects.length}
+          streamsCount={userStreams.length}
           likedCount={likedAssets.length}
         />
          </div>
@@ -246,27 +246,27 @@ export default function UserProfile({ params }: UserProfileProps) {
           )}
       </div>
 
-        {/* Projects Tab */}
+        {/* Streams Tab */}
         <div 
-          id="projects-panel"
+          id="streams-panel"
           role="tabpanel"
-          aria-labelledby="projects-tab"
-          className={activeTab === "projects" ? "block" : "hidden"}
+          aria-labelledby="streams-tab"
+          className={activeTab === "streams" ? "block" : "hidden"}
         >
-          {visitedTabs.has("projects") && (
-            userProjects.length > 0 ? (
-             <ProjectGrid projects={userProjects} />
+          {visitedTabs.has("streams") && (
+            userStreams.length > 0 ? (
+             <StreamGrid streams={userStreams} />
           ) : (
               <div className="text-center py-24">
-                <p className="text-lg font-medium text-muted-foreground">No projects yet.</p>
+                <p className="text-lg font-medium text-muted-foreground">No streams yet.</p>
                 <p className="text-sm text-muted-foreground mt-2 mb-6">
                   {isOwnProfile 
-                    ? "Create your first project to get started." 
-                    : "This user hasn't created any projects yet."}
+                    ? "Create your first stream to get started." 
+                    : "This user hasn't created any streams yet."}
                 </p>
                 {isOwnProfile && (
                   <Button asChild variant="cosmos">
-                    <Link href="/projects">Create Project</Link>
+                    <Link href="/streams">Create Stream</Link>
                   </Button>
                 )}
              </div>
