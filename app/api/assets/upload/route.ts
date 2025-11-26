@@ -49,7 +49,6 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { requireAuthNoParams, rateLimit, canUserModifyResource } from '@/lib/auth/middleware';
 import { addAsset } from '@/lib/utils/assets-storage';
 import type { Asset } from '@/lib/mock-data/assets';
 import { getStreams } from '@/lib/utils/stream-storage';
@@ -65,6 +64,7 @@ import {
   generateMediumSize,
   isValidImage,
 } from '@/lib/utils/image-processing';
+import { createClient } from '@/lib/supabase/server';
 
 export const runtime = 'nodejs';
 
@@ -84,14 +84,40 @@ export const runtime = 'nodejs';
  *   "asset": { ... asset object with URLs for all sizes ... }
  * }
  */
-export const POST = requireAuthNoParams(async (request: NextRequest, user) => {
+export async function POST(request: NextRequest) {
   try {
+    // Check authentication
+    const supabase = await createClient();
+    const { data: { user: authUser }, error: authError } = await supabase.auth.getUser();
+    
+    if (authError || !authUser) {
+      return NextResponse.json(
+        { error: 'Authentication required', message: 'You must be logged in to upload assets' },
+        { status: 401 }
+      );
+    }
+
+    // Get user profile
+    const { data: userProfile } = await supabase
+      .from('users')
+      .select('*')
+      .eq('id', authUser.id)
+      .single();
+
+    const user = userProfile ? {
+      id: userProfile.id,
+      username: userProfile.username,
+      displayName: userProfile.display_name,
+      email: userProfile.email,
+    } : {
+      id: authUser.id,
+      username: authUser.email?.split('@')[0] || 'user',
+      displayName: authUser.email?.split('@')[0] || 'User',
+      email: authUser.email || '',
+    };
+    
     console.log('[POST /api/assets/upload] 📤 Starting upload...');
     console.log(`  - User: ${user.username} (${user.id})`);
-    
-    // Rate limiting: max 20 uploads per minute
-    const rateLimitResult = await rateLimit(20, 60000)(request, user);
-    if (rateLimitResult) return rateLimitResult;
 
     // Parse multipart/form-data
     const formData = await request.formData();
@@ -130,7 +156,8 @@ export const POST = requireAuthNoParams(async (request: NextRequest, user) => {
       title = getFilenameWithoutExtension(file.name);
     }
 
-    // Stream IDs are optional - if provided, verify they exist and user has access
+    // Stream IDs are optional - if provided, verify they exist
+    // TODO: Add permission check once stream membership is in database
     if (streamIds && streamIds.length > 0) {
       const allStreams = getStreams(); // Get merged mock + localStorage streams
       
@@ -140,17 +167,6 @@ export const POST = requireAuthNoParams(async (request: NextRequest, user) => {
           return NextResponse.json(
             { error: `Stream not found: ${streamId}` },
             { status: 404 }
-          );
-        }
-
-        // Verify user has permission to add assets to this stream
-        if (!canUserModifyResource(user, stream.ownerId, stream.ownerType)) {
-          return NextResponse.json(
-            { 
-              error: 'Forbidden',
-              message: `You do not have permission to add assets to stream: ${stream.name}`
-            },
-            { status: 403 }
           );
         }
       }
@@ -268,7 +284,7 @@ export const POST = requireAuthNoParams(async (request: NextRequest, user) => {
       { status: 500 }
     );
   }
-});
+}
 
 /**
  * GET /api/assets/upload
