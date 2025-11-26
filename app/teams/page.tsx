@@ -1,6 +1,6 @@
 // TODO: Replace with database queries
 import { teams } from "@/lib/mock-data/teams";
-import { projects } from "@/lib/mock-data/projects";
+import { streams } from "@/lib/mock-data/streams";
 import { assets } from "@/lib/mock-data/assets";
 import { TeamsGrid } from "@/components/teams/teams-grid";
 import { TeamCardData } from "@/components/teams/team-card";
@@ -41,18 +41,17 @@ export default function TeamsPage() {
   
   // Aggregate data for each team
   const teamsData: TeamCardData[] = teams.map((team) => {
-    // Count projects for this team
-    const teamProjects = projects.filter(
-      (p) => p.ownerType === 'team' && p.ownerId === team.id
+    // Count streams for this team
+    const teamStreams = streams.filter(
+      (s) => s.ownerType === 'team' && s.ownerId === team.id
     );
     
     // Count members
     const membersCount = team.memberIds.length;
     
-    // Get all assets from this team's projects
-    const teamProjectIds = teamProjects.map(p => p.id);
+    // Get all assets from team members
     const teamAssets = assets.filter((asset) =>
-      teamProjectIds.includes(asset.projectId)
+      team.memberIds.includes(asset.uploaderId)
     );
     
     // Get recent 4 posts (assets) for this team
@@ -71,7 +70,7 @@ export default function TeamsPage() {
       slug: team.slug,
       avatarUrl: team.avatarUrl,
       description: team.description,
-      projectsCount: teamProjects.length,
+      streamsCount: teamStreams.length,  // Updated from projectsCount
       membersCount: membersCount,
       postsCount: teamAssets.length,
       recentPosts: recentPosts,

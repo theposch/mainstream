@@ -8,7 +8,7 @@ import { Asset } from "@/lib/mock-data/assets";
 import { useSearch } from "@/lib/contexts/search-context";
 import { searchAssets } from "@/lib/utils/search";
 import { users } from "@/lib/mock-data/users";
-import { projects } from "@/lib/mock-data/projects";
+import { streams } from "@/lib/mock-data/streams";
 import { Button } from "@/components/ui/button";
 
 interface DashboardFeedProps {
@@ -33,7 +33,7 @@ export function DashboardFeed({ initialAssets }: DashboardFeedProps) {
   // Filter assets based on search query
   const displayedAssets = React.useMemo(() => {
     if (!debouncedQuery.trim()) return baseAssets;
-    return searchAssets(debouncedQuery, baseAssets, users, projects);
+    return searchAssets(debouncedQuery, baseAssets, users, streams);
   }, [debouncedQuery, baseAssets]);
 
   // Show search result info
