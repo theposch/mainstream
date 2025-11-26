@@ -92,7 +92,7 @@ export default function TeamPage({ params }: TeamPageProps) {
   // GET /api/teams/:teamId/posts - Get all team assets
   const teamStreamIds = teamStreams.map((s) => s.id);
   const teamAssets = assets.filter((asset) =>
-    teamProjectIds.includes(asset.projectId)
+    asset.streamIds?.some(streamId => teamStreamIds.includes(streamId))
   );
 
   // Get recent posts for cover fallback (if no cover image)
@@ -180,7 +180,7 @@ export default function TeamPage({ params }: TeamPageProps) {
             <div className="text-center py-24">
               <p className="text-lg font-medium text-muted-foreground">No streams yet.</p>
               <p className="text-sm text-muted-foreground mt-2">
-                Create your first project to get started.
+                Create your first stream to get started.
               </p>
             </div>
           )

@@ -29,7 +29,13 @@
  * 
  * // With filters
  * const where = [];
- * if (projectId) where.push(eq(assetsTable.projectId, projectId));
+ * if (streamId) {
+ *   // Join with asset_streams table for many-to-many relationship
+ *   const assetIds = await db.select({ assetId: assetStreamsTable.assetId })
+ *     .from(assetStreamsTable)
+ *     .where(eq(assetStreamsTable.streamId, streamId));
+ *   where.push(inArray(assetsTable.id, assetIds.map(a => a.assetId)));
+ * }
  * if (uploaderId) where.push(eq(assetsTable.uploaderId, uploaderId));
  * 
  * const assets = await db
@@ -58,7 +64,7 @@ export const revalidate = 0;
  * 
  * TODO: Add query parameters:
  * - ?page=1&limit=50 - Pagination
- * - ?projectId=xyz - Filter by project
+ * - ?streamId=xyz - Filter by stream (via many-to-many relationship)
  * - ?uploaderId=xyz - Filter by uploader
  * - ?type=image - Filter by asset type
  * - ?search=query - Full-text search

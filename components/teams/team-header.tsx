@@ -22,7 +22,7 @@ interface TeamHeaderProps {
     avatarUrl: string;
   }>;
   stats: {
-    projectsCount: number;
+    streamsCount: number;  // Updated from projectsCount
     membersCount: number;
     postsCount: number;
     followersCount?: number;
