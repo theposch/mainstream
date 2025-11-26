@@ -90,13 +90,41 @@ export function StreamPicker({
     }
   }, [selectedStreamIds, onSelectStreams, maxStreams, disabled]);
 
-  const handleCreateStream = React.useCallback(() => {
-    // TODO: Implement actual stream creation via API
-    // POST /api/streams with newStreamName
-    console.log("Creating stream:", newStreamName);
-    setNewStreamName("");
-    setIsCreateDialogOpen(false);
-  }, [newStreamName]);
+  const handleCreateStream = React.useCallback(async () => {
+    if (!newStreamName.trim()) return;
+    
+    try {
+      const response = await fetch('/api/streams', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: newStreamName.trim(),
+          ownerType: 'user',
+          isPrivate: false,
+        }),
+      });
+      
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to create stream');
+      }
+      
+      const { stream } = await response.json();
+      
+      // Add new stream to local list
+      setAllStreams(prev => [stream, ...prev]);
+      
+      // Auto-select the new stream
+      onSelectStreams([...selectedStreamIds, stream.id]);
+      
+      // Close dialog and reset
+      setNewStreamName("");
+      setIsCreateDialogOpen(false);
+    } catch (error) {
+      console.error('Failed to create stream:', error);
+      alert(error instanceof Error ? error.message : 'Failed to create stream');
+    }
+  }, [newStreamName, selectedStreamIds, onSelectStreams]);
 
   const selectedStreams = React.useMemo(() => {
     return activeStreams.filter(s => selectedStreamIds.includes(s.id));
