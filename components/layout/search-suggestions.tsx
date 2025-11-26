@@ -8,9 +8,8 @@ import { cn } from "@/lib/utils";
 import { searchAll, type SearchResults } from "@/lib/utils/search";
 import { assets, type Asset } from "@/lib/mock-data/assets";
 import { streams, type Stream } from "@/lib/mock-data/streams";
-import { users } from "@/lib/mock-data/users";
+import { users, type User as UserType } from "@/lib/mock-data/users";
 import { teams, type Team } from "@/lib/mock-data/teams";
-import type { User } from "@/lib/mock-data/users";
 import { Avatar } from "@/components/ui/avatar";
 import { SEARCH_CONSTANTS } from "@/lib/constants/search";
 
@@ -49,7 +48,7 @@ export function SearchSuggestions({
       icon?: React.ReactNode;
       thumbnail?: string;
       subtitle?: string;
-      data?: Asset | Stream | User | Team;
+      data?: Asset | Stream | UserType | Team;
     }> = [];
 
     // Show recent searches if no query
