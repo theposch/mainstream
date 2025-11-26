@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import { Navbar } from "@/components/layout/navbar";
+import { ConditionalNavbar } from "@/components/layout/conditional-navbar";
 import { ErrorBoundary } from "@/components/error-boundary";
 import { SearchProvider } from "@/lib/contexts/search-context";
 
@@ -28,7 +28,7 @@ export default function RootLayout({
             Skip to main content
           </a>
           
-          <Navbar />
+          <ConditionalNavbar />
           
           <ErrorBoundary>
             <main
