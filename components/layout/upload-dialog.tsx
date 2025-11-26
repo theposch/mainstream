@@ -15,6 +15,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Loader2, Upload, X, AlertCircle } from "lucide-react";
+import { StreamPicker } from "@/components/streams/stream-picker";
 
 interface UploadDialogProps {
   open: boolean;
@@ -32,6 +33,7 @@ export function UploadDialog({ open, onOpenChange }: UploadDialogProps) {
   const [preview, setPreview] = React.useState<string | null>(null);
   const [title, setTitle] = React.useState("");
   const [description, setDescription] = React.useState("");
+  const [streamIds, setStreamIds] = React.useState<string[]>([]);
 
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
@@ -47,6 +49,7 @@ export function UploadDialog({ open, onOpenChange }: UploadDialogProps) {
     setPreview(null);
     setTitle("");
     setDescription("");
+    setStreamIds([]);
     setError(null);
     setIsLoading(false);
     if (fileInputRef.current) {
@@ -118,6 +121,7 @@ export function UploadDialog({ open, onOpenChange }: UploadDialogProps) {
     setPreview(null);
     setTitle("");
     setDescription("");
+    setStreamIds([]);
     setError(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
@@ -144,6 +148,7 @@ export function UploadDialog({ open, onOpenChange }: UploadDialogProps) {
     console.log(`  - Size: ${(file.size / 1024).toFixed(2)} KB`);
     console.log(`  - Title: ${title}`);
     console.log(`  - Description: ${description || '(none)'}`);
+    console.log(`  - Streams: ${streamIds.length > 0 ? streamIds.join(', ') : '(none)'}`);
 
     setIsLoading(true);
 
@@ -154,6 +159,9 @@ export function UploadDialog({ open, onOpenChange }: UploadDialogProps) {
       formData.append('title', title.trim());
       if (description.trim()) {
         formData.append('description', description.trim());
+      }
+      if (streamIds.length > 0) {
+        formData.append('streamIds', JSON.stringify(streamIds));
       }
 
       console.log('[UploadDialog] 📤 Sending request to /api/assets/upload...');
@@ -289,6 +297,21 @@ export function UploadDialog({ open, onOpenChange }: UploadDialogProps) {
                     placeholder="Add a description for your image"
                     rows={3}
                   />
+                </div>
+
+                {/* Stream Picker */}
+                <div className="space-y-2">
+                  <Label htmlFor="streams">
+                    Streams <span className="text-muted-foreground text-xs">(optional)</span>
+                  </Label>
+                  <StreamPicker
+                    selectedStreamIds={streamIds}
+                    onSelectStreams={setStreamIds}
+                    disabled={isLoading}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Tag this image with one or more streams to organize your work
+                  </p>
                 </div>
               </div>
             )}
