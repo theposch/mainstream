@@ -44,3 +44,6 @@ next-env.d.ts
 /data/assets.json
 /public/uploads/**/*
 !/public/uploads/**/.gitkeep
+
+# supabase docker (contains sensitive env files)
+/supabase-docker/
