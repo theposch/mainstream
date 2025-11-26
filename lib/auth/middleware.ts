@@ -34,11 +34,12 @@ export function getCurrentUser(): typeof currentUser | null {
 /**
  * Middleware to require authentication
  * Returns 401 if user is not authenticated
+ * Supports dynamic route parameters by passing context as third argument
  */
-export function requireAuth(
-  handler: (req: NextRequest, user: typeof currentUser) => Promise<Response>
+export function requireAuth<TContext = any>(
+  handler: (req: NextRequest, user: typeof currentUser, context?: TContext) => Promise<Response>
 ) {
-  return async (req: NextRequest): Promise<Response> => {
+  return async (req: NextRequest, context?: TContext): Promise<Response> => {
     const user = getCurrentUser();
 
     if (!user) {
@@ -51,7 +52,7 @@ export function requireAuth(
       );
     }
 
-    return handler(req, user);
+    return handler(req, user, context);
   };
 }
 
