@@ -83,8 +83,8 @@ export function getStreamsForAsset(asset: Asset): string[] {
  */
 export function getAssetsForStream(streamId: string, assets: Asset[]): Asset[] {
   return assets.filter(asset => {
-    const assetStreams = getStreamsForAsset(asset);
-    return assetStreams.includes(streamId);
+    const assetStreamIds = getStreamsForAsset(asset);
+    return assetStreamIds.includes(streamId);
   });
 }
 

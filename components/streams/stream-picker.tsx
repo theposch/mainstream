@@ -17,28 +17,47 @@ import {
 } from "@/components/ui/dialog";
 
 interface StreamPickerProps {
-  streams: Stream[];
   selectedStreamIds: string[];
-  onSelectionChange: (streamIds: string[]) => void;
+  onSelectStreams: (streamIds: string[]) => void;
   maxStreams?: number;
   disabled?: boolean;
   className?: string;
 }
 
 export function StreamPicker({
-  streams,
   selectedStreamIds,
-  onSelectionChange,
+  onSelectStreams,
   maxStreams = STREAM_VALIDATION.MAX_STREAMS_PER_ASSET,
   disabled = false,
   className,
 }: StreamPickerProps) {
+  // Import streams internally instead of as prop
+  const [allStreams, setAllStreams] = React.useState<Stream[]>([]);
   const [searchQuery, setSearchQuery] = React.useState("");
   const [isCreateDialogOpen, setIsCreateDialogOpen] = React.useState(false);
   const [newStreamName, setNewStreamName] = React.useState("");
 
-  // Filter active streams only
-  const activeStreams = streams.filter(s => s.status === 'active');
+  // Load streams on mount
+  React.useEffect(() => {
+    async function loadStreams() {
+      try {
+        const response = await fetch('/api/streams');
+        if (response.ok) {
+          const data = await response.json();
+          setAllStreams(data.streams || []);
+        }
+      } catch (error) {
+        console.error('Failed to load streams:', error);
+      }
+    }
+    loadStreams();
+  }, []);
+
+  // Filter active streams only (memoized for performance)
+  const activeStreams = React.useMemo(() => 
+    allStreams.filter(s => s.status === 'active'),
+    [allStreams]
+  );
 
   // Filter streams by search query
   const filteredStreams = React.useMemo(() => {
@@ -61,15 +80,15 @@ export function StreamPicker({
       if (selectedStreamIds.length <= STREAM_VALIDATION.MIN_STREAMS_PER_ASSET) {
         return;
       }
-      onSelectionChange(selectedStreamIds.filter(id => id !== streamId));
+      onSelectStreams(selectedStreamIds.filter(id => id !== streamId));
     } else {
       // Check max streams limit
       if (selectedStreamIds.length >= maxStreams) {
         return;
       }
-      onSelectionChange([...selectedStreamIds, streamId]);
+      onSelectStreams([...selectedStreamIds, streamId]);
     }
-  }, [selectedStreamIds, onSelectionChange, maxStreams, disabled]);
+  }, [selectedStreamIds, onSelectStreams, maxStreams, disabled]);
 
   const handleCreateStream = React.useCallback(() => {
     // TODO: Implement actual stream creation via API

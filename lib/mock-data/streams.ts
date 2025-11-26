@@ -261,12 +261,43 @@ export let streamResources: StreamResource[] = [
 ];
 
 // Mock asset-stream relationships (many-to-many junction table)
-// This will be populated as we update assets.ts
+// Initialize from assets.streamIds to maintain data consistency
 // TODO: Remove mock - will be derived from assets.streamIds field
 export let assetStreams: AssetStream[] = [];
 
+// Initialize the junction table from assets
+// This ensures consistency between asset.streamIds and the junction table
+export function initializeAssetStreams() {
+  // Clear existing relationships
+  assetStreams.length = 0;
+  
+  // Import assets dynamically to avoid circular dependency
+  const { assets } = require('./assets');
+  
+  // Populate from each asset's streamIds
+  assets.forEach((asset: any) => {
+    if (asset.streamIds && Array.isArray(asset.streamIds)) {
+      asset.streamIds.forEach((streamId: string) => {
+        assetStreams.push({
+          assetId: asset.id,
+          streamId: streamId,
+          addedAt: asset.createdAt || new Date().toISOString(),
+          addedBy: asset.uploaderId || 'system',
+        });
+      });
+    }
+  });
+  
+  console.log(`Initialized ${assetStreams.length} asset-stream relationships`);
+}
+
+// Auto-initialize on module load
+initializeAssetStreams();
+
+// NOTE: Deprecated - use migration-helpers.ts instead
 // Helper function to get streams for a specific asset
-export function getStreamsForAsset(assetId: string): string[] {
+// @deprecated Use getStreamsForAsset from migration-helpers.ts instead
+export function getStreamsForAssetById(assetId: string): string[] {
   return assetStreams
     .filter(as => as.assetId === assetId)
     .map(as => as.streamId);
