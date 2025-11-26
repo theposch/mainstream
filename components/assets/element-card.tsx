@@ -77,8 +77,8 @@ export const ElementCard = React.memo(
             {/* Top Right: Save to Collection */}
             <div className="absolute top-3 right-3" onClick={(e) => e.preventDefault()}>
               {/* TODO: Replace with real save to collection functionality
-                  - Open dialog to select collection/project
-                  - POST /api/projects/:projectId/assets with { assetId }
+                  - Open dialog to select collection/stream
+                  - POST /api/streams/:streamId/assets with { assetId }
                   - Show success/error toast
                   - Update saved state
               */}

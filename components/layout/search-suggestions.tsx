@@ -3,13 +3,14 @@
 import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Clock, Search, Image as ImageIcon, Folder, User, Users } from "lucide-react";
+import { Clock, Search, Image as ImageIcon, Folder, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { searchAll, type SearchResults } from "@/lib/utils/search";
 import { assets, type Asset } from "@/lib/mock-data/assets";
 import { streams, type Stream } from "@/lib/mock-data/streams";
-import { users, type User } from "@/lib/mock-data/users";
+import { users } from "@/lib/mock-data/users";
 import { teams, type Team } from "@/lib/mock-data/teams";
+import type { User } from "@/lib/mock-data/users";
 import { Avatar } from "@/components/ui/avatar";
 import { SEARCH_CONSTANTS } from "@/lib/constants/search";
 
