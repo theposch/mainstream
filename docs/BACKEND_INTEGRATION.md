@@ -90,9 +90,9 @@ CREATE TABLE team_members (
 );
 ```
 
-#### Projects Table
+#### Streams Table
 ```sql
-CREATE TABLE projects (
+CREATE TABLE streams (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name TEXT NOT NULL,
   description TEXT,
