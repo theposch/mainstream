@@ -29,11 +29,12 @@
 |----------|---------|-------------|
 | **[ONBOARDING.md](./ONBOARDING.md)** 🎯 | **Complete guide for new developers** | Start here to understand everything |
 | **[PROJECT_STATUS.md](./PROJECT_STATUS.md)** 📊 | Current implementation status & metrics | Quick overview of what's done |
+| **[docs/SUPABASE_SETUP.md](./docs/SUPABASE_SETUP.md)** 🗄️ | **Database setup with Supabase** | Setting up local database |
 | **[BACKEND_INTEGRATION.md](./BACKEND_INTEGRATION.md)** 🔧 | Backend implementation roadmap | Planning backend features |
 | **[TODO_FILES_REFERENCE.md](./TODO_FILES_REFERENCE.md)** 📝 | Quick reference for all TODOs | Finding specific integration points |
 | **[README.md](./README.md)** 📚 | This file - project overview | Quick start & basic info |
 
-**Total Documentation**: 35,000+ words | **TODO Comments**: 80+ remaining (30+ completed!)
+**Total Documentation**: 45,000+ words | **TODO Comments**: 80+ remaining (30+ completed!)
 
 ---
 
@@ -90,6 +91,7 @@ A **production-ready implementation** of a Pinterest-style design collaboration 
 ### Prerequisites
 - Node.js 18+
 - npm, yarn, pnpm, or bun
+- Docker Desktop (for Supabase local development)
 
 ### Installation
 
@@ -106,6 +108,25 @@ npm run dev
 ```
 
 Open [http://localhost:3000/home](http://localhost:3000/home) in your browser.
+
+### Supabase Setup (Optional - For Database Integration)
+
+To run with a real database using Supabase self-hosted:
+
+```bash
+# Start Supabase services
+cd supabase-docker
+docker-compose up -d
+
+# Access Supabase Studio
+open http://localhost:8000
+
+# Apply database migrations
+cd ../scripts/migrations
+docker-compose -f ../../supabase-docker/docker-compose.yml exec db psql -U postgres < 001_initial_schema.sql
+```
+
+See [docs/SUPABASE_SETUP.md](./docs/SUPABASE_SETUP.md) for complete setup instructions.
 
 ### Available Routes
 
@@ -134,13 +155,17 @@ Open [http://localhost:3000/home](http://localhost:3000/home) in your browser.
 - **Color Picker**: [react-colorful](https://github.com/omgovich/react-colorful)
 - **Icons**: [Lucide React](https://lucide.dev/)
 
-### Backend (Recommended)
-See [BACKEND_INTEGRATION.md](./BACKEND_INTEGRATION.md) for complete tech stack recommendations including:
-- PostgreSQL (Supabase/Neon/Railway)
-- Drizzle ORM or Prisma
-- NextAuth.js or Clerk (authentication)
-- AWS S3 or Cloudflare R2 (file storage)
-- Algolia or Meilisearch (search)
+### Backend (In Progress - Supabase Integration)
+**Current Status**: Supabase self-hosted setup with Docker Compose
+
+- ✅ **Database**: PostgreSQL via Supabase (schema ready)
+- ✅ **Authentication**: Supabase Auth (client utilities ready)
+- ✅ **File Storage**: Supabase Storage (S3-compatible)
+- ✅ **Realtime**: Supabase Realtime (WebSocket support)
+- 🚧 **Integration**: Replacing mock data with database queries
+
+See [docs/SUPABASE_SETUP.md](./docs/SUPABASE_SETUP.md) for complete setup guide.
+See [BACKEND_INTEGRATION.md](./BACKEND_INTEGRATION.md) for migration roadmap.
 
 ---
 
@@ -455,14 +480,19 @@ This is an educational project demonstrating:
 4. **Review TODO comments** - See integration points
 5. **Plan backend** - Read BACKEND_INTEGRATION.md
 
-### Database Integration (Final Step!)
-1. Choose auth provider (NextAuth.js, Clerk, Supabase) - connect to existing middleware
-2. Set up database (PostgreSQL)
-3. Create tables (SQL provided in mock data files)
-4. Connect existing API routes to database (structure ready!)
-5. Set up file storage (S3/R2) - connect to upload endpoint
-6. Add backend search (Algolia/Meilisearch) - frontend complete
-7. Deploy (Vercel)
+### Supabase Integration (In Progress!)
+1. ✅ **Docker Setup** - Supabase services configured
+2. ✅ **Database Schema** - All tables defined in migrations
+3. ✅ **Client Utilities** - Browser/server clients ready
+4. ✅ **Environment Config** - Keys and URLs configured
+5. 🚧 **Start Services** - `cd supabase-docker && docker-compose up -d`
+6. 🚧 **Apply Migrations** - Run `scripts/migrations/001_initial_schema.sql`
+7. 🚧 **Replace Mock Auth** - Connect Supabase Auth
+8. 🚧 **Migrate Queries** - Replace mock data with database
+9. 🚧 **Configure Storage** - Set up buckets and policies
+10. 🚧 **Test & Deploy** - Verify everything works
+
+**See [docs/SUPABASE_SETUP.md](./docs/SUPABASE_SETUP.md) for step-by-step guide!**
 
 ---
 
