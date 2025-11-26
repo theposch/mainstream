@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -12,6 +13,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { SettingsDialog } from "@/components/layout/settings-dialog";
+import { createClient } from "@/lib/supabase/client";
 // TODO: Replace with real auth session
 import { currentUser } from "@/lib/mock-data/users";
 import { User, Settings, LogOut, CreditCard } from "lucide-react";
@@ -22,6 +24,7 @@ import { User, Settings, LogOut, CreditCard } from "lucide-react";
 
 export function UserMenu() {
   const [settingsOpen, setSettingsOpen] = React.useState(false);
+  const router = useRouter();
 
   // TODO: Replace with real session data
   // const { data: session, status } = useSession();
@@ -31,6 +34,17 @@ export function UserMenu() {
   // if (status === 'unauthenticated') {
   //   return <Button onClick={() => signIn()}>Sign In</Button>;
   // }
+
+  const handleLogout = async () => {
+    try {
+      const supabase = createClient();
+      await supabase.auth.signOut();
+      router.push("/auth/login");
+      router.refresh();
+    } catch (error) {
+      console.error("Error logging out:", error);
+    }
+  };
 
   return (
     <>
@@ -80,13 +94,10 @@ export function UserMenu() {
             <span>Billing</span>
         </DropdownMenuItem>
         <DropdownMenuSeparator className="bg-zinc-800" />
-        {/* TODO: Implement real logout
-            - Clear authentication token
-            - Clear user session
-            - Redirect to sign in page
-            - await signOut({ redirect: true, callbackUrl: '/signin' });
-        */}
-        <DropdownMenuItem className="focus:bg-zinc-900 focus:text-white cursor-pointer text-red-500 focus:text-red-400">
+        <DropdownMenuItem 
+          className="focus:bg-zinc-900 focus:text-white cursor-pointer text-red-500 focus:text-red-400"
+          onClick={handleLogout}
+        >
           <LogOut className="mr-2 h-4 w-4" />
           <span>Log out</span>
         </DropdownMenuItem>
