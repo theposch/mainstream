@@ -14,6 +14,7 @@ interface Stream {
  * Hook to extract and sync stream hashtags from text
  * Parses all #streamname patterns and syncs with streamIds array
  * Now supports pending streams that aren't created until post time
+ * Pills are independent from text - only removed via X button
  */
 export function useStreamMentions(
   text: string,
@@ -21,21 +22,26 @@ export function useStreamMentions(
   selectedStreamIds: string[],
   onStreamsChange: (streamIds: string[]) => void,
   pendingStreamNames: string[],
-  onPendingStreamsChange: (names: string[]) => void
+  onPendingStreamsChange: (names: string[]) => void,
+  excludedStreamNames: string[]
 ) {
   // Parse all hashtags from text and convert to valid slugs
   const parseHashtags = React.useCallback((content: string): string[] => {
-    // Match hashtags: lowercase, numbers, hyphens (must start/end with alphanumeric)
-    const hashtagRegex = /#([a-z0-9]+(?:-[a-z0-9]+)*)/g;
+    // Match hashtags: any case (a-zA-Z), numbers, hyphens (must start/end with alphanumeric)
+    const hashtagRegex = /#([a-zA-Z0-9]+(?:-[a-zA-Z0-9]+)*)/gi;
     const matches = content.matchAll(hashtagRegex);
     const hashtags: string[] = [];
     
     for (const match of matches) {
-      const tag = match[1]; // Already lowercase from regex
-      // Ensure minimum length of 2 characters
-      if (tag.length >= 2) {
+      const tag = match[1].toLowerCase(); // Convert to lowercase for storage
+      
+      // Validate length (2-50 chars per database constraint)
+      if (tag.length >= 2 && tag.length <= 50) {
         hashtags.push(tag);
+      } else if (tag.length > 50) {
+        console.warn(`[useStreamMentions] Hashtag too long (${tag.length} chars), ignoring: #${tag.substring(0, 20)}...`);
       }
+      // Tags < 2 chars silently skipped (like #a or #x)
     }
     
     return [...new Set(hashtags)]; // Remove duplicates
@@ -65,22 +71,26 @@ export function useStreamMentions(
   const processedHashtagsRef = React.useRef<Set<string>>(new Set());
 
   // Sync hashtags with streamIds and pending streams
+  // Auto-sync ONLY ADDS pills, never removes them (removal only via X button)
   const syncStreams = React.useCallback(() => {
     const hashtags = parseHashtags(text);
     
     if (hashtags.length === 0) {
-      // No hashtags in text - clear all
-      processedHashtagsRef.current.clear();
-      onStreamsChange([]);
-      onPendingStreamsChange([]);
+      // No hashtags - do nothing (pills stay independent)
       return;
     }
 
     // Filter out hashtags that are at the end of text (user might still be typing)
+    // Also filter out excluded streams (user removed via X button)
     const hashtagsToProcess = hashtags.filter(tag => {
+      // Skip if user explicitly removed this stream
+      if (excludedStreamNames.includes(tag)) {
+        return false;
+      }
+      
       // If hashtag is at the very end of text, skip it (user still typing)
       const hashtagPattern = `#${tag}`;
-      const isAtEnd = text.endsWith(hashtagPattern); // Use original text, not trimmed
+      const isAtEnd = text.endsWith(hashtagPattern);
       // If there's only one hashtag and it's at the end, don't process yet
       if (isAtEnd && hashtags.length === 1) {
         return false;
@@ -115,39 +125,9 @@ export function useStreamMentions(
       onPendingStreamsChange(updatedPending);
     }
 
-    // Remove streams/pending that are no longer in text
-    const hashtagSet = new Set(hashtagsToProcess);
-    
-    // Check if any selected streams should be removed (hashtag deleted from text)
-    const streamsToKeep = selectedStreamIds.filter(id => {
-      const stream = streams.find(s => s.id === id);
-      return stream && hashtagSet.has(stream.name);
-    });
-    
-    if (streamsToKeep.length !== selectedStreamIds.length) {
-      onStreamsChange(streamsToKeep);
-      // Clear processed set for removed streams
-      selectedStreamIds.forEach(id => {
-        const stream = streams.find(s => s.id === id);
-        if (stream && !hashtagSet.has(stream.name)) {
-          processedHashtagsRef.current.delete(stream.name);
-        }
-      });
-    }
-    
-    // Check if any pending streams should be removed (hashtag deleted from text)
-    const pendingToKeep = pendingStreamNames.filter(name => hashtagSet.has(name));
-    
-    if (pendingToKeep.length !== pendingStreamNames.length) {
-      onPendingStreamsChange(pendingToKeep);
-      // Clear processed set for removed pending
-      pendingStreamNames.forEach(name => {
-        if (!hashtagSet.has(name)) {
-          processedHashtagsRef.current.delete(name);
-        }
-      });
-    }
-  }, [text, parseHashtags, findOrMarkPending, selectedStreamIds, pendingStreamNames, onStreamsChange, onPendingStreamsChange, streams]);
+    // ✨ SIMPLIFIED: No text-deletion sync - pills are independent!
+    // Pills only removed via X button, which adds to excludedStreamNames
+  }, [text, parseHashtags, findOrMarkPending, selectedStreamIds, pendingStreamNames, onStreamsChange, onPendingStreamsChange, streams, excludedStreamNames]);
 
   // Debounced sync (wait for user to stop typing)
   React.useEffect(() => {

@@ -35,6 +35,8 @@ interface StreamPickerProps {
   onSelectStreams: (streamIds: string[]) => void;
   pendingStreamNames?: string[]; // Streams that will be created on post
   onPendingStreamsChange?: (names: string[]) => void;
+  excludedStreamNames?: string[]; // Streams user removed (prevents auto-sync re-adding)
+  onExcludedStreamsChange?: (names: string[]) => void;
   maxStreams?: number;
   disabled?: boolean;
   className?: string;
@@ -46,6 +48,8 @@ export function StreamPicker({
   onSelectStreams,
   pendingStreamNames = [],
   onPendingStreamsChange,
+  excludedStreamNames = [],
+  onExcludedStreamsChange,
   maxStreams = STREAM_VALIDATION.MAX_STREAMS_PER_ASSET,
   disabled = false,
   className,
@@ -118,17 +122,23 @@ export function StreamPicker({
       const isSelected = pendingStreamNames.includes(streamName);
       
       if (isSelected) {
-        // Allow removal - minimum validation happens at post time, not during editing
+        // Remove pill AND add to excluded list (prevents auto-sync re-adding)
         if (onPendingStreamsChange) {
           onPendingStreamsChange(pendingStreamNames.filter(name => name !== streamName));
         }
+        if (onExcludedStreamsChange && !excludedStreamNames.includes(streamName)) {
+          onExcludedStreamsChange([...excludedStreamNames, streamName]);
+        }
       } else {
-        // Check max streams limit
+        // Add pill (and remove from excluded if present)
         if (totalSelected >= maxStreams) {
           return;
         }
         if (onPendingStreamsChange) {
           onPendingStreamsChange([...pendingStreamNames, streamName]);
+        }
+        if (onExcludedStreamsChange && excludedStreamNames.includes(streamName)) {
+          onExcludedStreamsChange(excludedStreamNames.filter(n => n !== streamName));
         }
       }
     } else {
@@ -136,17 +146,25 @@ export function StreamPicker({
       const isSelected = selectedStreamIds.includes(streamId);
       
       if (isSelected) {
-        // Allow removal - minimum validation happens at post time, not during editing
+        // Remove pill AND add to excluded list (prevents auto-sync re-adding)
         onSelectStreams(selectedStreamIds.filter(id => id !== streamId));
+        const stream = allStreams.find(s => s.id === streamId);
+        if (stream && onExcludedStreamsChange && !excludedStreamNames.includes(stream.name)) {
+          onExcludedStreamsChange([...excludedStreamNames, stream.name]);
+        }
       } else {
-        // Check max streams limit
+        // Add pill (and remove from excluded if present)
         if (totalSelected >= maxStreams) {
           return;
         }
         onSelectStreams([...selectedStreamIds, streamId]);
+        const stream = allStreams.find(s => s.id === streamId);
+        if (stream && onExcludedStreamsChange && excludedStreamNames.includes(stream.name)) {
+          onExcludedStreamsChange(excludedStreamNames.filter(n => n !== stream.name));
+        }
       }
     }
-  }, [selectedStreamIds, pendingStreamNames, onSelectStreams, onPendingStreamsChange, maxStreams, disabled]);
+  }, [selectedStreamIds, pendingStreamNames, onSelectStreams, onPendingStreamsChange, maxStreams, disabled, excludedStreamNames, onExcludedStreamsChange, allStreams]);
 
   const handleCreateStream = React.useCallback(async () => {
     if (!newStreamName.trim()) return;
