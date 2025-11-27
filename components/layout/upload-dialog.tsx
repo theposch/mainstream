@@ -35,7 +35,8 @@ export function UploadDialog({ open, onOpenChange }: UploadDialogProps) {
   const [preview, setPreview] = React.useState<string | null>(null);
   const [title, setTitle] = React.useState("");
   const [description, setDescription] = React.useState("");
-  const [streamIds, setStreamIds] = React.useState<string[]>([]);
+  const [streamIds, setStreamIds] = React.useState<string[]>([]); // Real stream IDs
+  const [pendingStreamNames, setPendingStreamNames] = React.useState<string[]>([]); // Pending streams (not created yet)
   
   // Stream data
   const [allStreams, setAllStreams] = React.useState<Stream[]>([]);
@@ -67,18 +68,15 @@ export function UploadDialog({ open, onOpenChange }: UploadDialogProps) {
     }
   }, [open]);
 
-  // Callback when a stream is created by auto-sync
-  const handleStreamCreated = React.useCallback((stream: Stream) => {
-    console.log('[UploadDialog] Stream created by auto-sync:', stream.name);
-    setAllStreams(prev => {
-      // Check if already exists to avoid duplicates
-      if (prev.find(s => s.id === stream.id)) return prev;
-      return [stream, ...prev];
-    });
-  }, []);
-
-  // Sync hashtags in description with streams
-  useStreamMentions(description, allStreams, streamIds, setStreamIds, handleStreamCreated);
+  // Sync hashtags in description with streams (now uses pending streams)
+  useStreamMentions(
+    description,
+    allStreams,
+    streamIds,
+    setStreamIds,
+    pendingStreamNames,
+    setPendingStreamNames
+  );
 
   // Reset form when dialog closes
   React.useEffect(() => {
@@ -93,6 +91,7 @@ export function UploadDialog({ open, onOpenChange }: UploadDialogProps) {
     setTitle("");
     setDescription("");
     setStreamIds([]);
+    setPendingStreamNames([]);
     setError(null);
     setIsLoading(false);
     setShowMentionDropdown(false);
@@ -193,7 +192,7 @@ export function UploadDialog({ open, onOpenChange }: UploadDialogProps) {
   }, []);
 
   // Handle stream selection from dropdown
-  const handleStreamSelect = React.useCallback(async (streamName: string, isNew: boolean) => {
+  const handleStreamSelect = React.useCallback((streamName: string, isNew: boolean) => {
     // Close dropdown FIRST to prevent re-triggering
     setShowMentionDropdown(false);
     setMentionQuery("");
@@ -206,56 +205,25 @@ export function UploadDialog({ open, onOpenChange }: UploadDialogProps) {
       replaceHashtagRef.current = null;
     }
 
-    if (isNew) {
-      // Create new stream
-      try {
-        const response = await fetch('/api/streams', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            name: streamName.replace(/^#/, ''), // Remove # prefix if present
-            owner_type: 'user',
-            is_private: false,
-          }),
-        });
+    const cleanName = streamName.replace(/^#/, '');
 
-        if (response.ok) {
-          const { stream } = await response.json();
-          // Add to local state (check for duplicates)
-          setAllStreams(prev => {
-            if (prev.find(s => s.id === stream.id)) return prev;
-            return [stream, ...prev];
-          });
-          // Add to selected streams
-          setStreamIds(prev => [...new Set([...prev, stream.id])]);
-        } else if (response.status === 409) {
-          // Stream already exists, refresh list and find it
-          console.log('[UploadDialog] Stream already exists, refreshing list');
-          const refreshResponse = await fetch('/api/streams');
-          if (refreshResponse.ok) {
-            const { streams } = await refreshResponse.json();
-            setAllStreams(streams);
-            const existingStream = streams.find((s: Stream) => s.name === streamName.replace(/^#/, ''));
-            if (existingStream) {
-              setStreamIds(prev => [...new Set([...prev, existingStream.id])]);
-            }
-          }
-        }
-      } catch (error) {
-        console.error('[UploadDialog] Failed to create stream:', error);
+    if (isNew) {
+      // Add to pending streams (will be created on post)
+      if (!pendingStreamNames.includes(cleanName)) {
+        setPendingStreamNames(prev => [...prev, cleanName]);
       }
     } else {
       // Find and add existing stream
       const stream = allStreams.find(s => 
-        s.name.toLowerCase() === streamName.toLowerCase() ||
-        s.name === streamName.replace(/^#/, '')
+        s.name.toLowerCase() === cleanName.toLowerCase() ||
+        s.name === cleanName
       );
       
       if (stream && !streamIds.includes(stream.id)) {
-        setStreamIds(prev => [...new Set([...prev, stream.id])]);
+        setStreamIds(prev => [...prev, stream.id]);
       }
     }
-  }, [streamIds, allStreams]);
+  }, [streamIds, pendingStreamNames, allStreams]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -277,11 +245,50 @@ export function UploadDialog({ open, onOpenChange }: UploadDialogProps) {
     console.log(`  - Size: ${(file.size / 1024).toFixed(2)} KB`);
     console.log(`  - Title: ${title}`);
     console.log(`  - Description: ${description || '(none)'}`);
-    console.log(`  - Streams: ${streamIds.length > 0 ? streamIds.join(', ') : '(none)'}`);
+    console.log(`  - Real Streams: ${streamIds.length > 0 ? streamIds.join(', ') : '(none)'}`);
+    console.log(`  - Pending Streams: ${pendingStreamNames.length > 0 ? pendingStreamNames.join(', ') : '(none)'}`);
 
     setIsLoading(true);
 
     try {
+      // Create pending streams first
+      let createdStreamIds: string[] = [];
+      if (pendingStreamNames.length > 0) {
+        console.log('[UploadDialog] Creating pending streams...');
+        const createPromises = pendingStreamNames.map(async (name) => {
+          try {
+            const response = await fetch('/api/streams', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                name,
+                owner_type: 'user',
+                is_private: false,
+              }),
+            });
+
+            if (response.ok) {
+              const { stream } = await response.json();
+              console.log(`  ✓ Created stream: ${stream.name} (${stream.id})`);
+              return stream.id;
+            } else {
+              console.error(`  ✗ Failed to create stream: ${name}`);
+              return null;
+            }
+          } catch (error) {
+            console.error(`  ✗ Error creating stream ${name}:`, error);
+            return null;
+          }
+        });
+
+        const results = await Promise.all(createPromises);
+        createdStreamIds = results.filter((id): id is string => id !== null);
+        console.log(`[UploadDialog] Created ${createdStreamIds.length}/${pendingStreamNames.length} streams`);
+      }
+
+      // Combine real stream IDs with newly created stream IDs
+      const allStreamIds = [...streamIds, ...createdStreamIds];
+
       // Create FormData
       const formData = new FormData();
       formData.append('file', file);
@@ -289,8 +296,8 @@ export function UploadDialog({ open, onOpenChange }: UploadDialogProps) {
       if (description.trim()) {
         formData.append('description', description.trim());
       }
-      if (streamIds.length > 0) {
-        formData.append('streamIds', JSON.stringify(streamIds));
+      if (allStreamIds.length > 0) {
+        formData.append('streamIds', JSON.stringify(allStreamIds));
       }
 
       console.log('[UploadDialog] 📤 Sending request to /api/assets/upload...');
@@ -471,6 +478,8 @@ export function UploadDialog({ open, onOpenChange }: UploadDialogProps) {
                   <StreamPicker
                     selectedStreamIds={streamIds}
                     onSelectStreams={setStreamIds}
+                    pendingStreamNames={pendingStreamNames}
+                    onPendingStreamsChange={setPendingStreamNames}
                     disabled={isLoading}
                     variant="compact"
                   />

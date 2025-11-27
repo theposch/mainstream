@@ -13,13 +13,15 @@ interface Stream {
 /**
  * Hook to extract and sync stream hashtags from text
  * Parses all #streamname patterns and syncs with streamIds array
+ * Now supports pending streams that aren't created until post time
  */
 export function useStreamMentions(
   text: string,
   streams: Stream[],
   selectedStreamIds: string[],
   onStreamsChange: (streamIds: string[]) => void,
-  onStreamCreated?: (stream: Stream) => void
+  pendingStreamNames: string[],
+  onPendingStreamsChange: (names: string[]) => void
 ) {
   // Parse all hashtags from text and convert to valid slugs
   const parseHashtags = React.useCallback((content: string): string[] => {
@@ -39,11 +41,8 @@ export function useStreamMentions(
     return [...new Set(hashtags)]; // Remove duplicates
   }, []);
 
-  // Track in-flight stream creation requests to prevent duplicates
-  const creatingStreamsRef = React.useRef<Set<string>>(new Set());
-
-  // Find or create stream by slug
-  const findOrCreateStream = React.useCallback(async (streamSlug: string): Promise<string | null> => {
+  // Find stream or mark as pending (don't create yet)
+  const findOrMarkPending = React.useCallback((streamSlug: string): { id?: string; pending?: string } | null => {
     // Sanitize to valid slug format
     const slug = sanitizeToSlug(streamSlug);
     
@@ -55,62 +54,25 @@ export function useStreamMentions(
     const existing = streams.find(s => s.name === slug);
     
     if (existing) {
-      return existing.id;
+      return { id: existing.id }; // Real stream
     }
 
-    // Check if already creating this stream
-    if (creatingStreamsRef.current.has(slug)) {
-      console.log(`[useStreamMentions] Already creating stream: ${slug}`);
-      return null;
-    }
-
-    // Mark as creating
-    creatingStreamsRef.current.add(slug);
-
-    // Create new stream via API with slug as name
-    try {
-      const response = await fetch('/api/streams', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: slug, // Use slug directly
-          owner_type: 'user',
-          is_private: false,
-        }),
-      });
-
-      if (!response.ok) {
-        console.error('[useStreamMentions] Failed to create stream:', await response.text());
-        creatingStreamsRef.current.delete(slug);
-        return null;
-      }
-
-      const { stream } = await response.json();
-      creatingStreamsRef.current.delete(slug);
-      
-      // Notify parent of newly created stream
-      if (onStreamCreated) {
-        onStreamCreated(stream);
-      }
-      
-      return stream.id;
-    } catch (error) {
-      console.error('[useStreamMentions] Error creating stream:', error);
-      creatingStreamsRef.current.delete(slug);
-      return null;
-    }
-  }, [streams, onStreamCreated]);
+    // Mark as pending (will be created on post)
+    return { pending: slug };
+  }, [streams]);
 
   // Track processed hashtags to prevent infinite loops
   const processedHashtagsRef = React.useRef<Set<string>>(new Set());
 
-  // Sync hashtags with streamIds
-  const syncStreams = React.useCallback(async () => {
+  // Sync hashtags with streamIds and pending streams
+  const syncStreams = React.useCallback(() => {
     const hashtags = parseHashtags(text);
     
     if (hashtags.length === 0) {
-      // No hashtags in text - clear processed set
+      // No hashtags in text - clear all
       processedHashtagsRef.current.clear();
+      onStreamsChange([]);
+      onPendingStreamsChange([]);
       return;
     }
 
@@ -133,19 +95,59 @@ export function useStreamMentions(
       return; // All hashtags already processed
     }
 
-    // Get stream IDs for new hashtags only
-    const streamIdsPromises = newHashtags.map(tag => findOrCreateStream(tag));
-    const streamIds = (await Promise.all(streamIdsPromises)).filter((id): id is string => id !== null);
+    // Separate real streams from pending streams
+    const results = newHashtags.map(tag => findOrMarkPending(tag)).filter(r => r !== null);
+    
+    const newStreamIds = results.filter(r => r!.id).map(r => r!.id!);
+    const newPendingNames = results.filter(r => r!.pending).map(r => r!.pending!);
 
-    if (streamIds.length > 0) {
-      // Mark hashtags as processed
-      newHashtags.forEach(tag => processedHashtagsRef.current.add(tag));
-      
-      // Merge with existing selections
-      const newStreamIds = [...new Set([...selectedStreamIds, ...streamIds])];
-      onStreamsChange(newStreamIds);
+    // Mark hashtags as processed
+    newHashtags.forEach(tag => processedHashtagsRef.current.add(tag));
+    
+    // Merge with existing selections
+    if (newStreamIds.length > 0) {
+      const updatedStreamIds = [...new Set([...selectedStreamIds, ...newStreamIds])];
+      onStreamsChange(updatedStreamIds);
     }
-  }, [text, parseHashtags, findOrCreateStream, selectedStreamIds, onStreamsChange]);
+    
+    if (newPendingNames.length > 0) {
+      const updatedPending = [...new Set([...pendingStreamNames, ...newPendingNames])];
+      onPendingStreamsChange(updatedPending);
+    }
+
+    // Remove streams/pending that are no longer in text
+    const hashtagSet = new Set(hashtagsToProcess);
+    
+    // Check if any selected streams should be removed (hashtag deleted from text)
+    const streamsToKeep = selectedStreamIds.filter(id => {
+      const stream = streams.find(s => s.id === id);
+      return stream && hashtagSet.has(stream.name);
+    });
+    
+    if (streamsToKeep.length !== selectedStreamIds.length) {
+      onStreamsChange(streamsToKeep);
+      // Clear processed set for removed streams
+      selectedStreamIds.forEach(id => {
+        const stream = streams.find(s => s.id === id);
+        if (stream && !hashtagSet.has(stream.name)) {
+          processedHashtagsRef.current.delete(stream.name);
+        }
+      });
+    }
+    
+    // Check if any pending streams should be removed (hashtag deleted from text)
+    const pendingToKeep = pendingStreamNames.filter(name => hashtagSet.has(name));
+    
+    if (pendingToKeep.length !== pendingStreamNames.length) {
+      onPendingStreamsChange(pendingToKeep);
+      // Clear processed set for removed pending
+      pendingStreamNames.forEach(name => {
+        if (!hashtagSet.has(name)) {
+          processedHashtagsRef.current.delete(name);
+        }
+      });
+    }
+  }, [text, parseHashtags, findOrMarkPending, selectedStreamIds, pendingStreamNames, onStreamsChange, onPendingStreamsChange, streams]);
 
   // Debounced sync (wait for user to stop typing)
   React.useEffect(() => {

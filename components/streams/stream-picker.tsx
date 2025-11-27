@@ -33,6 +33,8 @@ interface Stream {
 interface StreamPickerProps {
   selectedStreamIds: string[];
   onSelectStreams: (streamIds: string[]) => void;
+  pendingStreamNames?: string[]; // Streams that will be created on post
+  onPendingStreamsChange?: (names: string[]) => void;
   maxStreams?: number;
   disabled?: boolean;
   className?: string;
@@ -42,6 +44,8 @@ interface StreamPickerProps {
 export function StreamPicker({
   selectedStreamIds,
   onSelectStreams,
+  pendingStreamNames = [],
+  onPendingStreamsChange,
   maxStreams = STREAM_VALIDATION.MAX_STREAMS_PER_ASSET,
   disabled = false,
   className,
@@ -103,25 +107,52 @@ export function StreamPicker({
     );
   }, [activeStreams, searchQuery]);
 
-  const toggleStream = React.useCallback((streamId: string) => {
+  const toggleStream = React.useCallback((streamId: string, isPending: boolean = false) => {
     if (disabled) return;
 
-    const isSelected = selectedStreamIds.includes(streamId);
-    
-    if (isSelected) {
-      // Cannot deselect if it's the only stream
-      if (selectedStreamIds.length <= STREAM_VALIDATION.MIN_STREAMS_PER_ASSET) {
-        return;
+    const totalSelected = selectedStreamIds.length + pendingStreamNames.length;
+
+    if (isPending) {
+      // Handle pending stream toggle
+      const streamName = streamId.replace('pending-', '');
+      const isSelected = pendingStreamNames.includes(streamName);
+      
+      if (isSelected) {
+        // Cannot deselect if it's the only stream
+        if (totalSelected <= STREAM_VALIDATION.MIN_STREAMS_PER_ASSET) {
+          return;
+        }
+        if (onPendingStreamsChange) {
+          onPendingStreamsChange(pendingStreamNames.filter(name => name !== streamName));
+        }
+      } else {
+        // Check max streams limit
+        if (totalSelected >= maxStreams) {
+          return;
+        }
+        if (onPendingStreamsChange) {
+          onPendingStreamsChange([...pendingStreamNames, streamName]);
+        }
       }
-      onSelectStreams(selectedStreamIds.filter(id => id !== streamId));
     } else {
-      // Check max streams limit
-      if (selectedStreamIds.length >= maxStreams) {
-        return;
+      // Handle real stream toggle
+      const isSelected = selectedStreamIds.includes(streamId);
+      
+      if (isSelected) {
+        // Cannot deselect if it's the only stream
+        if (totalSelected <= STREAM_VALIDATION.MIN_STREAMS_PER_ASSET) {
+          return;
+        }
+        onSelectStreams(selectedStreamIds.filter(id => id !== streamId));
+      } else {
+        // Check max streams limit
+        if (totalSelected >= maxStreams) {
+          return;
+        }
+        onSelectStreams([...selectedStreamIds, streamId]);
       }
-      onSelectStreams([...selectedStreamIds, streamId]);
     }
-  }, [selectedStreamIds, onSelectStreams, maxStreams, disabled]);
+  }, [selectedStreamIds, pendingStreamNames, onSelectStreams, onPendingStreamsChange, maxStreams, disabled]);
 
   const handleCreateStream = React.useCallback(async () => {
     if (!newStreamName.trim()) return;
@@ -162,9 +193,18 @@ export function StreamPicker({
     }
   }, [newStreamName, selectedStreamIds, onSelectStreams]);
 
+  // Combined selected streams (real + pending)
   const selectedStreams = React.useMemo(() => {
-    return activeStreams.filter(s => selectedStreamIds.includes(s.id));
-  }, [activeStreams, selectedStreamIds]);
+    const realStreams = activeStreams.filter(s => selectedStreamIds.includes(s.id));
+    const pendingStreams = pendingStreamNames.map(name => ({
+      id: `pending-${name}`,
+      name,
+      status: 'pending' as const,
+      owner_type: 'user',
+      owner_id: '',
+    }));
+    return [...realStreams, ...pendingStreams];
+  }, [activeStreams, selectedStreamIds, pendingStreamNames]);
 
   const renderSelectionContent = () => (
     <div className="space-y-3">
@@ -313,23 +353,29 @@ export function StreamPicker({
           </PopoverContent>
         </Popover>
 
-        {selectedStreams.map((stream) => (
-          <div
-            key={stream.id}
-            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-secondary hover:bg-secondary/80 text-secondary-foreground border border-border transition-colors"
-          >
-            <Hash className="h-3 w-3 text-muted-foreground" />
-            <span>{stream.name}</span>
-            <button
-              onClick={() => toggleStream(stream.id)}
-              className="ml-1 p-0.5 rounded-full hover:bg-background/20 text-muted-foreground hover:text-foreground transition-colors"
-              type="button"
+        {selectedStreams.map((stream) => {
+          const isPending = stream.status === 'pending';
+          return (
+            <div
+              key={stream.id}
+              className={cn(
+                "inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-secondary hover:bg-secondary/80 text-secondary-foreground transition-colors",
+                isPending ? "border-2 border-dashed border-blue-500/50" : "border border-border"
+              )}
             >
-              <X className="h-3 w-3" />
-              <span className="sr-only">Remove {stream.name}</span>
-            </button>
-          </div>
-        ))}
+              <Hash className="h-3 w-3 text-muted-foreground" />
+              <span>{stream.name}</span>
+              <button
+                onClick={() => toggleStream(stream.id, isPending)}
+                className="ml-1 p-0.5 rounded-full hover:bg-background/20 text-muted-foreground hover:text-foreground transition-colors"
+                type="button"
+              >
+                <X className="h-3 w-3" />
+                <span className="sr-only">Remove {stream.name}</span>
+              </button>
+            </div>
+          );
+        })}
       </div>
     );
   }
@@ -342,7 +388,7 @@ export function StreamPicker({
           <label className="text-sm font-medium text-foreground">
             Streams
             <span className="text-muted-foreground ml-1">
-              ({selectedStreamIds.length}/{maxStreams})
+              ({selectedStreamIds.length + pendingStreamNames.length}/{maxStreams})
             </span>
           </label>
           <span className="text-xs text-muted-foreground">
@@ -352,24 +398,29 @@ export function StreamPicker({
 
         {selectedStreams.length > 0 && (
           <div className="flex flex-wrap gap-2">
-            {selectedStreams.map((stream) => (
-              <button
-                key={stream.id}
-                onClick={() => toggleStream(stream.id)}
-                disabled={disabled || selectedStreamIds.length <= STREAM_VALIDATION.MIN_STREAMS_PER_ASSET}
-                className={cn(
-                  "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm",
-                  "bg-primary/10 text-primary border border-primary/20",
-                  "hover:bg-primary/20 transition-colors",
-                  disabled && "opacity-50 cursor-not-allowed",
-                  selectedStreamIds.length <= STREAM_VALIDATION.MIN_STREAMS_PER_ASSET && "cursor-not-allowed opacity-60"
-                )}
-              >
-                <Hash className="h-3 w-3" />
-                <span>{stream.name}</span>
-                <span className="ml-1 text-primary/60">×</span>
-              </button>
-            ))}
+            {selectedStreams.map((stream) => {
+              const isPending = stream.status === 'pending';
+              const totalSelected = selectedStreamIds.length + pendingStreamNames.length;
+              return (
+                <button
+                  key={stream.id}
+                  onClick={() => toggleStream(stream.id, isPending)}
+                  disabled={disabled || totalSelected <= STREAM_VALIDATION.MIN_STREAMS_PER_ASSET}
+                  className={cn(
+                    "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm",
+                    "bg-primary/10 text-primary",
+                    "hover:bg-primary/20 transition-colors",
+                    isPending ? "border-2 border-dashed border-blue-500/50" : "border border-primary/20",
+                    disabled && "opacity-50 cursor-not-allowed",
+                    totalSelected <= STREAM_VALIDATION.MIN_STREAMS_PER_ASSET && "cursor-not-allowed opacity-60"
+                  )}
+                >
+                  <Hash className="h-3 w-3" />
+                  <span>{stream.name}</span>
+                  <span className="ml-1 text-primary/60">×</span>
+                </button>
+              );
+            })}
           </div>
         )}
       </div>
