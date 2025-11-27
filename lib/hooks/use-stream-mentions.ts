@@ -159,9 +159,5 @@ export function useStreamMentions(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [text]); // Only depend on text to avoid infinite loops
 
-  return {
-    parseHashtags,
-    findOrCreateStream,
-  };
 }
 
