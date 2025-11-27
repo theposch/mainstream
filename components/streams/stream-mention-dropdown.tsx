@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { Check, Plus, Hash } from "lucide-react";
 import type { Stream } from "@/lib/types/database";
 import { cn } from "@/lib/utils";
+import { useStreamDropdownOptions } from "@/lib/hooks/use-stream-dropdown-options";
 
 interface StreamMentionDropdownProps {
   query: string;
@@ -26,31 +27,11 @@ export function StreamMentionDropdown({
   const [selectedIndex, setSelectedIndex] = React.useState(0);
   const dropdownRef = React.useRef<HTMLDivElement>(null);
 
-  // Filter streams by query
-  const filteredStreams = React.useMemo(() => {
-    if (!query) return streams.slice(0, 5);
-    
-    const lowerQuery = query.toLowerCase();
-    return streams
-      .filter(s => 
-        s.status === 'active' && 
-        s.name.toLowerCase().includes(lowerQuery)
-      )
-      .slice(0, 5);
-  }, [streams, query]);
-
-  // Check if query matches any existing stream exactly (slug-based)
-  const exactMatch = filteredStreams.some(s => 
-    s.name === query.toLowerCase()
-  );
-
-  // Show create option if query is valid and doesn't match exactly
-  const showCreateOption = query.length >= 2 && !exactMatch;
-
-  const allOptions = React.useMemo(() => [
-    ...filteredStreams,
-    ...(showCreateOption ? [{ id: '__create__', name: query, isNew: true }] : [])
-  ], [filteredStreams, showCreateOption, query]);
+  // Use shared hook for dropdown logic
+  const { allOptions } = useStreamDropdownOptions(query, streams, {
+    maxResults: 5,
+    includeInactive: false,
+  });
 
   // Use refs for values that change frequently to avoid recreating event listeners
   const allOptionsRef = React.useRef(allOptions);

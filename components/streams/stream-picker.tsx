@@ -12,6 +12,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { useStreamDropdownOptions } from "@/lib/hooks/use-stream-dropdown-options";
 
 interface Stream {
   id: string;
@@ -90,54 +91,11 @@ export function StreamPicker({
     [allStreams]
   );
 
-  // Filter streams by search query
-  const filteredStreams = React.useMemo(() => {
-    if (!searchQuery.trim()) return activeStreams;
-    
-    const lowerQuery = searchQuery.toLowerCase();
-    return activeStreams.filter(s =>
-      s.name.toLowerCase().includes(lowerQuery) ||
-      s.description?.toLowerCase().includes(lowerQuery)
-    );
-  }, [activeStreams, searchQuery]);
-
-  // Validate stream name format (same as useStreamMentions)
-  const isValidStreamName = React.useCallback((name: string): boolean => {
-    const slug = name.toLowerCase().trim();
-    if (slug.length < 2 || slug.length > 50) return false;
-    // Same regex as useStreamMentions: alphanumeric + hyphens
-    return /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug);
-  }, []);
-
-  // Normalize and check for exact match
-  const normalizedQuery = React.useMemo(() => 
-    searchQuery.toLowerCase().trim(),
-    [searchQuery]
-  );
-
-  const exactMatch = React.useMemo(() => {
-    return filteredStreams.some(s => s.name === normalizedQuery);
-  }, [filteredStreams, normalizedQuery]);
-
-  // Show create option if query is valid and doesn't match exactly
-  const showCreateOption = React.useMemo(() => {
-    return normalizedQuery.length >= 2 && 
-           !exactMatch && 
-           isValidStreamName(normalizedQuery);
-  }, [normalizedQuery, exactMatch, isValidStreamName]);
-
-  // Combined list: existing streams + create option
-  const allOptions = React.useMemo(() => [
-    ...filteredStreams,
-    ...(showCreateOption ? [{
-      id: '__create__',
-      name: normalizedQuery,
-      status: 'pending' as const,
-      owner_type: 'user',
-      owner_id: '',
-      isNew: true,
-    }] : [])
-  ], [filteredStreams, showCreateOption, normalizedQuery]);
+  // Use shared hook for dropdown logic
+  const { allOptions, normalizedQuery } = useStreamDropdownOptions(searchQuery, activeStreams, {
+    maxResults: 50, // Show more results for manual search
+    includeInactive: false,
+  });
 
   // Reset selected index when options change
   React.useEffect(() => {
@@ -287,7 +245,7 @@ export function StreamPicker({
         e.preventDefault();
         const option = allOptionsRef.current[selectedIndexRef.current];
         if (option) {
-          const isNew = 'isNew' in option && option.isNew;
+          const isNew = ('isNew' in option && option.isNew) || false;
           handleSelectStream(option.id, isNew, option.name);
         }
       } else if (e.key === 'Escape') {
@@ -332,7 +290,7 @@ export function StreamPicker({
       <ScrollArea className="h-[200px]">
         <div className="space-y-1 pr-3">
           {allOptions.map((option) => {
-            const isNew = 'isNew' in option && option.isNew;
+            const isNew = ('isNew' in option && option.isNew) || false;
             const streamName = option.name;
             
             // Check if selected
@@ -431,18 +389,19 @@ export function StreamPicker({
 
         {selectedStreams.map((stream) => {
           const isPending = stream.status === 'pending';
+          const isPendingBool = isPending ? true : false;
           return (
-          <div
-            key={stream.id}
+            <div
+              key={stream.id}
               className={cn(
                 "inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-secondary hover:bg-secondary/80 text-secondary-foreground transition-colors",
                 isPending ? "border-2 border-dashed border-blue-500/50" : "border border-border"
               )}
-          >
-            <Hash className="h-3 w-3 text-muted-foreground" />
-            <span>{stream.name}</span>
-            <button
-                onClick={() => toggleStream(stream.id, isPending)}
+            >
+              <Hash className="h-3 w-3 text-muted-foreground" />
+              <span>{stream.name}</span>
+              <button
+                onClick={() => toggleStream(stream.id, isPendingBool)}
               className="ml-1 p-0.5 rounded-full hover:bg-background/20 text-muted-foreground hover:text-foreground transition-colors"
               type="button"
             >
