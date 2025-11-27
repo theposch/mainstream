@@ -328,9 +328,9 @@ export function AssetDetailDesktop({ asset }: AssetDetailDesktopProps) {
                       </Button>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button variant="secondary" size="icon-lg">
-                              <MoreHorizontal className="h-4 w-4" />
-                          </Button>
+                      <Button variant="secondary" size="icon-lg">
+                          <MoreHorizontal className="h-4 w-4" />
+                      </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="z-[110]">
                           <DropdownMenuItem onClick={handleShare}>

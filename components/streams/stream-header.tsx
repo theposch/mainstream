@@ -184,9 +184,9 @@ export function StreamHeader({ stream, owner }: StreamHeaderProps) {
             {/* Stream Settings */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon">
-                  <MoreHorizontal className="h-5 w-5" />
-                </Button>
+             <Button variant="ghost" size="icon">
+                <MoreHorizontal className="h-5 w-5" />
+            </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="z-[110]">
                 <DropdownMenuItem onClick={handleShare}>

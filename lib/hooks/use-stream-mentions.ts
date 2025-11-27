@@ -107,14 +107,14 @@ export function useStreamMentions(
 
     // Separate real streams from pending streams
     const results = newHashtags.map(tag => findOrMarkPending(tag)).filter(r => r !== null);
-    
+
     const newStreamIds = results.filter(r => r!.id).map(r => r!.id!);
     const newPendingNames = results.filter(r => r!.pending).map(r => r!.pending!);
 
-    // Mark hashtags as processed
-    newHashtags.forEach(tag => processedHashtagsRef.current.add(tag));
-    
-    // Merge with existing selections
+      // Mark hashtags as processed
+      newHashtags.forEach(tag => processedHashtagsRef.current.add(tag));
+      
+      // Merge with existing selections
     if (newStreamIds.length > 0) {
       const updatedStreamIds = [...new Set([...selectedStreamIds, ...newStreamIds])];
       onStreamsChange(updatedStreamIds);
