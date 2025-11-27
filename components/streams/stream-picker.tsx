@@ -8,14 +8,6 @@ import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import {
   Popover,
   PopoverContent,
   PopoverTrigger,
@@ -58,10 +50,7 @@ export function StreamPicker({
   // Import streams internally instead of as prop
   const [allStreams, setAllStreams] = React.useState<Stream[]>([]);
   const [searchQuery, setSearchQuery] = React.useState("");
-  const [isCreateDialogOpen, setIsCreateDialogOpen] = React.useState(false);
-  const [newStreamName, setNewStreamName] = React.useState("");
   const [open, setOpen] = React.useState(false);
-  const [createError, setCreateError] = React.useState<string | null>(null);
 
   // Load streams from API
   const loadStreams = React.useCallback(async () => {
@@ -110,6 +99,44 @@ export function StreamPicker({
       s.description?.toLowerCase().includes(lowerQuery)
     );
   }, [activeStreams, searchQuery]);
+
+  // Validate stream name format (same as useStreamMentions)
+  const isValidStreamName = React.useCallback((name: string): boolean => {
+    const slug = name.toLowerCase().trim();
+    if (slug.length < 2 || slug.length > 50) return false;
+    // Same regex as useStreamMentions: alphanumeric + hyphens
+    return /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug);
+  }, []);
+
+  // Normalize and check for exact match
+  const normalizedQuery = React.useMemo(() => 
+    searchQuery.toLowerCase().trim(),
+    [searchQuery]
+  );
+
+  const exactMatch = React.useMemo(() => {
+    return filteredStreams.some(s => s.name === normalizedQuery);
+  }, [filteredStreams, normalizedQuery]);
+
+  // Show create option if query is valid and doesn't match exactly
+  const showCreateOption = React.useMemo(() => {
+    return normalizedQuery.length >= 2 && 
+           !exactMatch && 
+           isValidStreamName(normalizedQuery);
+  }, [normalizedQuery, exactMatch, isValidStreamName]);
+
+  // Combined list: existing streams + create option
+  const allOptions = React.useMemo(() => [
+    ...filteredStreams,
+    ...(showCreateOption ? [{
+      id: '__create__',
+      name: normalizedQuery,
+      status: 'pending' as const,
+      owner_type: 'user',
+      owner_id: '',
+      isNew: true,
+    }] : [])
+  ], [filteredStreams, showCreateOption, normalizedQuery]);
 
   const toggleStream = React.useCallback((streamId: string, isPending: boolean = false) => {
     if (disabled) return;
@@ -166,44 +193,69 @@ export function StreamPicker({
     }
   }, [selectedStreamIds, pendingStreamNames, onSelectStreams, onPendingStreamsChange, maxStreams, disabled, excludedStreamNames, onExcludedStreamsChange, allStreams]);
 
-  const handleCreateStream = React.useCallback(async () => {
-    if (!newStreamName.trim()) return;
-    
-    setCreateError(null);
-    
-    try {
-      const response = await fetch('/api/streams', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: newStreamName.trim(),
-          owner_type: 'user',
-          is_private: false,
-        }),
-      });
+  // Handle stream selection (both existing and new)
+  const handleSelectStream = React.useCallback((
+    streamId: string,
+    isNew: boolean,
+    streamName?: string
+  ) => {
+    if (disabled) return;
+
+    const totalSelected = selectedStreamIds.length + pendingStreamNames.length;
+
+    if (isNew && streamName) {
+      // Creating new stream (pending - not in DB yet)
+      const slug = streamName.toLowerCase();
       
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to create stream');
+      // Check if already exists
+      const alreadyPending = pendingStreamNames.includes(slug);
+      const alreadyReal = activeStreams.some(s => s.name === slug);
+      const isExcluded = excludedStreamNames.includes(slug);
+      
+      if (alreadyPending || alreadyReal) {
+        console.log('[StreamPicker] Stream already added:', slug);
+        setSearchQuery("");
+        setOpen(false);
+        return;
       }
       
-      const { stream } = await response.json();
+      if (isExcluded) {
+        // User previously removed this - remove from excluded list
+        if (onExcludedStreamsChange) {
+          onExcludedStreamsChange(excludedStreamNames.filter(n => n !== slug));
+        }
+      }
       
-      // Add new stream to local list
-      setAllStreams(prev => [stream, ...prev]);
+      // Check max streams
+      if (totalSelected >= maxStreams) {
+        console.log('[StreamPicker] Max streams reached');
+        return;
+      }
       
-      // Auto-select the new stream
-      onSelectStreams([...selectedStreamIds, stream.id]);
+      // Add to pending (will be created on Post)
+      if (onPendingStreamsChange) {
+        onPendingStreamsChange([...pendingStreamNames, slug]);
+        console.log('[StreamPicker] Added pending stream:', slug);
+      }
       
-      // Close dialog and reset
-      setNewStreamName("");
-      setCreateError(null);
-      setIsCreateDialogOpen(false);
-    } catch (error) {
-      console.error('[StreamPicker] Failed to create stream:', error);
-      setCreateError(error instanceof Error ? error.message : 'Failed to create stream');
+      // Clear search and close dropdown
+      setSearchQuery("");
+      setOpen(false);
+    } else {
+      // Selecting existing stream - use existing toggle logic
+      toggleStream(streamId, false);
     }
-  }, [newStreamName, selectedStreamIds, onSelectStreams]);
+  }, [
+    disabled,
+    selectedStreamIds,
+    pendingStreamNames,
+    activeStreams,
+    excludedStreamNames,
+    maxStreams,
+    onPendingStreamsChange,
+    onExcludedStreamsChange,
+    toggleStream,
+  ]);
 
   // Combined selected streams (real + pending)
   const selectedStreams = React.useMemo(() => {
@@ -224,7 +276,7 @@ export function StreamPicker({
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
         <Input
           type="text"
-          placeholder="Search streams..."
+          placeholder="Search or create new stream"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           className="pl-9"
@@ -235,14 +287,22 @@ export function StreamPicker({
 
       <ScrollArea className="h-[200px]">
         <div className="space-y-1 pr-3">
-          {filteredStreams.map((stream) => {
-            const isSelected = selectedStreamIds.includes(stream.id);
-            const isMaxReached = selectedStreamIds.length >= maxStreams && !isSelected;
+          {allOptions.map((option) => {
+            const isNew = 'isNew' in option && option.isNew;
+            const streamName = option.name;
+            
+            // Check if selected
+            const isSelected = isNew
+              ? pendingStreamNames.includes(streamName)
+              : selectedStreamIds.includes(option.id);
+            
+            const totalSelected = selectedStreamIds.length + pendingStreamNames.length;
+            const isMaxReached = totalSelected >= maxStreams && !isSelected;
 
             return (
               <button
-                key={stream.id}
-                onClick={() => toggleStream(stream.id)}
+                key={isNew ? '__create__' : option.id}
+                onClick={() => handleSelectStream(option.id, isNew, streamName)}
                 disabled={disabled || isMaxReached}
                 className={cn(
                   "w-full flex items-center gap-3 p-2 rounded-md text-left transition-colors",
@@ -253,20 +313,39 @@ export function StreamPicker({
               >
                 <div className={cn(
                   "h-4 w-4 rounded border flex items-center justify-center shrink-0",
-                  isSelected ? "bg-primary border-primary" : "border-muted-foreground/30"
+                  isNew 
+                    ? "bg-blue-500/20 border-blue-500/50" 
+                    : isSelected 
+                      ? "bg-primary border-primary" 
+                      : "border-muted-foreground/30"
                 )}>
-                  {isSelected && <Check className="h-3 w-3 text-primary-foreground" />}
+                  {isNew ? (
+                    <Plus className="h-3 w-3 text-blue-400" />
+                  ) : isSelected ? (
+                    <Check className="h-3 w-3 text-primary-foreground" />
+                  ) : null}
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1.5">
                     <Hash className="h-3 w-3 text-muted-foreground shrink-0" />
-                    <span className="text-sm font-medium text-foreground truncate">
-                      {stream.name}
+                    <span className={cn(
+                      "text-sm font-medium truncate",
+                      isNew ? "text-blue-400" : "text-foreground"
+                    )}>
+                      {streamName}
                     </span>
+                    {isSelected && !isNew && (
+                      <Check className="h-3 w-3 text-green-500 shrink-0 ml-auto" />
+                    )}
                   </div>
-                  {stream.description && (
+                  {isNew && (
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Create new stream
+                    </p>
+                  )}
+                  {!isNew && 'description' in option && option.description && (
                     <p className="text-xs text-muted-foreground truncate mt-0.5">
-                      {stream.description}
+                      {option.description}
                     </p>
                   )}
                 </div>
@@ -274,74 +353,13 @@ export function StreamPicker({
             );
           })}
 
-          {filteredStreams.length === 0 && (
+          {allOptions.length === 0 && (
             <div className="text-center py-8 text-muted-foreground text-sm">
-              No streams found
+              {searchQuery.trim() ? 'No streams found' : 'No streams available'}
             </div>
           )}
         </div>
       </ScrollArea>
-
-      {/* Create New Stream Button */}
-      <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-        <DialogTrigger asChild>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="w-full"
-            disabled={disabled}
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            Create New Stream
-          </Button>
-        </DialogTrigger>
-        <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle>Create New Stream</DialogTitle>
-            <DialogDescription>
-              Create a new stream to organize your work
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 pt-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Stream Name</label>
-              <Input
-                type="text"
-                placeholder="# My New Stream"
-                value={newStreamName}
-                onChange={(e) => {
-                  setNewStreamName(e.target.value);
-                  setCreateError(null);
-                }}
-                maxLength={STREAM_VALIDATION.MAX_STREAM_NAME_LENGTH}
-              />
-              <p className="text-xs text-muted-foreground">
-                {STREAM_VALIDATION.MIN_STREAM_NAME_LENGTH}-{STREAM_VALIDATION.MAX_STREAM_NAME_LENGTH} characters
-              </p>
-              {createError && (
-                <p className="text-xs text-destructive">
-                  {createError}
-                </p>
-              )}
-            </div>
-            <div className="flex justify-end gap-2">
-              <Button
-                variant="ghost"
-                onClick={() => setIsCreateDialogOpen(false)}
-              >
-                Cancel
-              </Button>
-              <Button
-                variant="default"
-                onClick={handleCreateStream}
-                disabled={newStreamName.trim().length < STREAM_VALIDATION.MIN_STREAM_NAME_LENGTH}
-              >
-                Create Stream
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 
