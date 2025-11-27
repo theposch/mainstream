@@ -117,25 +117,10 @@ export function StreamPicker({
       const streamName = streamId.replace('pending-', '');
       const isSelected = pendingStreamNames.includes(streamName);
       
-      console.log('[StreamPicker] Removing pending stream:', {
-        streamId,
-        streamName,
-        pendingStreamNames,
-        totalSelected,
-        minRequired: STREAM_VALIDATION.MIN_STREAMS_PER_ASSET
-      });
-      
       if (isSelected) {
-        // Cannot deselect if it's the only stream
-        if (totalSelected <= STREAM_VALIDATION.MIN_STREAMS_PER_ASSET) {
-          console.log('[StreamPicker] Cannot remove - would go below minimum');
-          return;
-        }
+        // Allow removal - minimum validation happens at post time, not during editing
         if (onPendingStreamsChange) {
-          console.log('[StreamPicker] Removing pending stream:', streamName);
           onPendingStreamsChange(pendingStreamNames.filter(name => name !== streamName));
-        } else {
-          console.warn('[StreamPicker] onPendingStreamsChange callback is not defined');
         }
       } else {
         // Check max streams limit
@@ -151,10 +136,7 @@ export function StreamPicker({
       const isSelected = selectedStreamIds.includes(streamId);
       
       if (isSelected) {
-        // Cannot deselect if it's the only stream
-        if (totalSelected <= STREAM_VALIDATION.MIN_STREAMS_PER_ASSET) {
-          return;
-        }
+        // Allow removal - minimum validation happens at post time, not during editing
         onSelectStreams(selectedStreamIds.filter(id => id !== streamId));
       } else {
         // Check max streams limit
@@ -417,14 +399,13 @@ export function StreamPicker({
                 <button
                   key={stream.id}
                   onClick={() => toggleStream(stream.id, isPending)}
-                  disabled={disabled || totalSelected <= STREAM_VALIDATION.MIN_STREAMS_PER_ASSET}
+                  disabled={disabled}
                   className={cn(
                     "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm",
                     "bg-primary/10 text-primary",
                     "hover:bg-primary/20 transition-colors",
                     isPending ? "border-2 border-dashed border-blue-500/50" : "border border-primary/20",
-                    disabled && "opacity-50 cursor-not-allowed",
-                    totalSelected <= STREAM_VALIDATION.MIN_STREAMS_PER_ASSET && "cursor-not-allowed opacity-60"
+                    disabled && "opacity-50 cursor-not-allowed"
                   )}
                 >
                   <Hash className="h-3 w-3" />

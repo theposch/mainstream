@@ -240,6 +240,13 @@ export function UploadDialog({ open, onOpenChange }: UploadDialogProps) {
       return;
     }
 
+    // Validate at least one stream is selected
+    const totalStreams = streamIds.length + pendingStreamNames.length;
+    if (totalStreams === 0) {
+      setError("Please add at least one stream");
+      return;
+    }
+
     console.log('[UploadDialog] 🚀 Starting upload...');
     console.log(`  - File: ${file.name}`);
     console.log(`  - Size: ${(file.size / 1024).toFixed(2)} KB`);
