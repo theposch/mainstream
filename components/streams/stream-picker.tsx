@@ -117,13 +117,25 @@ export function StreamPicker({
       const streamName = streamId.replace('pending-', '');
       const isSelected = pendingStreamNames.includes(streamName);
       
+      console.log('[StreamPicker] Removing pending stream:', {
+        streamId,
+        streamName,
+        pendingStreamNames,
+        totalSelected,
+        minRequired: STREAM_VALIDATION.MIN_STREAMS_PER_ASSET
+      });
+      
       if (isSelected) {
         // Cannot deselect if it's the only stream
         if (totalSelected <= STREAM_VALIDATION.MIN_STREAMS_PER_ASSET) {
+          console.log('[StreamPicker] Cannot remove - would go below minimum');
           return;
         }
         if (onPendingStreamsChange) {
+          console.log('[StreamPicker] Removing pending stream:', streamName);
           onPendingStreamsChange(pendingStreamNames.filter(name => name !== streamName));
+        } else {
+          console.warn('[StreamPicker] onPendingStreamsChange callback is not defined');
         }
       } else {
         // Check max streams limit
