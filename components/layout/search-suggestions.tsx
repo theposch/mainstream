@@ -5,13 +5,35 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Clock, Search, Image as ImageIcon, Hash, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { searchAll, type SearchResults } from "@/lib/utils/search";
-import { assets, type Asset } from "@/lib/mock-data/assets";
-import { streams, type Stream } from "@/lib/mock-data/streams";
-import { users, type User as UserType } from "@/lib/mock-data/users";
-import { teams, type Team } from "@/lib/mock-data/teams";
 import { Avatar } from "@/components/ui/avatar";
 import { SEARCH_CONSTANTS } from "@/lib/constants/search";
+
+// Types for database records
+interface Asset {
+  id: string;
+  title: string;
+  url: string;
+  uploader_id: string;
+  uploader?: {
+    id: string;
+    display_name: string;
+    avatar_url: string;
+  };
+}
+
+interface Stream {
+  id: string;
+  name: string;
+  description?: string;
+  owner_type: string;
+}
+
+interface User {
+  id: string;
+  username: string;
+  display_name: string;
+  avatar_url: string;
+}
 
 interface SearchSuggestionsProps {
   query: string;
@@ -32,23 +54,67 @@ export function SearchSuggestions({
   const [selectedIndex, setSelectedIndex] = React.useState(-1);
   const suggestionsRef = React.useRef<HTMLDivElement>(null);
 
-  // Search results
-  const results = React.useMemo(() => {
-    if (!query.trim()) return null;
-    return searchAll(query, { assets, streams, users, teams });
+  // Search results from API
+  const [results, setResults] = React.useState<{
+    assets: Asset[];
+    streams: Stream[];
+    users: User[];
+    total: number;
+  } | null>(null);
+  const [isLoading, setIsLoading] = React.useState(false);
+
+  // Fetch search results from API
+  React.useEffect(() => {
+    if (!query.trim()) {
+      setResults(null);
+      return;
+    }
+
+    const fetchResults = async () => {
+      setIsLoading(true);
+      try {
+        const params = new URLSearchParams();
+        params.append('q', query.trim());
+        // Limit results for suggestions dropdown
+        params.append('limit', '5');
+        
+        const res = await fetch(`/api/search?${params}`);
+        const data = await res.json();
+        
+        const total = (data.assets?.length || 0) + 
+                     (data.streams?.length || 0) + 
+                     (data.users?.length || 0);
+        
+        setResults({
+          assets: data.assets || [],
+          streams: data.streams || [],
+          users: data.users || [],
+          total,
+        });
+      } catch (error) {
+        console.error('[SearchSuggestions] Failed to fetch search results:', error);
+        setResults({ assets: [], streams: [], users: [], total: 0 });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    // Debounce search
+    const timeoutId = setTimeout(fetchResults, 300);
+    return () => clearTimeout(timeoutId);
   }, [query]);
 
   // Build suggestions list with full data for rendering
   const suggestions = React.useMemo(() => {
     const items: Array<{
-      type: "recent" | "asset" | "stream" | "user" | "team" | "viewAll";
+      type: "recent" | "asset" | "stream" | "user" | "viewAll";
       id: string;
       label: string;
       href?: string;
       icon?: React.ReactNode;
       thumbnail?: string;
       subtitle?: string;
-      data?: Asset | Stream | UserType | Team;
+      data?: Asset | Stream | User;
     }> = [];
 
     // Show recent searches if no query
@@ -68,14 +134,13 @@ export function SearchSuggestions({
     if (results) {
       // Assets - with thumbnails!
       results.assets.slice(0, SEARCH_CONSTANTS.MAX_ASSET_SUGGESTIONS).forEach((asset) => {
-        const uploader = users.find(u => u.id === asset.uploaderId);
         items.push({
           type: "asset",
           id: asset.id,
           label: asset.title,
           href: `/e/${asset.id}`,
           thumbnail: asset.url,
-          subtitle: uploader?.displayName,
+          subtitle: asset.uploader?.display_name,
           data: asset,
         });
       });
@@ -88,7 +153,7 @@ export function SearchSuggestions({
           label: stream.name,
           href: `/stream/${stream.name}`,
           icon: <Hash className="h-4 w-4" />,
-          subtitle: stream.description || `${stream.ownerType === 'team' ? 'Team stream' : 'Personal stream'}`,
+          subtitle: stream.description || 'Stream',
           data: stream,
         });
       });
@@ -98,22 +163,10 @@ export function SearchSuggestions({
         items.push({
           type: "user",
           id: user.id,
-          label: user.displayName,
+          label: user.display_name,
           href: `/u/${user.username}`,
-          thumbnail: user.avatarUrl,
+          thumbnail: user.avatar_url,
           subtitle: `@${user.username}`,
-        });
-      });
-
-      // Teams - with avatars
-      results.teams.slice(0, SEARCH_CONSTANTS.MAX_TEAM_SUGGESTIONS).forEach((team) => {
-        items.push({
-          type: "team",
-          id: team.id,
-          label: team.name,
-          href: `/t/${team.slug}`,
-          thumbnail: team.avatarUrl,
-          subtitle: `${team.memberIds.length} members`,
         });
       });
 
@@ -207,7 +260,14 @@ export function SearchSuggestions({
           </div>
         )}
         
-        {suggestions.length === 0 && query.trim() ? (
+        {isLoading && query.trim() ? (
+          <div className="px-4 py-8 text-center text-sm text-muted-foreground">
+            <div className="flex items-center justify-center gap-2">
+              <div className="h-4 w-4 animate-spin rounded-full border-2 border-muted-foreground border-t-transparent" />
+              Searching...
+            </div>
+          </div>
+        ) : suggestions.length === 0 && query.trim() ? (
           <div className="px-4 py-8 text-center text-sm text-muted-foreground">
             No results found for &quot;{query}&quot;
           </div>
@@ -251,8 +311,8 @@ export function SearchSuggestions({
             );
           }
 
-          // Render user/team with avatar
-          if ((suggestion.type === "user" || suggestion.type === "team") && suggestion.thumbnail) {
+          // Render user with avatar
+          if (suggestion.type === "user" && suggestion.thumbnail) {
             return (
               <button
                 key={suggestion.id}

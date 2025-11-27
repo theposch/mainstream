@@ -1,6 +1,4 @@
 import React from "react";
-import { Comment } from "@/lib/mock-data/comments";
-import { User } from "@/lib/mock-data/users";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { formatRelativeTime } from "@/lib/utils/time";
@@ -13,6 +11,29 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { useCommentLike } from "@/lib/hooks/use-comment-like";
+
+// Database types
+interface Comment {
+  id: string;
+  asset_id: string;
+  user_id: string;
+  content: string;
+  parent_id?: string;
+  created_at: string;
+  updated_at?: string;
+  is_edited: boolean;
+  likes: number;
+  has_liked: boolean;
+  user?: User;
+}
+
+interface User {
+  id: string;
+  username: string;
+  display_name: string;
+  avatar_url: string;
+}
 
 interface CommentItemProps {
   comment: Comment;
@@ -39,8 +60,15 @@ export const CommentItem = React.memo(function CommentItem({
   isEditing,
   onCancelEdit
 }: CommentItemProps) {
-  const isOwner = currentUser.id === comment.userId;
+  const isOwner = currentUser.id === comment.user_id;
   const [isHovered, setIsHovered] = React.useState(false);
+  
+  // Use comment like hook for real-time like functionality
+  const { isLiked, likeCount, toggleLike } = useCommentLike(
+    comment.id,
+    comment.has_liked || false,
+    comment.likes || 0
+  );
 
   if (isEditing) {
     return (
@@ -64,7 +92,7 @@ export const CommentItem = React.memo(function CommentItem({
       onMouseLeave={() => setIsHovered(false)}
     >
       <Avatar className="h-8 w-8 shrink-0 border border-border mt-0.5 cursor-pointer hover:opacity-80 transition-opacity">
-        <AvatarImage src={author?.avatarUrl} alt={author?.displayName} />
+        <AvatarImage src={author?.avatar_url} alt={author?.display_name} />
         <AvatarFallback>{author?.username?.charAt(0).toUpperCase() || "?"}</AvatarFallback>
       </Avatar>
 
@@ -72,12 +100,12 @@ export const CommentItem = React.memo(function CommentItem({
         <div className="flex items-baseline justify-between gap-2">
           <div className="flex items-baseline gap-2">
             <span className="text-sm font-medium text-white hover:underline cursor-pointer">
-              {author?.displayName || "Unknown User"}
+              {author?.display_name || "Unknown User"}
             </span>
             <span className="text-xs text-zinc-500">
-              {formatRelativeTime(comment.createdAt)}
+              {formatRelativeTime(comment.created_at)}
             </span>
-            {comment.isEdited && (
+            {comment.is_edited && (
               <span className="text-xs text-zinc-600 italic">(edited)</span>
             )}
           </div>
@@ -126,19 +154,19 @@ export const CommentItem = React.memo(function CommentItem({
           </button>
           
           <button 
-            onClick={() => onLike(comment.id)}
+            onClick={toggleLike}
             className={cn(
               "text-xs font-medium transition-colors flex items-center gap-1 group/like",
-              comment.hasLiked ? "text-red-500" : "text-zinc-500 hover:text-white"
+              isLiked ? "text-red-500" : "text-zinc-500 hover:text-white"
             )}
           >
             <Heart 
                 className={cn(
                     "h-3 w-3 transition-transform group-active/like:scale-75", 
-                    comment.hasLiked ? "fill-current" : ""
+                    isLiked ? "fill-current" : ""
                 )} 
             />
-            {comment.likes > 0 && <span>{comment.likes}</span>}
+            {likeCount > 0 && <span>{likeCount}</span>}
           </button>
         </div>
       </div>

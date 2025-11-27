@@ -1,57 +1,23 @@
 /**
  * Asset Upload API Route
  * 
- * Handles image uploads with local file storage and persistent JSON storage.
+ * Handles image uploads with Supabase database integration.
  * 
  * Flow:
- * 1. Authenticate user (requireAuth middleware)
- * 2. Rate limit check (20 uploads/minute)
- * 3. Parse multipart/form-data
- * 4. Validate file type, size, and image integrity
- * 5. Process image in parallel (3 sizes with Sharp)
- * 6. Save files to public/uploads/
- * 7. Extract color palette
- * 8. Save metadata to data/assets.json
+ * 1. Authenticate user (Supabase Auth)
+ * 2. Parse multipart/form-data
+ * 3. Validate file type, size, and image integrity
+ * 4. Process image in parallel (3 sizes with Sharp)
+ * 5. Save files to public/uploads/
+ * 6. Extract color palette
+ * 7. Insert asset into database
+ * 8. Create stream associations
  * 9. Return asset object with all URLs
  * 
- * TODO: DATABASE MIGRATION
- * Replace `addAsset()` call with database INSERT:
- * 
- * ```typescript
- * const [insertedAsset] = await db.insert(assets).values({
- *   id: assetId,
- *   title: sanitizedTitle,
- *   description: sanitizedDescription,
- *   type: 'image',
- *   url: fullUrl,
- *   mediumUrl,
- *   thumbnailUrl,
- *   streamIds: streamIds || [],
- *   uploaderId: user.id,
- *   width: metadata.width,
- *   height: metadata.height,
- *   fileSize: metadata.size,
- *   mimeType: file.type,
- *   dominantColor,
- *   colorPalette,
- *   createdAt: new Date(),
- *   updatedAt: new Date()
- * }).returning();
- * ```
- * 
- * TODO: CLOUD STORAGE MIGRATION
- * Replace saveImageToPublic() with cloud upload:
- * - Use S3/R2/Cloudflare SDK
- * - Return CDN URLs instead of local paths
- * - Consider direct client-to-cloud uploads (signed URLs)
- * 
- * @see /docs/IMAGE_UPLOAD.md for complete migration guide
+ * @see /docs/IMAGE_UPLOAD.md for implementation details
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { addAsset } from '@/lib/utils/assets-storage';
-import type { Asset } from '@/lib/mock-data/assets';
-import { getStreams } from '@/lib/utils/stream-storage';
 import {
   generateUniqueFilename,
   saveImageToPublic,
@@ -125,7 +91,18 @@ export async function POST(request: NextRequest) {
     const file = formData.get('file') as File | null;
     let title = formData.get('title') as string | null;
     const description = formData.get('description') as string | null;
-    const streamIds = formData.getAll('streamIds') as string[];  // Many-to-many streams
+    
+    // Parse streamIds from JSON string
+    const streamIdsRaw = formData.get('streamIds');
+    let streamIds: string[] = [];
+    if (streamIdsRaw) {
+      try {
+        streamIds = JSON.parse(streamIdsRaw as string);
+      } catch (error) {
+        console.warn('[POST /api/assets/upload] Failed to parse streamIds, defaulting to empty array');
+        streamIds = [];
+      }
+    }
 
     // Validate file
     if (!file) {
@@ -157,18 +134,30 @@ export async function POST(request: NextRequest) {
     }
 
     // Stream IDs are optional - if provided, verify they exist
-    // TODO: Add permission check once stream membership is in database
     if (streamIds && streamIds.length > 0) {
-      const allStreams = getStreams(); // Get merged mock + localStorage streams
+      const { data: streams, error: streamError } = await supabase
+        .from('streams')
+        .select('id')
+        .eq('status', 'active')
+        .in('id', streamIds);
       
-      for (const streamId of streamIds) {
-        const stream = allStreams.find(s => s.id === streamId);
-        if (!stream) {
-          return NextResponse.json(
-            { error: `Stream not found: ${streamId}` },
-            { status: 404 }
-          );
-        }
+      if (streamError) {
+        console.error('[POST /api/assets/upload] Error validating streams:', streamError);
+        return NextResponse.json(
+          { error: 'Failed to validate streams' },
+          { status: 500 }
+        );
+      }
+      
+      // Check all stream IDs are valid
+      const validStreamIds = streams?.map(s => s.id) || [];
+      const invalidStreamIds = streamIds.filter(id => !validStreamIds.includes(id));
+      
+      if (invalidStreamIds.length > 0) {
+        return NextResponse.json(
+          { error: `Invalid stream IDs: ${invalidStreamIds.join(', ')}` },
+          { status: 404 }
+        );
       }
     }
 
@@ -238,40 +227,86 @@ export async function POST(request: NextRequest) {
       // Continue without color palette
     }
 
-    // Generate unique asset ID
-    const assetId = `asset-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    // Ensure user profile exists in public.users
+    const { data: existingUser } = await supabase
+      .from('users')
+      .select('id')
+      .eq('id', user.id)
+      .single();
 
-    // Create new asset
-    const newAsset: Asset = {
-      id: assetId,
-      title: title.trim(),
-      description: description?.trim() || undefined,
-      type: 'image',
-      url: fullUrl,
-      mediumUrl,
-      thumbnailUrl,
-      streamIds: streamIds.length > 0 ? streamIds : undefined,  // Many-to-many streams
-      uploaderId: user.id,
-      createdAt: new Date().toISOString(),
-      width: metadata.width,
-      height: metadata.height,
-      dominantColor,
-      colorPalette,
-    };
+    if (!existingUser) {
+      // Create user profile if it doesn't exist
+      const { error: userCreateError } = await supabase
+        .from('users')
+        .insert({
+          id: user.id,
+          username: user.username,
+          display_name: user.displayName,
+          email: user.email,
+          avatar_url: `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.username}`,
+        });
 
-    // Add to persistent storage (JSON file)
-    // TODO: Replace with database INSERT operation
-    addAsset(newAsset);
+      if (userCreateError) {
+        console.error('[POST /api/assets/upload] Failed to create user profile:', userCreateError);
+      }
+    }
+
+    // Insert asset into database
+    const { data: insertedAsset, error: insertError } = await supabase
+      .from('assets')
+      .insert({
+        title: title.trim(),
+        description: description?.trim() || null,
+        type: 'image',
+        url: fullUrl,
+        medium_url: mediumUrl,
+        thumbnail_url: thumbnailUrl,
+        uploader_id: user.id,
+        width: metadata.width,
+        height: metadata.height,
+        file_size: file.size,
+        mime_type: file.type,
+        dominant_color: dominantColor || null,
+        color_palette: colorPalette || null,
+      })
+      .select()
+      .single();
+
+    if (insertError || !insertedAsset) {
+      console.error('[POST /api/assets/upload] Database insert failed:', insertError);
+      return NextResponse.json(
+        { error: 'Failed to save asset to database', details: insertError?.message },
+        { status: 500 }
+      );
+    }
+
+    // Create stream associations if provided
+    if (streamIds && streamIds.length > 0) {
+      const streamAssociations = streamIds.map(streamId => ({
+        asset_id: insertedAsset.id,
+        stream_id: streamId,
+        added_by: user.id,
+      }));
+
+      const { error: streamError } = await supabase
+        .from('asset_streams')
+        .insert(streamAssociations);
+
+      if (streamError) {
+        console.error('[POST /api/assets/upload] Failed to create stream associations:', streamError);
+        // Don't fail the upload, just log the error
+      }
+    }
     
     console.log('[POST /api/assets/upload] ✅ Upload successful!');
-    console.log(`  - Asset ID: ${newAsset.id}`);
-    console.log(`  - Title: ${newAsset.title}`);
-    console.log(`  - Full URL: ${newAsset.url}`);
-    console.log(`  - Medium URL: ${newAsset.mediumUrl}`);
-    console.log(`  - Thumbnail URL: ${newAsset.thumbnailUrl}`);
+    console.log(`  - Asset ID: ${insertedAsset.id}`);
+    console.log(`  - Title: ${insertedAsset.title}`);
+    console.log(`  - Full URL: ${insertedAsset.url}`);
+    console.log(`  - Medium URL: ${insertedAsset.medium_url}`);
+    console.log(`  - Thumbnail URL: ${insertedAsset.thumbnail_url}`);
 
     return NextResponse.json(
-      { asset: newAsset },
+      { asset: insertedAsset },
       { status: 201 }
     );
   } catch (error) {

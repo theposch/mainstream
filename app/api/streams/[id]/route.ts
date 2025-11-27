@@ -1,12 +1,18 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { Stream, STREAM_VALIDATION, getStreamMembers, getStreamResources } from '@/lib/mock-data/streams';
-import { getAssetsForStream } from '@/lib/mock-data/migration-helpers';
-import { assets } from '@/lib/mock-data/assets';
-import { sanitizeInput } from '@/lib/utils/image';
-import { requireAuth, canUserModifyResource } from '@/lib/auth/middleware';
-import { getStreamBySlug, getStreamById, updateStream, getStreams } from '@/lib/utils/stream-storage';
+/**
+ * Stream Detail API Route
+ * 
+ * Handles individual stream operations
+ * 
+ * GET /api/streams/:id - Get stream details
+ * PUT /api/streams/:id - Update stream
+ * DELETE /api/streams/:id - Delete stream
+ * PATCH /api/streams/:id - Archive/unarchive stream
+ */
 
-export const runtime = 'nodejs';
+import { NextRequest, NextResponse } from 'next/server';
+import { createClient } from '@/lib/supabase/server';
+
+export const dynamic = 'force-dynamic';
 
 interface RouteContext {
   params: Promise<{
@@ -17,36 +23,43 @@ interface RouteContext {
 /**
  * GET /api/streams/:id
  * 
- * Fetches a single stream by ID or slug with its resources and members
- * 
- * Response:
- * {
- *   "stream": { ... stream object ... },
- *   "members": [ ... array of stream members ... ],
- *   "resources": [ ... array of stream resources ... ],
- *   "assetsCount": number
- * }
+ * Fetches a single stream by ID with its resources and members
  */
-export const GET = requireAuth(async (request: NextRequest, user, context: RouteContext) => {
+export async function GET(request: NextRequest, context: RouteContext) {
   try {
     const { id } = await context.params;
+    const supabase = await createClient();
 
-    // Find stream by slug first, fallback to ID for backward compatibility
-    const stream = getStreamBySlug(id) || getStreamById(id);
+    // Get authenticated user
+    const { data: { user } } = await supabase.auth.getUser();
 
-    if (!stream) {
+    // Fetch stream by ID or name (slug)
+    let query = supabase
+      .from('streams')
+      .select('*')
+      .or(`id.eq.${id},name.eq.${id}`)
+      .single();
+
+    const { data: stream, error } = await query;
+
+    if (error || !stream) {
       return NextResponse.json(
         { error: 'Stream not found' },
         { status: 404 }
       );
     }
 
-    // Check access permissions
-    if (stream.isPrivate) {
-      // User must be owner or member of team
-      const hasAccess = 
-        (stream.ownerType === 'user' && stream.ownerId === user.id) ||
-        (stream.ownerType === 'team' && canUserModifyResource(user, stream.ownerId, 'team'));
+    // Check access permissions for private streams
+    if (stream.is_private) {
+      if (!user) {
+        return NextResponse.json(
+          { error: 'Authentication required' },
+          { status: 401 }
+        );
+      }
+
+      // Check if user is owner or team member
+      const hasAccess = stream.owner_id === user.id;
 
       if (!hasAccess) {
         return NextResponse.json(
@@ -56,22 +69,21 @@ export const GET = requireAuth(async (request: NextRequest, user, context: Route
       }
     }
 
-    // Get related data (use stream.id, not the slug/id param)
-    const members = getStreamMembers(stream.id);
-    const resources = getStreamResources(stream.id);
-    const streamAssets = getAssetsForStream(stream.id, assets);
+    // Fetch assets count
+    const { count: assetsCount } = await supabase
+      .from('asset_streams')
+      .select('*', { count: 'exact', head: true })
+      .eq('stream_id', stream.id);
 
     return NextResponse.json(
       {
         stream,
-        members,
-        resources,
-        assetsCount: streamAssets.length,
+        assetsCount: assetsCount || 0,
       },
       { status: 200 }
     );
   } catch (error) {
-    console.error('Error fetching stream:', error);
+    console.error('[GET /api/streams/:id] Error:', error);
     return NextResponse.json(
       { 
         error: 'Failed to fetch stream',
@@ -80,45 +92,44 @@ export const GET = requireAuth(async (request: NextRequest, user, context: Route
       { status: 500 }
     );
   }
-});
+}
 
 /**
  * PUT /api/streams/:id
  * 
  * Updates a stream
- * 
- * Request body (all fields optional):
- * {
- *   "name": "# Updated Stream Name",
- *   "description": "Updated description",
- *   "isPrivate": true
- * }
- * 
- * Response:
- * {
- *   "stream": { ... updated stream object ... }
- * }
  */
-export const PUT = requireAuth(async (request: NextRequest, user, context: RouteContext) => {
+export async function PUT(request: NextRequest, context: RouteContext) {
   try {
     const { id } = await context.params;
+    const supabase = await createClient();
 
-    // Find stream by slug first, fallback to ID for backward compatibility
-    const stream = getStreamBySlug(id) || getStreamById(id);
+    // Check authentication
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
     
-    if (!stream) {
+    if (authError || !user) {
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      );
+    }
+
+    // Fetch stream
+    const { data: stream, error: fetchError } = await supabase
+      .from('streams')
+      .select('*')
+      .or(`id.eq.${id},name.eq.${id}`)
+      .single();
+    
+    if (fetchError || !stream) {
       return NextResponse.json(
         { error: 'Stream not found' },
         { status: 404 }
       );
     }
 
-    // Authorization: user must be owner or have modify rights
-    const canModify = 
-      (stream.ownerType === 'user' && stream.ownerId === user.id) ||
-      (stream.ownerType === 'team' && canUserModifyResource(user, stream.ownerId, 'team'));
-
-    if (!canModify) {
+    // Authorization: user must be owner
+    if (stream.owner_type === 'user' && stream.owner_id !== user.id) {
       return NextResponse.json(
         { 
           error: 'Forbidden',
@@ -129,7 +140,7 @@ export const PUT = requireAuth(async (request: NextRequest, user, context: Route
     }
 
     const body = await request.json();
-    const { name, description, isPrivate } = body;
+    const { name, description, is_private, cover_image_url } = body;
     
     const updates: any = {};
 
@@ -144,37 +155,44 @@ export const PUT = requireAuth(async (request: NextRequest, user, context: Route
 
       const trimmedName = name.trim();
 
-      if (trimmedName.length < STREAM_VALIDATION.MIN_STREAM_NAME_LENGTH) {
+      if (trimmedName.length < 2) {
         return NextResponse.json(
-          { error: `Stream name must be at least ${STREAM_VALIDATION.MIN_STREAM_NAME_LENGTH} characters` },
+          { error: 'Stream name must be at least 2 characters' },
           { status: 400 }
         );
       }
 
-      if (trimmedName.length > STREAM_VALIDATION.MAX_STREAM_NAME_LENGTH) {
+      if (trimmedName.length > 50) {
         return NextResponse.json(
-          { error: `Stream name must be less than ${STREAM_VALIDATION.MAX_STREAM_NAME_LENGTH} characters` },
+          { error: 'Stream name must be less than 50 characters' },
           { status: 400 }
         );
       }
 
-      // Check for duplicate stream name in same workspace
-      const allStreams = getStreams();
-      const duplicateStream = allStreams.find(s => 
-        s.id !== id &&
-        s.name.toLowerCase() === trimmedName.toLowerCase() &&
-        s.ownerId === stream.ownerId &&
-        s.ownerType === stream.ownerType
-      );
+      // Validate slug format
+      if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(trimmedName)) {
+        return NextResponse.json(
+          { error: 'Stream name must use lowercase letters, numbers, and hyphens only' },
+          { status: 400 }
+        );
+      }
+
+      // Check for duplicate stream name
+      const { data: duplicateStream } = await supabase
+        .from('streams')
+        .select('id')
+        .eq('name', trimmedName)
+        .neq('id', stream.id)
+        .single();
 
       if (duplicateStream) {
         return NextResponse.json(
-          { error: 'A stream with this name already exists in your workspace' },
+          { error: 'A stream with this name already exists' },
           { status: 409 }
         );
       }
 
-      updates.name = sanitizeInput(trimmedName);
+      updates.name = trimmedName;
     }
 
     // Validation for description
@@ -186,33 +204,48 @@ export const PUT = requireAuth(async (request: NextRequest, user, context: Route
         );
       }
 
-      if (description && description.length > STREAM_VALIDATION.MAX_STREAM_DESCRIPTION_LENGTH) {
+      if (description && description.length > 500) {
         return NextResponse.json(
-          { error: `Description must be less than ${STREAM_VALIDATION.MAX_STREAM_DESCRIPTION_LENGTH} characters` },
+          { error: 'Description must be less than 500 characters' },
           { status: 400 }
         );
       }
 
-      updates.description = description ? sanitizeInput(description) : undefined;
+      updates.description = description || null;
     }
 
-    if (isPrivate !== undefined) {
-      updates.isPrivate = Boolean(isPrivate);
+    if (is_private !== undefined) {
+      updates.is_private = Boolean(is_private);
     }
 
-    // Update using storage utils
-    // TODO: Replace with database UPDATE operation
-    updateStream(stream.id, updates);
-    
-    // Get updated stream
-    const updatedStream = getStreamById(stream.id);
+    if (cover_image_url !== undefined) {
+      updates.cover_image_url = cover_image_url || null;
+    }
+
+    updates.updated_at = new Date().toISOString();
+
+    // Update stream
+    const { data: updatedStream, error: updateError } = await supabase
+      .from('streams')
+      .update(updates)
+      .eq('id', stream.id)
+      .select()
+      .single();
+
+    if (updateError) {
+      console.error('[PUT /api/streams/:id] Error:', updateError);
+      return NextResponse.json(
+        { error: 'Failed to update stream' },
+        { status: 500 }
+      );
+    }
 
     return NextResponse.json(
       { stream: updatedStream },
       { status: 200 }
     );
   } catch (error) {
-    console.error('Error updating stream:', error);
+    console.error('[PUT /api/streams/:id] Error:', error);
     return NextResponse.json(
       { 
         error: 'Failed to update stream',
@@ -221,27 +254,36 @@ export const PUT = requireAuth(async (request: NextRequest, user, context: Route
       { status: 500 }
     );
   }
-});
+}
 
 /**
  * DELETE /api/streams/:id
  * 
  * Deletes a stream (owner only)
- * 
- * Response:
- * {
- *   "success": true,
- *   "message": "Stream deleted successfully"
- * }
  */
-export const DELETE = requireAuth(async (request: NextRequest, user, context: RouteContext) => {
+export async function DELETE(request: NextRequest, context: RouteContext) {
   try {
     const { id } = await context.params;
+    const supabase = await createClient();
 
-    // Find stream by slug first, fallback to ID for backward compatibility
-    const stream = getStreamBySlug(id) || getStreamById(id);
+    // Check authentication
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
     
-    if (!stream) {
+    if (authError || !user) {
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      );
+    }
+
+    // Fetch stream
+    const { data: stream, error: fetchError } = await supabase
+      .from('streams')
+      .select('*')
+      .or(`id.eq.${id},name.eq.${id}`)
+      .single();
+    
+    if (fetchError || !stream) {
       return NextResponse.json(
         { error: 'Stream not found' },
         { status: 404 }
@@ -249,11 +291,7 @@ export const DELETE = requireAuth(async (request: NextRequest, user, context: Ro
     }
 
     // Authorization: only owner can delete
-    const isOwner = 
-      (stream.ownerType === 'user' && stream.ownerId === user.id) ||
-      (stream.ownerType === 'team' && canUserModifyResource(user, stream.ownerId, 'team'));
-
-    if (!isOwner) {
+    if (stream.owner_type === 'user' && stream.owner_id !== user.id) {
       return NextResponse.json(
         { 
           error: 'Forbidden',
@@ -263,23 +301,20 @@ export const DELETE = requireAuth(async (request: NextRequest, user, context: Ro
       );
     }
 
-    // Check if stream has assets
-    const streamAssets = getAssetsForStream(id, assets);
-    
-    if (streamAssets.length > 0) {
+    // Delete the stream (CASCADE will handle asset_streams)
+    // Assets will remain in the database and show up in feeds, just without this stream
+    const { error: deleteError } = await supabase
+      .from('streams')
+      .delete()
+      .eq('id', stream.id);
+
+    if (deleteError) {
+      console.error('[DELETE /api/streams/:id] Error:', deleteError);
       return NextResponse.json(
-        { 
-          error: 'Cannot delete stream with assets',
-          message: `This stream contains ${streamAssets.length} asset(s). Please remove them first or archive the stream instead.`,
-          assetsCount: streamAssets.length
-        },
-        { status: 409 }
+        { error: 'Failed to delete stream' },
+        { status: 500 }
       );
     }
-
-    // Archive instead of delete (safer for now with localStorage)
-    // TODO: Replace with database DELETE operation and cleanup stream_members/stream_resources
-    updateStream(stream.id, { status: 'archived' });
 
     return NextResponse.json(
       { 
@@ -289,7 +324,7 @@ export const DELETE = requireAuth(async (request: NextRequest, user, context: Ro
       { status: 200 }
     );
   } catch (error) {
-    console.error('Error deleting stream:', error);
+    console.error('[DELETE /api/streams/:id] Error:', error);
     return NextResponse.json(
       { 
         error: 'Failed to delete stream',
@@ -298,43 +333,44 @@ export const DELETE = requireAuth(async (request: NextRequest, user, context: Ro
       { status: 500 }
     );
   }
-});
+}
 
 /**
  * PATCH /api/streams/:id
  * 
  * Archives or unarchives a stream
- * 
- * Request body:
- * {
- *   "status": "archived" | "active"
- * }
- * 
- * Response:
- * {
- *   "stream": { ... updated stream object ... }
- * }
  */
-export const PATCH = requireAuth(async (request: NextRequest, user, context: RouteContext) => {
+export async function PATCH(request: NextRequest, context: RouteContext) {
   try {
     const { id } = await context.params;
+    const supabase = await createClient();
 
-    // Find stream by slug first, fallback to ID for backward compatibility
-    const stream = getStreamBySlug(id) || getStreamById(id);
+    // Check authentication
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
     
-    if (!stream) {
+    if (authError || !user) {
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      );
+    }
+
+    // Fetch stream
+    const { data: stream, error: fetchError } = await supabase
+      .from('streams')
+      .select('*')
+      .or(`id.eq.${id},name.eq.${id}`)
+      .single();
+    
+    if (fetchError || !stream) {
       return NextResponse.json(
         { error: 'Stream not found' },
         { status: 404 }
       );
     }
 
-    // Authorization: user must be owner or have modify rights
-    const canModify = 
-      (stream.ownerType === 'user' && stream.ownerId === user.id) ||
-      (stream.ownerType === 'team' && canUserModifyResource(user, stream.ownerId, 'team'));
-
-    if (!canModify) {
+    // Authorization: user must be owner
+    if (stream.owner_type === 'user' && stream.owner_id !== user.id) {
       return NextResponse.json(
         { 
           error: 'Forbidden',
@@ -355,19 +391,31 @@ export const PATCH = requireAuth(async (request: NextRequest, user, context: Rou
       );
     }
 
-    // Update status using storage utils
-    // TODO: Replace with database UPDATE operation
-    updateStream(stream.id, { status });
-    
-    // Get updated stream
-    const updatedStream = getStreamById(stream.id);
+    // Update status
+    const { data: updatedStream, error: updateError } = await supabase
+      .from('streams')
+      .update({ 
+        status,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', stream.id)
+      .select()
+      .single();
+
+    if (updateError) {
+      console.error('[PATCH /api/streams/:id] Error:', updateError);
+      return NextResponse.json(
+        { error: 'Failed to update stream status' },
+        { status: 500 }
+      );
+    }
 
     return NextResponse.json(
       { stream: updatedStream },
       { status: 200 }
     );
   } catch (error) {
-    console.error('Error updating stream status:', error);
+    console.error('[PATCH /api/streams/:id] Error:', error);
     return NextResponse.json(
       { 
         error: 'Failed to update stream status',
@@ -376,5 +424,4 @@ export const PATCH = requireAuth(async (request: NextRequest, user, context: Rou
       { status: 500 }
     );
   }
-});
-
+}

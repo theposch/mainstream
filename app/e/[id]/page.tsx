@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { readAssets } from "@/lib/utils/assets-storage";
+import { createClient } from "@/lib/supabase/server";
 import { AssetDetail } from "@/components/assets/asset-detail";
 
 interface AssetPageProps {
@@ -8,38 +8,30 @@ interface AssetPageProps {
   }>;
 }
 
-// TODO: Convert to async server component and fetch from database
-// async function getAsset(id: string) {
-//   const asset = await db.query.assets.findFirst({
-//     where: eq(assets.id, id),
-//     with: {
-//       uploader: true,
-//       project: true,
-//       likes: true,
-//       comments: {
-//         with: { user: true },
-//         orderBy: desc(comments.createdAt)
-//       }
-//     }
-//   });
-//   return asset;
-// }
-
 export default async function AssetPage({ params }: AssetPageProps) {
-  // Next.js 15+ requires awaiting params
   const { id } = await params;
   
-  // Read assets from persistent storage
-  const assets = readAssets();
+  // Validate UUID format to prevent invalid queries
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  if (!uuidRegex.test(id)) {
+    console.log(`[Asset Detail] Invalid ID format: ${id}`);
+    notFound();
+  }
   
-  // Handle "copy" IDs from our mock data duplication trick
-  const cleanId = id.replace(/-copy-\d+$/, '');
+  const supabase = await createClient();
   
-  // Find the asset by ID
-  const asset = assets.find((a) => a.id === cleanId || a.id === id);
+  // Fetch asset from Supabase with uploader information
+  const { data: asset, error } = await supabase
+    .from('assets')
+    .select(`
+      *,
+      uploader:users!uploader_id(*)
+    `)
+    .eq('id', id)
+    .single();
 
-  if (!asset) {
-    console.log(`[Asset Detail] Asset not found: ${id} (cleaned: ${cleanId})`);
+  if (error || !asset) {
+    console.log(`[Asset Detail] Asset not found: ${id}`, error);
     notFound();
   }
   

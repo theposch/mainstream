@@ -1,661 +1,387 @@
-# Backend Integration Checklist
+# Backend Integration Status
 
-This document outlines all the areas that need to be replaced with real backend functionality when moving from mock data to production.
+Current status of Cosmos backend integration with Supabase.
 
-> **Frontend Status**: 99% complete with polished UI, API structure ready, auth middleware, create flows functional, and production-ready code. Zero known bugs.
+## Overview
 
-> **API Status**: ✅ 3 routes functional | ✅ Auth middleware ready | ✅ Error handling complete | ✅ Full accessibility
+✅ **Complete** - All backend integration is finished and functional.
 
-> **Recent Updates (v1.6.0)**: ✅ Color search with visual picker | ✅ Similarity matching algorithm | ✅ Hex input | ✅ Sorted results
+**Tech Stack:**
+- PostgreSQL via Supabase (self-hosted Docker)
+- Supabase Auth (email/password)
+- Supabase Storage (S3-compatible)
+- Supabase Realtime (WebSocket subscriptions)
 
-> **Previous (v1.5.0)**: ✅ Enhanced user profiles | ✅ Tab navigation | ✅ Scroll preservation | ✅ Streamlined UX | ✅ Bug fixes
+## Completed Features
 
----
+### ✅ Authentication
+- Email/password signup and login
+- Session management with middleware
+- Protected API routes
+- Client and server auth utilities
+- Auto-confirmation for local dev
 
-## 🔐 1. Authentication & Authorization
+**Files:**
+- `lib/supabase/client.ts` - Browser client
+- `lib/supabase/server.ts` - Server client + admin client
+- `lib/auth/get-user.ts` - Server-side user fetching
+- `lib/auth/use-user.ts` - Client-side user hook
+- `middleware.ts` - Session refresh
+- `app/auth/signup/page.tsx` - Signup page
+- `app/auth/login/page.tsx` - Login page
 
-### ✅ Completed:
-- ✅ `lib/auth/middleware.ts` - Auth middleware with authentication, authorization, rate limiting
-- ✅ Protected API routes - All routes use `authenticate()` middleware
-- ✅ Role-based access control structure ready
-- ✅ Rate limiting implemented (50 requests per 15 minutes)
-- ✅ Permission checks ready for implementation
+### ✅ Database Schema
+All tables created with Row Level Security:
+- `users` - User profiles
+- `streams` - Organizational units
+- `assets` - Uploaded designs
+- `asset_streams` - Many-to-many asset-stream relationships
+- `asset_likes` - Like tracking
+- `asset_comments` - Comments with threading
+- `comment_likes` - Comment likes
+- `user_follows` - Following relationships
+- `notifications` - Activity feed
 
-### Files to Update (Connect to Real Provider):
-- `lib/auth/middleware.ts` - Replace mock auth with real provider
-- `lib/mock-data/users.ts` - Keep as seed data, remove `currentUser`
-- `components/layout/user-menu.tsx` - Connect to real sign-out
-- `components/layout/workspace-switcher.tsx` - Get user's teams from session
+**Migration Files:**
+- `scripts/migrations/001_initial_schema.sql`
+- `scripts/migrations/002_seed_data.sql`
+- `scripts/migrations/007_add_comment_likes.sql`
 
-### Remaining Implementation Tasks:
-- [ ] Choose auth provider (NextAuth.js, Clerk, Auth0, Supabase Auth)
-- [ ] Set up authentication routes (`/signin`, `/signup`, `/forgot-password`)
-- [ ] Connect middleware to real session provider
-- [ ] Create auth context provider for client components
-- [ ] Update `authenticate()` to use real session tokens
-- [ ] Add "Sign In" prompt for unauthenticated users
+### ✅ Storage
+Configured buckets:
+- `assets` - Uploaded images (public, 50MB limit)
+- `avatars` - User avatars (public, 5MB limit)
 
-**Time Estimate**: 2-3 days (down from 1-2 weeks!)
+Storage policies allow:
+- Public read access
+- Authenticated user uploads
+- Owner deletion
 
-### API Routes Needed:
+### ✅ API Routes
+
+#### Assets
+- `GET /api/assets` - List assets with pagination
+- `POST /api/assets/upload` - Upload new asset
+- `GET /api/assets/following` - Assets from followed users
+- `POST /api/assets/[id]/like` - Like asset
+- `DELETE /api/assets/[id]/like` - Unlike asset
+- `GET /api/assets/[id]/comments` - Get comments
+- `POST /api/assets/[id]/comments` - Add comment
+
+#### Comments
+- `PUT /api/comments/[id]` - Update comment
+- `DELETE /api/comments/[id]` - Delete comment
+- `POST /api/comments/[id]/like` - Like comment
+- `DELETE /api/comments/[id]/like` - Unlike comment
+
+#### Streams
+- `GET /api/streams` - List streams
+- `POST /api/streams` - Create stream
+- `GET /api/streams/[id]` - Get stream details
+- `PUT /api/streams/[id]` - Update stream
+- `DELETE /api/streams/[id]` - Delete stream
+
+#### Users
+- `GET /api/users/[username]` - Get user profile
+- `POST /api/users/[username]/follow` - Follow user
+- `DELETE /api/users/[username]/follow` - Unfollow user
+- `PUT /api/users/me` - Update current user
+
+#### Other
+- `GET /api/search` - Search assets, users, streams
+- `GET /api/notifications` - Get notifications
+- `PUT /api/notifications` - Mark as read
+
+### ✅ Data Migration
+All components migrated from mock data to Supabase:
+- ✅ Home feed
+- ✅ Asset detail pages
+- ✅ Stream pages
+- ✅ User profiles
+- ✅ Search functionality
+- ✅ Notifications
+- ✅ Comments system
+- ✅ Like system
+- ✅ Following feed
+
+Mock data files deleted:
+- ~~`lib/mock-data/`~~ (removed)
+- ~~`lib/utils/assets-storage.ts`~~ (removed)
+- ~~`lib/utils/stream-storage.ts`~~ (removed)
+
+### ✅ Real-time Features
+Implemented with Supabase Realtime:
+- Asset likes update instantly
+- Comment likes sync across tabs
+- New comments appear in real-time
+- Notification badges update live
+
+**Hooks:**
+- `lib/hooks/use-asset-like.ts`
+- `lib/hooks/use-comment-like.ts`
+- `lib/hooks/use-asset-comments.ts`
+- `lib/hooks/use-notifications.ts`
+
+### ✅ Performance Optimizations
+- Cursor-based pagination for infinite scroll
+- Optimistic UI updates for likes and comments
+- JOIN queries to avoid N+1 problems
+- Database indexes on foreign keys
+- Memoized components with React.memo
+
+## Architecture Decisions
+
+### Why Supabase?
+- PostgreSQL (proven, scalable)
+- Built-in auth (no custom implementation)
+- Built-in storage (S3-compatible)
+- Real-time subscriptions (WebSocket)
+- Self-hosted option (Docker)
+- Compatible with cloud version
+
+### Why Self-Hosted?
+- Full control over data
+- Free for development
+- Easy to deploy to company servers
+- Same APIs as Supabase Cloud
+
+### Data Layer Patterns
+
+#### Server Components (Default)
+```typescript
+import { createClient } from "@/lib/supabase/server";
+
+export default async function Page() {
+  const supabase = await createClient();
+  const { data } = await supabase.from('assets').select('*');
+  return <div>{/* Render data */}</div>;
+}
 ```
-POST   /api/auth/signin
-POST   /api/auth/signup
-POST   /api/auth/signout
-POST   /api/auth/forgot-password
-GET    /api/auth/session
-```
 
----
+#### Client Components (When Needed)
+```typescript
+'use client';
+import { useEffect, useState } from 'react';
+import { createClient } from "@/lib/supabase/client";
 
-## 💾 2. Database Schema & Setup
-
-### Database Tables Needed:
-
-#### Users Table
-```sql
-CREATE TABLE users (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  username TEXT UNIQUE NOT NULL,
-  display_name TEXT NOT NULL,
-  email TEXT UNIQUE NOT NULL,
-  avatar_url TEXT,
-  bio TEXT,
-  created_at TIMESTAMP DEFAULT NOW(),
-  updated_at TIMESTAMP DEFAULT NOW()
-);
-```
-
-#### Teams Table
-```sql
-CREATE TABLE teams (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  name TEXT NOT NULL,
-  slug TEXT UNIQUE NOT NULL,
-  description TEXT,
-  avatar_url TEXT,
-  created_at TIMESTAMP DEFAULT NOW(),
-  updated_at TIMESTAMP DEFAULT NOW()
-);
-```
-
-#### Team Members Table
-```sql
-CREATE TABLE team_members (
-  team_id UUID REFERENCES teams(id) ON DELETE CASCADE,
-  user_id UUID REFERENCES users(id) ON DELETE CASCADE,
-  role TEXT NOT NULL CHECK (role IN ('owner', 'admin', 'member', 'viewer')),
-  joined_at TIMESTAMP DEFAULT NOW(),
-  PRIMARY KEY (team_id, user_id)
-);
-```
-
-#### Streams Table
-```sql
-CREATE TABLE streams (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  name TEXT NOT NULL UNIQUE,  -- Slug format: lowercase, hyphens, alphanumeric only (e.g., "ios-app", "growth-team")
-  description TEXT,
-  cover_image_url TEXT,
-  owner_type TEXT NOT NULL CHECK (owner_type IN ('user', 'team')),
-  owner_id UUID NOT NULL,
-  is_private BOOLEAN DEFAULT FALSE,
-  status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'archived')),
-  created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
-  updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+export function Component() {
+  const [data, setData] = useState([]);
   
-  -- Ensure name is valid slug format
-  CONSTRAINT valid_stream_name 
-    CHECK (name ~ '^[a-z0-9]+(?:-[a-z0-9]+)*$'),
-  CONSTRAINT stream_name_length 
-    CHECK (char_length(name) BETWEEN 2 AND 50)
-);
-
--- Index for fast slug lookups
-CREATE UNIQUE INDEX idx_streams_name ON streams(name);
-
--- Index for owner lookups
-CREATE INDEX idx_streams_owner ON streams(owner_type, owner_id) WHERE status = 'active';
+  useEffect(() => {
+    const supabase = createClient();
+    supabase.from('assets').select('*').then(({ data }) => setData(data));
+  }, []);
+  
+  return <div>{/* Render data */}</div>;
+}
 ```
 
-#### Assets Table
-```sql
-CREATE TABLE assets (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  title TEXT NOT NULL,
-  type TEXT NOT NULL CHECK (type IN ('image', 'video', 'link')),
-  url TEXT NOT NULL,
-  thumbnail_url TEXT,
-  project_id UUID REFERENCES projects(id) ON DELETE CASCADE,
-  uploader_id UUID REFERENCES users(id),
-  width INTEGER,
-  height INTEGER,
-  file_size BIGINT,
-  mime_type TEXT,
-  dominant_color TEXT,
-  color_palette TEXT[],     -- Array of hex colors (extracted automatically)
-  created_at TIMESTAMP DEFAULT NOW(),
-  updated_at TIMESTAMP DEFAULT NOW()
-);
+#### API Routes
+```typescript
+import { createClient } from "@/lib/supabase/server";
 
--- Index for color search (using GIN index for array search)
-CREATE INDEX idx_assets_color_palette ON assets USING GIN (color_palette);
+export async function GET(request: Request) {
+  const supabase = await createClient();
+  const { data, error } = await supabase.from('assets').select('*');
+  if (error) return Response.json({ error }, { status: 500 });
+  return Response.json({ data });
+}
 ```
 
-#### Asset Likes Table
-```sql
-CREATE TABLE asset_likes (
-  asset_id UUID REFERENCES assets(id) ON DELETE CASCADE,
-  user_id UUID REFERENCES users(id) ON DELETE CASCADE,
-  created_at TIMESTAMP DEFAULT NOW(),
-  PRIMARY KEY (asset_id, user_id)
-);
+## Database Design
+
+### Relationships
+
+```
+users (1) ----< (many) streams
+users (1) ----< (many) assets
+streams (many) >----< (many) assets  [via asset_streams]
+users (many) >----< (many) users     [via user_follows]
+assets (1) ----< (many) asset_likes
+assets (1) ----< (many) asset_comments
+comments (1) ----< (many) comment_likes
 ```
 
-#### Asset Comments Table
-```sql
-CREATE TABLE asset_comments (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  asset_id UUID REFERENCES assets(id) ON DELETE CASCADE,
-  user_id UUID REFERENCES users(id),
-  content TEXT NOT NULL,
-  parent_id UUID REFERENCES asset_comments(id) ON DELETE CASCADE,
-  created_at TIMESTAMP DEFAULT NOW(),
-  updated_at TIMESTAMP DEFAULT NOW()
-);
+### Indexing Strategy
+
+Indexes on:
+- All foreign keys (automatic with FK constraints)
+- `users.username` (for profile lookups)
+- `streams.name` (for slug lookups)
+- `assets.created_at` (for chronological feeds)
+- `asset_streams.stream_id` (for stream pages)
+
+### RLS Policies
+
+**Public Read:**
+- Assets, streams, user profiles
+
+**Authenticated Write:**
+- Create assets, streams, comments
+- Like assets and comments
+- Follow users
+
+**Owner Only:**
+- Update/delete own assets
+- Update/delete own comments
+- Update own profile
+
+## Testing
+
+### Local Development
+```bash
+# Start Supabase
+cd supabase-docker && docker-compose up -d
+
+# Start Next.js
+npm run dev
+
+# Access
+# - App: http://localhost:3000
+# - Studio: http://localhost:8000
 ```
 
-#### User Follows Table
-```sql
-CREATE TABLE user_follows (
-  follower_id UUID REFERENCES users(id) ON DELETE CASCADE,
-  following_id UUID REFERENCES users(id) ON DELETE CASCADE,
-  created_at TIMESTAMP DEFAULT NOW(),
-  PRIMARY KEY (follower_id, following_id)
-);
+### Database Queries
+```bash
+# Connect to PostgreSQL
+docker-compose exec db psql -U postgres
+
+# Example queries
+SELECT COUNT(*) FROM assets;
+SELECT COUNT(*) FROM users;
+SELECT * FROM asset_streams;
 ```
 
----
+### API Testing
+```bash
+# Test auth
+curl -X POST http://localhost:3000/api/auth/signup \
+  -H "Content-Type: application/json" \
+  -d '{"email":"test@example.com","password":"password123"}'
 
-## 📁 3. File Upload & Storage
+# Test assets
+curl http://localhost:3000/api/assets?limit=10
 
-### ✅ Completed (v2.0 - Complete Rebuild):
-- ✅ `components/layout/upload-dialog.tsx` - Clean drag-drop UI (single file)
-- ✅ `components/layout/create-dialog.tsx` - Wired up upload dialog
-- ✅ `components/ui/textarea.tsx` - Description field component
-- ✅ `app/api/assets/upload/route.ts` - Full upload API with multipart/form-data
-- ✅ `app/api/assets/route.ts` - GET endpoint with sorting (newest first)
-- ✅ `lib/utils/assets-storage.ts` - **Persistent JSON storage for metadata**
-- ✅ `lib/utils/file-storage.ts` - **Filesystem operations**
-- ✅ `lib/utils/image-processing.ts` - **Sharp image optimization**
-- ✅ **Three image sizes**: full, medium (800px), thumbnail (300px)
-- ✅ **Progressive loading**: thumbnail → medium/full
-- ✅ **Local file storage**: `public/uploads/` with subdirectories
-- ✅ **Persistent metadata**: `data/assets.json` (survives restarts)
-- ✅ File type and size validation (10MB max)
-- ✅ Image dimension extraction
-- ✅ Color extraction integration (5 colors + dominant)
-- ✅ Input sanitization (XSS prevention)
-- ✅ **Auto-populated title** from filename
-- ✅ **Optional description field**
-- ✅ Unique filename generation (timestamp + UUID)
-- ✅ Rate limiting (20 uploads per minute)
-
-### How It Works Now:
-1. User uploads image via drag-and-drop
-2. Server processes with Sharp (optimizes + 3 sizes)
-3. Files saved to `public/uploads/{full|medium|thumbnails}/`
-4. Metadata saved to `data/assets.json` (persistent!)
-5. Page reloads, new image appears at top
-
-### Files Using Persistent Storage:
-- ✅ `app/api/assets/route.ts` - Reads from JSON storage
-- ✅ `app/api/assets/upload/route.ts` - Writes to JSON storage
-- ✅ `app/e/[id]/page.tsx` - Asset detail page
-- ✅ `app/home/page.tsx` - Home feed (via API)
-- ✅ `app/library/page.tsx` - Library page
-- ✅ `app/project/[id]/page.tsx` - Project assets
-- ⬜ `app/u/[username]/page.tsx` - Still uses in-memory (TODO)
-- ⬜ `app/t/[slug]/page.tsx` - Still uses in-memory (TODO)
-
-### Database Migration Path:
-Replace `lib/utils/assets-storage.ts` with database queries:
-- `readAssets()` → `SELECT * FROM assets ORDER BY created_at DESC`
-- `addAsset()` → `INSERT INTO assets VALUES (...)`
-- `deleteAsset()` → `DELETE FROM assets WHERE id = ?`
-
-See `/docs/IMAGE_UPLOAD.md` for complete migration guide.
-
-### Cloud Storage Migration (Future):
-- [ ] Choose provider (AWS S3, Cloudflare R2, Supabase Storage)
-- [ ] Set up signed upload URLs for security
-- [ ] Update `lib/utils/file-storage.ts` to use cloud SDK
-- [ ] Configure CDN for fast delivery
-- [ ] Update URLs in responses to use CDN
-
-**Time Estimate**: 2-3 days for database + 1-2 days for cloud storage
-
-### API Routes Implemented:
-```
-GET    /api/assets                 # ✅ Get all assets (sorted, cached disabled)
-POST   /api/assets/upload          # ✅ Upload with multipart/form-data
-GET    /api/assets/upload          # ✅ Get upload requirements/limits
-DELETE /api/assets/:id             # ⬜ TODO - Delete asset and files
+# Test search
+curl http://localhost:3000/api/search?q=design&type=assets
 ```
 
-### Environment Variables (For Future Cloud Storage):
+## Security
+
+### Environment Variables
+Never commit `.env.local`:
 ```env
-S3_BUCKET_NAME=
-S3_REGION=
-S3_ACCESS_KEY_ID=
-S3_SECRET_ACCESS_KEY=
-CDN_URL=
+NEXT_PUBLIC_SUPABASE_URL=http://localhost:8000
+NEXT_PUBLIC_SUPABASE_ANON_KEY=safe_in_browser
+SUPABASE_SERVICE_ROLE_KEY=NEVER_expose_to_browser
 ```
 
----
+### RLS Best Practices
+- Always enable RLS on public tables
+- Use `auth.uid()` in policies
+- Test policies in Supabase Studio
+- Use admin client to bypass RLS when needed
 
-## 🔍 4. Search Functionality
-
-### ✅ Completed (Frontend):
-- ✅ React Context for global search state (`lib/contexts/search-context.tsx`)
-- ✅ Real-time filtering with debounce (300ms)
-- ✅ Auto-suggest dropdown with thumbnails (`components/layout/search-suggestions.tsx`)
-- ✅ Keyboard navigation (Arrow Up/Down, Enter, Escape, Cmd/Ctrl+K)
-- ✅ Recent searches with localStorage persistence
-- ✅ URL parameters for shareable search links
-- ✅ Dedicated search results page (`app/search/page.tsx`)
-- ✅ Multi-type search (assets, projects, users, teams)
-- ✅ Custom hooks: `useDebounce`, `useKeyboardShortcut`, `useClickOutside`
-- ✅ Performance optimized with Map lookups and memoization
-
-### Files Implemented:
-- `lib/contexts/search-context.tsx` - Global search state
-- `lib/hooks/use-debounce.ts` - Debounce hook
-- `lib/hooks/use-keyboard-shortcut.ts` - Keyboard shortcuts
-- `lib/hooks/use-click-outside.ts` - Click outside detection
-- `lib/utils/search.ts` - Search utility functions
-- `lib/utils/color.ts` - **Color matching & distance utilities** (v1.6.0)
-- `lib/constants/search.ts` - Search constants
-- `components/layout/search-bar.tsx` - Search input with context
-- `components/layout/color-search-dialog.tsx` - **Color picker popover** (v1.6.0)
-- `components/layout/search-suggestions.tsx` - Auto-suggest dropdown
-- `components/search/search-results.tsx` - Search results page
-- `components/search/search-results-tabs.tsx` - Results tabs
-- `components/search/search-empty-state.tsx` - Empty state
-- `components/dashboard/feed.tsx` - Real-time filtering on home page
-- `app/search/page.tsx` - Search results route
-
-### Implementation Tasks (Backend):
-- [ ] Choose search provider (Algolia, Meilisearch, PostgreSQL full-text)
-- [ ] Index assets, projects, users, and teams
-- [ ] Replace in-memory search with database queries
-- [ ] Add search filters (date range, color, tags)
-- [ ] Implement color-based search (using extracted colors)
-- [ ] Add reverse image search (AI vision API)
-- [ ] Track search analytics
-- [ ] Add search history sync across devices (if logged in)
-
-### API Routes Needed:
-```
-GET    /api/search?q={query}&type={assets|projects|users|teams}&page={page}
-GET    /api/search/suggestions?q={query}    # Already has frontend logic
-POST   /api/search/image                    # Upload image to search by similarity
-GET    /api/search?color={hex}              # Search by color (frontend complete, backend pending)
-                                         # Current: Uses Euclidean distance in RGB space
-                                         # Backend: Consider PostgreSQL cube extension or vector search
-GET    /api/search/recent                   # Sync recent searches (if logged in)
+### API Route Protection
+```typescript
+const user = await getCurrentUser();
+if (!user) {
+  return Response.json({ error: 'Unauthorized' }, { status: 401 });
+}
 ```
 
----
+## Monitoring
 
-## 🏠 5. Home Feed & Discovery
+### Logs
+```bash
+# Supabase logs
+cd supabase-docker
+docker-compose logs -f
 
-### Files to Update:
-- `app/home/page.tsx` - Fetch real feed data
-- `components/dashboard/feed.tsx` - Implement tab switching logic
-- `app/library/page.tsx` - Fetch featured/trending content
-
-### Implementation Tasks:
-- [ ] Create feed algorithm (Recent: chronological, Following: personalized)
-- [ ] Implement pagination or infinite scroll
-- [ ] Add feed filtering by workspace
-- [ ] Calculate trending items (based on likes, views, recency)
-- [ ] Implement featured content curation
-- [ ] Add category filtering
-- [ ] Cache feed results for performance
-
-### API Routes Needed:
-```
-GET    /api/feed/recent?page={page}&workspace={id}
-GET    /api/feed/following?page={page}
-GET    /api/discover/featured
-GET    /api/discover/trending?category={cat}&timeframe={7d|30d}
+# Specific service
+docker-compose logs -f db
+docker-compose logs -f auth
+docker-compose logs -f storage
 ```
 
----
+### Database Performance
+```sql
+-- Check slow queries
+SELECT * FROM pg_stat_statements 
+ORDER BY total_exec_time DESC LIMIT 10;
 
-## 💬 6. Comments & Interactions
-
-### ✅ Completed (Frontend):
-- ✅ Full comment CRUD (Create, Read, Update, Delete)
-- ✅ Threaded replies with visual indicators
-- ✅ Comment likes with toggle functionality
-- ✅ Edit mode with inline editing
-- ✅ Immediate deletion (streamlined UX, no confirmation dialog)
-- ✅ Auto-expanding textarea
-- ✅ Character limit with live counter
-- ✅ Relative timestamps ("2h ago")
-- ✅ Optimistic UI updates
-- ✅ @mention support in UI
-
-### Files to Update (Connect to Database):
-- `components/assets/asset-detail-desktop.tsx` - Connect to real API
-- `components/assets/asset-detail-mobile.tsx` - Connect to real API
-- `components/assets/use-asset-detail.ts` - Replace mock with API calls
-- `components/assets/element-card.tsx` - Implement real like functionality
-
-### Remaining Implementation Tasks:
-- [ ] Create comment submission API
-- [ ] Fetch comments with pagination from database
-- [ ] Persist comment edits to database
-- [ ] Persist comment deletions to database
-- [ ] Add real-time updates (WebSockets or polling)
-- [ ] Implement like/unlike API endpoints
-- [ ] Track like counts in database
-- [ ] Show who liked an asset
-- [ ] Implement @mention notifications
-
-### API Routes Needed:
-```
-GET    /api/assets/:id/comments?page={page}
-POST   /api/assets/:id/comments
-PUT    /api/comments/:id
-DELETE /api/comments/:id
-
-POST   /api/assets/:id/like
-DELETE /api/assets/:id/like
-GET    /api/assets/:id/likes       # Get list of users who liked
-GET    /api/assets/:id/likes/count
+-- Check table sizes
+SELECT schemaname, tablename, 
+       pg_size_pretty(pg_total_relation_size(schemaname||'.'||tablename)) AS size
+FROM pg_tables
+WHERE schemaname = 'public'
+ORDER BY pg_total_relation_size(schemaname||'.'||tablename) DESC;
 ```
 
----
+## Future Enhancements
 
-## 👥 7. Projects & Collections
+### Optional Additions
+- [ ] OAuth providers (Google, GitHub, etc.)
+- [ ] Password reset flow
+- [ ] Email notifications
+- [ ] Advanced search filters
+- [ ] Bulk asset operations
+- [ ] Stream permissions (public/private members)
+- [ ] Asset versioning
+- [ ] Activity analytics
 
-### ✅ Completed:
-- ✅ `components/layout/create-project-dialog.tsx` - Full project creation form
-- ✅ `app/api/projects/route.ts` - Projects CRUD API ready
-- ✅ `components/layout/create-dialog.tsx` - Wired up project dialog
-- ✅ Project creation with validation
-- ✅ Project privacy settings (public/private toggle)
-- ✅ Workspace selection (user/team)
-- ✅ Input sanitization
-- ✅ Error handling
+### Scalability Considerations
+- Add read replicas for high traffic
+- Implement caching layer (Redis)
+- CDN for static assets
+- Database connection pooling
+- Rate limiting on API routes
 
-### Files to Update (Connect to Database):
-- `app/api/projects/route.ts` - Replace mock array with database
-- `app/project/[id]/page.tsx` - Fetch from database
-- `components/projects/project-header.tsx` - Add real member management
-- `lib/mock-data/projects.ts` - Can keep as seed data
+## Troubleshooting
 
-### Remaining Implementation Tasks:
-- [ ] Connect to database for persistence
-- [ ] Add member invites
-- [ ] Implement role-based permissions
-- [ ] Add/remove assets from projects
-- [ ] Edit project details
-- [ ] Delete projects
-- [ ] Show project statistics (asset count, member count)
+### Connection Issues
+```bash
+# Check Docker
+docker ps
 
-**Time Estimate**: 1-2 weeks (structure ready!)
+# Restart services
+cd supabase-docker
+docker-compose restart
 
-### API Routes Needed:
-```
-GET    /api/projects/:id             # Needs database connection
-POST   /api/projects                 # ✅ IMPLEMENTED - Ready for database
-PUT    /api/projects/:id
-DELETE /api/projects/:id
-
-GET    /api/projects/:id/members
-POST   /api/projects/:id/members      # Invite member
-DELETE /api/projects/:id/members/:userId
-
-POST   /api/projects/:id/assets       # Add asset to project
-DELETE /api/projects/:id/assets/:assetId
+# View logs
+docker-compose logs -f db
 ```
 
----
+### Auth Issues
+```bash
+# Verify auto-confirm is enabled
+docker-compose exec auth env | grep AUTOCONFIRM
 
-## 👤 8. User Profiles
-
-### ✅ Completed (Frontend):
-- ✅ `app/u/[username]/page.tsx` - Enhanced profile page with tabs
-- ✅ `components/users/user-profile-header.tsx` - Profile header component
-- ✅ `components/users/user-profile-tabs.tsx` - Tab navigation component
-- ✅ Tab navigation (Shots, Projects, Liked)
-- ✅ Scroll position preservation across tabs
-- ✅ URL synchronization for shareable links
-- ✅ Lazy loading for tab content
-- ✅ Enhanced empty states with CTAs
-
-### Files to Update (Connect to Database):
-- `app/u/[username]/page.tsx` - Fetch real user data from database
-- `components/layout/user-menu.tsx` - Add profile navigation
-- `lib/mock-data/users.ts` - Can keep as seed data
-
-### Remaining Implementation Tasks:
-- [ ] Fetch user profile data from database
-- [ ] Implement follow/unfollow functionality
-- [ ] Show follower/following counts
-- [ ] Add profile editing (name, bio, avatar, job title)
-- [ ] Implement privacy settings
-- [ ] Show user activity stats
-- [ ] Paginate liked assets and projects
-
-### API Routes Needed:
-```
-GET    /api/users/:username
-PUT    /api/users/:id              # Update profile
-GET    /api/users/:id/projects
-GET    /api/users/:id/followers
-GET    /api/users/:id/following
-POST   /api/users/:id/follow
-DELETE /api/users/:id/follow
+# Should show: GOTRUE_MAILER_AUTOCONFIRM=true
 ```
 
----
+### Database Issues
+```sql
+-- Check if tables exist
+\dt
 
-## 🏢 9. Teams
+-- Check RLS policies
+SELECT * FROM pg_policies WHERE tablename = 'assets';
 
-### Files to Update:
-- `app/t/[slug]/page.tsx` - Fetch team data
-- `components/layout/workspace-switcher.tsx` - Create teams
-
-### Implementation Tasks:
-- [ ] Fetch team details
-- [ ] Show team projects
-- [ ] Implement team member management
-- [ ] Add member roles (owner, admin, member, viewer)
-- [ ] Create team invites via email
-- [ ] Edit team details
-- [ ] Delete teams (owner only)
-- [ ] Show team activity
-
-### API Routes Needed:
-```
-GET    /api/teams/:slug
-POST   /api/teams
-PUT    /api/teams/:id
-DELETE /api/teams/:id
-
-GET    /api/teams/:id/members
-POST   /api/teams/:id/invite        # Send invite email
-PUT    /api/teams/:id/members/:userId/role
-DELETE /api/teams/:id/members/:userId
+-- Disable RLS for debugging (dev only!)
+ALTER TABLE assets DISABLE ROW LEVEL SECURITY;
 ```
 
----
+## Resources
 
-## 🎨 10. Advanced Features
+- Supabase Studio: http://localhost:8000
+- Supabase Docs: https://supabase.com/docs
+- PostgreSQL Docs: https://www.postgresql.org/docs/
+- Next.js Docs: https://nextjs.org/docs
 
-### Color Extraction ✅ Completed
-- ✅ Implemented using `get-image-colors` library
-- ✅ Real color palettes extracted from all 18 assets
-- ✅ 5-color palettes per asset stored in mock data
-- ✅ Click-to-copy color swatches in UI
-- ✅ API route for real-time extraction (`/api/extract-colors`)
-- ✅ Batch processing scripts (`scripts/extract-asset-colors.ts`)
-- ✅ Comprehensive documentation (`docs/COLOR_EXTRACTION.md`)
+## Documentation
 
-**When backend is ready:**
-- [ ] Extract colors automatically on asset upload
-- [ ] Store colors in `assets` table (colorPalette field already in schema)
-- [ ] Implement color-based search using extracted palettes
-- [ ] Add color trend analytics
-
-### Image Processing
-- [ ] Generate multiple thumbnail sizes
-- [ ] Create WebP versions for performance
-- [ ] Implement lazy loading
-- [ ] Extract image metadata (EXIF, dimensions)
-
-### Analytics
-- [ ] Track asset views
-- [ ] Track search queries (search context ready)
-- [ ] Monitor popular content
-- [ ] Create analytics dashboard
-
-### Notifications
-- [ ] Comment replies
-- [ ] New followers
-- [ ] Project invites
-- [ ] Mentions
-
-### API Routes Needed:
-```
-POST   /api/extract-colors         # ✅ Already implemented (frontend)
-GET    /api/notifications
-PUT    /api/notifications/:id/read
-POST   /api/analytics/track
-POST   /api/analytics/search       # Track search queries
-```
-
----
-
-## 🔧 11. Configuration & Environment
-
-### Environment Variables Needed:
-```env
-# Database
-DATABASE_URL=postgresql://...
-
-# Authentication
-NEXTAUTH_URL=https://yourapp.com
-NEXTAUTH_SECRET=...
-
-# Storage
-S3_BUCKET_NAME=...
-S3_ACCESS_KEY_ID=...
-S3_SECRET_ACCESS_KEY=...
-
-# Search (Optional)
-ALGOLIA_APP_ID=...
-ALGOLIA_API_KEY=...
-
-# Email (for invites, notifications)
-SMTP_HOST=...
-SMTP_PORT=...
-SMTP_USER=...
-SMTP_PASSWORD=...
-```
-
----
-
-## 📝 12. Testing Checklist
-
-Before going to production:
-- [ ] Test all authentication flows
-- [ ] Test file uploads with large files
-- [ ] Test permissions (private projects, team access)
-- [ ] Test search with various queries
-- [ ] Test real-time features (if implemented)
-- [ ] Load test with concurrent users
-- [ ] Test on mobile devices
-- [ ] Test with slow network connections
-- [ ] Validate all forms
-- [ ] Test error handling
-
----
-
-## 🚀 13. Deployment Checklist
-
-- [ ] Set up production database
-- [ ] Configure CDN for assets
-- [ ] Set up error tracking (Sentry)
-- [ ] Configure monitoring (Vercel Analytics, Datadog)
-- [ ] Set up automated backups
-- [ ] Configure rate limiting
-- [ ] Set up SSL certificates
-- [ ] Configure CORS properly
-- [ ] Optimize images and assets
-- [ ] Set up CI/CD pipeline
-
----
-
-## 📚 Recommended Tech Stack
-
-- **Framework**: Next.js 15+ (App Router) - Currently on 15.1.5
-- **Database**: PostgreSQL (Supabase, Neon, Railway)
-- **ORM**: Drizzle ORM or Prisma
-- **Auth**: NextAuth.js, Clerk, or Supabase Auth
-- **Storage**: AWS S3, Cloudflare R2, or Supabase Storage
-- **Search**: Algolia, Meilisearch, or PostgreSQL full-text (frontend text + color search complete)
-- **Color Extraction**: get-image-colors (already integrated)
-- **Color Search**: Euclidean distance algorithm (frontend complete, consider PostgreSQL cube for backend)
-- **Realtime**: Supabase Realtime, Pusher, or Socket.io
-- **Email**: Resend, SendGrid, or AWS SES
-- **Deployment**: Vercel, Railway, or AWS
-
-> **Note**: Frontend is built with Next.js 15, which has breaking changes (e.g., `params` is now a Promise). All dynamic routes have been updated to handle this.
-
-> **Recent Additions**: Search functionality uses React Context and custom hooks. Color search (v1.6.0) uses visual picker with Euclidean distance matching. Color extraction uses `get-image-colors` with API route and batch scripts.
-
----
-
-## 📍 Priority Order (Updated for v1.3.0)
-
-1. **Phase 1 - Database Connection** (3-5 days)
-   - Set up PostgreSQL
-   - Create tables from SQL schemas
-   - Connect existing API routes to database
-   - Replace mock data with queries
-
-2. **Phase 2 - Connect Services** (5-7 days)
-   - Connect auth middleware to real provider
-   - Connect file upload to S3/R2
-   - Test create flows end-to-end
-   - Verify all security measures
-
-3. **Phase 3 - Core Features** (1-2 weeks)
-   - Complete remaining CRUD operations
-   - User profiles
-   - Teams management
-
-4. **Phase 4 - Social Features** (2-3 weeks)
-   - Likes & comments
-   - Following users
-   - Feed algorithm
-
-5. **Phase 5 - Discovery** (1-2 weeks)
-   - Backend search implementation
-   - Trending content
-   - Categories
-
-6. **Phase 6 - Polish** (1 week)
-   - Notifications
-   - Analytics
-   - Performance optimization
-   - Final testing
-
-**Total Estimate**: 6-8 weeks (down from 10-15 weeks!)
-
+- `docs/SUPABASE_SETUP.md` - Setup guide
+- `docs/STREAMS_FEATURE.md` - Streams deep dive
+- `docs/auth/` - Auth-specific docs
+- `scripts/migrations/` - Database migrations

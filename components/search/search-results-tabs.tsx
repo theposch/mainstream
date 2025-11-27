@@ -1,7 +1,7 @@
 import * as React from "react";
 import { cn } from "@/lib/utils";
 
-export type SearchTab = "all" | "assets" | "streams" | "users" | "teams";
+export type SearchTab = "all" | "assets" | "streams" | "users";
 
 interface SearchResultsTabsProps {
   activeTab: SearchTab;
@@ -11,7 +11,6 @@ interface SearchResultsTabsProps {
     assets: number;
     streams: number;
     users: number;
-    teams: number;
   };
 }
 
@@ -25,7 +24,6 @@ export function SearchResultsTabs({
     { id: "assets", label: "Assets" },
     { id: "streams", label: "Streams" },
     { id: "users", label: "Users" },
-    { id: "teams", label: "Teams" },
   ];
 
   return (

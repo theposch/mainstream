@@ -1,67 +1,61 @@
-// TODO: Replace with database queries
-import { assets } from "@/lib/mock-data/assets";
-import { assetStreams } from "@/lib/mock-data/streams";
+import { createClient } from "@/lib/supabase/server";
 import { StreamsGrid, StreamGridData } from "@/components/streams/streams-grid";
-import { getStreams } from "@/lib/utils/stream-storage";
 
-// TODO: Convert to async server component with real API calls
-// async function getStreamsData() {
-//   // GET /api/streams - Fetch all accessible streams
-//   const response = await fetch('/api/streams', {
-//     headers: { Authorization: `Bearer ${session.token}` }
-//   });
-//   
-//   const streams = await response.json();
-//   
-//   // For each stream, fetch stats and recent posts
-//   const enrichedStreams = await Promise.all(
-//     streams.map(async (stream) => {
-//       // GET /api/streams/:id/assets?limit=4
-//       const posts = await fetch(`/api/streams/${stream.id}/assets?limit=4`).then(r => r.json());
-//       
-//       return {
-//         ...stream,
-//         assetsCount: posts.total,
-//         recentPosts: posts.data,
-//       };
-//     })
-//   );
-//   
-//   return enrichedStreams;
-// }
+export default async function StreamsPage() {
+  const supabase = await createClient();
 
-export default function StreamsPage() {
-  // TODO: Replace with: const streamsData = await getStreamsData();
-  
-  // Get all streams (mock + persisted)
-  const allStreams = getStreams();
-  
-  // Aggregate data for each stream
-  const streamsData: StreamGridData[] = allStreams.map((stream) => {
-    // Get all asset IDs for this stream from the many-to-many relationship
-    const streamAssetIds = assetStreams
-      .filter((as) => as.streamId === stream.id)
-      .map((as) => as.assetId);
-    
-    // Get the actual assets
-    const streamAssets = assets.filter((asset) => streamAssetIds.includes(asset.id));
-    
-    // Get recent 4 posts (assets) for this stream
-    const recentPosts = streamAssets
-      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-      .slice(0, 4)
-      .map((asset) => ({
-        id: asset.id,
-        url: asset.url,
-        title: asset.title,
-      }));
-    
-    return {
-      ...stream,
-      assetsCount: streamAssets.length,
-      recentPosts: recentPosts,
-    };
-  });
+  // Fetch all active streams
+  const { data: streams, error } = await supabase
+    .from('streams')
+    .select('*')
+    .eq('status', 'active')
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    console.error('[Streams Page] Error fetching streams:', error);
+  }
+
+  const allStreams = streams || [];
+
+  // Enrich each stream with asset count and recent posts
+  const streamsData: StreamGridData[] = await Promise.all(
+    allStreams.map(async (stream) => {
+      // Get asset count for this stream
+      const { count: assetsCount } = await supabase
+        .from('asset_streams')
+        .select('*', { count: 'exact', head: true })
+        .eq('stream_id', stream.id);
+
+      // Get 4 most recent assets
+      const { data: assetRelations } = await supabase
+        .from('asset_streams')
+        .select(`
+          assets (
+            id,
+            url,
+            thumbnail_url,
+            title
+          )
+        `)
+        .eq('stream_id', stream.id)
+        .order('added_at', { ascending: false })
+        .limit(4);
+
+      const recentPosts = assetRelations?.map((rel: any) => ({
+        id: rel.assets?.id || '',
+        url: rel.assets?.thumbnail_url || rel.assets?.url || '',
+        title: rel.assets?.title || '',
+      })).filter(post => post.id) || [];
+
+      return {
+        ...stream,
+        assetsCount: assetsCount || 0,
+        recentPosts,
+      };
+    })
+  );
+
+  console.log(`[Streams Page] Loaded ${streamsData.length} streams from database`);
 
   return (
     <div className="w-full min-h-screen pb-20">
@@ -74,7 +68,16 @@ export default function StreamsPage() {
       </div>
 
       {/* Streams Grid */}
-      <StreamsGrid streams={streamsData} />
+      {streamsData.length > 0 ? (
+        <StreamsGrid streams={streamsData} />
+      ) : (
+        <div className="text-center py-20">
+          <p className="text-lg font-medium text-muted-foreground">No streams yet.</p>
+          <p className="text-sm text-muted-foreground mt-2">
+            Create your first stream to get started.
+          </p>
+        </div>
+      )}
     </div>
   );
 }

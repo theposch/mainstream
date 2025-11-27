@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useRouter } from "next/navigation";
 import {
   Dialog,
   DialogContent,
@@ -16,7 +17,7 @@ import { StreamPicker } from "@/components/streams/stream-picker";
 import { RichTextArea } from "@/components/ui/rich-text-area";
 import { StreamMentionDropdown } from "@/components/streams/stream-mention-dropdown";
 import { useStreamMentions } from "@/lib/hooks/use-stream-mentions";
-import { streams as allStreams } from "@/lib/mock-data/streams";
+import type { Stream } from "@/lib/types/database";
 
 interface UploadDialogProps {
   open: boolean;
@@ -24,6 +25,7 @@ interface UploadDialogProps {
 }
 
 export function UploadDialog({ open, onOpenChange }: UploadDialogProps) {
+  const router = useRouter();
   const [isLoading, setIsLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [isDragging, setIsDragging] = React.useState(false);
@@ -35,6 +37,9 @@ export function UploadDialog({ open, onOpenChange }: UploadDialogProps) {
   const [description, setDescription] = React.useState("");
   const [streamIds, setStreamIds] = React.useState<string[]>([]);
   
+  // Stream data
+  const [allStreams, setAllStreams] = React.useState<Stream[]>([]);
+  
   // Stream mentions state
   const [mentionQuery, setMentionQuery] = React.useState("");
   const [mentionPosition, setMentionPosition] = React.useState<{ top: number; left: number } | null>(null);
@@ -43,8 +48,37 @@ export function UploadDialog({ open, onOpenChange }: UploadDialogProps) {
 
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
+  // Fetch streams from API
+  React.useEffect(() => {
+    const fetchStreams = async () => {
+      try {
+        const res = await fetch('/api/streams');
+        if (res.ok) {
+          const data = await res.json();
+          setAllStreams(data.streams || []);
+        }
+      } catch (error) {
+        console.error('[UploadDialog] Failed to fetch streams:', error);
+      }
+    };
+    
+    if (open) {
+      fetchStreams();
+    }
+  }, [open]);
+
+  // Callback when a stream is created by auto-sync
+  const handleStreamCreated = React.useCallback((stream: Stream) => {
+    console.log('[UploadDialog] Stream created by auto-sync:', stream.name);
+    setAllStreams(prev => {
+      // Check if already exists to avoid duplicates
+      if (prev.find(s => s.id === stream.id)) return prev;
+      return [stream, ...prev];
+    });
+  }, []);
+
   // Sync hashtags in description with streams
-  useStreamMentions(description, allStreams, streamIds, setStreamIds);
+  useStreamMentions(description, allStreams, streamIds, setStreamIds, handleStreamCreated);
 
   // Reset form when dialog closes
   React.useEffect(() => {
@@ -160,7 +194,10 @@ export function UploadDialog({ open, onOpenChange }: UploadDialogProps) {
 
   // Handle stream selection from dropdown
   const handleStreamSelect = React.useCallback(async (streamName: string, isNew: boolean) => {
+    // Close dropdown FIRST to prevent re-triggering
     setShowMentionDropdown(false);
+    setMentionQuery("");
+    setMentionPosition(null);
 
     // Replace the hashtag text with the selected stream name
     if (replaceHashtagRef.current) {
@@ -177,34 +214,48 @@ export function UploadDialog({ open, onOpenChange }: UploadDialogProps) {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             name: streamName.replace(/^#/, ''), // Remove # prefix if present
-            ownerType: 'user',
-            isPrivate: false,
+            owner_type: 'user',
+            is_private: false,
           }),
         });
 
         if (response.ok) {
           const { stream } = await response.json();
-          // Add to localStorage for immediate availability
-          const { addStream } = await import('@/lib/utils/stream-storage');
-          addStream(stream);
+          // Add to local state (check for duplicates)
+          setAllStreams(prev => {
+            if (prev.find(s => s.id === stream.id)) return prev;
+            return [stream, ...prev];
+          });
+          // Add to selected streams
           setStreamIds(prev => [...new Set([...prev, stream.id])]);
+        } else if (response.status === 409) {
+          // Stream already exists, refresh list and find it
+          console.log('[UploadDialog] Stream already exists, refreshing list');
+          const refreshResponse = await fetch('/api/streams');
+          if (refreshResponse.ok) {
+            const { streams } = await refreshResponse.json();
+            setAllStreams(streams);
+            const existingStream = streams.find((s: Stream) => s.name === streamName.replace(/^#/, ''));
+            if (existingStream) {
+              setStreamIds(prev => [...new Set([...prev, existingStream.id])]);
+            }
+          }
         }
       } catch (error) {
-        console.error('Failed to create stream:', error);
+        console.error('[UploadDialog] Failed to create stream:', error);
       }
     } else {
-      // Find and add existing stream (use storage utils to include persisted streams)
-      const { getStreams } = await import('@/lib/utils/stream-storage');
-      const allAvailableStreams = getStreams();
-      const stream = allAvailableStreams.find(s => 
-        s.name.toLowerCase() === streamName.toLowerCase()
+      // Find and add existing stream
+      const stream = allStreams.find(s => 
+        s.name.toLowerCase() === streamName.toLowerCase() ||
+        s.name === streamName.replace(/^#/, '')
       );
       
       if (stream && !streamIds.includes(stream.id)) {
-        setStreamIds(prev => [...prev, stream.id]);
+        setStreamIds(prev => [...new Set([...prev, stream.id])]);
       }
     }
-  }, [streamIds]);
+  }, [streamIds, allStreams]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -263,18 +314,15 @@ export function UploadDialog({ open, onOpenChange }: UploadDialogProps) {
       console.log(`  - Asset ID: ${data.asset.id}`);
       console.log(`  - URLs created: full, medium, thumbnail`);
 
-      // Success!
+      // Success! Close dialog and navigate
       console.log('[UploadDialog] Closing dialog and refreshing...');
       onOpenChange(false);
       
-      // Force a hard reload to show the new upload immediately
-      console.log('[UploadDialog] Forcing page reload...');
-      window.location.href = '/home';
+      // Navigate using Next.js router for better UX
+      router.push('/home');
+      router.refresh(); // Revalidate server components
       
-      console.log('[UploadDialog] ✨ Complete! Page reloading...');
-      
-      // Optional: Navigate to the uploaded asset
-      // router.push(`/assets/${data.asset.id}`);
+      console.log('[UploadDialog] ✨ Complete!');
     } catch (err) {
       console.error('[UploadDialog] ❌ Upload error:', err);
       setError(err instanceof Error ? err.message : 'Failed to upload image');

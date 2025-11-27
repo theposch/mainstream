@@ -3,7 +3,7 @@
 import * as React from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Plus, FolderPlus, Upload, Link } from "lucide-react";
+import { Plus, FolderPlus, Upload } from "lucide-react";
 import { CreateStreamDialog } from "./create-stream-dialog";
 import { UploadDialog } from "./upload-dialog";
 
@@ -56,20 +56,6 @@ export function CreateDialog({ children }: { children: React.ReactNode }) {
               <div className="flex flex-col items-start">
                  <span className="font-semibold">Upload Files</span>
                  <span className="text-xs text-muted-foreground font-normal">Drag & drop images or videos</span>
-              </div>
-           </Button>
-           
-           {/* TODO: Implement Save from URL functionality in future */}
-           <Button 
-              variant="outline" 
-              className="h-14 justify-start px-4 border-border text-foreground bg-background opacity-50 cursor-not-allowed"
-              disabled
-              title="Coming soon"
-           >
-              <Link className="mr-4 h-6 w-6" />
-              <div className="flex flex-col items-start">
-                 <span className="font-semibold">Save from URL</span>
-                 <span className="text-xs text-muted-foreground font-normal">Coming soon</span>
               </div>
            </Button>
         </div>

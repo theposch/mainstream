@@ -8,15 +8,11 @@ import { SearchEmptyState } from "./search-empty-state";
 import { MasonryGrid } from "@/components/assets/masonry-grid";
 import { StreamGrid } from "@/components/streams/stream-grid";
 import { useSearch } from "@/lib/contexts/search-context";
-import { searchAll } from "@/lib/utils/search";
-import { assets } from "@/lib/mock-data/assets";
-import { streams } from "@/lib/mock-data/streams";
-import { users } from "@/lib/mock-data/users";
-import { teams } from "@/lib/mock-data/teams";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { X } from "lucide-react";
-import { findAssetsByColor, normalizeHex } from "@/lib/utils/color";
+import { X, Loader2 } from "lucide-react";
+import { normalizeHex, colorDistance, COLOR_MATCH_THRESHOLD } from "@/lib/utils/color";
+import type { Asset, Stream, User } from "@/lib/types/database";
 
 interface SearchResultsProps {
   initialQuery: string;
@@ -28,6 +24,18 @@ export function SearchResults({ initialQuery, initialColor }: SearchResultsProps
   const { query, setQuery, recentSearches, clearSearch, setSelectedColor } = useSearch();
   const [activeTab, setActiveTab] = React.useState<SearchTab>("all");
   const [colorFilter, setColorFilter] = React.useState<string | null>(null);
+  const [isLoading, setIsLoading] = React.useState(false);
+  const [results, setResults] = React.useState<{
+    assets: Asset[];
+    streams: Stream[];
+    users: User[];
+    total: number;
+  }>({
+    assets: [],
+    streams: [],
+    users: [],
+    total: 0,
+  });
 
   // Sync initial query and color from URL with context on mount only
   React.useEffect(() => {
@@ -42,26 +50,101 @@ export function SearchResults({ initialQuery, initialColor }: SearchResultsProps
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialQuery, initialColor]);
 
-  // Search results
-  const results = React.useMemo(() => {
-    // Use colorFilter if set, otherwise fall back to initialColor for first render
+  // Fetch search results from API
+  React.useEffect(() => {
     const activeColor = colorFilter || (initialColor ? normalizeHex(initialColor) : null);
     
-    if (activeColor) {
-      // Color search - only filter assets
-      const matchingAssetIds = findAssetsByColor(activeColor);
-      const matchingAssets = assets.filter(asset => matchingAssetIds.includes(asset.id));
-      
-      return {
-        assets: matchingAssets,
-        streams: [],
-        users: [],
-        teams: [],
-        total: matchingAssets.length,
-      };
+    // Don't search if no query and no color
+    if (!query.trim() && !activeColor) {
+      setResults({ assets: [], streams: [], users: [], total: 0 });
+      return;
     }
-    
-    return searchAll(query, { assets, streams, users, teams });
+
+    const fetchResults = async () => {
+      setIsLoading(true);
+      try {
+        if (activeColor) {
+          // Color search - fetch all assets and filter by color
+          const res = await fetch('/api/assets?limit=100');
+          const data = await res.json();
+          const allAssets = data.assets || [];
+          
+          // Filter by color similarity
+          const matchingAssets = allAssets.filter((asset: any) => {
+            let closestDistance = Infinity;
+            
+            // Check dominant color
+            if (asset.dominant_color) {
+              const distance = colorDistance(activeColor, asset.dominant_color);
+              if (distance < closestDistance) {
+                closestDistance = distance;
+              }
+            }
+            
+            // Check color palette
+            if (asset.color_palette && Array.isArray(asset.color_palette)) {
+              for (const color of asset.color_palette) {
+                const distance = colorDistance(activeColor, color);
+                if (distance < closestDistance) {
+                  closestDistance = distance;
+                }
+              }
+            }
+            
+            return closestDistance <= COLOR_MATCH_THRESHOLD;
+          });
+          
+          // Sort by closest match
+          matchingAssets.sort((a: any, b: any) => {
+            const getClosestDistance = (asset: any) => {
+              let closest = Infinity;
+              if (asset.dominant_color) {
+                closest = Math.min(closest, colorDistance(activeColor, asset.dominant_color));
+              }
+              if (asset.color_palette && Array.isArray(asset.color_palette)) {
+                for (const color of asset.color_palette) {
+                  closest = Math.min(closest, colorDistance(activeColor, color));
+                }
+              }
+              return closest;
+            };
+            return getClosestDistance(a) - getClosestDistance(b);
+          });
+          
+          setResults({
+            assets: matchingAssets,
+            streams: [],
+            users: [],
+            total: matchingAssets.length,
+          });
+        } else {
+          // Text search - use search API
+          const params = new URLSearchParams();
+          if (query.trim()) params.append('q', query.trim());
+          
+          const res = await fetch(`/api/search?${params}`);
+          const data = await res.json();
+          
+          const total = (data.assets?.length || 0) + 
+                       (data.streams?.length || 0) + 
+                       (data.users?.length || 0);
+          
+          setResults({
+            assets: data.assets || [],
+            streams: data.streams || [],
+            users: data.users || [],
+            total,
+          });
+        }
+      } catch (error) {
+        console.error('Search failed:', error);
+        setResults({ assets: [], streams: [], users: [], total: 0 });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchResults();
   }, [query, colorFilter, initialColor]);
 
   // Tab counts
@@ -70,7 +153,6 @@ export function SearchResults({ initialQuery, initialColor }: SearchResultsProps
     assets: results.assets.length,
     streams: results.streams.length,
     users: results.users.length,
-    teams: results.teams.length,
   };
 
   const handleClearColorFilter = () => {
@@ -84,6 +166,15 @@ export function SearchResults({ initialQuery, initialColor }: SearchResultsProps
 
   // Render content based on active tab
   const renderContent = () => {
+    if (isLoading) {
+      return (
+        <div className="flex flex-col items-center justify-center py-20 text-center">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground mb-4" />
+          <p className="text-muted-foreground">Searching...</p>
+        </div>
+      );
+    }
+
     if (results.total === 0) {
       return (
         <SearchEmptyState
@@ -148,42 +239,11 @@ export function SearchResults({ initialQuery, initialColor }: SearchResultsProps
                       className="flex items-center gap-3 p-4 rounded-lg border border-border hover:border-input hover:bg-muted/50 transition-all"
                     >
                       <Avatar className="h-10 w-10">
-                        <img src={user.avatarUrl} alt={user.displayName} />
+                        <img src={user.avatar_url} alt={user.display_name} />
                       </Avatar>
                       <div className="flex-1 min-w-0">
-                        <div className="font-medium truncate">{user.displayName}</div>
+                        <div className="font-medium truncate">{user.display_name}</div>
                         <div className="text-sm text-muted-foreground truncate">@{user.username}</div>
-                      </div>
-                    </Link>
-                  ))}
-                </div>
-              </section>
-            )}
-
-            {results.teams.length > 0 && (
-              <section>
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-lg font-semibold">Teams</h2>
-                  <button
-                    onClick={() => setActiveTab("teams")}
-                    className="text-sm text-muted-foreground hover:text-foreground transition-colors"
-                  >
-                    View all {results.teams.length} →
-                  </button>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                  {results.teams.slice(0, 8).map((team) => (
-                    <Link
-                      key={team.id}
-                      href={`/t/${team.slug}`}
-                      className="flex items-center gap-3 p-4 rounded-lg border border-border hover:border-input hover:bg-muted/50 transition-all"
-                    >
-                      <Avatar className="h-10 w-10">
-                        <img src={team.avatarUrl} alt={team.name} />
-                      </Avatar>
-                      <div className="flex-1 min-w-0">
-                        <div className="font-medium truncate">{team.name}</div>
-                        <div className="text-sm text-muted-foreground truncate">{team.memberIds.length} members</div>
                       </div>
                     </Link>
                   ))}
@@ -209,37 +269,13 @@ export function SearchResults({ initialQuery, initialColor }: SearchResultsProps
                 className="flex items-center gap-3 p-4 rounded-lg border border-border hover:border-input hover:bg-muted/50 transition-all"
               >
                 <Avatar className="h-12 w-12">
-                  <img src={user.avatarUrl} alt={user.displayName} />
+                  <img src={user.avatar_url} alt={user.display_name} />
                 </Avatar>
                 <div className="flex-1 min-w-0">
-                  <div className="font-medium truncate">{user.displayName}</div>
+                  <div className="font-medium truncate">{user.display_name}</div>
                   <div className="text-sm text-muted-foreground truncate">@{user.username}</div>
                   {user.bio && (
                     <div className="text-xs text-muted-foreground mt-1 truncate">{user.bio}</div>
-                  )}
-                </div>
-              </Link>
-            ))}
-          </div>
-        );
-
-      case "teams":
-        return (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            {results.teams.map((team) => (
-              <Link
-                key={team.id}
-                href={`/t/${team.slug}`}
-                className="flex flex-col gap-3 p-4 rounded-lg border border-border hover:border-input hover:bg-muted/50 transition-all"
-              >
-                <Avatar className="h-12 w-12">
-                  <img src={team.avatarUrl} alt={team.name} />
-                </Avatar>
-                <div>
-                  <div className="font-medium">{team.name}</div>
-                  <div className="text-sm text-muted-foreground">{team.memberIds.length} members</div>
-                  {team.description && (
-                    <div className="text-xs text-muted-foreground mt-2 line-clamp-2">{team.description}</div>
                   )}
                 </div>
               </Link>
@@ -256,7 +292,7 @@ export function SearchResults({ initialQuery, initialColor }: SearchResultsProps
         <div className="text-6xl mb-4">🔍</div>
         <h3 className="text-xl font-semibold mb-2">Start searching</h3>
         <p className="text-muted-foreground">
-          Enter a search term to find assets, streams, users, and teams
+          Enter a search term to find assets, streams, and users
         </p>
       </div>
     );

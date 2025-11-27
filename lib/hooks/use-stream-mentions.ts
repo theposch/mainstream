@@ -1,7 +1,14 @@
 import * as React from "react";
-import { Stream } from "@/lib/mock-data/streams";
 import { sanitizeToSlug } from "@/lib/utils/slug";
-import { getStreams, addStream, getStreamById } from "@/lib/utils/stream-storage";
+
+interface Stream {
+  id: string;
+  name: string;
+  description?: string;
+  status: string;
+  owner_type: string;
+  owner_id: string;
+}
 
 /**
  * Hook to extract and sync stream hashtags from text
@@ -11,7 +18,8 @@ export function useStreamMentions(
   text: string,
   streams: Stream[],
   selectedStreamIds: string[],
-  onStreamsChange: (streamIds: string[]) => void
+  onStreamsChange: (streamIds: string[]) => void,
+  onStreamCreated?: (stream: Stream) => void
 ) {
   // Parse all hashtags from text and convert to valid slugs
   const parseHashtags = React.useCallback((content: string): string[] => {
@@ -31,6 +39,9 @@ export function useStreamMentions(
     return [...new Set(hashtags)]; // Remove duplicates
   }, []);
 
+  // Track in-flight stream creation requests to prevent duplicates
+  const creatingStreamsRef = React.useRef<Set<string>>(new Set());
+
   // Find or create stream by slug
   const findOrCreateStream = React.useCallback(async (streamSlug: string): Promise<string | null> => {
     // Sanitize to valid slug format
@@ -40,13 +51,21 @@ export function useStreamMentions(
       return null; // Invalid slug
     }
     
-    // Check if stream exists by slug (use storage utils to include persisted streams)
-    const allStreams = getStreams();
-    const existing = allStreams.find(s => s.name === slug);
+    // Check if stream exists in the provided streams list
+    const existing = streams.find(s => s.name === slug);
     
     if (existing) {
       return existing.id;
     }
+
+    // Check if already creating this stream
+    if (creatingStreamsRef.current.has(slug)) {
+      console.log(`[useStreamMentions] Already creating stream: ${slug}`);
+      return null;
+    }
+
+    // Mark as creating
+    creatingStreamsRef.current.add(slug);
 
     // Create new stream via API with slug as name
     try {
@@ -55,25 +74,32 @@ export function useStreamMentions(
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name: slug, // Use slug directly
-          ownerType: 'user',
-          isPrivate: false,
+          owner_type: 'user',
+          is_private: false,
         }),
       });
 
       if (!response.ok) {
-        console.error('Failed to create stream:', await response.text());
+        console.error('[useStreamMentions] Failed to create stream:', await response.text());
+        creatingStreamsRef.current.delete(slug);
         return null;
       }
 
       const { stream } = await response.json();
-      // Add to localStorage for immediate availability
-      addStream(stream);
+      creatingStreamsRef.current.delete(slug);
+      
+      // Notify parent of newly created stream
+      if (onStreamCreated) {
+        onStreamCreated(stream);
+      }
+      
       return stream.id;
     } catch (error) {
-      console.error('Error creating stream:', error);
+      console.error('[useStreamMentions] Error creating stream:', error);
+      creatingStreamsRef.current.delete(slug);
       return null;
     }
-  }, []);
+  }, [streams, onStreamCreated]);
 
   // Track processed hashtags to prevent infinite loops
   const processedHashtagsRef = React.useRef<Set<string>>(new Set());
@@ -88,8 +114,20 @@ export function useStreamMentions(
       return;
     }
 
+    // Filter out hashtags that are at the end of text (user might still be typing)
+    const hashtagsToProcess = hashtags.filter(tag => {
+      // If hashtag is at the very end of text, skip it (user still typing)
+      const hashtagPattern = `#${tag}`;
+      const isAtEnd = text.endsWith(hashtagPattern); // Use original text, not trimmed
+      // If there's only one hashtag and it's at the end, don't process yet
+      if (isAtEnd && hashtags.length === 1) {
+        return false;
+      }
+      return true;
+    });
+
     // Filter out already processed hashtags
-    const newHashtags = hashtags.filter(tag => !processedHashtagsRef.current.has(tag));
+    const newHashtags = hashtagsToProcess.filter(tag => !processedHashtagsRef.current.has(tag));
     
     if (newHashtags.length === 0) {
       return; // All hashtags already processed
@@ -113,7 +151,7 @@ export function useStreamMentions(
   React.useEffect(() => {
     const timeoutId = setTimeout(() => {
       syncStreams();
-    }, 500); // 500ms debounce
+    }, 1500); // 1500ms debounce - increased to prevent partial stream creation
 
     return () => clearTimeout(timeoutId);
     // eslint-disable-next-line react-hooks/exhaustive-deps

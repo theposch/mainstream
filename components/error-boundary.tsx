@@ -59,14 +59,14 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
             <div className="flex gap-3 justify-center">
               <Button
                 onClick={() => this.setState({ hasError: false, error: undefined })}
-                variant="cosmos"
+                variant="default"
                 size="default"
               >
                 Try again
               </Button>
               <Button
                 onClick={() => window.location.href = '/home'}
-                variant="cosmos-secondary"
+                variant="secondary"
                 size="default"
               >
                 Go home

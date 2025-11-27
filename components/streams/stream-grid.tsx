@@ -1,6 +1,6 @@
 "use client";
 
-import { Stream } from "@/lib/mock-data/streams";
+import type { Stream } from "@/lib/types/database";
 import { StreamCard } from "./stream-card";
 import { Hash } from "lucide-react";
 

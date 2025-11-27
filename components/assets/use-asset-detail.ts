@@ -1,101 +1,83 @@
-import * as React from "react";
-import { Asset } from "@/lib/mock-data/assets";
-import { Comment, comments as initialComments } from "@/lib/mock-data/comments";
-import { users, currentUser } from "@/lib/mock-data/users";
+/**
+ * Asset Detail Hook (Wrapper)
+ * 
+ * This hook combines useAssetComments and useAssetLike for convenience.
+ * It's kept for backward compatibility with existing components.
+ * 
+ * For new components, prefer using useAssetComments and useAssetLike directly.
+ */
 
-export function useAssetDetail(asset: Asset) {
-  const [comments, setComments] = React.useState<Comment[]>([]);
+"use client";
+
+import * as React from "react";
+import { useAssetComments } from "@/lib/hooks/use-asset-comments";
+import { useAssetLike } from "@/lib/hooks/use-asset-like";
+import { createClient } from "@/lib/supabase/client";
+
+export function useAssetDetail(asset: any) {
+  // Use real hooks
+  const { comments, addComment, updateComment, deleteComment, loading: commentsLoading } = useAssetComments(asset.id);
+  const { isLiked, likeCount, toggleLike } = useAssetLike(asset.id);
+
+  // Local UI state
   const [replyingToId, setReplyingToId] = React.useState<string | null>(null);
   const [editingCommentId, setEditingCommentId] = React.useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
+  const [currentUser, setCurrentUser] = React.useState<any>(null);
 
-  // Asset like state
-  // TODO: Initialize with real data from API
-  const [isLiked, setIsLiked] = React.useState(false);
-  const [likeCount, setLikeCount] = React.useState(24);
-
-  // Load comments and reset state when asset changes
+  // Fetch current user
   React.useEffect(() => {
-    setComments(initialComments.filter(c => c.assetId === asset.id));
-    
-    // Reset all state when switching assets
+    const fetchCurrentUser = async () => {
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: profile } = await supabase
+          .from('users')
+          .select('*')
+          .eq('id', user.id)
+          .single();
+        setCurrentUser(profile);
+      }
+    };
+    fetchCurrentUser();
+  }, []);
+
+  // Reset state when asset changes
+  React.useEffect(() => {
     setReplyingToId(null);
     setEditingCommentId(null);
     setIsSubmitting(false);
-    
-    // Reset like state (TODO: fetch from API)
-    setIsLiked(false);
-    setLikeCount(24);
   }, [asset.id]);
 
   const handleAddComment = React.useCallback(async (content: string) => {
     setIsSubmitting(true);
-    
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 600));
-    
-    const newComment: Comment = {
-      id: `comment-${Date.now()}`,
-      assetId: asset.id,
-      userId: currentUser.id,
-      content,
-      parentId: replyingToId || undefined,
-      createdAt: new Date().toISOString(),
-      isEdited: false,
-      likes: 0,
-      hasLiked: false
-    };
-    
-    setComments(prev => [...prev, newComment]);
+    await addComment(content, replyingToId || undefined);
     setReplyingToId(null);
     setIsSubmitting(false);
-  }, [asset.id, replyingToId]);
+  }, [addComment, replyingToId]);
 
   const handleEditComment = React.useCallback(async (commentId: string, newContent: string) => {
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 600));
-    
-    setComments(prev => prev.map(c => 
-      c.id === commentId 
-        ? { ...c, content: newContent, isEdited: true, updatedAt: new Date().toISOString() }
-        : c
-    ));
+    await updateComment(commentId, newContent);
     setEditingCommentId(null);
-  }, []);
+  }, [updateComment]);
 
   const handleDeleteComment = React.useCallback(async (commentId: string) => {
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 300));
-    
-    // Delete comment and all its replies
-    setComments(prev => prev.filter(c => c.id !== commentId && c.parentId !== commentId));
-  }, []);
+    await deleteComment(commentId);
+  }, [deleteComment]);
 
   const handleLikeComment = React.useCallback((commentId: string) => {
-    setComments(prev => prev.map(c => {
-      if (c.id === commentId) {
-        const hasLiked = !c.hasLiked;
-        return {
-          ...c,
-          hasLiked,
-          likes: hasLiked ? c.likes + 1 : Math.max(0, c.likes - 1)
-        };
-      }
-      return c;
-    }));
+    // Comment likes are now handled by useCommentLike hook in CommentItem component
+    console.log('Like comment:', commentId);
   }, []);
 
   const handleAssetLike = React.useCallback(() => {
-    const newLiked = !isLiked;
-    setIsLiked(newLiked);
-    setLikeCount(prev => newLiked ? prev + 1 : prev - 1);
-    // TODO: API call to toggle like
-  }, [isLiked]);
+    toggleLike();
+  }, [toggleLike]);
 
   const replyingToUser = React.useMemo(() => {
     if (!replyingToId) return null;
     const comment = comments.find(c => c.id === replyingToId);
-    return comment ? users.find(u => u.id === comment.userId) : null;
+    return comment?.user || null;
   }, [replyingToId, comments]);
 
   return {

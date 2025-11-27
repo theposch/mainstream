@@ -1,213 +1,187 @@
 # Authentication Documentation
 
-This folder contains all documentation related to the Supabase authentication implementation.
+Complete authentication implementation with Supabase.
 
-## ✅ Implementation Status: COMPLETE
+## Status: ✅ COMPLETE
 
-The authentication system is fully implemented and tested with a 100% pass rate.
+Authentication system is fully implemented, tested, and production-ready.
 
----
+## Features
 
-## Documentation Files
-
-### 📋 AUTH_MIGRATION_COMPLETE.md
-**Purpose**: Complete summary of the authentication implementation  
-**Contents**:
-- All implemented features (signup, login, logout, session management)
-- File structure and utilities
-- Testing results
-- Production readiness checklist
-
-**Read this**: To understand what was built and how it works
-
----
-
-### ✅ AUTH_TESTING_GUIDE.md
-**Purpose**: Comprehensive testing checklist for authentication features  
-**Contents**:
-- 17 test scenarios covering all auth flows
-- Step-by-step testing instructions
-- Expected outcomes for each test
-- Database verification steps
-
-**Use this**: When testing auth features or verifying implementation
-
----
-
-### 📊 AUTH_TESTING_RESULTS.md
-**Purpose**: Complete test results from systematic authentication testing  
-**Contents**:
-- Test-by-test results (17/17 passed)
-- Browser testing with screenshots
-- Issues encountered and resolved
-- Final verification results
-
-**Read this**: To see proof that auth system works perfectly
-
----
-
-### 🔄 DATA_MIGRATION_GUIDE.md
-**Purpose**: Step-by-step guide for migrating components from mock data to Supabase  
-**Contents**:
-- 19 components that need migration
-- Detailed migration patterns
-- Code examples for each pattern
-- Testing checklist per component
-
-**Use this**: For the current sprint - migrating data layer to Supabase
-
----
-
-## Quick Start
-
-### For Testing Auth
-1. Read `AUTH_TESTING_GUIDE.md`
-2. Follow the checklist systematically
-3. Verify all tests pass
-
-### For Migrating Components
-1. Read `DATA_MIGRATION_GUIDE.md`
-2. Start with high-priority components (feed, asset cards)
-3. Follow the patterns provided
-4. Test each component after migration
-
----
-
-## Authentication Features ✅
-
-### Implemented & Working
-- ✅ Email/password signup (`/auth/signup`)
-- ✅ Email/password login (`/auth/login`)
+### Implemented
+- ✅ Email/password signup and login
+- ✅ Session management with cookies
 - ✅ Logout functionality
-- ✅ Session persistence (refresh, navigation, tab close)
-- ✅ Form validation (client-side)
-- ✅ Error handling
+- ✅ Form validation and error handling
 - ✅ Loading states
-- ✅ Protected API routes (upload requires auth)
+- ✅ Protected API routes
 - ✅ Auto-confirmation for local dev
-- ✅ User menu integration
 - ✅ Client hook (`useUser()`)
 - ✅ Server utility (`getCurrentUser()`)
 
-### Not Yet Implemented (Optional)
-- ⏳ OAuth providers (Google, Apple, Meta) - Placeholders exist
-- ⏳ Password reset flow
-- ⏳ Email confirmation for production
-- ⏳ Two-factor authentication
-- ⏳ Magic link authentication
-
----
+### Future Enhancements
+- [ ] OAuth providers (Google, GitHub, etc.)
+- [ ] Password reset flow
+- [ ] Email confirmation for production
+- [ ] Two-factor authentication
 
 ## File Structure
 
-### Client-Side Auth
+### Client-Side
 ```
-lib/supabase/client.ts          - Browser client
+lib/supabase/client.ts          - Browser Supabase client
 lib/auth/use-user.ts            - React hook for user state
-components/auth/signup-form.tsx - Signup form component
-components/auth/login-form.tsx  - Login form component
+components/auth/signup-form.tsx - Signup form
+components/auth/login-form.tsx  - Login form
 ```
 
-### Server-Side Auth
+### Server-Side
 ```
-lib/supabase/server.ts          - Server client (+ admin client)
+lib/supabase/server.ts          - Server Supabase client
 lib/supabase/middleware.ts      - Session refresh
 lib/auth/get-user.ts            - Server-side user fetching
-middleware.ts (root)            - Root middleware
+middleware.ts                   - Root middleware
 ```
 
-### Pages & Routes
+### Pages
 ```
 app/auth/signup/page.tsx        - Signup page
 app/auth/login/page.tsx         - Login page
-app/auth/callback/route.ts      - OAuth callback handler
-app/auth/layout.tsx             - Auth layout (no navbar)
+app/auth/callback/route.ts      - OAuth callback (future)
 ```
 
----
+## Usage
+
+### Client Components
+
+```typescript
+import { useUser } from "@/lib/auth/use-user";
+
+export function MyComponent() {
+  const { user, loading } = useUser();
+  
+  if (loading) return <div>Loading...</div>;
+  if (!user) return <div>Please log in</div>;
+  
+  return <div>Welcome, {user.display_name}!</div>;
+}
+```
+
+### Server Components
+
+```typescript
+import { getCurrentUser } from "@/lib/auth/get-user";
+
+export default async function Page() {
+  const user = await getCurrentUser();
+  
+  if (!user) redirect('/auth/login');
+  
+  return <div>Welcome, {user.display_name}!</div>;
+}
+```
+
+### API Routes
+
+```typescript
+import { getCurrentUser } from "@/lib/auth/get-user";
+
+export async function POST(request: Request) {
+  const user = await getCurrentUser();
+  
+  if (!user) {
+    return Response.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+  
+  // Handle request...
+}
+```
 
 ## Environment Variables
 
-Required in `.env.local`:
+### Required in `.env.local`
+
 ```env
-NEXT_PUBLIC_SUPABASE_URL=http://localhost:54321
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
-SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+NEXT_PUBLIC_SUPABASE_URL=http://localhost:8000
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_anon_key
+SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
 ```
 
-Required in `supabase-docker/.env`:
+### Required in `supabase-docker/.env`
+
 ```env
 ENABLE_EMAIL_SIGNUP=true
-ENABLE_EMAIL_AUTOCONFIRM=true  # ✅ Required for local dev
+ENABLE_EMAIL_AUTOCONFIRM=true  # Required for local dev
 ```
 
+## Testing
+
+**Test Results:** 17/17 passed (100%)
+
+See `AUTH_TESTING_RESULTS.md` for detailed test results.
+
+### Manual Testing
+
+1. Start Supabase: `cd supabase-docker && docker-compose up -d`
+2. Start app: `npm run dev`
+3. Test signup: http://localhost:3000/auth/signup
+4. Test login: http://localhost:3000/auth/login
+5. Test protected routes: Try uploading without login
+
+### Database Verification
+
+```bash
+docker-compose exec db psql -U postgres
+
+# Check users created
+SELECT * FROM auth.users;
+SELECT * FROM public.users;
+```
+
+## Troubleshooting
+
+### "Error sending confirmation email"
+
+**Solution:** Enable auto-confirmation:
+
+```bash
+cd supabase-docker
+# Edit .env to include:
+# ENABLE_EMAIL_AUTOCONFIRM=true
+
+# Recreate auth container
+docker-compose up -d --force-recreate auth
+```
+
+### Session not persisting
+
+**Solution:** Check middleware is running:
+
+```typescript
+// middleware.ts should have:
+import { updateSession } from "@/lib/supabase/middleware";
+export async function middleware(request: NextRequest) {
+  return await updateSession(request);
+}
+```
+
+### User hook returns null
+
+**Solution:** Check Supabase URL and keys in `.env.local`
+
+## Documentation Files
+
+- `AUTH_MIGRATION_COMPLETE.md` - Implementation summary
+- `AUTH_TESTING_GUIDE.md` - Testing checklist
+- `AUTH_TESTING_RESULTS.md` - Test results (100% pass rate)
+- `DATA_MIGRATION_GUIDE.md` - Reference for data migration patterns
+
+## Resources
+
+- Supabase Studio: http://localhost:8000
+- [Supabase Auth Docs](https://supabase.com/docs/guides/auth)
+- [Next.js Middleware](https://nextjs.org/docs/app/building-your-application/routing/middleware)
+
 ---
 
-## Testing Results Summary
-
-**Date**: November 26, 2025  
-**Total Tests**: 17  
-**Passed**: 17 ✅  
-**Failed**: 0  
-**Pass Rate**: 100%  
-
-### Test Categories
-- ✅ User Registration (signup flow)
-- ✅ User Login (login flow)
-- ✅ Session Persistence (refresh, navigation, tab close)
-- ✅ Logout Functionality
-- ✅ Form Validation (email, password)
-- ✅ Error Handling (invalid credentials)
-- ✅ Protected Routes (upload API)
-- ✅ User Menu Integration
-- ✅ UI/UX (loading states, error messages)
-- ✅ Database Verification
-
-**Conclusion**: Authentication system is production-ready ✅
-
----
-
-## Next Steps
-
-### Current Sprint: Data Migration
-With auth complete, the focus shifts to connecting components to Supabase:
-
-1. **High Priority** (Start Here):
-   - Migrate feed component (`app/home/page.tsx`)
-   - Migrate asset cards (`components/assets/element-card.tsx`)
-   - Migrate asset detail (`components/assets/asset-detail-*.tsx`)
-
-2. **Medium Priority**:
-   - Migrate user profiles (`app/u/[username]/page.tsx`)
-   - Migrate stream pages (`app/stream/[slug]/page.tsx`)
-   - Migrate team pages (`app/t/[slug]/page.tsx`)
-
-3. **Low Priority**:
-   - Migrate search (`components/search/*`)
-   - Migrate notifications (`components/layout/notifications-popover.tsx`)
-
-**See**: `DATA_MIGRATION_GUIDE.md` for complete migration plan
-
----
-
-## Support & Resources
-
-### Documentation
-- Setup: `docs/SUPABASE_SETUP.md`
-- Backend: `docs/BACKEND_INTEGRATION.md`
-- Status: `STATUS.md` (root)
-
-### Supabase Resources
-- Studio UI: http://localhost:54321
-- Supabase Docs: https://supabase.com/docs
-- Auth Docs: https://supabase.com/docs/guides/auth
-
-### Getting Help
-1. Check troubleshooting in `docs/SUPABASE_SETUP.md`
-2. Review test results in `AUTH_TESTING_RESULTS.md`
-3. Check Supabase logs: `docker-compose logs auth`
-
----
-
-**Authentication Status**: ✅ Production Ready | 100% Tested | Fully Documented
-
+**Status:** ✅ Production Ready | 100% Tested | Fully Documented

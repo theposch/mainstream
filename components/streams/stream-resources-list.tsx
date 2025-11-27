@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { StreamResource } from "@/lib/mock-data/streams";
+import type { StreamResource } from "@/lib/types/database";
 import { ExternalLink, FileText, Layout, Trello, BookOpen, Link as LinkIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
@@ -38,7 +38,7 @@ export function StreamResourcesList({
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-medium text-muted-foreground">Pinned Resources</h3>
         {editable && onAdd && (
-          <Button variant="cosmos-ghost" size="sm" onClick={onAdd}>
+          <Button variant="ghost" size="sm" onClick={onAdd}>
             Add Resource
           </Button>
         )}

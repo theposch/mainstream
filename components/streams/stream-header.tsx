@@ -1,40 +1,121 @@
 "use client";
 
-import { Stream } from "@/lib/mock-data/streams";
-import { Team } from "@/lib/mock-data/teams";
-import { User } from "@/lib/mock-data/users";
+import * as React from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Lock, Globe, Plus, MoreHorizontal, Share, Hash, Archive } from "lucide-react";
+import { Lock, Globe, Plus, MoreHorizontal, Share, Hash, Archive, Trash2 } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface StreamHeaderProps {
-  stream: Stream;
-  owner: User | Team;
+  stream: any;  // Stream from database
+  owner: any;   // User or Team from database
 }
 
 export function StreamHeader({ stream, owner }: StreamHeaderProps) {
-  const isTeam = stream.ownerType === 'team';
-  const ownerLink = isTeam ? `/t/${(owner as Team).slug}` : `/u/${(owner as User).username}`;
+  const router = useRouter();
+  const [currentUser, setCurrentUser] = React.useState<any>(null);
+  const [showDeleteDialog, setShowDeleteDialog] = React.useState(false);
+  const [isDeleting, setIsDeleting] = React.useState(false);
+
+  const isTeam = stream.owner_type === 'team';
+  const isUser = stream.owner_type === 'user';
   
-  // Get owner name - Team has 'name', User has 'displayName'
-  const ownerName = isTeam ? (owner as Team).name : (owner as User).displayName;
+  // Get owner name - Team has 'name', User has 'display_name'
+  const ownerName = isTeam ? owner.name : owner.display_name;
   const ownerInitial = ownerName?.substring(0, 1).toUpperCase() || 'O';
+
+  // Fetch current user
+  React.useEffect(() => {
+    const fetchCurrentUser = async () => {
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: profile } = await supabase
+          .from('users')
+          .select('*')
+          .eq('id', user.id)
+          .single();
+        setCurrentUser(profile);
+      }
+    };
+    fetchCurrentUser();
+  }, []);
+
+  const handleDelete = async () => {
+    if (isDeleting) return;
+    
+    setIsDeleting(true);
+    try {
+      const response = await fetch(`/api/streams/${stream.id}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.message || 'Failed to delete stream');
+      }
+
+      // Success - redirect to streams page
+      router.push('/streams');
+    } catch (error) {
+      console.error('Error deleting stream:', error);
+      alert(error instanceof Error ? error.message : 'Failed to delete stream');
+      setIsDeleting(false);
+      setShowDeleteDialog(false);
+    }
+  };
+
+  const handleShare = () => {
+    const url = `${window.location.origin}/stream/${stream.name}`;
+    navigator.clipboard.writeText(url);
+    // TODO: Show toast notification
+  };
+
+  const canDelete = currentUser && stream.owner_type === 'user' && stream.owner_id === currentUser.id;
   
   return (
     <div className="flex flex-col gap-6 mb-10">
       {/* Breadcrumb / Meta */}
       <div className="flex items-center gap-2 text-muted-foreground text-sm">
-        <Link 
-          href={ownerLink}
-          className="flex items-center gap-2 hover:text-foreground transition-colors"
-        >
-          <Avatar className="h-5 w-5">
-            <AvatarImage src={owner.avatarUrl} />
-            <AvatarFallback>{ownerInitial}</AvatarFallback>
-          </Avatar>
-          <span>{ownerName}</span>
-        </Link>
+        {isUser ? (
+          <Link 
+            href={`/u/${owner.username}`}
+            className="flex items-center gap-2 hover:text-foreground transition-colors"
+          >
+            <Avatar className="h-5 w-5">
+              <AvatarImage src={owner.avatar_url} />
+              <AvatarFallback>{ownerInitial}</AvatarFallback>
+            </Avatar>
+            <span>{ownerName}</span>
+          </Link>
+        ) : (
+          <div className="flex items-center gap-2">
+            <Avatar className="h-5 w-5">
+              <AvatarImage src={owner.avatar_url} />
+              <AvatarFallback>{ownerInitial}</AvatarFallback>
+            </Avatar>
+            <span>{ownerName}</span>
+          </div>
+        )}
         <span className="text-zinc-600">/</span>
         <div className="flex items-center gap-1.5">
           <Hash className="h-3 w-3" />
@@ -42,8 +123,8 @@ export function StreamHeader({ stream, owner }: StreamHeaderProps) {
         </div>
         <span className="text-zinc-600">/</span>
         <div className="flex items-center gap-1.5">
-           {stream.isPrivate ? <Lock className="h-3 w-3" /> : <Globe className="h-3 w-3" />}
-           <span className="text-foreground">{stream.isPrivate ? 'Private' : 'Public'}</span>
+           {stream.is_private ? <Lock className="h-3 w-3" /> : <Globe className="h-3 w-3" />}
+           <span className="text-foreground">{stream.is_private ? 'Private' : 'Public'}</span>
         </div>
         {stream.status === 'archived' && (
           <>
@@ -83,29 +164,73 @@ export function StreamHeader({ stream, owner }: StreamHeaderProps) {
             </div>
             
             {/* Follow/Unfollow Button */}
-            <Button variant="cosmos-secondary" size="default">
+            <Button variant="secondary" size="default">
                 <Plus className="h-4 w-4 mr-2" />
                 Follow
             </Button>
             
             {/* Share Stream */}
-            <Button variant="cosmos-secondary" size="default">
+            <Button variant="secondary" size="default" onClick={handleShare}>
                 <Share className="h-4 w-4 mr-2" />
                 Share
             </Button>
             
             {/* Add Asset to Stream */}
-            <Button variant="cosmos" size="default">
+            <Button variant="default" size="default">
                 <Plus className="h-4 w-4 mr-2" />
                 Add Asset
             </Button>
             
             {/* Stream Settings */}
-             <Button variant="cosmos-ghost" size="icon">
-                <MoreHorizontal className="h-5 w-5" />
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon">
+                  <MoreHorizontal className="h-5 w-5" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="z-[110]">
+                <DropdownMenuItem onClick={handleShare}>
+                  <Share className="h-4 w-4" />
+                  Share Stream
+                </DropdownMenuItem>
+                {canDelete && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      variant="destructive"
+                      onClick={() => setShowDeleteDialog(true)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                      Delete Stream
+                    </DropdownMenuItem>
+                  </>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
         </div>
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Stream?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the stream. Assets in this stream will remain in your feed but won't be associated with this stream anymore.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              disabled={isDeleting}
+              className="bg-destructive hover:bg-destructive/90"
+            >
+              {isDeleting ? 'Deleting...' : 'Delete'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

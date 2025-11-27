@@ -43,7 +43,7 @@ export default function UserProfileError({
         <div className="flex flex-col sm:flex-row gap-3 justify-center">
           <Button
             onClick={reset}
-            variant="cosmos"
+            variant="default"
             className="w-full sm:w-auto"
           >
             Try Again

@@ -7,40 +7,42 @@
  * - medium/ - 800px max dimension
  * - thumbnails/ - 300px max dimension
  * 
- * TODO: CLOUD STORAGE MIGRATION
- * When ready to use cloud storage (S3, R2, Cloudflare, etc.), replace
- * these functions with cloud SDK calls. The function signatures can
- * remain the same, but implementation changes to upload to cloud.
+ * TODO: SUPABASE STORAGE MIGRATION
+ * When ready to scale, migrate to Supabase Storage (built on S3).
+ * Benefits: CDN, better performance, automatic backups, scalability.
  * 
- * Example S3 Migration:
+ * Example Supabase Storage Migration:
  * ```typescript
- * import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
+ * import { createClient } from '@supabase/supabase-js';
  * 
- * const s3Client = new S3Client({ 
- *   region: process.env.AWS_REGION,
- *   credentials: {
- *     accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
- *     secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!
- *   }
- * });
+ * const supabase = createClient(
+ *   process.env.NEXT_PUBLIC_SUPABASE_URL!,
+ *   process.env.SUPABASE_SERVICE_ROLE_KEY! // Server-side only
+ * );
  * 
- * export async function saveImageToCloud(
+ * export async function saveImageToSupabase(
  *   buffer: Buffer,
  *   filename: string,
  *   size: 'full' | 'medium' | 'thumbnails'
  * ): Promise<string> {
- *   const key = `uploads/${size}/${filename}`;
+ *   const path = `uploads/${size}/${filename}`;
  *   
- *   await s3Client.send(new PutObjectCommand({
- *     Bucket: process.env.S3_BUCKET_NAME!,
- *     Key: key,
- *     Body: buffer,
- *     ContentType: 'image/jpeg',
- *     CacheControl: 'public, max-age=31536000',
- *   }));
+ *   const { data, error } = await supabase.storage
+ *     .from('assets') // Create 'assets' bucket in Supabase
+ *     .upload(path, buffer, {
+ *       contentType: 'image/jpeg',
+ *       cacheControl: '31536000', // 1 year
+ *       upsert: false
+ *     });
  *   
- *   // Return CDN URL instead of local URL
- *   return `${process.env.CDN_URL}/${key}`;
+ *   if (error) throw error;
+ *   
+ *   // Return public URL (CDN-backed)
+ *   const { data: { publicUrl } } = supabase.storage
+ *     .from('assets')
+ *     .getPublicUrl(path);
+ *   
+ *   return publicUrl;
  * }
  * ```
  * 
@@ -65,7 +67,7 @@ const UPLOAD_DIR = path.join(process.cwd(), 'public', 'uploads');
  * Called automatically by saveImageToPublic() to ensure directories
  * exist before attempting to write files.
  * 
- * TODO: Not needed with cloud storage (buckets are pre-configured)
+ * TODO: Not needed with Supabase Storage (buckets are pre-configured in dashboard)
  */
 export function ensureUploadDirectories(): void {
   const dirs = [
@@ -107,10 +109,10 @@ export function generateUniqueFilename(originalFilename: string): string {
  * Writes the buffer to disk and returns a public URL path that can be
  * used in <img> tags or Next.js <Image> components.
  * 
- * TODO: Replace with cloud storage upload:
- * - Use S3 PutObject or equivalent
- * - Return CDN URL instead of local path
- * - Consider streaming large files instead of buffer
+ * TODO: Replace with Supabase Storage upload:
+ * - Use supabase.storage.from('assets').upload()
+ * - Return CDN URL (automatically provided by Supabase)
+ * - Supports files up to 50MB by default
  * - Add retry logic for network failures
  * 
  * @param buffer - Image buffer from Sharp processing
@@ -142,18 +144,15 @@ export async function saveImageToPublic(
  * image files (full, medium, thumbnail). Safe to call even if files
  * don't exist (silently skips missing files).
  * 
- * TODO: Replace with cloud storage deletion:
+ * TODO: Replace with Supabase Storage deletion:
  * ```typescript
- * await s3Client.send(new DeleteObjectsCommand({
- *   Bucket: process.env.S3_BUCKET_NAME!,
- *   Delete: {
- *     Objects: [
- *       { Key: `uploads/full/${filename}` },
- *       { Key: `uploads/medium/${filename}` },
- *       { Key: `uploads/thumbnails/${filename}` },
- *     ],
- *   },
- * }));
+ * await supabase.storage
+ *   .from('assets')
+ *   .remove([
+ *     `uploads/full/${filename}`,
+ *     `uploads/medium/${filename}`,
+ *     `uploads/thumbnails/${filename}`,
+ *   ]);
  * ```
  * 
  * @param filename - Base filename (same name used in all three sizes)

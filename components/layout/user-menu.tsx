@@ -16,7 +16,7 @@ import { SettingsDialog } from "@/components/layout/settings-dialog";
 import { createClient } from "@/lib/supabase/client";
 import { useUser } from "@/lib/auth/use-user";
 import { Button } from "@/components/ui/button";
-import { User, Settings, LogOut, CreditCard } from "lucide-react";
+import { User, Settings, LogOut } from "lucide-react";
 
 export function UserMenu() {
   const [settingsOpen, setSettingsOpen] = React.useState(false);
@@ -60,11 +60,6 @@ export function UserMenu() {
             <AvatarImage src={user.avatarUrl} alt={user.username} />
             <AvatarFallback>{user.username.substring(0, 2).toUpperCase()}</AvatarFallback>
           </Avatar>
-          {/* TODO: Implement real online status
-              - Use WebSocket or presence system
-              - Update based on user activity
-          */}
-          <div className="absolute bottom-0 right-0 h-2.5 w-2.5 bg-green-500 rounded-full border-2 border-background translate-x-[2px] translate-y-[2px]"></div>
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent className="w-56 bg-zinc-950 border-zinc-800 text-zinc-400" align="end" forceMount>
@@ -87,15 +82,6 @@ export function UserMenu() {
         >
           <Settings className="mr-2 h-4 w-4" />
           <span>Settings</span>
-        </DropdownMenuItem>
-        {/* TODO: Navigate to billing/subscription page
-            - Show current plan
-            - Upgrade/downgrade options
-            - Payment history
-        */}
-        <DropdownMenuItem className="focus:bg-zinc-900 focus:text-white cursor-pointer">
-            <CreditCard className="mr-2 h-4 w-4" />
-            <span>Billing</span>
         </DropdownMenuItem>
         <DropdownMenuSeparator className="bg-zinc-800" />
         <DropdownMenuItem 

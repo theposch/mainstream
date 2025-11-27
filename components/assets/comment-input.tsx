@@ -1,12 +1,11 @@
 import React from "react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { User, users } from "@/lib/mock-data/users";
 import { Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface CommentInputProps {
-  currentUser: User;
+  currentUser: any; // User from database with snake_case fields
   onSubmit: (content: string) => Promise<void>;
   isSubmitting?: boolean;
   placeholder?: string;
@@ -36,14 +35,10 @@ export const CommentInput = React.memo(function CommentInput({
 
   const useIsomorphicLayoutEffect = typeof window !== 'undefined' ? React.useLayoutEffect : React.useEffect;
 
-  // Filter users for mentions
+  // Filter users for mentions - TODO: Replace with API call
   const filteredUsers = React.useMemo(() => {
-    if (!mentionQuery) return users.slice(0, 5);
-    const lowerQuery = mentionQuery.toLowerCase();
-    return users.filter(u => 
-      u.username.toLowerCase().includes(lowerQuery) || 
-      u.displayName.toLowerCase().includes(lowerQuery)
-    ).slice(0, 5);
+    // For now, return empty array until we implement user search API
+    return [];
   }, [mentionQuery]);
 
   // Auto-expand textarea
@@ -183,11 +178,11 @@ export const CommentInput = React.memo(function CommentInput({
                   )}
                 >
                   <Avatar className="h-6 w-6 border border-border">
-                    <AvatarImage src={user.avatarUrl} />
-                    <AvatarFallback>{user.username.charAt(0).toUpperCase()}</AvatarFallback>
+                    <AvatarImage src={user.avatar_url} />
+                    <AvatarFallback>{user.username?.charAt(0).toUpperCase()}</AvatarFallback>
                   </Avatar>
                   <div className="flex flex-col overflow-hidden">
-                    <span className="truncate font-medium">{user.displayName}</span>
+                    <span className="truncate font-medium">{user.display_name}</span>
                     <span className="truncate text-xs text-zinc-500">@{user.username}</span>
                   </div>
                 </button>
@@ -197,8 +192,8 @@ export const CommentInput = React.memo(function CommentInput({
         )}
 
         <Avatar className="h-8 w-8 shrink-0 border border-border">
-            <AvatarImage src={currentUser.avatarUrl} alt={currentUser.displayName} />
-            <AvatarFallback>{currentUser.username.charAt(0).toUpperCase()}</AvatarFallback>
+            <AvatarImage src={currentUser?.avatar_url} alt={currentUser?.display_name} />
+            <AvatarFallback>{currentUser?.username?.charAt(0).toUpperCase() || 'U'}</AvatarFallback>
         </Avatar>
         
         <div className="flex-1 space-y-2">
@@ -242,7 +237,7 @@ export const CommentInput = React.memo(function CommentInput({
                         
                         <Button 
                             type="submit" 
-                            variant="cosmos" 
+                            variant="default" 
                             size="sm" 
                             disabled={!content.trim() || isSubmitting}
                             className="h-8 px-4"

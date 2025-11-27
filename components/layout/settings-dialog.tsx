@@ -21,7 +21,7 @@ import {
   Mail,
   Globe
 } from "lucide-react";
-import { currentUser } from "@/lib/mock-data/users";
+import { useUser } from "@/lib/auth/use-user";
 
 interface SettingsDialogProps {
   open: boolean;
@@ -37,17 +37,27 @@ interface TabConfig {
 }
 
 export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
+  const { user, loading } = useUser();
   const [activeTab, setActiveTab] = React.useState<SettingsTab>("account");
   const [isLoading, setIsLoading] = React.useState(false);
   const [successMessage, setSuccessMessage] = React.useState<string | null>(null);
 
   // Account settings state
-  const [displayName, setDisplayName] = React.useState(currentUser.displayName);
-  const [username, setUsername] = React.useState(currentUser.username);
-  const [email, setEmail] = React.useState(currentUser.email);
+  const [displayName, setDisplayName] = React.useState("");
+  const [username, setUsername] = React.useState("");
+  const [email, setEmail] = React.useState("");
   const [bio, setBio] = React.useState("");
   const [location, setLocation] = React.useState("");
-  const [website, setWebsite] = React.useState("");
+
+  // Initialize form with user data
+  React.useEffect(() => {
+    if (user) {
+      setDisplayName(user.displayName || "");
+      setUsername(user.username || "");
+      setEmail(user.email || "");
+      setBio(user.bio || "");
+    }
+  }, [user]);
 
   // Notification settings state
   const [emailNotifications, setEmailNotifications] = React.useState(true);
@@ -74,17 +84,31 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
     setSuccessMessage(null);
 
     try {
-      // TODO: Implement real API call to save settings
-      // - Endpoint: PUT /api/user/settings
-      // - Auth: Check session
-      // - Body: All settings data
-      // - Validate: Input sanitization, unique username check
-      await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate API call
+      const response = await fetch('/api/users/me', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          displayName,
+          username,
+          email,
+          bio
+        })
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'Failed to save settings');
+      }
       
       setSuccessMessage("Settings saved successfully!");
-      setTimeout(() => setSuccessMessage(null), 3000);
+      setTimeout(() => {
+        setSuccessMessage(null);
+        // Refresh the page to update user data throughout the app
+        window.location.reload();
+      }, 1500);
     } catch (error) {
       console.error("Failed to save settings:", error);
+      setSuccessMessage(error instanceof Error ? error.message : "Failed to save settings");
     } finally {
       setIsLoading(false);
     }
@@ -99,9 +123,9 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
             <div className="flex items-center gap-6">
               <div className="relative group">
                 <Avatar className="h-24 w-24">
-                  <AvatarImage src={currentUser.avatarUrl} alt={currentUser.username} />
+                  <AvatarImage src={user?.avatarUrl} alt={user?.username} />
                   <AvatarFallback className="text-2xl">
-                    {currentUser.username.substring(0, 2).toUpperCase()}
+                    {user?.username?.substring(0, 2).toUpperCase() || "US"}
                   </AvatarFallback>
                 </Avatar>
                 <button
@@ -195,17 +219,6 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                   />
                 </div>
 
-                <div className="grid gap-2">
-                  <Label htmlFor="website">Website</Label>
-                  <Input
-                    id="website"
-                    type="url"
-                    value={website}
-                    onChange={(e) => setWebsite(e.target.value)}
-                    placeholder="https://example.com"
-                    className="bg-background border-border"
-                  />
-                </div>
               </div>
             </div>
           </div>
@@ -359,7 +372,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
               name="Google"
               description="Connect your Google account"
               connected={true}
-              accountInfo={currentUser.email}
+              accountInfo={user?.email}
             />
 
             <ConnectedAccountItem

@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { StreamCard } from "./stream-card";
-import { Stream } from "@/lib/mock-data/streams";
+import type { Stream } from "@/lib/types/database";
 
 export interface StreamGridData extends Stream {
   assetsCount: number;

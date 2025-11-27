@@ -2,8 +2,6 @@
  * Color utility functions for color search and matching
  */
 
-import { assets } from "@/lib/mock-data/assets";
-
 // Color matching threshold (lower = more strict, higher = more lenient)
 // Increased to 60 for more results while maintaining relevance
 export const COLOR_MATCH_THRESHOLD = 60;
@@ -78,90 +76,9 @@ export function areColorsSimilar(
   return colorDistance(color1, color2) <= threshold;
 }
 
-/**
- * Find assets with colors similar to the target color, sorted by closest match
- * @param targetColor - Hex color to search for
- * @param threshold - Maximum distance to consider similar (default: 60)
- * @returns Array of asset IDs sorted by color similarity (closest first)
- */
-export function findAssetsByColor(
-  targetColor: string,
-  threshold: number = COLOR_MATCH_THRESHOLD
-): string[] {
-  interface AssetMatch {
-    id: string;
-    distance: number;
-  }
-  
-  const matches: AssetMatch[] = [];
-  
-  for (const asset of assets) {
-    let closestDistance = Infinity;
-    
-    // Check dominant color
-    if (asset.dominantColor) {
-      const distance = colorDistance(targetColor, asset.dominantColor);
-      if (distance < closestDistance) {
-        closestDistance = distance;
-      }
-    }
-    
-    // Check color palette
-    if (asset.colorPalette) {
-      for (const color of asset.colorPalette) {
-        const distance = colorDistance(targetColor, color);
-        if (distance < closestDistance) {
-          closestDistance = distance;
-        }
-      }
-    }
-    
-    // Add to matches if within threshold
-    if (closestDistance <= threshold) {
-      matches.push({
-        id: asset.id,
-        distance: closestDistance,
-      });
-    }
-  }
-  
-  // Sort by distance (closest first)
-  matches.sort((a, b) => a.distance - b.distance);
-  
-  // Return just the IDs in sorted order
-  return matches.map(match => match.id);
-}
-
-/**
- * Get the most popular colors from all assets (for suggestions)
- * @param limit - Maximum number of colors to return (default: 12)
- * @returns Array of hex colors sorted by frequency
- */
-export function getPopularColors(limit: number = 12): string[] {
-  const colorCounts = new Map<string, number>();
-  
-  // Count color occurrences across all assets
-  for (const asset of assets) {
-    if (asset.dominantColor) {
-      colorCounts.set(
-        asset.dominantColor,
-        (colorCounts.get(asset.dominantColor) || 0) + 2 // Weight dominant color more
-      );
-    }
-    
-    if (asset.colorPalette) {
-      for (const color of asset.colorPalette) {
-        colorCounts.set(color, (colorCounts.get(color) || 0) + 1);
-      }
-    }
-  }
-  
-  // Sort by frequency and return top N
-  return Array.from(colorCounts.entries())
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, limit)
-    .map(([color]) => color);
-}
+// Note: findAssetsByColor() and getPopularColors() removed
+// Color search is now handled server-side by /api/search endpoint
+// See components/search/search-results.tsx for implementation
 
 /**
  * Get recent color searches from localStorage

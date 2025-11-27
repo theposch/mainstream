@@ -20,12 +20,6 @@ export function Navbar() {
             </Link>
             <div className="hidden md:flex items-center gap-6">
               <Link 
-                href="/teams" 
-                className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
-              >
-                Teams
-              </Link>
-              <Link 
                 href="/streams" 
                 className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
               >
@@ -43,7 +37,7 @@ export function Navbar() {
           <div className="flex items-center gap-3 shrink-0">
             <CreateDialog>
                 <Button 
-                  variant="cosmos"
+                  variant="default"
                   className="h-9 px-5"
                   aria-label="Create new project or upload asset"
                 >

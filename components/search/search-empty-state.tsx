@@ -58,7 +58,7 @@ export function SearchEmptyState({
 
       {onClearSearch && (
         <Button
-          variant="cosmos"
+          variant="default"
           onClick={onClearSearch}
           className="mt-6"
         >

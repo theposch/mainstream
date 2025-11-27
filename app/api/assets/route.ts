@@ -1,55 +1,13 @@
 /**
  * Assets API Route
  * 
- * Provides endpoints for fetching assets. Currently reads from persistent
- * JSON file storage (data/assets.json).
+ * Provides endpoints for fetching assets from Supabase database.
  * 
- * TODO: DATABASE MIGRATION
- * Replace `readAssets()` with database queries:
- * 
- * ```typescript
- * // Basic query
- * const assets = await db
- *   .select()
- *   .from(assetsTable)
- *   .orderBy(desc(assetsTable.createdAt))
- *   .limit(100);
- * 
- * // With pagination
- * const page = parseInt(searchParams.get('page') || '1');
- * const limit = parseInt(searchParams.get('limit') || '50');
- * const offset = (page - 1) * limit;
- * 
- * const assets = await db
- *   .select()
- *   .from(assetsTable)
- *   .orderBy(desc(assetsTable.createdAt))
- *   .limit(limit)
- *   .offset(offset);
- * 
- * // With filters
- * const where = [];
- * if (streamId) {
- *   // Join with asset_streams table for many-to-many relationship
- *   const assetIds = await db.select({ assetId: assetStreamsTable.assetId })
- *     .from(assetStreamsTable)
- *     .where(eq(assetStreamsTable.streamId, streamId));
- *   where.push(inArray(assetsTable.id, assetIds.map(a => a.assetId)));
- * }
- * if (uploaderId) where.push(eq(assetsTable.uploaderId, uploaderId));
- * 
- * const assets = await db
- *   .select()
- *   .from(assetsTable)
- *   .where(and(...where))
- *   .orderBy(desc(assetsTable.createdAt));
- * ```
- * 
- * @see /docs/IMAGE_UPLOAD.md for complete database schema
+ * @see /docs/IMAGE_UPLOAD.md for implementation details
  */
 
 import { NextResponse } from 'next/server';
-import { readAssets } from '@/lib/utils/assets-storage';
+import { createClient } from '@/lib/supabase/server';
 
 // Force dynamic rendering to prevent caching
 export const dynamic = 'force-dynamic';
@@ -58,7 +16,7 @@ export const revalidate = 0;
 /**
  * GET /api/assets
  * 
- * Fetches all assets from persistent storage, sorted by creation date
+ * Fetches all assets from Supabase database, sorted by creation date
  * (newest first). Returns complete asset objects including all image
  * URLs, metadata, and color information.
  * 
@@ -79,27 +37,42 @@ export const revalidate = 0;
  */
 export async function GET() {
   try {
-    console.log('[GET /api/assets] Fetching assets from persistent storage...');
+    console.log('[GET /api/assets] Fetching assets from Supabase...');
     
-    // Read assets from JSON file storage (persists between requests)
-    const assets = readAssets();
+    const supabase = await createClient();
     
-    console.log(`[GET /api/assets] Found ${assets.length} total assets`);
+    // Query assets from Supabase with uploader information
+    const { data: assets, error } = await supabase
+      .from('assets')
+      .select(`
+        *,
+        uploader:users!uploader_id(*)
+      `)
+      .order('created_at', { ascending: false })
+      .limit(100);
+
+    if (error) {
+      console.error('[GET /api/assets] Database error:', error);
+      return NextResponse.json(
+        { 
+          error: 'Failed to fetch assets from database',
+          details: error.message
+        },
+        { status: 500 }
+      );
+    }
     
-    // Sort assets by createdAt date (newest first)
-    const sortedAssets = [...assets].sort((a, b) => {
-      const dateA = new Date(a.createdAt).getTime();
-      const dateB = new Date(b.createdAt).getTime();
-      return dateB - dateA; // Descending order (newest first)
-    });
+    console.log(`[GET /api/assets] Found ${assets?.length || 0} total assets`);
     
+    if (assets && assets.length > 0) {
     console.log('[GET /api/assets] Top 3 assets (newest):');
-    sortedAssets.slice(0, 3).forEach((asset, i) => {
-      console.log(`  ${i + 1}. ${asset.title} (${asset.id}) - ${asset.createdAt}`);
+      assets.slice(0, 3).forEach((asset, i) => {
+        console.log(`  ${i + 1}. ${asset.title} (${asset.id}) - ${asset.created_at}`);
     });
+    }
     
     return NextResponse.json(
-      { assets: sortedAssets },
+      { assets: assets || [] },
       { 
         status: 200,
         headers: {

@@ -3,7 +3,7 @@
 import * as React from "react";
 import { createPortal } from "react-dom";
 import { Check, Plus, Hash } from "lucide-react";
-import { Stream } from "@/lib/mock-data/streams";
+import type { Stream } from "@/lib/types/database";
 import { cn } from "@/lib/utils";
 
 interface StreamMentionDropdownProps {

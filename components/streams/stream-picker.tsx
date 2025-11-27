@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { Check, Search, Plus, Hash, X } from "lucide-react";
-import { Stream, STREAM_VALIDATION } from "@/lib/mock-data/streams";
+import { STREAM_VALIDATION } from "@/lib/constants/streams";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -20,7 +20,15 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { getStreams, onStreamsUpdated } from "@/lib/utils/stream-storage";
+
+interface Stream {
+  id: string;
+  name: string;
+  description?: string;
+  status: string;
+  owner_type: string;
+  owner_id: string;
+}
 
 interface StreamPickerProps {
   selectedStreamIds: string[];
@@ -45,20 +53,38 @@ export function StreamPicker({
   const [isCreateDialogOpen, setIsCreateDialogOpen] = React.useState(false);
   const [newStreamName, setNewStreamName] = React.useState("");
   const [open, setOpen] = React.useState(false);
+  const [createError, setCreateError] = React.useState<string | null>(null);
 
-  // Load streams on mount (includes both mock and persisted)
-  React.useEffect(() => {
-    const loadStreams = () => {
-      const streams = getStreams(); // Get merged mock + localStorage streams
-      setAllStreams(streams);
-    };
-    
-    loadStreams();
-    
-    // Listen for stream updates from other components
-    const cleanup = onStreamsUpdated(loadStreams);
-    return cleanup;
+  // Load streams from API
+  const loadStreams = React.useCallback(async () => {
+    try {
+      const res = await fetch('/api/streams');
+      if (!res.ok) {
+        throw new Error('Failed to load streams');
+      }
+      const data = await res.json();
+      setAllStreams(data.streams || []);
+    } catch (error) {
+      console.error('[StreamPicker] Failed to load streams:', error);
+      setAllStreams([]);
+    }
   }, []);
+
+  React.useEffect(() => {
+    loadStreams();
+  }, [loadStreams]);
+
+  // Refresh streams if we detect a selected ID that we don't have
+  React.useEffect(() => {
+    const missingIds = selectedStreamIds.filter(id => 
+      !allStreams.find(s => s.id === id)
+    );
+    
+    if (missingIds.length > 0) {
+      console.log('[StreamPicker] Detected missing stream IDs, refreshing...', missingIds);
+      loadStreams();
+    }
+  }, [selectedStreamIds, allStreams, loadStreams]);
 
   // Filter active streams only (memoized for performance)
   const activeStreams = React.useMemo(() => 
@@ -100,14 +126,16 @@ export function StreamPicker({
   const handleCreateStream = React.useCallback(async () => {
     if (!newStreamName.trim()) return;
     
+    setCreateError(null);
+    
     try {
       const response = await fetch('/api/streams', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name: newStreamName.trim(),
-          ownerType: 'user',
-          isPrivate: false,
+          owner_type: 'user',
+          is_private: false,
         }),
       });
       
@@ -126,10 +154,11 @@ export function StreamPicker({
       
       // Close dialog and reset
       setNewStreamName("");
+      setCreateError(null);
       setIsCreateDialogOpen(false);
     } catch (error) {
-      console.error('Failed to create stream:', error);
-      alert(error instanceof Error ? error.message : 'Failed to create stream');
+      console.error('[StreamPicker] Failed to create stream:', error);
+      setCreateError(error instanceof Error ? error.message : 'Failed to create stream');
     }
   }, [newStreamName, selectedStreamIds, onSelectStreams]);
 
@@ -205,7 +234,7 @@ export function StreamPicker({
       <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
         <DialogTrigger asChild>
           <Button
-            variant="cosmos-ghost"
+            variant="ghost"
             size="sm"
             className="w-full"
             disabled={disabled}
@@ -228,22 +257,30 @@ export function StreamPicker({
                 type="text"
                 placeholder="# My New Stream"
                 value={newStreamName}
-                onChange={(e) => setNewStreamName(e.target.value)}
+                onChange={(e) => {
+                  setNewStreamName(e.target.value);
+                  setCreateError(null);
+                }}
                 maxLength={STREAM_VALIDATION.MAX_STREAM_NAME_LENGTH}
               />
               <p className="text-xs text-muted-foreground">
                 {STREAM_VALIDATION.MIN_STREAM_NAME_LENGTH}-{STREAM_VALIDATION.MAX_STREAM_NAME_LENGTH} characters
               </p>
+              {createError && (
+                <p className="text-xs text-destructive">
+                  {createError}
+                </p>
+              )}
             </div>
             <div className="flex justify-end gap-2">
               <Button
-                variant="cosmos-ghost"
+                variant="ghost"
                 onClick={() => setIsCreateDialogOpen(false)}
               >
                 Cancel
               </Button>
               <Button
-                variant="cosmos"
+                variant="default"
                 onClick={handleCreateStream}
                 disabled={newStreamName.trim().length < STREAM_VALIDATION.MIN_STREAM_NAME_LENGTH}
               >

@@ -10,7 +10,7 @@ interface MobileActionBarProps {
   commentCount: number;
   onLike: () => void;
   onCommentsTap: () => void;
-  onMoreTap: () => void;
+  onMoreTap?: () => void;
 }
 
 export const MobileActionBar = React.memo(function MobileActionBar({
@@ -22,7 +22,7 @@ export const MobileActionBar = React.memo(function MobileActionBar({
   onMoreTap
 }: MobileActionBarProps) {
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-50 px-4 py-3 pb-[max(12px,env(safe-area-inset-bottom))] bg-black/80 backdrop-blur-xl border-t border-white/10 flex items-center justify-between">
+    <div className="fixed bottom-0 left-0 right-0 z-50 px-4 py-3 pb-[max(12px,env(safe-area-inset-bottom))] bg-black/80 backdrop-blur-xl border-t border-white/10 flex items-center justify-between gap-4">
       {/* Like Button */}
       <button 
         onClick={onLike}
@@ -42,7 +42,7 @@ export const MobileActionBar = React.memo(function MobileActionBar({
       {/* Comments Button (Primary Action) */}
       <button 
         onClick={onCommentsTap}
-        className="flex-1 mx-4 h-10 bg-zinc-800 hover:bg-zinc-700 active:bg-zinc-600 rounded-full flex items-center px-4 gap-2 transition-colors"
+        className="flex-1 h-10 bg-zinc-800 hover:bg-zinc-700 active:bg-zinc-600 rounded-full flex items-center px-4 gap-2 transition-colors"
       >
         <MessageCircle className="h-4 w-4 text-zinc-400" />
         <span className="text-sm font-medium text-zinc-300">
@@ -51,13 +51,14 @@ export const MobileActionBar = React.memo(function MobileActionBar({
       </button>
 
       {/* More Button */}
-      <button 
-        onClick={onMoreTap}
-        className="flex flex-col items-center gap-1 p-2 text-zinc-400 active:scale-95 transition-transform"
-      >
-        <MoreHorizontal className="h-6 w-6 text-white" />
-        <span className="text-xs font-medium text-zinc-400">More</span>
-      </button>
+      {onMoreTap && (
+        <button 
+          onClick={onMoreTap}
+          className="flex flex-col items-center gap-1 p-2 text-zinc-400 active:scale-95 transition-transform"
+        >
+          <MoreHorizontal className="h-6 w-6 text-white" />
+        </button>
+      )}
     </div>
   );
 });

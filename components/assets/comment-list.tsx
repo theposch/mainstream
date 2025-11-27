@@ -1,8 +1,28 @@
 import React from "react";
-import { Comment } from "@/lib/mock-data/comments";
-import { User, users } from "@/lib/mock-data/users";
 import { CommentItem } from "./comment-item";
 import { cn } from "@/lib/utils";
+
+// Database types
+interface Comment {
+  id: string;
+  asset_id: string;
+  user_id: string;
+  content: string;
+  parent_id?: string;
+  created_at: string;
+  updated_at?: string;
+  is_edited: boolean;
+  likes: number;
+  has_liked: boolean;
+  user?: User;
+}
+
+interface User {
+  id: string;
+  username: string;
+  display_name: string;
+  avatar_url: string;
+}
 
 interface CommentListProps {
   comments: Comment[];
@@ -27,20 +47,20 @@ export const CommentList = React.memo(function CommentList({
   editingCommentId,
   onCancelEdit
 }: CommentListProps) {
-  // Group comments by parentId
+  // Group comments by parent_id
   const topLevelComments = React.useMemo(() => 
     comments
-      .filter(c => !c.parentId)
-      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()),
+      .filter(c => !c.parent_id)
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()),
     [comments]
   );
 
   const getReplies = (parentId: string) => 
     comments
-      .filter(c => c.parentId === parentId)
-      .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+      .filter(c => c.parent_id === parentId)
+      .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
 
-  const getUser = (userId: string) => users.find(u => u.id === userId);
+  const getUser = (userId: string) => comments.find(c => c.user_id === userId)?.user;
 
   if (comments.length === 0) {
     return (

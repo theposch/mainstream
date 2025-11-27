@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Masonry from "react-masonry-css";
-import { Asset } from "@/lib/mock-data/assets";
+import type { Asset } from "@/lib/types/database";
 import { ElementCard } from "./element-card";
 import { LoadingSpinner } from "@/components/ui/loading";
 import { MASONRY_BREAKPOINTS } from "@/lib/constants";

@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { Search, Image as ImageIcon, Palette, Sparkles, X } from "lucide-react";
+import { Search, Palette, Sparkles, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSearch } from "@/lib/contexts/search-context";
 import { useKeyboardShortcut } from "@/lib/hooks/use-keyboard-shortcut";
@@ -122,19 +122,6 @@ export function SearchBar() {
             </button>
           )}
           <div className="flex items-center pr-1.5 gap-1">
-            {/* TODO: Implement image search
-                - Open file picker or camera (on mobile)
-                - POST /api/search/image with file
-                - Use AI vision API to find similar images
-                - Show results page with similar assets
-            */}
-            <button 
-              type="button"
-              className="p-1.5 rounded-full hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
-              aria-label="Search by image"
-            >
-              <ImageIcon className="h-4 w-4" />
-            </button>
             <ColorSearchPopover
               open={showColorDialog}
               onOpenChange={setShowColorDialog}

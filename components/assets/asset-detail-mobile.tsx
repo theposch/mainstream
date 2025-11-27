@@ -6,8 +6,6 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import useEmblaCarousel from "embla-carousel-react";
 import { X, Reply } from "lucide-react";
-import { Asset } from "@/lib/mock-data/assets";
-import { users } from "@/lib/mock-data/users";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { IMAGE_SIZES } from "@/lib/constants";
@@ -16,32 +14,36 @@ import { MobileActionBar } from "./mobile-action-bar";
 import { CommentList } from "./comment-list";
 import { CommentInput } from "./comment-input";
 import { useAssetDetail } from "./use-asset-detail";
+import { MoreMenuSheet } from "./more-menu-sheet";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface AssetDetailMobileProps {
-  asset: Asset;
+  asset: any;  // Asset from database
 }
-
-// Import at module scope for better performance
-import { assets as rawAssets } from "@/lib/mock-data/assets";
 
 export function AssetDetailMobile({ asset }: AssetDetailMobileProps) {
   const router = useRouter();
   const [sheetOpen, setSheetOpen] = React.useState(false);
+  const [moreMenuOpen, setMoreMenuOpen] = React.useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = React.useState(false);
+  const [isDeleting, setIsDeleting] = React.useState(false);
   
   // Track the currently visible asset in the carousel
   const [currentCarouselIndex, setCurrentCarouselIndex] = React.useState<number>(-1);
 
-  // Asset navigation logic (matching desktop) - memoized for performance
-  const allAssets = React.useMemo(() => [
-    ...rawAssets,
-    ...rawAssets.map((a: Asset) => ({ ...a, id: a.id + '-copy-1' })),
-    ...rawAssets.map((a: Asset) => ({ ...a, id: a.id + '-copy-2' })),
-  ], []); // Empty deps - rawAssets is static
+  // Simplified navigation (carousel removed for now)
+  const allAssets = React.useMemo(() => [asset], [asset]);
 
-  const initialIndex = React.useMemo(() => 
-    allAssets.findIndex((a: any) => a.id === asset.id),
-    [allAssets, asset.id]
-  );
+  const initialIndex = 0;
 
   // Embla Carousel setup
   const [emblaRef, emblaApi] = useEmblaCarousel({
@@ -78,10 +80,8 @@ export function AssetDetailMobile({ asset }: AssetDetailMobileProps) {
     currentUser
   } = useAssetDetail(currentAsset);
 
-  const uploader = React.useMemo(
-    () => users.find(u => u.id === currentAsset.uploaderId),
-    [currentAsset.uploaderId]
-  );
+  // Get uploader from asset (already joined in server query)
+  const uploader = currentAsset.uploader;
 
   // Initialize carousel index
   React.useEffect(() => {
@@ -158,6 +158,67 @@ export function AssetDetailMobile({ asset }: AssetDetailMobileProps) {
     }
   }, [emblaApi, sheetOpen]);
 
+  const handleDelete = async () => {
+    if (isDeleting) return;
+    
+    setIsDeleting(true);
+    try {
+      const response = await fetch(`/api/assets/${currentAsset.id}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.message || 'Failed to delete asset');
+      }
+
+      // Success - redirect to home
+      router.push('/home');
+    } catch (error) {
+      console.error('Error deleting asset:', error);
+      alert(error instanceof Error ? error.message : 'Failed to delete asset');
+      setIsDeleting(false);
+      setShowDeleteDialog(false);
+    }
+  };
+
+  const handleShare = () => {
+    const url = `${window.location.origin}/e/${currentAsset.id}`;
+    navigator.clipboard.writeText(url);
+    setMoreMenuOpen(false);
+    // TODO: Show toast notification
+  };
+
+  const handleDownload = async () => {
+    try {
+      const response = await fetch(currentAsset.url);
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = currentAsset.title || 'download';
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      setMoreMenuOpen(false);
+    } catch (error) {
+      console.error('Error downloading asset:', error);
+    }
+  };
+
+  const handleReport = () => {
+    setMoreMenuOpen(false);
+    // TODO: Implement report functionality
+  };
+
+  const handleDeleteClick = () => {
+    setMoreMenuOpen(false);
+    setShowDeleteDialog(true);
+  };
+
+  const canDelete = currentUser && currentUser.id === currentAsset.uploader_id;
+
   return (
     <div className="fixed inset-0 z-[100] bg-black flex flex-col">
       {/* Close button - floating */}
@@ -199,7 +260,7 @@ export function AssetDetailMobile({ asset }: AssetDetailMobileProps) {
         commentCount={comments.length}
         onLike={handleAssetLike}
         onCommentsTap={() => setSheetOpen(true)}
-        onMoreTap={() => { /* TODO: Show more menu */ }}
+        onMoreTap={() => setMoreMenuOpen(true)}
       />
       
       {/* Bottom sheet with details - synced with current carousel asset */}
@@ -213,15 +274,15 @@ export function AssetDetailMobile({ asset }: AssetDetailMobileProps) {
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <Avatar className="h-10 w-10 border border-zinc-800">
-                    <AvatarImage src={uploader?.avatarUrl} />
-                    <AvatarFallback>{uploader?.username.charAt(0)}</AvatarFallback>
+                    <AvatarImage src={uploader?.avatar_url} />
+                    <AvatarFallback>{uploader?.username?.charAt(0).toUpperCase() || 'U'}</AvatarFallback>
                   </Avatar>
                   <div className="flex flex-col">
-                    <span className="text-sm font-medium text-white">{uploader?.displayName}</span>
-                    <span className="text-xs text-zinc-500">Added {new Date(currentAsset.createdAt).toLocaleDateString()}</span>
+                    <span className="text-sm font-medium text-white">{uploader?.display_name || 'Unknown User'}</span>
+                    <span className="text-xs text-zinc-500">Added {new Date(currentAsset.created_at).toLocaleDateString()}</span>
                   </div>
                 </div>
-                <Button variant="cosmos-secondary" size="sm">
+                <Button variant="secondary" size="sm">
                   Follow
                 </Button>
               </div>
@@ -283,6 +344,39 @@ export function AssetDetailMobile({ asset }: AssetDetailMobileProps) {
           </div>
         </div>
       </BottomSheet>
+
+      {/* More Menu Sheet */}
+      <MoreMenuSheet
+        open={moreMenuOpen}
+        onOpenChange={setMoreMenuOpen}
+        onShare={handleShare}
+        onDownload={handleDownload}
+        onReport={handleReport}
+        onDelete={handleDeleteClick}
+        canDelete={canDelete}
+      />
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Asset?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the asset and all associated comments and likes.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              disabled={isDeleting}
+              className="bg-destructive hover:bg-destructive/90"
+            >
+              {isDeleting ? 'Deleting...' : 'Delete'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

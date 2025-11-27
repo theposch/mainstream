@@ -1,244 +1,152 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { Stream, STREAM_VALIDATION } from '@/lib/mock-data/streams';
-import { sanitizeInput } from '@/lib/utils/image';
-import { requireAuthNoParams, canUserModifyResource, rateLimit } from '@/lib/auth/middleware';
-import { getStreams, addStream } from '@/lib/utils/stream-storage';
+/**
+ * Streams API Route
+ * 
+ * Handles CRUD operations for streams
+ * 
+ * GET /api/streams - List all public streams (or user's private streams if authenticated)
+ * POST /api/streams - Create a new stream
+ */
 
-export const runtime = 'nodejs';
+import { NextRequest, NextResponse } from 'next/server';
+import { createClient } from '@/lib/supabase/server';
+
+export const dynamic = 'force-dynamic';
+
+/**
+ * GET /api/streams
+ * 
+ * Query parameters:
+ * - owner_id: Filter by owner (UUID)
+ * - owner_type: Filter by owner type ('user' | 'team')
+ * - status: Filter by status ('active' | 'archived')
+ */
+export async function GET(request: NextRequest) {
+  try {
+    const searchParams = request.nextUrl.searchParams;
+    const ownerId = searchParams.get('owner_id');
+    const ownerType = searchParams.get('owner_type');
+    const status = searchParams.get('status') || 'active';
+
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    let query = supabase
+      .from('streams')
+      .select('*')
+      .eq('status', status);
+
+    // Filter by owner if provided
+    if (ownerId && ownerType) {
+      query = query.eq('owner_id', ownerId).eq('owner_type', ownerType);
+    }
+
+    // If not authenticated, only show public streams
+    if (!user) {
+      query = query.eq('is_private', false);
+    } else {
+      // If authenticated, show public streams + user's private streams
+      query = query.or(`is_private.eq.false,owner_id.eq.${user.id}`);
+    }
+
+    const { data: streams, error } = await query.order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('[GET /api/streams] Error:', error);
+      return NextResponse.json(
+        { error: 'Failed to fetch streams' },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json({ streams: streams || [] });
+  } catch (error) {
+    console.error('[GET /api/streams] Error:', error);
+      return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+      );
+    }
+}
 
 /**
  * POST /api/streams
  * 
  * Creates a new stream
- * 
- * Request body:
- * {
- *   "name": "# Stream Name",
- *   "description": "Optional description",
- *   "isPrivate": false,
- *   "ownerType": "user" | "team",
- *   "ownerId": "user-id or team-id",
- *   "status": "active" (optional, defaults to "active")
- * }
- * 
- * Response:
- * {
- *   "stream": { ... stream object ... }
- * }
  */
-export const POST = requireAuthNoParams(async (request: NextRequest, user) => {
+export async function POST(request: NextRequest) {
   try {
-    // Rate limiting: max 10 streams per minute
-    const rateLimitResult = await rateLimit(10, 60000)(request, user);
-    if (rateLimitResult) return rateLimitResult;
+    const supabase = await createClient();
+    
+    // Check authentication
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    
+    if (authError || !user) {
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      );
+    }
 
     const body = await request.json();
-    const { 
-      name, 
-      description, 
-      isPrivate = false, 
-      ownerType = 'user', 
-      ownerId,
-      status = 'active'
-    } = body;
+    const { name, description, owner_type, owner_id, is_private, cover_image_url } = body;
 
-    // Validation
-    if (!name || typeof name !== 'string') {
+    // Validate name (slug format)
+    if (!name || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(name)) {
       return NextResponse.json(
-        { error: 'Stream name is required' },
+        { error: 'Invalid stream name. Use lowercase letters, numbers, and hyphens only.' },
         { status: 400 }
       );
     }
 
-    const trimmedName = name.trim();
-
-    if (trimmedName.length === 0) {
+    if (name.length < 2 || name.length > 50) {
       return NextResponse.json(
-        { error: 'Stream name cannot be empty' },
+        { error: 'Stream name must be between 2 and 50 characters' },
         { status: 400 }
       );
     }
 
-    if (trimmedName.length < STREAM_VALIDATION.MIN_STREAM_NAME_LENGTH) {
+    // Check if stream name already exists
+    const { data: existing } = await supabase
+      .from('streams')
+      .select('*')
+      .eq('name', name)
+      .single();
+
+    if (existing) {
+      // Return existing stream instead of error (idempotent API)
+      console.log(`[POST /api/streams] Stream "${name}" already exists, returning existing stream`);
+      return NextResponse.json({ stream: existing }, { status: 200 });
+    }
+
+    // Create stream
+    const { data: stream, error: createError } = await supabase
+      .from('streams')
+      .insert({
+        name,
+        description: description || null,
+        owner_type: owner_type || 'user',
+        owner_id: owner_id || user.id,
+        is_private: is_private || false,
+        cover_image_url: cover_image_url || null,
+        status: 'active',
+      })
+      .select()
+      .single();
+
+    if (createError) {
+      console.error('[POST /api/streams] Error:', createError);
       return NextResponse.json(
-        { error: `Stream name must be at least ${STREAM_VALIDATION.MIN_STREAM_NAME_LENGTH} characters` },
-        { status: 400 }
+        { error: 'Failed to create stream', message: createError.message },
+        { status: 500 }
       );
     }
 
-    if (trimmedName.length > STREAM_VALIDATION.MAX_STREAM_NAME_LENGTH) {
-      return NextResponse.json(
-        { error: `Stream name must be less than ${STREAM_VALIDATION.MAX_STREAM_NAME_LENGTH} characters` },
-        { status: 400 }
-      );
-    }
-
-    if (description && description.length > STREAM_VALIDATION.MAX_STREAM_DESCRIPTION_LENGTH) {
-      return NextResponse.json(
-        { error: `Description must be less than ${STREAM_VALIDATION.MAX_STREAM_DESCRIPTION_LENGTH} characters` },
-        { status: 400 }
-      );
-    }
-
-    if (ownerType !== 'user' && ownerType !== 'team') {
-      return NextResponse.json(
-        { error: 'Owner type must be "user" or "team"' },
-        { status: 400 }
-      );
-    }
-
-    if (status !== 'active' && status !== 'archived') {
-      return NextResponse.json(
-        { error: 'Status must be "active" or "archived"' },
-        { status: 400 }
-      );
-    }
-
-    const finalOwnerId = ownerId || user.id;
-
-    // Authorization: verify user can create stream for this owner
-    if (!canUserModifyResource(user, finalOwnerId, ownerType)) {
-      return NextResponse.json(
-        { 
-          error: 'Forbidden',
-          message: 'You do not have permission to create streams for this workspace'
-        },
-        { status: 403 }
-      );
-    }
-
-    // Check for duplicate stream name (check both mock and persisted)
-    const allStreams = getStreams();
-    const duplicateStream = allStreams.find(s => 
-      s.name.toLowerCase() === trimmedName.toLowerCase() &&
-      s.ownerId === finalOwnerId &&
-      s.ownerType === ownerType
-    );
-
-    if (duplicateStream) {
-      return NextResponse.json(
-        { error: 'A stream with this name already exists in your workspace' },
-        { status: 409 }
-      );
-    }
-
-    // Generate unique ID
-    const streamId = `stream-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-    const now = new Date().toISOString();
-
-    // Create new stream
-    const newStream: Stream = {
-      id: streamId,
-      name: sanitizeInput(trimmedName),
-      description: description ? sanitizeInput(description) : undefined,
-      isPrivate: Boolean(isPrivate),
-      ownerType,
-      ownerId: finalOwnerId,
-      status,
-      createdAt: now,
-      updatedAt: now,
-    };
-
-    // NOTE: Don't call addStream() here - it's server-side and can't access localStorage
-    // Client-side code will call addStream() after receiving the response
-    // TODO: Replace with database INSERT operation
-
-    return NextResponse.json(
-      { stream: newStream },
-      { status: 201 }
-    );
+    return NextResponse.json({ stream }, { status: 201 });
   } catch (error) {
-    console.error('Error creating stream:', error);
+    console.error('[POST /api/streams] Error:', error);
     return NextResponse.json(
-      { 
-        error: 'Failed to create stream',
-        details: error instanceof Error ? error.message : 'Unknown error'
-      },
+      { error: 'Internal server error' },
       { status: 500 }
     );
   }
-});
-
-/**
- * GET /api/streams
- * 
- * Fetches streams for the current user/workspace
- * 
- * Query parameters:
- * - workspace: user-id or team-id (optional)
- * - status: "active" | "archived" (optional, defaults to "active")
- * - limit: number of streams to return (optional)
- * 
- * Response:
- * {
- *   "streams": [ ... array of streams ... ]
- * }
- */
-export const GET = requireAuthNoParams(async (request: NextRequest, user) => {
-  try {
-    const { searchParams } = new URL(request.url);
-    const workspace = searchParams.get('workspace');
-    const status = searchParams.get('status') || 'active';
-    const limit = searchParams.get('limit');
-
-    // Get all streams (mock + localStorage)
-    // TODO: In production, fetch from database with proper filtering and permissions
-    
-    let filteredStreams = getStreams();
-
-    // Filter by status
-    if (status === 'active' || status === 'archived') {
-      filteredStreams = filteredStreams.filter(s => s.status === status);
-    }
-
-    // Filter by workspace if provided
-    if (workspace) {
-      filteredStreams = filteredStreams.filter(s => s.ownerId === workspace);
-    } else {
-      // If no workspace specified, show user's accessible streams
-      // (owned by user or teams they're in)
-      filteredStreams = filteredStreams.filter(s => {
-        // Always include public streams
-        if (!s.isPrivate) return true;
-        
-        // Include private streams owned by user
-        if (s.ownerType === 'user' && s.ownerId === user.id) return true;
-        
-        // Include private streams from user's teams
-        if (s.ownerType === 'team') {
-          return canUserModifyResource(user, s.ownerId, 'team');
-        }
-        
-        return false;
-      });
-    }
-
-    // Apply limit if provided
-    if (limit) {
-      const limitNum = parseInt(limit, 10);
-      if (!isNaN(limitNum) && limitNum > 0) {
-        filteredStreams = filteredStreams.slice(0, limitNum);
-      }
-    }
-
-    // Sort by most recently updated
-    filteredStreams.sort((a, b) => 
-      new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
-    );
-
-    return NextResponse.json(
-      { streams: filteredStreams },
-      { status: 200 }
-    );
-  } catch (error) {
-    console.error('Error fetching streams:', error);
-    return NextResponse.json(
-      { 
-        error: 'Failed to fetch streams',
-        details: error instanceof Error ? error.message : 'Unknown error'
-      },
-      { status: 500 }
-    );
-  }
-});
-
+}

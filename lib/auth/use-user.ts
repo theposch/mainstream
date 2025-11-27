@@ -22,12 +22,12 @@
 
 import { useEffect, useState } from "react"
 import { createClient } from "@/lib/supabase/client"
-import type { User } from "./get-user"
+import type { User } from "./get-user";
 
 interface UseUserReturn {
-  user: User | null
-  loading: boolean
-  error: string | null
+  user: User | null;
+  loading: boolean;
+  error: string | null;
 }
 
 export function useUser(): UseUserReturn {

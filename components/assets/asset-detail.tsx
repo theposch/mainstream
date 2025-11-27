@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Asset } from "@/lib/mock-data/assets";
+import type { Asset } from "@/lib/types/database";
 import { AssetDetailDesktop } from "./asset-detail-desktop";
 import { AssetDetailMobile } from "./asset-detail-mobile";
 

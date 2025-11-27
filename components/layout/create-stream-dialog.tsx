@@ -7,12 +7,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Loader2, Lock, Globe, WifiOff, Hash, CheckCircle2, XCircle } from "lucide-react";
-import { currentUser } from "@/lib/mock-data/users";
-import { teams } from "@/lib/mock-data/teams";
-import { STREAM_VALIDATION } from "@/lib/mock-data/streams";
+import { STREAM_VALIDATION } from "@/lib/constants/streams";
 import { fetchWithRetry, getUserFriendlyErrorMessage, isOnline, deduplicatedRequest } from "@/lib/utils/api";
 import { isValidSlug } from "@/lib/utils/slug";
-import { getStreams, addStream, isStreamNameAvailable } from "@/lib/utils/stream-storage";
+import { createClient } from "@/lib/supabase/client";
 
 interface CreateStreamDialogProps {
   open: boolean;
@@ -21,16 +19,22 @@ interface CreateStreamDialogProps {
 
 export function CreateStreamDialog({ open, onOpenChange }: CreateStreamDialogProps) {
   const router = useRouter();
+  const supabase = createClient();
   const [isLoading, setIsLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [isOffline, setIsOffline] = React.useState(false);
+  
+  // User and teams state
+  const [currentUser, setCurrentUser] = React.useState<any>(null);
+  const [userTeams, setUserTeams] = React.useState<any[]>([]);
+  const [isLoadingUser, setIsLoadingUser] = React.useState(true);
   
   // Form state
   const [name, setName] = React.useState("");
   const [description, setDescription] = React.useState("");
   const [isPrivate, setIsPrivate] = React.useState(false);
   const [ownerType, setOwnerType] = React.useState<"user" | "team">("user");
-  const [ownerId, setOwnerId] = React.useState(currentUser.id);
+  const [ownerId, setOwnerId] = React.useState("");
 
   // Slug validation state
   const [validationState, setValidationState] = React.useState<{
@@ -38,9 +42,53 @@ export function CreateStreamDialog({ open, onOpenChange }: CreateStreamDialogPro
     message: string;
     type: 'success' | 'error' | 'idle';
   }>({ isValid: false, message: '', type: 'idle' });
+  const [debouncedName, setDebouncedName] = React.useState("");
 
-  // Get user's teams
-  const userTeams = teams.filter(team => team.memberIds.includes(currentUser.id));
+  // Fetch current user and teams
+  React.useEffect(() => {
+    if (!open) return;
+    
+    const fetchUserAndTeams = async () => {
+      setIsLoadingUser(true);
+      try {
+        // Get authenticated user
+        const { data: { user: authUser } } = await supabase.auth.getUser();
+        
+        if (authUser) {
+          // Fetch user profile
+          const { data: userProfile } = await supabase
+            .from('users')
+            .select('*')
+            .eq('id', authUser.id)
+            .single();
+          
+          if (userProfile) {
+            setCurrentUser(userProfile);
+            setOwnerId(userProfile.id);
+            
+            // Fetch user's teams
+            const { data: teamMemberships } = await supabase
+              .from('team_members')
+              .select('team:teams(*)')
+              .eq('user_id', userProfile.id);
+            
+            if (teamMemberships) {
+              const teams = teamMemberships
+                .map((m: any) => m.team)
+                .filter(Boolean);
+              setUserTeams(teams);
+            }
+          }
+        }
+      } catch (error) {
+        console.error('[CreateStreamDialog] Failed to fetch user/teams:', error);
+      } finally {
+        setIsLoadingUser(false);
+      }
+    };
+    
+    fetchUserAndTeams();
+  }, [open, supabase]);
 
   // Monitor online status
   React.useEffect(() => {
@@ -57,7 +105,7 @@ export function CreateStreamDialog({ open, onOpenChange }: CreateStreamDialogPro
     };
   }, []);
 
-  // Validate slug on change
+  // Handle name input change (simple state update)
   const handleNameChange = React.useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     let value = e.target.value;
     
@@ -66,12 +114,31 @@ export function CreateStreamDialog({ open, onOpenChange }: CreateStreamDialogPro
     
     setName(value);
     
+    // Reset validation to idle while typing
     if (!value) {
+      setValidationState({ isValid: false, message: '', type: 'idle' });
+    } else {
+      setValidationState({ isValid: false, message: 'Checking...', type: 'idle' });
+    }
+  }, []);
+
+  // Debounce name for validation (300ms delay)
+  React.useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedName(name);
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [name]);
+
+  // Validate debounced name
+  React.useEffect(() => {
+    if (!debouncedName) {
       setValidationState({ isValid: false, message: '', type: 'idle' });
       return;
     }
-    
-    if (!isValidSlug(value)) {
+
+    if (!isValidSlug(debouncedName)) {
       setValidationState({
         isValid: false,
         message: 'Use lowercase letters, numbers, and hyphens only',
@@ -79,23 +146,43 @@ export function CreateStreamDialog({ open, onOpenChange }: CreateStreamDialogPro
       });
       return;
     }
-    
-    // Check against both mock and persisted streams
-    if (!isStreamNameAvailable(value)) {
-      setValidationState({
-        isValid: false,
-        message: 'Stream name already taken',
-        type: 'error'
-      });
-      return;
-    }
-    
-    setValidationState({
-      isValid: true,
-      message: 'Available',
-      type: 'success'
-    });
-  }, []);
+
+    // Check availability via database
+    const checkAvailability = async () => {
+      try {
+        const { data: existingStream } = await supabase
+          .from('streams')
+          .select('id')
+          .eq('name', debouncedName)
+          .maybeSingle();
+
+        if (existingStream) {
+          setValidationState({
+            isValid: false,
+            message: 'Stream name already taken',
+            type: 'error'
+          });
+          return;
+        }
+
+        setValidationState({
+          isValid: true,
+          message: 'Available',
+          type: 'success'
+        });
+      } catch (error) {
+        console.error('[CreateStreamDialog] Error checking name availability:', error);
+        // Don't block on validation errors
+        setValidationState({
+          isValid: true,
+          message: '',
+          type: 'idle'
+        });
+      }
+    };
+
+    checkAvailability();
+  }, [debouncedName, supabase]);
 
   // Reset form when dialog closes
   React.useEffect(() => {
@@ -104,11 +191,13 @@ export function CreateStreamDialog({ open, onOpenChange }: CreateStreamDialogPro
       setDescription("");
       setIsPrivate(false);
       setOwnerType("user");
-      setOwnerId(currentUser.id);
+      if (currentUser) {
+        setOwnerId(currentUser.id);
+      }
       setError(null);
       setValidationState({ isValid: false, message: '', type: 'idle' });
     }
-  }, [open]);
+  }, [open, currentUser]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -160,9 +249,9 @@ export function CreateStreamDialog({ open, onOpenChange }: CreateStreamDialogPro
             body: JSON.stringify({
               name: trimmedName,
               description: description.trim() || undefined,
-              isPrivate,
-              ownerType,
-              ownerId,
+              is_private: isPrivate,
+              owner_type: ownerType,
+              owner_id: ownerId,
               status: 'active',
             }),
           },
@@ -180,9 +269,6 @@ export function CreateStreamDialog({ open, onOpenChange }: CreateStreamDialogPro
 
         return responseData;
       });
-
-      // Add stream to localStorage for immediate availability
-      addStream(data.stream);
       
       // Success! Close dialog and redirect to new stream
       onOpenChange(false);
@@ -294,10 +380,10 @@ export function CreateStreamDialog({ open, onOpenChange }: CreateStreamDialogPro
               </Label>
               <select
                 id="workspace"
-                value={ownerType === "user" ? currentUser.id : ownerId}
+                value={ownerType === "user" && currentUser ? currentUser.id : ownerId}
                 onChange={(e) => {
                   const value = e.target.value;
-                  if (value === currentUser.id) {
+                  if (currentUser && value === currentUser.id) {
                     setOwnerType("user");
                     setOwnerId(currentUser.id);
                   } else {
@@ -306,9 +392,9 @@ export function CreateStreamDialog({ open, onOpenChange }: CreateStreamDialogPro
                   }
                 }}
                 className="flex h-10 w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
-                disabled={isLoading}
+                disabled={isLoading || isLoadingUser || !currentUser}
               >
-                <option value={currentUser.id}>Personal</option>
+                {currentUser && <option value={currentUser.id}>Personal</option>}
                 {userTeams.map((team) => (
                   <option key={team.id} value={team.id}>
                     {team.name}

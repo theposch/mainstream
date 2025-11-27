@@ -3,11 +3,10 @@
 import * as React from "react";
 import Link from "next/link";
 import { Hash, Lock } from "lucide-react";
-import { Stream } from "@/lib/mock-data/streams";
 import { cn } from "@/lib/utils";
 
 interface StreamBadgeProps {
-  stream: Stream;  // Required, no alternatives
+  stream: any;  // Stream from database
   clickable?: boolean;
   className?: string;
 }
@@ -17,18 +16,18 @@ export const StreamBadge = React.memo(function StreamBadge({
   clickable = true,
   className,
 }: StreamBadgeProps) {
-  const { name, isPrivate } = stream;
+  const { name, is_private } = stream;
 
   const content = (
     <span className={cn(
       "inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium",
       "bg-secondary/50 text-secondary-foreground border border-border/50",
       "transition-colors",
-      clickable && !isPrivate && "hover:bg-secondary hover:border-border cursor-pointer",
-      isPrivate && "opacity-60",
+      clickable && !is_private && "hover:bg-secondary hover:border-border cursor-pointer",
+      is_private && "opacity-60",
       className
     )}>
-      {isPrivate ? (
+      {is_private ? (
         <Lock className="h-3 w-3" />
       ) : (
         <Hash className="h-3 w-3" />
@@ -39,7 +38,7 @@ export const StreamBadge = React.memo(function StreamBadge({
     </span>
   );
 
-  if (!clickable || isPrivate) {
+  if (!clickable || is_private) {
     return content;
   }
 

@@ -1,12 +1,7 @@
 import { notFound } from "next/navigation";
-// TODO: Replace with database queries
-import { teams } from "@/lib/mock-data/teams";
-import { users } from "@/lib/mock-data/users";
-import { readAssets } from "@/lib/utils/assets-storage";
-import { assetStreams } from "@/lib/mock-data/streams";
+import { createClient } from "@/lib/supabase/server";
 import { StreamHeader } from "@/components/streams/stream-header";
 import { MasonryGrid } from "@/components/assets/masonry-grid";
-import { getStreamBySlug } from "@/lib/utils/stream-storage";
 
 interface StreamPageProps {
   params: Promise<{
@@ -14,74 +9,88 @@ interface StreamPageProps {
   }>;
 }
 
-// TODO: Convert to async server component and fetch from database
-// async function getStream(streamSlug: string) {
-//   const stream = await db.query.streams.findFirst({
-//     where: eq(streams.name, streamSlug),
-//     with: {
-//       owner: true,
-//       members: true,
-//       assets: {
-//         orderBy: desc(assets.createdAt),
-//         limit: 50
-//       }
-//     }
-//   });
-//   
-//   // Check authorization - user must have access to this stream
-//   // if (!canAccessStream(session.user.id, stream)) {
-//   //   return unauthorized();
-//   // }
-//   
-//   return stream;
-// }
-
 export default async function StreamPage({ params }: StreamPageProps) {
-  // Next.js 15+ requires awaiting params
   const { slug } = await params;
   
-  // TODO: Replace with: const stream = await getStream(slug);
-  const stream = getStreamBySlug(slug);
+  // Validate slug format - only allow lowercase letters, numbers, and hyphens
+  // This prevents SQL injection and ensures clean URLs
+  if (!/^[a-z0-9-]+$/.test(slug)) {
+    console.log(`[Stream Page] Invalid slug format: ${slug}`);
+    notFound();
+  }
+  
+  const supabase = await createClient();
 
-  if (!stream) {
+  // Fetch stream by slug (name field)
+  const { data: stream, error: streamError } = await supabase
+    .from('streams')
+    .select('*')
+    .eq('name', slug)
+    .single();
+
+  if (streamError || !stream) {
+    console.log(`[Stream Page] Stream not found: ${slug}`, streamError);
     notFound();
   }
 
-  // TODO: Replace with database join/query
-  const owner = stream.ownerType === 'team' 
-    ? teams.find(t => t.id === stream.ownerId) 
-    : users.find(u => u.id === stream.ownerId);
-  
-  if (!owner) {
-     return notFound();
+  // Fetch owner (user or team)
+  let owner = null;
+  if (stream.owner_type === 'user') {
+    const { data: userData } = await supabase
+      .from('users')
+      .select('*')
+      .eq('id', stream.owner_id)
+      .single();
+    owner = userData;
+  } else if (stream.owner_type === 'team') {
+    const { data: teamData } = await supabase
+      .from('teams')
+      .select('*')
+      .eq('id', stream.owner_id)
+      .single();
+    owner = teamData;
   }
 
-  // TODO: Replace with database query using many-to-many relationship
-  // Read assets from persistent storage and filter for this stream
-  const allAssets = readAssets();
-  
-  // Get asset IDs that belong to this stream from the many-to-many table
-  const streamAssetIds = assetStreams
-    .filter((as) => as.streamId === stream.id)
-    .map((as) => as.assetId);
-  
-  // Filter assets to only those in this stream
-  const streamAssets = allAssets.filter(a => streamAssetIds.includes(a.id));
+  if (!owner) {
+    console.log(`[Stream Page] Owner not found for stream: ${slug}`);
+    notFound();
+  }
 
-  // TODO: Remove duplication and implement pagination
-  // const { data: streamAssets, hasMore } = await fetchStreamAssets(stream.id, { page: 1 });
-  const displayAssets = [
-      ...streamAssets,
-      ...streamAssets.map(a => ({...a, id: a.id + '-copy-1'})),
-       ...streamAssets.map(a => ({...a, id: a.id + '-copy-2'})),
-  ];
+  // Fetch assets via asset_streams junction table
+  const { data: assetRelations } = await supabase
+    .from('asset_streams')
+    .select(`
+      asset_id,
+      added_at,
+      assets (
+        *,
+        uploader:users!uploader_id(*)
+      )
+    `)
+    .eq('stream_id', stream.id)
+    .order('added_at', { ascending: false })
+    .limit(50);
+
+  // Extract assets from the junction table results
+  const streamAssets = (assetRelations?.map(relation => relation.assets).filter(Boolean) || []) as any[];
+
+  console.log(`[Stream Page] Found stream: ${stream.name} with ${streamAssets.length} assets`);
 
   return (
     <div className="w-full min-h-screen">
       <StreamHeader stream={stream} owner={owner} />
       
       <div className="mt-8">
-        <MasonryGrid assets={displayAssets} />
+        {streamAssets.length > 0 ? (
+          <MasonryGrid assets={streamAssets} />
+        ) : (
+          <div className="text-center py-20">
+            <p className="text-lg font-medium text-muted-foreground">No assets in this stream yet.</p>
+            <p className="text-sm text-muted-foreground mt-2">
+              Assets will appear here when added to the stream.
+            </p>
+          </div>
+        )}
       </div>
     </div>
   );

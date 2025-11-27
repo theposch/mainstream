@@ -5,25 +5,50 @@ import Image from "next/image";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { Heart, Bookmark } from "lucide-react";
-import { Asset } from "@/lib/mock-data/assets";
-// TODO: Replace with real user data from database/API
-import { users } from "@/lib/mock-data/users";
-import { getAssetStreamObjects } from "@/lib/mock-data/migration-helpers";
 import { StreamBadge } from "@/components/streams/stream-badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
+import { useAssetLike } from "@/lib/hooks/use-asset-like";
+import { createClient } from "@/lib/supabase/client";
+
+// Database asset type (snake_case from Supabase)
+interface DatabaseAsset {
+  id: string;
+  title: string;
+  type: string;
+  url: string;
+  thumbnail_url?: string;
+  medium_url?: string;
+  uploader_id: string;
+  width?: number;
+  height?: number;
+  dominant_color?: string;
+  color_palette?: string[];
+  created_at: string;
+  updated_at: string;
+  streamIds?: string[]; // Kept for backwards compatibility
+  uploader?: {
+    id: string;
+    username: string;
+    display_name: string;
+    email: string;
+    avatar_url?: string;
+    job_title?: string;
+  };
+}
 
 interface ElementCardProps {
-  asset: Asset;
+  asset: DatabaseAsset;
   className?: string;
 }
 
 export const ElementCard = React.memo(
   function ElementCard({ asset, className }: ElementCardProps) {
   const [isHovered, setIsHovered] = React.useState(false);
-  // TODO: Replace with real like state from database - check if current user has liked this asset
-  const [isLiked, setIsLiked] = React.useState(false);
   const [imageLoaded, setImageLoaded] = React.useState(false);
+  
+  // Use real like functionality from database
+  const { isLiked, likeCount, toggleLike, loading } = useAssetLike(asset.id);
 
   // Ensure we have valid numbers for aspect ratio (prevent division by zero)
   const width = asset.width && asset.width > 0 ? asset.width : 800;
@@ -31,15 +56,30 @@ export const ElementCard = React.memo(
   const aspectRatio = (height / width) * 100;
 
   // Progressive loading: use thumbnailUrl first, then upgrade to mediumUrl or full url
-  const thumbnailUrl = asset.thumbnailUrl || asset.url;
-  const displayUrl = imageLoaded ? (asset.mediumUrl || asset.url) : thumbnailUrl;
+  const thumbnailUrl = asset.thumbnail_url || asset.url;
+  const displayUrl = imageLoaded ? (asset.medium_url || asset.url) : thumbnailUrl;
 
-  // TODO: Replace with API call to fetch user data
-  // GET /api/users/:uploaderId
-  const uploader = users.find(u => u.id === asset.uploaderId);
+  // Get uploader from the asset (already joined from database query)
+  const uploader = asset.uploader;
 
-  // Get streams for this asset
-  const assetStreams = React.useMemo(() => getAssetStreamObjects(asset), [asset]);
+  // Fetch streams for this asset from database
+  const [assetStreams, setAssetStreams] = React.useState<any[]>([]);
+  
+  React.useEffect(() => {
+    const fetchStreams = async () => {
+      const supabase = createClient();
+      const { data } = await supabase
+        .from('asset_streams')
+        .select('streams(*)')
+        .eq('asset_id', asset.id);
+      
+      if (data) {
+        setAssetStreams(data.map(rel => rel.streams).filter(Boolean));
+      }
+    };
+    fetchStreams();
+  }, [asset.id]);
+
   const visibleStreams = assetStreams.slice(0, 3);
   const overflowCount = Math.max(0, assetStreams.length - 3);
 
@@ -108,7 +148,7 @@ export const ElementCard = React.memo(
               {/* Left: User Info */}
               <div className="flex items-center gap-2 flex-1 min-w-0">
                 <Avatar className="h-8 w-8 border-2 border-white/20 shrink-0">
-                  <AvatarImage src={uploader?.avatarUrl} />
+                  <AvatarImage src={uploader?.avatar_url} />
                   <AvatarFallback className="text-xs">
                     {uploader?.username?.substring(0, 2).toUpperCase() || 'UN'}
                   </AvatarFallback>
@@ -123,28 +163,30 @@ export const ElementCard = React.memo(
                 </div>
               </div>
 
-              {/* Right: Like Button */}
-              {/* TODO: Replace with real like functionality
-                  - Check authentication state first
-                  - POST /api/assets/:assetId/like or DELETE /api/assets/:assetId/like
-                  - Update like count in UI
-                  - Handle optimistic updates
-                  - Show login prompt if not authenticated
-              */}
+              {/* Right: Like Button with Real-time Updates */}
+              <div className="flex items-center gap-2 shrink-0">
+                {likeCount > 0 && (
+                  <span className="text-sm text-white/90 font-medium">
+                    {likeCount}
+                  </span>
+                )}
               <button 
                 className={cn(
-                  "p-2.5 rounded-full backdrop-blur-md transition-all shadow-lg shrink-0",
+                    "p-2.5 rounded-full backdrop-blur-md transition-all shadow-lg",
                   isLiked 
                     ? "bg-red-500 text-white" 
-                    : "bg-white/90 hover:bg-white text-black"
+                      : "bg-white/90 hover:bg-white text-black",
+                    loading && "opacity-50 cursor-wait"
                 )}
                 onClick={(e) => {
                   e.preventDefault();
-                  setIsLiked(!isLiked);
+                    toggleLike();
                 }}
+                  disabled={loading}
               >
                 <Heart className={cn("w-4 h-4", isLiked && "fill-current")} />
               </button>
+              </div>
               </div>
             </div>
           </div>

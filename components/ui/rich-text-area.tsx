@@ -32,9 +32,22 @@ export const RichTextArea = React.forwardRef<HTMLDivElement, RichTextAreaProps>(
 
     // Track cursor position before updates
     const cursorPositionRef = React.useRef<number>(0);
+    
+    // Cooldown mechanism to prevent immediate re-trigger after hashtag replacement
+    const justReplacedRef = React.useRef(false);
+    const cooldownTimerRef = React.useRef<NodeJS.Timeout | null>(null);
 
     // Merge refs
     React.useImperativeHandle(ref, () => editorRef.current as HTMLDivElement);
+
+    // Cleanup cooldown timer on unmount
+    React.useEffect(() => {
+      return () => {
+        if (cooldownTimerRef.current) {
+          clearTimeout(cooldownTimerRef.current);
+        }
+      };
+    }, []);
 
     // Save cursor position before external value changes
     React.useLayoutEffect(() => {
@@ -190,6 +203,15 @@ export const RichTextArea = React.forwardRef<HTMLDivElement, RichTextAreaProps>(
         // Update parent value
         onChange(editorRef.current.textContent || "");
         
+        // Set cooldown to prevent immediate re-trigger
+        justReplacedRef.current = true;
+        if (cooldownTimerRef.current) {
+          clearTimeout(cooldownTimerRef.current);
+        }
+        cooldownTimerRef.current = setTimeout(() => {
+          justReplacedRef.current = false;
+        }, 200); // 200ms cooldown
+        
       } catch (error) {
         console.error('Failed to replace hashtag:', error);
       } finally {
@@ -201,6 +223,11 @@ export const RichTextArea = React.forwardRef<HTMLDivElement, RichTextAreaProps>(
     // Detect hashtag trigger
     const checkForHashtag = React.useCallback(() => {
       if (!onHashtagTrigger || !editorRef.current) return;
+      
+      // Skip check during cooldown period
+      if (justReplacedRef.current) {
+        return;
+      }
 
       const selection = window.getSelection();
       if (!selection || selection.rangeCount === 0) return;

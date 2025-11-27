@@ -13,9 +13,3 @@ export default async function SearchPage({
   return <SearchResults initialQuery={query} initialColor={color} />;
 }
 
-// TODO: When backend is implemented, fetch search results server-side:
-// - Add: const results = await searchAPI(query, color);
-// - Pass: initialResults={results} to SearchResults
-
-
-
