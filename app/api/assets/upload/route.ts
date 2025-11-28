@@ -197,9 +197,15 @@ export async function POST(request: NextRequest) {
     let colorPalette: string[] | undefined;
     let dominantColor: string | undefined;
 
+    console.log('[POST /api/assets/upload] 🎨 Starting color extraction...');
+    console.log(`  - Medium image URL: ${mediumUrl}`);
+    console.log(`  - Origin: ${request.nextUrl.origin}`);
+
     try {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+      
+      console.log('[POST /api/assets/upload] Calling /api/extract-colors endpoint...');
       
       const colorResponse = await fetch(`${request.nextUrl.origin}/api/extract-colors`, {
         method: 'POST',
@@ -215,15 +221,30 @@ export async function POST(request: NextRequest) {
 
       clearTimeout(timeoutId);
 
+      console.log(`[POST /api/assets/upload] Color extraction response status: ${colorResponse.status}`);
+
       if (colorResponse.ok) {
         const colorData = await colorResponse.json();
         colorPalette = colorData.colors;
         dominantColor = colorData.dominantColor;
+        console.log('[POST /api/assets/upload] ✅ Color extraction successful!');
+        console.log(`  - Dominant color: ${dominantColor}`);
+        console.log(`  - Color palette: ${colorPalette?.join(', ')}`);
       } else {
-        console.warn('Failed to extract colors, continuing without color palette');
+        const errorText = await colorResponse.text();
+        console.warn('[POST /api/assets/upload] ⚠️ Failed to extract colors');
+        console.warn(`  - Status: ${colorResponse.status}`);
+        console.warn(`  - Response: ${errorText}`);
+        console.warn('  - Continuing without color palette');
       }
     } catch (colorError) {
-      console.warn('Error extracting colors:', colorError);
+      console.error('[POST /api/assets/upload] ❌ Error extracting colors:');
+      console.error(`  - Error type: ${colorError instanceof Error ? colorError.name : typeof colorError}`);
+      console.error(`  - Error message: ${colorError instanceof Error ? colorError.message : String(colorError)}`);
+      if (colorError instanceof Error && colorError.stack) {
+        console.error(`  - Stack trace: ${colorError.stack.split('\n').slice(0, 3).join('\n')}`);
+      }
+      console.error('  - Continuing upload without color palette');
       // Continue without color palette
     }
 
