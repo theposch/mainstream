@@ -419,7 +419,7 @@ export function AssetDetailDesktop({ asset }: AssetDetailDesktopProps) {
                 <div className="space-y-3">
                   <h3 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Colors</h3>
                   <div className="flex gap-2 flex-wrap">
-                    {(asset.color_palette || [asset.dominant_color]).map((color: string, i: number) => (
+                    {(asset.color_palette || [asset.dominant_color]).filter((c: any): c is string => !!c).map((color: string, i: number) => (
                       <button
                         key={i}
                         className="group relative h-10 w-10 rounded-full border border-white/10 cursor-pointer hover:scale-110 transition-all duration-200 hover:shadow-lg"

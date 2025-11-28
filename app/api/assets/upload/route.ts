@@ -205,18 +205,37 @@ export async function POST(request: NextRequest) {
     try {
       // Extract colors directly from the buffer we already have in memory
       // Pass the MIME type so the library knows how to decode the image
+      // Library defaults to 5 colors, which is perfect for our use case
       console.log('[POST /api/assets/upload] Calling get-image-colors library...');
       const colorObjects = await getColors(mediumBuffer, file.type);
       
       console.log(`[POST /api/assets/upload] ✅ Extracted ${colorObjects.length} color objects`);
       
-      // Convert Color objects to hex strings
-      colorPalette = colorObjects.map(color => color.hex());
-      dominantColor = colorPalette[0]; // First color is most prominent
+      // Helper function to validate hex color format
+      const isValidHex = (color: string): boolean => /^#[0-9A-F]{6}$/i.test(color);
+      
+      // Convert Color objects to hex strings and validate
+      const extractedColors = colorObjects.map(color => color.hex());
+      colorPalette = extractedColors.filter(isValidHex);
+      
+      // Validate we got at least one color
+      if (colorPalette.length === 0) {
+        console.warn('[POST /api/assets/upload] ⚠️ No valid hex colors extracted');
+        colorPalette = undefined;
+        dominantColor = undefined;
+      } else {
+        dominantColor = colorPalette[0]; // First color is most prominent
+        
+        // Log any invalid colors that were filtered out
+        const invalidColors = extractedColors.filter(c => !isValidHex(c));
+        if (invalidColors.length > 0) {
+          console.warn(`[POST /api/assets/upload] ⚠️ Filtered out ${invalidColors.length} invalid colors: ${invalidColors.join(', ')}`);
+        }
 
-      console.log('[POST /api/assets/upload] ✅ Color extraction successful!');
-      console.log(`  - Dominant color: ${dominantColor}`);
-      console.log(`  - Color palette: ${colorPalette.join(', ')}`);
+        console.log('[POST /api/assets/upload] ✅ Color extraction successful!');
+        console.log(`  - Dominant color: ${dominantColor}`);
+        console.log(`  - Color palette (${colorPalette.length} colors): ${colorPalette.join(', ')}`);
+      }
     } catch (colorError) {
       console.error('[POST /api/assets/upload] ❌ Error extracting colors:');
       console.error(`  - Error type: ${colorError instanceof Error ? colorError.name : typeof colorError}`);
