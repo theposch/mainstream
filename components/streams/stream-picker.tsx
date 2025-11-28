@@ -229,7 +229,7 @@ export function StreamPicker({
     onExcludedStreamsChange,
       toggleStream,
     ]);
-
+      
   // Keyboard navigation for dropdown
   React.useEffect(() => {
     if (!open) return;
@@ -252,7 +252,7 @@ export function StreamPicker({
         e.preventDefault();
         setOpen(false);
         setSearchQuery("");
-      }
+    }
     };
 
     document.addEventListener('keydown', handleKeyDown);
@@ -391,16 +391,16 @@ export function StreamPicker({
           const isPending = stream.status === 'pending';
           const isPendingBool = isPending ? true : false;
           return (
-            <div
-              key={stream.id}
+          <div
+            key={stream.id}
               className={cn(
                 "inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-secondary hover:bg-secondary/80 text-secondary-foreground transition-colors",
                 isPending ? "border-2 border-dashed border-blue-500/50" : "border border-border"
               )}
-            >
-              <Hash className="h-3 w-3 text-muted-foreground" />
-              <span>{stream.name}</span>
-              <button
+          >
+            <Hash className="h-3 w-3 text-muted-foreground" />
+            <span>{stream.name}</span>
+            <button
                 onClick={() => toggleStream(stream.id, isPendingBool)}
               className="ml-1 p-0.5 rounded-full hover:bg-background/20 text-muted-foreground hover:text-foreground transition-colors"
               type="button"
