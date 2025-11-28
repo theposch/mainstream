@@ -200,11 +200,13 @@ export async function POST(request: NextRequest) {
 
     console.log('[POST /api/assets/upload] 🎨 Starting color extraction...');
     console.log('  - Extracting directly from buffer (no HTTP call)');
+    console.log(`  - MIME type: ${file.type}`);
 
     try {
       // Extract colors directly from the buffer we already have in memory
+      // Pass the MIME type so the library knows how to decode the image
       console.log('[POST /api/assets/upload] Calling get-image-colors library...');
-      const colorObjects = await getColors(mediumBuffer, { count: 5 });
+      const colorObjects = await getColors(mediumBuffer, file.type);
       
       console.log(`[POST /api/assets/upload] ✅ Extracted ${colorObjects.length} color objects`);
       
