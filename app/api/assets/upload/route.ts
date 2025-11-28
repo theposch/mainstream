@@ -31,6 +31,7 @@ import {
   isValidImage,
 } from '@/lib/utils/image-processing';
 import { createClient } from '@/lib/supabase/server';
+import getColors from 'get-image-colors';
 
 export const runtime = 'nodejs';
 
@@ -193,50 +194,27 @@ export async function POST(request: NextRequest) {
       saveImageToPublic(thumbnailBuffer, uniqueFilename, 'thumbnails'),
     ]);
 
-    // Extract colors from medium-sized image (better performance)
+    // Extract colors directly from medium-sized image buffer (no HTTP call needed!)
     let colorPalette: string[] | undefined;
     let dominantColor: string | undefined;
 
     console.log('[POST /api/assets/upload] 🎨 Starting color extraction...');
-    console.log(`  - Medium image URL: ${mediumUrl}`);
-    console.log(`  - Origin: ${request.nextUrl.origin}`);
+    console.log('  - Extracting directly from buffer (no HTTP call)');
 
     try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+      // Extract colors directly from the buffer we already have in memory
+      console.log('[POST /api/assets/upload] Calling get-image-colors library...');
+      const colorObjects = await getColors(mediumBuffer, { count: 5 });
       
-      console.log('[POST /api/assets/upload] Calling /api/extract-colors endpoint...');
+      console.log(`[POST /api/assets/upload] ✅ Extracted ${colorObjects.length} color objects`);
       
-      const colorResponse = await fetch(`${request.nextUrl.origin}/api/extract-colors`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          imageUrl: mediumUrl,
-          colorCount: 5,
-        }),
-        signal: controller.signal,
-      });
+      // Convert Color objects to hex strings
+      colorPalette = colorObjects.map(color => color.hex());
+      dominantColor = colorPalette[0]; // First color is most prominent
 
-      clearTimeout(timeoutId);
-
-      console.log(`[POST /api/assets/upload] Color extraction response status: ${colorResponse.status}`);
-
-      if (colorResponse.ok) {
-        const colorData = await colorResponse.json();
-        colorPalette = colorData.colors;
-        dominantColor = colorData.dominantColor;
-        console.log('[POST /api/assets/upload] ✅ Color extraction successful!');
-        console.log(`  - Dominant color: ${dominantColor}`);
-        console.log(`  - Color palette: ${colorPalette?.join(', ')}`);
-      } else {
-        const errorText = await colorResponse.text();
-        console.warn('[POST /api/assets/upload] ⚠️ Failed to extract colors');
-        console.warn(`  - Status: ${colorResponse.status}`);
-        console.warn(`  - Response: ${errorText}`);
-        console.warn('  - Continuing without color palette');
-      }
+      console.log('[POST /api/assets/upload] ✅ Color extraction successful!');
+      console.log(`  - Dominant color: ${dominantColor}`);
+      console.log(`  - Color palette: ${colorPalette.join(', ')}`);
     } catch (colorError) {
       console.error('[POST /api/assets/upload] ❌ Error extracting colors:');
       console.error(`  - Error type: ${colorError instanceof Error ? colorError.name : typeof colorError}`);
@@ -245,7 +223,7 @@ export async function POST(request: NextRequest) {
         console.error(`  - Stack trace: ${colorError.stack.split('\n').slice(0, 3).join('\n')}`);
       }
       console.error('  - Continuing upload without color palette');
-      // Continue without color palette
+      // Continue without color palette - this is non-critical
     }
 
     // Ensure user profile exists in public.users
