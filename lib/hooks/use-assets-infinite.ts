@@ -46,9 +46,6 @@ export function useAssetsInfinite(
       }
 
       const supabase = createClient();
-      
-      // Get current user for like status check
-      const { data: { user } } = await supabase.auth.getUser();
 
       const { data, error } = await supabase
         .from("assets")
@@ -74,29 +71,14 @@ export function useAssetsInfinite(
         setHasMore(false);
       }
 
-      // If user is logged in, fetch their likes for these assets
-      let userLikedAssetIds: Set<string> = new Set();
-      if (user && data && data.length > 0) {
-        const assetIds = data.map((a: any) => a.id);
-        const { data: userLikes } = await supabase
-          .from('asset_likes')
-          .select('asset_id')
-          .eq('user_id', user.id)
-          .in('asset_id', assetIds);
-        
-        if (userLikes) {
-          userLikedAssetIds = new Set(userLikes.map(l => l.asset_id));
-        }
-      }
-
       // Transform nested data to flat structure
+      // Note: Like status is verified client-side in useAssetLike hook
       const assetsWithData = (data || []).map((asset: any) => ({
         ...asset,
         streams: asset.asset_streams?.map((rel: any) => rel.streams).filter(Boolean) || [],
         asset_streams: undefined,
         likeCount: asset.asset_likes?.[0]?.count || 0,
         asset_likes: undefined,
-        isLikedByCurrentUser: userLikedAssetIds.has(asset.id),
       }));
 
       setAssets((prev) => [...prev, ...assetsWithData]);

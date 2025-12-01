@@ -21,10 +21,9 @@ export const ElementCard = React.memo(
   const [isHovered, setIsHovered] = React.useState(false);
   const [imageLoaded, setImageLoaded] = React.useState(false);
   
-  // Use pre-fetched like data if available (prevents N+1 queries)
+  // Use pre-fetched like count, verify like status client-side
   const { isLiked, likeCount, toggleLike, loading } = useAssetLike(
     asset.id,
-    asset.isLikedByCurrentUser,
     asset.likeCount
   );
 
@@ -167,7 +166,6 @@ export const ElementCard = React.memo(
   (prevProps, nextProps) => {
     return prevProps.asset.id === nextProps.asset.id &&
            prevProps.asset.likeCount === nextProps.asset.likeCount &&
-           prevProps.asset.isLikedByCurrentUser === nextProps.asset.isLikedByCurrentUser &&
            prevProps.className === nextProps.className;
   }
 );

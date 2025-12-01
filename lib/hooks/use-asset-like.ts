@@ -2,15 +2,15 @@
  * Asset Like Hook
  * 
  * Manages like/unlike functionality with optimistic updates.
- * Accepts pre-fetched like data to prevent N+1 queries.
+ * 
+ * Strategy:
+ * - Accept initialCount from server (reliable for aggregates)
+ * - ALWAYS verify like status client-side (server-side auth is unreliable)
+ * - Use optimistic updates for responsiveness
  * 
  * Usage:
  * ```tsx
- * // With pre-fetched data (preferred - no initial fetch)
- * const { isLiked, likeCount, toggleLike, loading } = useAssetLike(assetId, true, 5);
- * 
- * // Without pre-fetched data (will fetch on mount)
- * const { isLiked, likeCount, toggleLike, loading } = useAssetLike(assetId);
+ * const { isLiked, likeCount, toggleLike, loading } = useAssetLike(assetId, initialCount);
  * ```
  */
 
@@ -28,74 +28,97 @@ interface UseAssetLikeReturn {
 
 export function useAssetLike(
   assetId: string,
-  initialLiked?: boolean,
   initialCount?: number
 ): UseAssetLikeReturn {
-  // Use initial values if provided, otherwise fetch
-  const hasInitialData = initialLiked !== undefined && initialCount !== undefined;
-  
-  const [isLiked, setIsLiked] = useState(initialLiked ?? false);
+  // Like status is ALWAYS verified client-side (server-side auth is unreliable)
+  const [isLiked, setIsLiked] = useState(false);
+  // Like count can be trusted from server if provided
   const [likeCount, setLikeCount] = useState(initialCount ?? 0);
   const [loading, setLoading] = useState(false);
-  const hasFetched = useRef(hasInitialData);
+  const [statusChecked, setStatusChecked] = useState(false);
+  const isMounted = useRef(true);
 
-  // Only fetch if no initial data was provided
+  // Always verify like status client-side on mount
   useEffect(() => {
-    if (hasFetched.current) return;
-    hasFetched.current = true;
-
-    const fetchLikeData = async () => {
+    isMounted.current = true;
+    
+    const checkLikeStatus = async () => {
       const supabase = createClient();
       const { data: { user } } = await supabase.auth.getUser();
 
-      // Get total like count
-      const { count } = await supabase
+      if (!user || !isMounted.current) {
+        setStatusChecked(true);
+        return;
+      }
+
+      // Check if current user has liked this asset
+      const { data } = await supabase
         .from("asset_likes")
-        .select("*", { count: "exact", head: true })
-        .eq("asset_id", assetId);
+        .select("id")
+        .eq("asset_id", assetId)
+        .eq("user_id", user.id)
+        .maybeSingle(); // Use maybeSingle to avoid error when no row exists
 
-      setLikeCount(count || 0);
-
-      // Check if current user has liked
-      if (user) {
-        const { data } = await supabase
-          .from("asset_likes")
-          .select("*")
-          .eq("asset_id", assetId)
-          .eq("user_id", user.id)
-          .single();
-
+      if (isMounted.current) {
         setIsLiked(!!data);
+        setStatusChecked(true);
+      }
+
+      // If no initial count was provided, also fetch the count
+      if (initialCount === undefined && isMounted.current) {
+        const { count } = await supabase
+          .from("asset_likes")
+          .select("*", { count: "exact", head: true })
+          .eq("asset_id", assetId);
+
+        if (isMounted.current) {
+          setLikeCount(count || 0);
+        }
       }
     };
 
-    fetchLikeData();
-  }, [assetId]);
+    checkLikeStatus();
+
+    return () => {
+      isMounted.current = false;
+    };
+  }, [assetId, initialCount]);
 
   const toggleLike = useCallback(async () => {
     if (loading) return;
 
     setLoading(true);
 
-    // Optimistic update
+    // Store previous state for potential rollback
     const previousLiked = isLiked;
     const previousCount = likeCount;
     
-    setIsLiked(!isLiked);
-    setLikeCount(isLiked ? likeCount - 1 : likeCount + 1);
+    // Optimistic update
+    const newIsLiked = !isLiked;
+    setIsLiked(newIsLiked);
+    setLikeCount(newIsLiked ? likeCount + 1 : Math.max(0, likeCount - 1));
 
     try {
-      const method = isLiked ? "DELETE" : "POST";
+      const method = previousLiked ? "DELETE" : "POST";
       const response = await fetch(`/api/assets/${assetId}/like`, {
         method,
       });
 
+      const data = await response.json();
+
       if (!response.ok) {
-        throw new Error("Failed to toggle like");
+        throw new Error(data.error || "Failed to toggle like");
+      }
+
+      // Handle "Already liked" case - don't change the count
+      if (data.message === "Already liked" && !previousLiked) {
+        // User was trying to like but already had liked - sync state
+        setIsLiked(true);
+        setLikeCount(previousCount); // Keep original count
       }
     } catch (error) {
       console.error("[useAssetLike] Error toggling like:", error);
-      // Rollback optimistic update
+      // Rollback optimistic update on error
       setIsLiked(previousLiked);
       setLikeCount(previousCount);
     } finally {

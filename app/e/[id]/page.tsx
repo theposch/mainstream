@@ -19,10 +19,8 @@ export default async function AssetPage({ params }: AssetPageProps) {
   
   const supabase = await createClient();
   
-  // Get current user for like status check
-  const { data: { user } } = await supabase.auth.getUser();
-  
   // Fetch asset with uploader and like count
+  // Note: Like status is verified client-side for reliability
   const { data: asset, error } = await supabase
     .from('assets')
     .select(`
@@ -37,25 +35,11 @@ export default async function AssetPage({ params }: AssetPageProps) {
     notFound();
   }
   
-  // Check if current user has liked this asset
-  let isLikedByCurrentUser = false;
-  if (user) {
-    const { data: userLike } = await supabase
-      .from('asset_likes')
-      .select('id')
-      .eq('asset_id', id)
-      .eq('user_id', user.id)
-      .single();
-    
-    isLikedByCurrentUser = !!userLike;
-  }
-  
-  // Transform asset with like data
+  // Transform asset with like count (status checked client-side)
   const assetWithLikeData = {
     ...asset,
     likeCount: asset.asset_likes?.[0]?.count || 0,
     asset_likes: undefined,
-    isLikedByCurrentUser,
   };
 
   return <AssetDetail asset={assetWithLikeData} />;
