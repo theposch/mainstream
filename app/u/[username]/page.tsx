@@ -134,11 +134,31 @@ export default function UserProfile({ params }: UserProfileProps) {
           assets: assetsCount || 0,
         });
 
-        // Transform user assets with like count (status checked client-side)
+        // Collect all asset IDs for batch like status check
+        const userAssetIds = assetsData?.map((a: any) => a.id) || [];
+        const likedAssetIds = likedData?.map((l: any) => l.asset_id) || [];
+        const allAssetIds = [...new Set([...userAssetIds, ...likedAssetIds])];
+        
+        // Batch fetch which assets the current user has liked
+        let currentUserLikedIds: Set<string> = new Set();
+        if (authUser && allAssetIds.length > 0) {
+          const { data: currentUserLikes } = await supabase
+            .from('asset_likes')
+            .select('asset_id')
+            .eq('user_id', authUser.id)
+            .in('asset_id', allAssetIds);
+          
+          if (currentUserLikes) {
+            currentUserLikedIds = new Set(currentUserLikes.map(l => l.asset_id));
+          }
+        }
+
+        // Transform user assets with like count and status
         const transformedAssets = (assetsData || []).map((asset: any) => ({
           ...asset,
           likeCount: asset.asset_likes?.[0]?.count || 0,
           asset_likes: undefined,
+          isLikedByCurrentUser: currentUserLikedIds.has(asset.id),
         }));
         setUserAssets(transformedAssets);
         
@@ -182,7 +202,7 @@ export default function UserProfile({ params }: UserProfileProps) {
         
         setUserStreams(enrichedStreams as any);
         
-        // Extract and transform liked assets with like count (status checked client-side)
+        // Extract and transform liked assets with like count and status
         const liked = (likedData?.map(item => {
           const asset = item.assets as any;
           if (!asset) return null;
@@ -190,6 +210,7 @@ export default function UserProfile({ params }: UserProfileProps) {
             ...asset,
             likeCount: asset.asset_likes?.[0]?.count || 0,
             asset_likes: undefined,
+            isLikedByCurrentUser: currentUserLikedIds.has(asset.id),
           };
         }).filter(Boolean) || []) as unknown as Asset[];
         setLikedAssets(liked);

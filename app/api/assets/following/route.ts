@@ -100,14 +100,29 @@ export async function GET(request: NextRequest) {
       );
     }
     
-    // Transform nested data to flat structure
-    // Note: Like status is verified client-side for reliability
+    // Batch fetch which assets the user has liked
+    let userLikedAssetIds: Set<string> = new Set();
+    if (rawAssets && rawAssets.length > 0) {
+      const assetIds = rawAssets.map((a: any) => a.id);
+      const { data: userLikes } = await supabase
+        .from('asset_likes')
+        .select('asset_id')
+        .eq('user_id', currentUser.id)
+        .in('asset_id', assetIds);
+      
+      if (userLikes) {
+        userLikedAssetIds = new Set(userLikes.map(l => l.asset_id));
+      }
+    }
+    
+    // Transform nested data to flat structure with like status
     const assets = (rawAssets || []).map((asset: any) => ({
       ...asset,
       streams: asset.asset_streams?.map((rel: any) => rel.streams).filter(Boolean) || [],
       asset_streams: undefined,
       likeCount: asset.asset_likes?.[0]?.count || 0,
       asset_likes: undefined,
+      isLikedByCurrentUser: userLikedAssetIds.has(asset.id),
     }));
 
     // Determine if there are more assets

@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { unstable_noStore as noStore } from 'next/cache';
 import { createClient } from "@/lib/supabase/server";
 import { StreamHeader } from "@/components/streams/stream-header";
 import { MasonryGrid } from "@/components/assets/masonry-grid";
@@ -10,6 +11,9 @@ interface StreamPageProps {
 }
 
 export default async function StreamPage({ params }: StreamPageProps) {
+  // Opt out of caching to ensure fresh like status
+  noStore();
+  
   const { slug } = await params;
   
   // Validate slug format - only allow lowercase letters, numbers, and hyphens
@@ -18,6 +22,9 @@ export default async function StreamPage({ params }: StreamPageProps) {
   }
   
   const supabase = await createClient();
+  
+  // Get current user for like status check
+  const { data: { user } } = await supabase.auth.getUser();
 
   // Fetch stream by slug (name field)
   const { data: stream, error: streamError } = await supabase
@@ -53,7 +60,6 @@ export default async function StreamPage({ params }: StreamPageProps) {
   }
 
   // Fetch assets via asset_streams junction table (with like counts)
-  // Note: Like status is verified client-side for reliability
   const { data: assetRelations } = await supabase
     .from('asset_streams')
     .select(`
@@ -69,7 +75,24 @@ export default async function StreamPage({ params }: StreamPageProps) {
     .order('added_at', { ascending: false })
     .limit(50);
 
-  // Extract and transform assets with like count
+  // Extract asset IDs for batch like status check
+  const assetIds = assetRelations?.map(r => r.asset_id).filter(Boolean) || [];
+  
+  // Check which assets the user has liked (single batch query)
+  let userLikedAssetIds: Set<string> = new Set();
+  if (user && assetIds.length > 0) {
+    const { data: userLikes } = await supabase
+      .from('asset_likes')
+      .select('asset_id')
+      .eq('user_id', user.id)
+      .in('asset_id', assetIds);
+    
+    if (userLikes) {
+      userLikedAssetIds = new Set(userLikes.map(l => l.asset_id));
+    }
+  }
+
+  // Extract and transform assets with like data
   const streamAssets = (assetRelations?.map(relation => {
     const asset = relation.assets as any;
     if (!asset) return null;
@@ -77,6 +100,7 @@ export default async function StreamPage({ params }: StreamPageProps) {
       ...asset,
       likeCount: asset.asset_likes?.[0]?.count || 0,
       asset_likes: undefined,
+      isLikedByCurrentUser: userLikedAssetIds.has(asset.id),
     };
   }).filter(Boolean) || []) as any[];
 
@@ -99,4 +123,3 @@ export default async function StreamPage({ params }: StreamPageProps) {
     </div>
   );
 }
-

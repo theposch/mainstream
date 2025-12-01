@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { unstable_noStore as noStore } from 'next/cache';
 import { createClient } from "@/lib/supabase/server";
 import { AssetDetail } from "@/components/assets/asset-detail";
 
@@ -9,6 +10,9 @@ interface AssetPageProps {
 }
 
 export default async function AssetPage({ params }: AssetPageProps) {
+  // Opt out of caching to ensure fresh like status
+  noStore();
+  
   const { id } = await params;
   
   // Validate UUID format to prevent invalid queries
@@ -19,8 +23,10 @@ export default async function AssetPage({ params }: AssetPageProps) {
   
   const supabase = await createClient();
   
+  // Get current user for like status check
+  const { data: { user } } = await supabase.auth.getUser();
+  
   // Fetch asset with uploader and like count
-  // Note: Like status is verified client-side for reliability
   const { data: asset, error } = await supabase
     .from('assets')
     .select(`
@@ -35,11 +41,25 @@ export default async function AssetPage({ params }: AssetPageProps) {
     notFound();
   }
   
-  // Transform asset with like count (status checked client-side)
+  // Check if current user has liked this asset
+  let isLikedByCurrentUser = false;
+  if (user) {
+    const { data: userLike } = await supabase
+      .from('asset_likes')
+      .select('asset_id')
+      .eq('asset_id', id)
+      .eq('user_id', user.id)
+      .maybeSingle();
+    
+    isLikedByCurrentUser = !!userLike;
+  }
+  
+  // Transform asset with like data
   const assetWithLikeData = {
     ...asset,
     likeCount: asset.asset_likes?.[0]?.count || 0,
     asset_likes: undefined,
+    isLikedByCurrentUser,
   };
 
   return <AssetDetail asset={assetWithLikeData} />;

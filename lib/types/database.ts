@@ -61,8 +61,9 @@ export interface Asset {
   // Joined data (pre-fetched to prevent N+1 queries)
   uploader?: User;
   streams?: Stream[];
-  // Pre-fetched like count (status verified client-side)
+  // Pre-fetched like data (server provides both count and status)
   likeCount?: number;
+  isLikedByCurrentUser?: boolean;
 }
 
 export interface StreamResource {
