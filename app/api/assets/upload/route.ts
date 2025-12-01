@@ -9,10 +9,9 @@
  * 3. Validate file type, size, and image integrity
  * 4. Process image in parallel (3 sizes with Sharp)
  * 5. Save files to public/uploads/
- * 6. Extract color palette
- * 7. Insert asset into database
- * 8. Create stream associations
- * 9. Return asset object with all URLs
+ * 6. Insert asset into database
+ * 7. Create stream associations
+ * 8. Return asset object with all URLs
  * 
  * @see /docs/IMAGE_UPLOAD.md for implementation details
  */
@@ -31,7 +30,6 @@ import {
   isValidImage,
 } from '@/lib/utils/image-processing';
 import { createClient } from '@/lib/supabase/server';
-import getColors from 'get-image-colors';
 
 export const runtime = 'nodejs';
 
@@ -194,59 +192,6 @@ export async function POST(request: NextRequest) {
       saveImageToPublic(thumbnailBuffer, uniqueFilename, 'thumbnails'),
     ]);
 
-    // Extract colors directly from medium-sized image buffer (no HTTP call needed!)
-    let colorPalette: string[] | undefined;
-    let dominantColor: string | undefined;
-
-    console.log('[POST /api/assets/upload] 🎨 Starting color extraction...');
-    console.log('  - Extracting directly from buffer (no HTTP call)');
-    console.log(`  - MIME type: ${file.type}`);
-
-    try {
-      // Extract colors directly from the buffer we already have in memory
-      // Pass the MIME type so the library knows how to decode the image
-      // Library defaults to 5 colors, which is perfect for our use case
-      console.log('[POST /api/assets/upload] Calling get-image-colors library...');
-      const colorObjects = await getColors(mediumBuffer, file.type);
-      
-      console.log(`[POST /api/assets/upload] ✅ Extracted ${colorObjects.length} color objects`);
-      
-      // Helper function to validate hex color format
-      const isValidHex = (color: string): boolean => /^#[0-9A-F]{6}$/i.test(color);
-      
-      // Convert Color objects to hex strings and validate
-      const extractedColors = colorObjects.map(color => color.hex());
-      colorPalette = extractedColors.filter(isValidHex);
-      
-      // Validate we got at least one color
-      if (colorPalette.length === 0) {
-        console.warn('[POST /api/assets/upload] ⚠️ No valid hex colors extracted');
-        colorPalette = undefined;
-        dominantColor = undefined;
-      } else {
-        dominantColor = colorPalette[0]; // First color is most prominent
-        
-        // Log any invalid colors that were filtered out
-        const invalidColors = extractedColors.filter(c => !isValidHex(c));
-        if (invalidColors.length > 0) {
-          console.warn(`[POST /api/assets/upload] ⚠️ Filtered out ${invalidColors.length} invalid colors: ${invalidColors.join(', ')}`);
-        }
-
-        console.log('[POST /api/assets/upload] ✅ Color extraction successful!');
-        console.log(`  - Dominant color: ${dominantColor}`);
-        console.log(`  - Color palette (${colorPalette.length} colors): ${colorPalette.join(', ')}`);
-      }
-    } catch (colorError) {
-      console.error('[POST /api/assets/upload] ❌ Error extracting colors:');
-      console.error(`  - Error type: ${colorError instanceof Error ? colorError.name : typeof colorError}`);
-      console.error(`  - Error message: ${colorError instanceof Error ? colorError.message : String(colorError)}`);
-      if (colorError instanceof Error && colorError.stack) {
-        console.error(`  - Stack trace: ${colorError.stack.split('\n').slice(0, 3).join('\n')}`);
-      }
-      console.error('  - Continuing upload without color palette');
-      // Continue without color palette - this is non-critical
-    }
-
     // Ensure user profile exists in public.users
     const { data: existingUser } = await supabase
       .from('users')
@@ -286,8 +231,6 @@ export async function POST(request: NextRequest) {
         height: metadata.height,
         file_size: file.size,
         mime_type: file.type,
-        dominant_color: dominantColor || null,
-        color_palette: colorPalette || null,
       })
       .select()
       .single();

@@ -24,8 +24,6 @@ interface Asset {
   uploader_id: string;
   width?: number;
   height?: number;
-  dominant_color?: string;
-  color_palette?: string[];
   created_at: string;
   updated_at: string;
   uploader?: {

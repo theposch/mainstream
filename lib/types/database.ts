@@ -18,8 +18,6 @@ export interface Asset {
   height?: number;
   file_size?: number;
   mime_type?: string;
-  dominant_color?: string;
-  color_palette?: string[];
   uploader_id: string;
   created_at: string;
   updated_at?: string;

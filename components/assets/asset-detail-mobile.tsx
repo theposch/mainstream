@@ -286,19 +286,6 @@ export function AssetDetailMobile({ asset }: AssetDetailMobileProps) {
                   Follow
                 </Button>
               </div>
-              
-              {/* Colors */}
-              {(currentAsset.color_palette || currentAsset.dominant_color) && (
-                <div className="mt-6 flex gap-2">
-                  {(currentAsset.color_palette || [currentAsset.dominant_color]).filter((c): c is string => !!c).map((color: string, i: number) => (
-                    <div
-                      key={i}
-                      className="h-8 w-8 rounded-full border border-white/10"
-                      style={{ backgroundColor: color }}
-                    />
-                  ))}
-                </div>
-              )}
             </div>
 
             {/* Comments List */}
