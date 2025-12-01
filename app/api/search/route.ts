@@ -37,25 +37,50 @@ export async function GET(request: NextRequest) {
     const supabase = await createClient();
     const searchTerm = query.trim();
     
+    // Get current user for like status check
+    const { data: { user } } = await supabase.auth.getUser();
+    
     const results: {
       assets?: any[];
       users?: any[];
       streams?: any[];
     } = {};
 
-    // Search assets
+    // Search assets (with like counts)
     if (type === 'all' || type === 'assets') {
       const { data: assets } = await supabase
         .from('assets')
         .select(`
           *,
-          uploader:users!uploader_id(*)
+          uploader:users!uploader_id(*),
+          asset_likes(count)
         `)
         .or(`title.ilike.%${searchTerm}%`)
         .order('created_at', { ascending: false })
         .limit(limit);
 
-      results.assets = assets || [];
+      // Check which assets the user has liked
+      let userLikedAssetIds: Set<string> = new Set();
+      if (user && assets && assets.length > 0) {
+        const assetIds = assets.map(a => a.id);
+        const { data: userLikes } = await supabase
+          .from('asset_likes')
+          .select('asset_id')
+          .eq('user_id', user.id)
+          .in('asset_id', assetIds);
+        
+        if (userLikes) {
+          userLikedAssetIds = new Set(userLikes.map(l => l.asset_id));
+        }
+      }
+
+      // Transform assets with like data
+      results.assets = (assets || []).map((asset: any) => ({
+        ...asset,
+        likeCount: asset.asset_likes?.[0]?.count || 0,
+        asset_likes: undefined,
+        isLikedByCurrentUser: userLikedAssetIds.has(asset.id),
+      }));
     }
 
     // Search users

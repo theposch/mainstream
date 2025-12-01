@@ -13,13 +13,14 @@ export default async function StreamPage({ params }: StreamPageProps) {
   const { slug } = await params;
   
   // Validate slug format - only allow lowercase letters, numbers, and hyphens
-  // This prevents SQL injection and ensures clean URLs
   if (!/^[a-z0-9-]+$/.test(slug)) {
-    console.log(`[Stream Page] Invalid slug format: ${slug}`);
     notFound();
   }
   
   const supabase = await createClient();
+  
+  // Get current user for like status check
+  const { data: { user } } = await supabase.auth.getUser();
 
   // Fetch stream by slug (name field)
   const { data: stream, error: streamError } = await supabase
@@ -29,7 +30,6 @@ export default async function StreamPage({ params }: StreamPageProps) {
     .single();
 
   if (streamError || !stream) {
-    console.log(`[Stream Page] Stream not found: ${slug}`, streamError);
     notFound();
   }
 
@@ -52,11 +52,10 @@ export default async function StreamPage({ params }: StreamPageProps) {
   }
 
   if (!owner) {
-    console.log(`[Stream Page] Owner not found for stream: ${slug}`);
     notFound();
   }
 
-  // Fetch assets via asset_streams junction table
+  // Fetch assets via asset_streams junction table (with like counts)
   const { data: assetRelations } = await supabase
     .from('asset_streams')
     .select(`
@@ -64,17 +63,42 @@ export default async function StreamPage({ params }: StreamPageProps) {
       added_at,
       assets (
         *,
-        uploader:users!uploader_id(*)
+        uploader:users!uploader_id(*),
+        asset_likes(count)
       )
     `)
     .eq('stream_id', stream.id)
     .order('added_at', { ascending: false })
     .limit(50);
 
-  // Extract assets from the junction table results
-  const streamAssets = (assetRelations?.map(relation => relation.assets).filter(Boolean) || []) as any[];
+  // Extract asset IDs for like status check
+  const assetIds = assetRelations?.map(r => r.asset_id).filter(Boolean) || [];
+  
+  // Check which assets the user has liked
+  let userLikedAssetIds: Set<string> = new Set();
+  if (user && assetIds.length > 0) {
+    const { data: userLikes } = await supabase
+      .from('asset_likes')
+      .select('asset_id')
+      .eq('user_id', user.id)
+      .in('asset_id', assetIds);
+    
+    if (userLikes) {
+      userLikedAssetIds = new Set(userLikes.map(l => l.asset_id));
+    }
+  }
 
-  console.log(`[Stream Page] Found stream: ${stream.name} with ${streamAssets.length} assets`);
+  // Extract and transform assets with like data
+  const streamAssets = (assetRelations?.map(relation => {
+    const asset = relation.assets as any;
+    if (!asset) return null;
+    return {
+      ...asset,
+      likeCount: asset.asset_likes?.[0]?.count || 0,
+      asset_likes: undefined,
+      isLikedByCurrentUser: userLikedAssetIds.has(asset.id),
+    };
+  }).filter(Boolean) || []) as any[];
 
   return (
     <div className="w-full min-h-screen">

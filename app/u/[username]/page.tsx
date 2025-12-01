@@ -108,7 +108,7 @@ export default function UserProfile({ params }: UserProfileProps) {
 
         setUser(userData);
 
-        // Fetch all data in parallel
+        // Fetch all data in parallel (include like counts)
         const [
           { count: followersCount },
           { count: followingCount },
@@ -120,10 +120,10 @@ export default function UserProfile({ params }: UserProfileProps) {
           supabase.from('user_follows').select('*', { count: 'exact', head: true }).eq('following_id', userData.id),
           supabase.from('user_follows').select('*', { count: 'exact', head: true }).eq('follower_id', userData.id),
           supabase.from('assets').select('*', { count: 'exact', head: true }).eq('uploader_id', userData.id),
-          supabase.from('assets').select(`*, uploader:users!uploader_id(*)`).eq('uploader_id', userData.id).order('created_at', { ascending: false }),
+          supabase.from('assets').select(`*, uploader:users!uploader_id(*), asset_likes(count)`).eq('uploader_id', userData.id).order('created_at', { ascending: false }),
           supabase.from('streams').select('*').eq('owner_id', userData.id).eq('owner_type', 'user').eq('status', 'active'),
           supabase.from('asset_likes')
-            .select(`asset_id, assets(*, uploader:users!uploader_id(*))`)
+            .select(`asset_id, assets(*, uploader:users!uploader_id(*), asset_likes(count))`)
             .eq('user_id', userData.id)
         ]);
 
@@ -133,7 +133,33 @@ export default function UserProfile({ params }: UserProfileProps) {
           assets: assetsCount || 0,
         });
 
-        setUserAssets(assetsData || []);
+        // Get asset IDs for like status check
+        const userAssetIds = assetsData?.map(a => a.id) || [];
+        const likedAssetIds = likedData?.map(l => l.asset_id) || [];
+        const allAssetIds = [...new Set([...userAssetIds, ...likedAssetIds])];
+        
+        // Check which assets the current user has liked
+        let userLikedAssetIds: Set<string> = new Set();
+        if (authUser && allAssetIds.length > 0) {
+          const { data: userLikes } = await supabase
+            .from('asset_likes')
+            .select('asset_id')
+            .eq('user_id', authUser.id)
+            .in('asset_id', allAssetIds);
+          
+          if (userLikes) {
+            userLikedAssetIds = new Set(userLikes.map(l => l.asset_id));
+          }
+        }
+
+        // Transform user assets with like data
+        const transformedAssets = (assetsData || []).map((asset: any) => ({
+          ...asset,
+          likeCount: asset.asset_likes?.[0]?.count || 0,
+          asset_likes: undefined,
+          isLikedByCurrentUser: userLikedAssetIds.has(asset.id),
+        }));
+        setUserAssets(transformedAssets);
         
         // Enrich streams with asset count and recent posts for thumbnails
         const enrichedStreams = await Promise.all(
@@ -175,9 +201,18 @@ export default function UserProfile({ params }: UserProfileProps) {
         
         setUserStreams(enrichedStreams as any);
         
-        // Extract assets from likes
-        const liked = likedData?.map(item => item.assets).filter(Boolean) || [];
-        setLikedAssets(liked as unknown as Asset[]);
+        // Extract and transform liked assets with like data
+        const liked = (likedData?.map(item => {
+          const asset = item.assets as any;
+          if (!asset) return null;
+          return {
+            ...asset,
+            likeCount: asset.asset_likes?.[0]?.count || 0,
+            asset_likes: undefined,
+            isLikedByCurrentUser: userLikedAssetIds.has(asset.id),
+          };
+        }).filter(Boolean) || []) as unknown as Asset[];
+        setLikedAssets(liked);
 
       } catch (error) {
         console.error('Error fetching user data:', error);
