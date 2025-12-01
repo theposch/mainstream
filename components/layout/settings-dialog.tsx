@@ -564,7 +564,7 @@ function ConnectedAccountItem({
         </div>
       </div>
       <Button
-        variant={connected ? "outline" : "cosmos"}
+        variant={connected ? "outline" : "default"}
         size="sm"
         className={connected ? "text-destructive hover:bg-destructive/10" : ""}
       >

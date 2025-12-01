@@ -10,6 +10,7 @@ import { MasonryGrid } from "@/components/assets/masonry-grid";
 import { Button } from "@/components/ui/button";
 import { LoadingSpinner } from "@/components/ui/loading";
 import { createClient } from "@/lib/supabase/client";
+import type { Asset, User, Stream } from "@/lib/types/database";
 
 interface UserProfileProps {
   params: Promise<{
@@ -17,38 +18,8 @@ interface UserProfileProps {
   }>;
 }
 
-interface User {
-  id: string;
-  username: string;
-  display_name: string;
-  email: string;
-  avatar_url?: string;
-  bio?: string;
-  job_title?: string;
-}
-
-interface Asset {
-  id: string;
-  title: string;
-  url: string;
-  thumbnail_url?: string;
-  medium_url?: string;
-  uploader_id: string;
-  width?: number;
-  height?: number;
-  created_at: string;
-  uploader?: User;
-}
-
-interface StreamWithAssets {
-  id: string;
-  name: string;
-  description?: string;
-  owner_id: string;
-  owner_type: string;
-  is_private: boolean;
-  status: string;
-  created_at?: string;
+// Extended Stream type with assets info for profile page
+interface StreamWithAssets extends Stream {
   assetsCount?: number;
   recentPosts?: Array<{
     id: string;

@@ -14,28 +14,7 @@
 
 import { useState, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
-
-interface Asset {
-  id: string;
-  title: string;
-  type: string;
-  url: string;
-  thumbnail_url?: string;
-  medium_url?: string;
-  uploader_id: string;
-  width?: number;
-  height?: number;
-  created_at: string;
-  updated_at: string;
-  uploader?: {
-    id: string;
-    username: string;
-    display_name: string;
-    email: string;
-    avatar_url?: string;
-    job_title?: string;
-  };
-}
+import type { Asset } from "@/lib/types/database";
 
 interface UseAssetsInfiniteReturn {
   assets: Asset[];
@@ -67,12 +46,19 @@ export function useAssetsInfinite(
       }
 
       const supabase = createClient();
+      
+      // Get current user for like status check
+      const { data: { user } } = await supabase.auth.getUser();
 
       const { data, error } = await supabase
         .from("assets")
         .select(`
           *,
-          uploader:users!uploader_id(*)
+          uploader:users!uploader_id(*),
+          asset_streams(
+            streams(*)
+          ),
+          asset_likes(count)
         `)
         .order("created_at", { ascending: false })
         .lt("created_at", lastAsset.created_at)
@@ -88,7 +74,32 @@ export function useAssetsInfinite(
         setHasMore(false);
       }
 
-      setAssets((prev) => [...prev, ...(data || [])]);
+      // If user is logged in, fetch their likes for these assets
+      let userLikedAssetIds: Set<string> = new Set();
+      if (user && data && data.length > 0) {
+        const assetIds = data.map((a: any) => a.id);
+        const { data: userLikes } = await supabase
+          .from('asset_likes')
+          .select('asset_id')
+          .eq('user_id', user.id)
+          .in('asset_id', assetIds);
+        
+        if (userLikes) {
+          userLikedAssetIds = new Set(userLikes.map(l => l.asset_id));
+        }
+      }
+
+      // Transform nested data to flat structure
+      const assetsWithData = (data || []).map((asset: any) => ({
+        ...asset,
+        streams: asset.asset_streams?.map((rel: any) => rel.streams).filter(Boolean) || [],
+        asset_streams: undefined,
+        likeCount: asset.asset_likes?.[0]?.count || 0,
+        asset_likes: undefined,
+        isLikedByCurrentUser: userLikedAssetIds.has(asset.id),
+      }));
+
+      setAssets((prev) => [...prev, ...assetsWithData]);
     } catch (error) {
       console.error("[useAssetsInfinite] Unexpected error:", error);
     } finally {

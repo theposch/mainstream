@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import type { User } from "@/lib/types/database";
 
 interface CommentInputProps {
   currentUser: any; // User from database with snake_case fields
@@ -36,7 +37,7 @@ export const CommentInput = React.memo(function CommentInput({
   const useIsomorphicLayoutEffect = typeof window !== 'undefined' ? React.useLayoutEffect : React.useEffect;
 
   // Filter users for mentions - TODO: Replace with API call
-  const filteredUsers = React.useMemo(() => {
+  const filteredUsers = React.useMemo((): User[] => {
     // For now, return empty array until we implement user search API
     return [];
   }, [mentionQuery]);

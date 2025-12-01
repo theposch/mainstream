@@ -16,7 +16,7 @@ interface SearchResultsProps {
   initialQuery: string;
 }
 
-export function SearchResults({ initialQuery }: SearchResultsProps) {
+export const SearchResults = React.memo(function SearchResults({ initialQuery }: SearchResultsProps) {
   const { query, setQuery, recentSearches, clearSearch } = useSearch();
   const [activeTab, setActiveTab] = React.useState<SearchTab>("all");
   const [isLoading, setIsLoading] = React.useState(false);
@@ -241,5 +241,5 @@ export function SearchResults({ initialQuery }: SearchResultsProps) {
       <div className="mt-8">{renderContent()}</div>
     </div>
   );
-}
+});
 

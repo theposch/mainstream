@@ -5,26 +5,7 @@
  * These match the Supabase database schema
  */
 
-// Base types
-export interface Asset {
-  id: string;
-  title: string;
-  description?: string;
-  type: string;
-  url: string;
-  medium_url?: string;
-  thumbnail_url?: string;
-  width?: number;
-  height?: number;
-  file_size?: number;
-  mime_type?: string;
-  uploader_id: string;
-  created_at: string;
-  updated_at?: string;
-  // Joined data
-  uploader?: User;
-}
-
+// User type (must be defined before Asset which references it)
 export interface User {
   id: string;
   username: string;
@@ -47,6 +28,7 @@ export interface Team {
   updated_at?: string;
 }
 
+// Stream type (must be defined before Asset which references it)
 export interface Stream {
   id: string;
   name: string;
@@ -58,6 +40,30 @@ export interface Stream {
   cover_image_url?: string;
   created_at: string;
   updated_at?: string;
+}
+
+// Asset type with optional pre-fetched relationships
+export interface Asset {
+  id: string;
+  title: string;
+  description?: string;
+  type: string;
+  url: string;
+  medium_url?: string;
+  thumbnail_url?: string;
+  width?: number;
+  height?: number;
+  file_size?: number;
+  mime_type?: string;
+  uploader_id: string;
+  created_at: string;
+  updated_at?: string;
+  // Joined data (pre-fetched to prevent N+1 queries)
+  uploader?: User;
+  streams?: Stream[];
+  // Pre-fetched like data (prevents N+1 queries)
+  likeCount?: number;
+  isLikedByCurrentUser?: boolean;
 }
 
 export interface StreamResource {
@@ -76,4 +82,3 @@ export interface SearchResults {
   users: User[];
   total?: number;
 }
-

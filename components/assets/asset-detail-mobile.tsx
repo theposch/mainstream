@@ -15,6 +15,7 @@ import { CommentList } from "./comment-list";
 import { CommentInput } from "./comment-input";
 import { useAssetDetail } from "./use-asset-detail";
 import { MoreMenuSheet } from "./more-menu-sheet";
+import type { Asset } from "@/lib/types/database";
 import {
   AlertDialog,
   AlertDialogAction,

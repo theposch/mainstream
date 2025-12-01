@@ -1,18 +1,22 @@
 /**
  * Asset Like Hook
  * 
- * Manages like/unlike functionality with optimistic updates
- * and Supabase Realtime subscriptions for live updates.
+ * Manages like/unlike functionality with optimistic updates.
+ * Accepts pre-fetched like data to prevent N+1 queries.
  * 
  * Usage:
  * ```tsx
- * const { isLiked, likeCount, toggleLike, loading } = useAssetLike(assetId, initialLiked, initialCount);
+ * // With pre-fetched data (preferred - no initial fetch)
+ * const { isLiked, likeCount, toggleLike, loading } = useAssetLike(assetId, true, 5);
+ * 
+ * // Without pre-fetched data (will fetch on mount)
+ * const { isLiked, likeCount, toggleLike, loading } = useAssetLike(assetId);
  * ```
  */
 
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 
 interface UseAssetLikeReturn {
@@ -24,19 +28,24 @@ interface UseAssetLikeReturn {
 
 export function useAssetLike(
   assetId: string,
-  initialLiked: boolean = false,
-  initialCount: number = 0
+  initialLiked?: boolean,
+  initialCount?: number
 ): UseAssetLikeReturn {
-  const [isLiked, setIsLiked] = useState(initialLiked);
-  const [likeCount, setLikeCount] = useState(initialCount);
+  // Use initial values if provided, otherwise fetch
+  const hasInitialData = initialLiked !== undefined && initialCount !== undefined;
+  
+  const [isLiked, setIsLiked] = useState(initialLiked ?? false);
+  const [likeCount, setLikeCount] = useState(initialCount ?? 0);
   const [loading, setLoading] = useState(false);
+  const hasFetched = useRef(hasInitialData);
 
-  // Subscribe to real-time like count changes
+  // Only fetch if no initial data was provided
   useEffect(() => {
-    const supabase = createClient();
+    if (hasFetched.current) return;
+    hasFetched.current = true;
 
-    // Fetch current like count and user's like status
     const fetchLikeData = async () => {
+      const supabase = createClient();
       const { data: { user } } = await supabase.auth.getUser();
 
       // Get total like count
@@ -61,31 +70,6 @@ export function useAssetLike(
     };
 
     fetchLikeData();
-
-    // Subscribe to real-time changes
-    const channel = supabase
-      .channel(`asset_likes:${assetId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "asset_likes",
-          filter: `asset_id=eq.${assetId}`,
-        },
-        (payload) => {
-          if (payload.eventType === "INSERT") {
-            setLikeCount((prev) => prev + 1);
-          } else if (payload.eventType === "DELETE") {
-            setLikeCount((prev) => Math.max(0, prev - 1));
-          }
-        }
-      )
-      .subscribe();
-
-    return () => {
-      channel.unsubscribe();
-    };
   }, [assetId]);
 
   const toggleLike = useCallback(async () => {
@@ -121,6 +105,3 @@ export function useAssetLike(
 
   return { isLiked, likeCount, toggleLike, loading };
 }
-
-
-

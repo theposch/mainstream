@@ -9,39 +9,23 @@ import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
 import { useAssetsInfinite } from "@/lib/hooks/use-assets-infinite";
 import { useFollowingAssets } from "@/lib/hooks/use-following-assets";
-
-interface Asset {
-  id: string;
-  title: string;
-  type: string;
-  url: string;
-  thumbnail_url?: string;
-  medium_url?: string;
-  uploader_id: string;
-  width?: number;
-  height?: number;
-  created_at: string;
-  updated_at: string;
-  uploader?: {
-    id: string;
-    username: string;
-    display_name: string;
-    email: string;
-    avatar_url?: string;
-    job_title?: string;
-  };
-}
+import type { Asset } from "@/lib/types/database";
 
 interface DashboardFeedProps {
   initialAssets: Asset[];
 }
 
-export function DashboardFeed({ initialAssets }: DashboardFeedProps) {
+export const DashboardFeed = React.memo(function DashboardFeed({ initialAssets }: DashboardFeedProps) {
   const router = useRouter();
   const [activeTab, setActiveTab] = React.useState<"recent" | "following">("recent");
   const { debouncedQuery, clearSearch } = useSearch();
   const [searchResults, setSearchResults] = React.useState<Asset[]>([]);
   const [searching, setSearching] = React.useState(false);
+  
+  // Memoized callbacks for stable references
+  const handleUploadClick = React.useCallback(() => {
+    router.push('/upload');
+  }, [router]);
   
   // Infinite scroll hook for recent feed
   const { assets, loadMore, hasMore, loading } = useAssetsInfinite(initialAssets);
@@ -121,13 +105,18 @@ export function DashboardFeed({ initialAssets }: DashboardFeedProps) {
     performSearch();
   }, [debouncedQuery]);
   
-  // Switch between recent and following based on active tab
-  const baseAssets = activeTab === "recent" ? assets : followingAssets;
+  // Memoized computed values to prevent recalculation on every render
+  const baseAssets = React.useMemo(
+    () => activeTab === "recent" ? assets : followingAssets,
+    [activeTab, assets, followingAssets]
+  );
   const currentLoading = activeTab === "recent" ? loading : loadingFollowing;
   const currentHasMore = activeTab === "recent" ? hasMore : hasMoreFollowing;
 
-  // Use search results if searching, otherwise use base assets
-  const displayedAssets = debouncedQuery.trim() ? searchResults : baseAssets;
+  const displayedAssets = React.useMemo(
+    () => debouncedQuery.trim() ? searchResults : baseAssets,
+    [debouncedQuery, searchResults, baseAssets]
+  );
 
   // Show search result info
   const isSearching = debouncedQuery.trim().length > 0;
@@ -177,7 +166,7 @@ export function DashboardFeed({ initialAssets }: DashboardFeedProps) {
             <Button 
               variant="default" 
               size="lg"
-              onClick={() => router.push('/upload')}
+              onClick={handleUploadClick}
             >
               <Upload className="w-4 h-4 mr-2" />
               Upload Design
@@ -219,4 +208,4 @@ export function DashboardFeed({ initialAssets }: DashboardFeedProps) {
       </div>
     </div>
   );
-}
+});

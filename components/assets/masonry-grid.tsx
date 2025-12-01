@@ -15,7 +15,11 @@ interface MasonryGridProps {
   isLoading?: boolean;
 }
 
-export function MasonryGrid({ assets, className, isLoading = false }: MasonryGridProps) {
+export const MasonryGrid = React.memo(function MasonryGrid({ 
+  assets, 
+  className, 
+  isLoading = false 
+}: MasonryGridProps) {
 
   if (isLoading) {
     return <LoadingSpinner />;
@@ -44,4 +48,4 @@ export function MasonryGrid({ assets, className, isLoading = false }: MasonryGri
       ))}
     </Masonry>
   );
-}
+});
