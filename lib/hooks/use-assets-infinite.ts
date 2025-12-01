@@ -109,6 +109,3 @@ export function useAssetsInfinite(
 
   return { assets, loadMore, hasMore, loading };
 }
-
-
-
