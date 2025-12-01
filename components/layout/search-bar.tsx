@@ -2,19 +2,17 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { Search, Palette, Sparkles, X } from "lucide-react";
+import { Sparkles, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSearch } from "@/lib/contexts/search-context";
 import { useKeyboardShortcut } from "@/lib/hooks/use-keyboard-shortcut";
 import { useClickOutside } from "@/lib/hooks/use-click-outside";
 import { SearchSuggestions } from "./search-suggestions";
-import { ColorSearchPopover } from "./color-search-dialog";
 
 export function SearchBar() {
   const router = useRouter();
   const { query, setQuery, recentSearches, addRecentSearch } = useSearch();
   const [showSuggestions, setShowSuggestions] = React.useState(false);
-  const [showColorDialog, setShowColorDialog] = React.useState(false);
   const [isInputFocused, setIsInputFocused] = React.useState(false);
   const inputRef = React.useRef<HTMLInputElement>(null);
   const containerRef = React.useRef<HTMLDivElement>(null);
@@ -121,12 +119,6 @@ export function SearchBar() {
               <X className="h-3.5 w-3.5" />
             </button>
           )}
-          <div className="flex items-center pr-1.5 gap-1">
-            <ColorSearchPopover
-              open={showColorDialog}
-              onOpenChange={setShowColorDialog}
-            />
-          </div>
         </div>
       </form>
 

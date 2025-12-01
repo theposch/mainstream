@@ -9,10 +9,9 @@
  * 3. Validate file type, size, and image integrity
  * 4. Process image in parallel (3 sizes with Sharp)
  * 5. Save files to public/uploads/
- * 6. Extract color palette
- * 7. Insert asset into database
- * 8. Create stream associations
- * 9. Return asset object with all URLs
+ * 6. Insert asset into database
+ * 7. Create stream associations
+ * 8. Return asset object with all URLs
  * 
  * @see /docs/IMAGE_UPLOAD.md for implementation details
  */
@@ -193,40 +192,6 @@ export async function POST(request: NextRequest) {
       saveImageToPublic(thumbnailBuffer, uniqueFilename, 'thumbnails'),
     ]);
 
-    // Extract colors from medium-sized image (better performance)
-    let colorPalette: string[] | undefined;
-    let dominantColor: string | undefined;
-
-    try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
-      
-      const colorResponse = await fetch(`${request.nextUrl.origin}/api/extract-colors`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          imageUrl: mediumUrl,
-          colorCount: 5,
-        }),
-        signal: controller.signal,
-      });
-
-      clearTimeout(timeoutId);
-
-      if (colorResponse.ok) {
-        const colorData = await colorResponse.json();
-        colorPalette = colorData.colors;
-        dominantColor = colorData.dominantColor;
-      } else {
-        console.warn('Failed to extract colors, continuing without color palette');
-      }
-    } catch (colorError) {
-      console.warn('Error extracting colors:', colorError);
-      // Continue without color palette
-    }
-
     // Ensure user profile exists in public.users
     const { data: existingUser } = await supabase
       .from('users')
@@ -266,8 +231,6 @@ export async function POST(request: NextRequest) {
         height: metadata.height,
         file_size: file.size,
         mime_type: file.type,
-        dominant_color: dominantColor || null,
-        color_palette: colorPalette || null,
       })
       .select()
       .single();

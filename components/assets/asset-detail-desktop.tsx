@@ -328,9 +328,9 @@ export function AssetDetailDesktop({ asset }: AssetDetailDesktopProps) {
                       </Button>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button variant="secondary" size="icon-lg">
-                              <MoreHorizontal className="h-4 w-4" />
-                          </Button>
+                      <Button variant="secondary" size="icon-lg">
+                          <MoreHorizontal className="h-4 w-4" />
+                      </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="z-[110]">
                           <DropdownMenuItem onClick={handleShare}>
@@ -413,31 +413,6 @@ export function AssetDetailDesktop({ asset }: AssetDetailDesktopProps) {
                       </span>
                   </button>
               </div>
-
-              {/* Color Palette */}
-              {(asset.color_palette || asset.dominant_color) && (
-                <div className="space-y-3">
-                  <h3 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Colors</h3>
-                  <div className="flex gap-2 flex-wrap">
-                    {(asset.color_palette || [asset.dominant_color]).map((color: string, i: number) => (
-                      <button
-                        key={i}
-                        className="group relative h-10 w-10 rounded-full border border-white/10 cursor-pointer hover:scale-110 transition-all duration-200 hover:shadow-lg"
-                        style={{ backgroundColor: color }}
-                        title={color}
-                        aria-label={`Color ${color}`}
-                        onClick={() => {
-                          navigator.clipboard.writeText(color || '');
-                        }}
-                      >
-                        <span className="absolute -bottom-8 left-1/2 -translate-x-1/2 text-xs text-zinc-400 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
-                          {color}
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
 
                {/* Streams */}
                {assetStreams.length > 0 && (

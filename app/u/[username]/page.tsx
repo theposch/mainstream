@@ -40,7 +40,7 @@ interface Asset {
   uploader?: User;
 }
 
-interface Stream {
+interface StreamWithAssets {
   id: string;
   name: string;
   description?: string;
@@ -48,6 +48,13 @@ interface Stream {
   owner_type: string;
   is_private: boolean;
   status: string;
+  created_at?: string;
+  assetsCount?: number;
+  recentPosts?: Array<{
+    id: string;
+    url: string;
+    title: string;
+  }>;
 }
 
 /**
@@ -63,7 +70,7 @@ export default function UserProfile({ params }: UserProfileProps) {
   const [loading, setLoading] = React.useState(true);
   const [user, setUser] = React.useState<User | null>(null);
   const [userAssets, setUserAssets] = React.useState<Asset[]>([]);
-  const [userStreams, setUserStreams] = React.useState<Stream[]>([]);
+  const [userStreams, setUserStreams] = React.useState<StreamWithAssets[]>([]);
   const [likedAssets, setLikedAssets] = React.useState<Asset[]>([]);
   const [stats, setStats] = React.useState({ followers: 0, following: 0, assets: 0 });
   const [currentUserId, setCurrentUserId] = React.useState<string | null>(null);
@@ -156,7 +163,46 @@ export default function UserProfile({ params }: UserProfileProps) {
         });
 
         setUserAssets(assetsData || []);
-        setUserStreams(streamsData || []);
+        
+        // Enrich streams with asset count and recent posts for thumbnails
+        const enrichedStreams = await Promise.all(
+          (streamsData || []).map(async (stream) => {
+            // Get asset count for this stream
+            const { count: streamAssetsCount } = await supabase
+              .from('asset_streams')
+              .select('*', { count: 'exact', head: true })
+              .eq('stream_id', stream.id);
+
+            // Get 4 most recent assets for thumbnails
+            const { data: assetRelations } = await supabase
+              .from('asset_streams')
+              .select(`
+                assets (
+                  id,
+                  url,
+                  thumbnail_url,
+                  title
+                )
+              `)
+              .eq('stream_id', stream.id)
+              .order('added_at', { ascending: false })
+              .limit(4);
+
+            const recentPosts = assetRelations?.map((rel: any) => ({
+              id: rel.assets?.id || '',
+              url: rel.assets?.thumbnail_url || rel.assets?.url || '',
+              title: rel.assets?.title || '',
+            })).filter(post => post.id) || [];
+
+            return {
+              ...stream,
+              assetsCount: streamAssetsCount || 0,
+              recentPosts,
+            };
+          })
+        );
+        
+        setUserStreams(enrichedStreams as any);
         
         // Extract assets from likes
         const liked = likedData?.map(item => item.assets).filter(Boolean) || [];

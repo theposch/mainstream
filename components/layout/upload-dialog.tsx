@@ -37,6 +37,7 @@ export function UploadDialog({ open, onOpenChange }: UploadDialogProps) {
   const [description, setDescription] = React.useState("");
   const [streamIds, setStreamIds] = React.useState<string[]>([]); // Real stream IDs
   const [pendingStreamNames, setPendingStreamNames] = React.useState<string[]>([]); // Pending streams (not created yet)
+  const [excludedStreamNames, setExcludedStreamNames] = React.useState<string[]>([]); // Streams user removed (won't be re-added by auto-sync)
   
   // Stream data
   const [allStreams, setAllStreams] = React.useState<Stream[]>([]);
@@ -75,7 +76,8 @@ export function UploadDialog({ open, onOpenChange }: UploadDialogProps) {
     streamIds,
     setStreamIds,
     pendingStreamNames,
-    setPendingStreamNames
+    setPendingStreamNames,
+    excludedStreamNames
   );
 
   // Reset form when dialog closes
@@ -92,6 +94,7 @@ export function UploadDialog({ open, onOpenChange }: UploadDialogProps) {
     setDescription("");
     setStreamIds([]);
     setPendingStreamNames([]);
+    setExcludedStreamNames([]);
     setError(null);
     setIsLoading(false);
     setShowMentionDropdown(false);
@@ -253,6 +256,8 @@ export function UploadDialog({ open, onOpenChange }: UploadDialogProps) {
     try {
       // Create pending streams first
       let createdStreamIds: string[] = [];
+      let failedStreamNames: string[] = [];
+      
       if (pendingStreamNames.length > 0) {
         console.log('[UploadDialog] Creating pending streams...');
         const createPromises = pendingStreamNames.map(async (name) => {
@@ -270,20 +275,31 @@ export function UploadDialog({ open, onOpenChange }: UploadDialogProps) {
             if (response.ok) {
               const { stream } = await response.json();
               console.log(`  ✓ Created stream: ${stream.name} (${stream.id})`);
-              return stream.id;
+              return { success: true, id: stream.id, name };
             } else {
-              console.error(`  ✗ Failed to create stream: ${name}`);
-              return null;
+              const errorData = await response.json().catch(() => ({}));
+              console.error(`  ✗ Failed to create stream: ${name}`, errorData);
+              return { success: false, name };
             }
           } catch (error) {
             console.error(`  ✗ Error creating stream ${name}:`, error);
-            return null;
+            return { success: false, name };
           }
         });
 
         const results = await Promise.all(createPromises);
-        createdStreamIds = results.filter((id): id is string => id !== null);
+        createdStreamIds = results.filter(r => r.success).map(r => r.id);
+        failedStreamNames = results.filter(r => !r.success).map(r => r.name);
+        
         console.log(`[UploadDialog] Created ${createdStreamIds.length}/${pendingStreamNames.length} streams`);
+        
+        // Show warning if any failed (non-blocking)
+        if (failedStreamNames.length > 0) {
+          const failedList = failedStreamNames.map(n => `#${n}`).join(', ');
+          setError(`Warning: Could not create stream(s): ${failedList}. Continuing with upload...`);
+          // Brief delay to show the error, then continue
+          await new Promise(resolve => setTimeout(resolve, 2000));
+        }
       }
 
       // Combine real stream IDs with newly created stream IDs
@@ -480,6 +496,8 @@ export function UploadDialog({ open, onOpenChange }: UploadDialogProps) {
                     onSelectStreams={setStreamIds}
                     pendingStreamNames={pendingStreamNames}
                     onPendingStreamsChange={setPendingStreamNames}
+                    excludedStreamNames={excludedStreamNames}
+                    onExcludedStreamsChange={setExcludedStreamNames}
                     disabled={isLoading}
                     variant="compact"
                   />

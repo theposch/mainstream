@@ -8,18 +8,11 @@ import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { useStreamDropdownOptions } from "@/lib/hooks/use-stream-dropdown-options";
 
 interface Stream {
   id: string;
@@ -35,6 +28,8 @@ interface StreamPickerProps {
   onSelectStreams: (streamIds: string[]) => void;
   pendingStreamNames?: string[]; // Streams that will be created on post
   onPendingStreamsChange?: (names: string[]) => void;
+  excludedStreamNames?: string[]; // Streams user removed (prevents auto-sync re-adding)
+  onExcludedStreamsChange?: (names: string[]) => void;
   maxStreams?: number;
   disabled?: boolean;
   className?: string;
@@ -46,6 +41,8 @@ export function StreamPicker({
   onSelectStreams,
   pendingStreamNames = [],
   onPendingStreamsChange,
+  excludedStreamNames = [],
+  onExcludedStreamsChange,
   maxStreams = STREAM_VALIDATION.MAX_STREAMS_PER_ASSET,
   disabled = false,
   className,
@@ -54,26 +51,24 @@ export function StreamPicker({
   // Import streams internally instead of as prop
   const [allStreams, setAllStreams] = React.useState<Stream[]>([]);
   const [searchQuery, setSearchQuery] = React.useState("");
-  const [isCreateDialogOpen, setIsCreateDialogOpen] = React.useState(false);
-  const [newStreamName, setNewStreamName] = React.useState("");
   const [open, setOpen] = React.useState(false);
-  const [createError, setCreateError] = React.useState<string | null>(null);
+  const [selectedIndex, setSelectedIndex] = React.useState(0);
 
   // Load streams from API
   const loadStreams = React.useCallback(async () => {
-    try {
-      const res = await fetch('/api/streams');
-      if (!res.ok) {
-        throw new Error('Failed to load streams');
+      try {
+        const res = await fetch('/api/streams');
+        if (!res.ok) {
+          throw new Error('Failed to load streams');
+        }
+        const data = await res.json();
+        setAllStreams(data.streams || []);
+      } catch (error) {
+        console.error('[StreamPicker] Failed to load streams:', error);
+        setAllStreams([]);
       }
-      const data = await res.json();
-      setAllStreams(data.streams || []);
-    } catch (error) {
-      console.error('[StreamPicker] Failed to load streams:', error);
-      setAllStreams([]);
-    }
   }, []);
-
+    
   React.useEffect(() => {
     loadStreams();
   }, [loadStreams]);
@@ -96,16 +91,25 @@ export function StreamPicker({
     [allStreams]
   );
 
-  // Filter streams by search query
-  const filteredStreams = React.useMemo(() => {
-    if (!searchQuery.trim()) return activeStreams;
-    
-    const lowerQuery = searchQuery.toLowerCase();
-    return activeStreams.filter(s =>
-      s.name.toLowerCase().includes(lowerQuery) ||
-      s.description?.toLowerCase().includes(lowerQuery)
-    );
-  }, [activeStreams, searchQuery]);
+  // Use shared hook for dropdown logic
+  const { allOptions, normalizedQuery } = useStreamDropdownOptions(searchQuery, activeStreams, {
+    maxResults: 50, // Show more results for manual search
+    includeInactive: false,
+  });
+
+  // Reset selected index when options change
+  React.useEffect(() => {
+    setSelectedIndex(0);
+  }, [allOptions.length, searchQuery]);
+
+  // Refs for keyboard navigation
+  const allOptionsRef = React.useRef(allOptions);
+  const selectedIndexRef = React.useRef(selectedIndex);
+  
+  React.useEffect(() => {
+    allOptionsRef.current = allOptions;
+    selectedIndexRef.current = selectedIndex;
+  }, [allOptions, selectedIndex]);
 
   const toggleStream = React.useCallback((streamId: string, isPending: boolean = false) => {
     if (disabled) return;
@@ -116,22 +120,25 @@ export function StreamPicker({
       // Handle pending stream toggle
       const streamName = streamId.replace('pending-', '');
       const isSelected = pendingStreamNames.includes(streamName);
-      
-      if (isSelected) {
-        // Cannot deselect if it's the only stream
-        if (totalSelected <= STREAM_VALIDATION.MIN_STREAMS_PER_ASSET) {
-          return;
-        }
+    
+    if (isSelected) {
+        // Remove pill AND add to excluded list (prevents auto-sync re-adding)
         if (onPendingStreamsChange) {
           onPendingStreamsChange(pendingStreamNames.filter(name => name !== streamName));
         }
-      } else {
-        // Check max streams limit
-        if (totalSelected >= maxStreams) {
-          return;
+        if (onExcludedStreamsChange && !excludedStreamNames.includes(streamName)) {
+          onExcludedStreamsChange([...excludedStreamNames, streamName]);
         }
+      } else {
+        // Add pill (and remove from excluded if present)
+        if (totalSelected >= maxStreams) {
+        return;
+      }
         if (onPendingStreamsChange) {
           onPendingStreamsChange([...pendingStreamNames, streamName]);
+        }
+        if (onExcludedStreamsChange && excludedStreamNames.includes(streamName)) {
+          onExcludedStreamsChange(excludedStreamNames.filter(n => n !== streamName));
         }
       }
     } else {
@@ -139,59 +146,118 @@ export function StreamPicker({
       const isSelected = selectedStreamIds.includes(streamId);
       
       if (isSelected) {
-        // Cannot deselect if it's the only stream
-        if (totalSelected <= STREAM_VALIDATION.MIN_STREAMS_PER_ASSET) {
-          return;
-        }
+        // Remove pill AND add to excluded list (prevents auto-sync re-adding)
         onSelectStreams(selectedStreamIds.filter(id => id !== streamId));
-      } else {
-        // Check max streams limit
-        if (totalSelected >= maxStreams) {
-          return;
+        const stream = allStreams.find(s => s.id === streamId);
+        if (stream && onExcludedStreamsChange && !excludedStreamNames.includes(stream.name)) {
+          onExcludedStreamsChange([...excludedStreamNames, stream.name]);
         }
-        onSelectStreams([...selectedStreamIds, streamId]);
+      } else {
+        // Add pill (and remove from excluded if present)
+        if (totalSelected >= maxStreams) {
+        return;
+      }
+      onSelectStreams([...selectedStreamIds, streamId]);
+        const stream = allStreams.find(s => s.id === streamId);
+        if (stream && onExcludedStreamsChange && excludedStreamNames.includes(stream.name)) {
+          onExcludedStreamsChange(excludedStreamNames.filter(n => n !== stream.name));
+        }
       }
     }
-  }, [selectedStreamIds, pendingStreamNames, onSelectStreams, onPendingStreamsChange, maxStreams, disabled]);
+  }, [selectedStreamIds, pendingStreamNames, onSelectStreams, onPendingStreamsChange, maxStreams, disabled, excludedStreamNames, onExcludedStreamsChange, allStreams]);
 
-  const handleCreateStream = React.useCallback(async () => {
-    if (!newStreamName.trim()) return;
-    
-    setCreateError(null);
-    
-    try {
-      const response = await fetch('/api/streams', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: newStreamName.trim(),
-          owner_type: 'user',
-          is_private: false,
-        }),
-      });
+  // Handle stream selection (both existing and new)
+  const handleSelectStream = React.useCallback((
+    streamId: string,
+    isNew: boolean,
+    streamName?: string
+  ) => {
+    if (disabled) return;
+
+    const totalSelected = selectedStreamIds.length + pendingStreamNames.length;
+
+    if (isNew && streamName) {
+      // Creating new stream (pending - not in DB yet)
+      const slug = streamName.toLowerCase();
       
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to create stream');
+      // Check if already exists
+      const alreadyPending = pendingStreamNames.includes(slug);
+      const alreadyReal = activeStreams.some(s => s.name === slug);
+      const isExcluded = excludedStreamNames.includes(slug);
+      
+      if (alreadyPending || alreadyReal) {
+        console.log('[StreamPicker] Stream already added:', slug);
+        setSearchQuery("");
+        setOpen(false);
+        return;
       }
       
-      const { stream } = await response.json();
+      if (isExcluded) {
+        // User previously removed this - remove from excluded list
+        if (onExcludedStreamsChange) {
+          onExcludedStreamsChange(excludedStreamNames.filter(n => n !== slug));
+        }
+      }
       
-      // Add new stream to local list
-      setAllStreams(prev => [stream, ...prev]);
+      // Check max streams
+      if (totalSelected >= maxStreams) {
+        console.log('[StreamPicker] Max streams reached');
+        return;
+      }
       
-      // Auto-select the new stream
-      onSelectStreams([...selectedStreamIds, stream.id]);
+      // Add to pending (will be created on Post)
+      if (onPendingStreamsChange) {
+        onPendingStreamsChange([...pendingStreamNames, slug]);
+        console.log('[StreamPicker] Added pending stream:', slug);
+      }
       
-      // Close dialog and reset
-      setNewStreamName("");
-      setCreateError(null);
-      setIsCreateDialogOpen(false);
-    } catch (error) {
-      console.error('[StreamPicker] Failed to create stream:', error);
-      setCreateError(error instanceof Error ? error.message : 'Failed to create stream');
+      // Clear search and close dropdown
+      setSearchQuery("");
+      setOpen(false);
+    } else {
+      // Selecting existing stream - use existing toggle logic
+      toggleStream(streamId, false);
     }
-  }, [newStreamName, selectedStreamIds, onSelectStreams]);
+  }, [
+    disabled,
+    selectedStreamIds,
+    pendingStreamNames,
+    activeStreams,
+    excludedStreamNames,
+    maxStreams,
+    onPendingStreamsChange,
+    onExcludedStreamsChange,
+      toggleStream,
+    ]);
+      
+  // Keyboard navigation for dropdown
+  React.useEffect(() => {
+    if (!open) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        setSelectedIndex(prev => Math.min(prev + 1, allOptionsRef.current.length - 1));
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        setSelectedIndex(prev => Math.max(prev - 1, 0));
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        const option = allOptionsRef.current[selectedIndexRef.current];
+        if (option) {
+          const isNew = ('isNew' in option && option.isNew) || false;
+          handleSelectStream(option.id, isNew, option.name);
+        }
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        setOpen(false);
+        setSearchQuery("");
+    }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [open, handleSelectStream]);
 
   // Combined selected streams (real + pending)
   const selectedStreams = React.useMemo(() => {
@@ -212,7 +278,7 @@ export function StreamPicker({
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
         <Input
           type="text"
-          placeholder="Search streams..."
+          placeholder="Search or create new stream"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           className="pl-9"
@@ -223,38 +289,67 @@ export function StreamPicker({
 
       <ScrollArea className="h-[200px]">
         <div className="space-y-1 pr-3">
-          {filteredStreams.map((stream) => {
-            const isSelected = selectedStreamIds.includes(stream.id);
-            const isMaxReached = selectedStreamIds.length >= maxStreams && !isSelected;
+          {allOptions.map((option) => {
+            const isNew = ('isNew' in option && option.isNew) || false;
+            const streamName = option.name;
+            
+            // Check if selected
+            const isSelected = isNew
+              ? pendingStreamNames.includes(streamName)
+              : selectedStreamIds.includes(option.id);
+            
+            const totalSelected = selectedStreamIds.length + pendingStreamNames.length;
+            const isMaxReached = totalSelected >= maxStreams && !isSelected;
 
             return (
               <button
-                key={stream.id}
-                onClick={() => toggleStream(stream.id)}
+                key={isNew ? '__create__' : option.id}
+                onClick={() => handleSelectStream(option.id, isNew, streamName)}
+                onMouseEnter={() => setSelectedIndex(allOptions.indexOf(option))}
                 disabled={disabled || isMaxReached}
                 className={cn(
                   "w-full flex items-center gap-3 p-2 rounded-md text-left transition-colors",
                   "hover:bg-secondary",
-                  isSelected && "bg-secondary",
+                  selectedIndex === allOptions.indexOf(option) && "bg-secondary",
+                  isSelected && "bg-secondary/50",
                   (disabled || isMaxReached) && "opacity-50 cursor-not-allowed"
                 )}
               >
                 <div className={cn(
                   "h-4 w-4 rounded border flex items-center justify-center shrink-0",
-                  isSelected ? "bg-primary border-primary" : "border-muted-foreground/30"
+                  isNew 
+                    ? "bg-blue-500/20 border-blue-500/50" 
+                    : isSelected 
+                      ? "bg-primary border-primary" 
+                      : "border-muted-foreground/30"
                 )}>
-                  {isSelected && <Check className="h-3 w-3 text-primary-foreground" />}
+                  {isNew ? (
+                    <Plus className="h-3 w-3 text-blue-400" />
+                  ) : isSelected ? (
+                    <Check className="h-3 w-3 text-primary-foreground" />
+                  ) : null}
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1.5">
                     <Hash className="h-3 w-3 text-muted-foreground shrink-0" />
-                    <span className="text-sm font-medium text-foreground truncate">
-                      {stream.name}
+                    <span className={cn(
+                      "text-sm font-medium truncate",
+                      isNew ? "text-blue-400" : "text-foreground"
+                    )}>
+                      {streamName}
                     </span>
+                    {isSelected && !isNew && (
+                      <Check className="h-3 w-3 text-green-500 shrink-0 ml-auto" />
+                    )}
                   </div>
-                  {stream.description && (
+                  {isNew && (
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Create new stream
+                    </p>
+                  )}
+                  {!isNew && 'description' in option && option.description && (
                     <p className="text-xs text-muted-foreground truncate mt-0.5">
-                      {stream.description}
+                      {option.description}
                     </p>
                   )}
                 </div>
@@ -262,74 +357,13 @@ export function StreamPicker({
             );
           })}
 
-          {filteredStreams.length === 0 && (
+          {allOptions.length === 0 && (
             <div className="text-center py-8 text-muted-foreground text-sm">
-              No streams found
+              {searchQuery.trim() ? 'No streams found' : 'No streams available'}
             </div>
           )}
         </div>
       </ScrollArea>
-
-      {/* Create New Stream Button */}
-      <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-        <DialogTrigger asChild>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="w-full"
-            disabled={disabled}
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            Create New Stream
-          </Button>
-        </DialogTrigger>
-        <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle>Create New Stream</DialogTitle>
-            <DialogDescription>
-              Create a new stream to organize your work
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 pt-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Stream Name</label>
-              <Input
-                type="text"
-                placeholder="# My New Stream"
-                value={newStreamName}
-                onChange={(e) => {
-                  setNewStreamName(e.target.value);
-                  setCreateError(null);
-                }}
-                maxLength={STREAM_VALIDATION.MAX_STREAM_NAME_LENGTH}
-              />
-              <p className="text-xs text-muted-foreground">
-                {STREAM_VALIDATION.MIN_STREAM_NAME_LENGTH}-{STREAM_VALIDATION.MAX_STREAM_NAME_LENGTH} characters
-              </p>
-              {createError && (
-                <p className="text-xs text-destructive">
-                  {createError}
-                </p>
-              )}
-            </div>
-            <div className="flex justify-end gap-2">
-              <Button
-                variant="ghost"
-                onClick={() => setIsCreateDialogOpen(false)}
-              >
-                Cancel
-              </Button>
-              <Button
-                variant="default"
-                onClick={handleCreateStream}
-                disabled={newStreamName.trim().length < STREAM_VALIDATION.MIN_STREAM_NAME_LENGTH}
-              >
-                Create Stream
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 
@@ -355,25 +389,26 @@ export function StreamPicker({
 
         {selectedStreams.map((stream) => {
           const isPending = stream.status === 'pending';
+          const isPendingBool = isPending ? true : false;
           return (
-            <div
-              key={stream.id}
+          <div
+            key={stream.id}
               className={cn(
                 "inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-secondary hover:bg-secondary/80 text-secondary-foreground transition-colors",
                 isPending ? "border-2 border-dashed border-blue-500/50" : "border border-border"
               )}
+          >
+            <Hash className="h-3 w-3 text-muted-foreground" />
+            <span>{stream.name}</span>
+            <button
+                onClick={() => toggleStream(stream.id, isPendingBool)}
+              className="ml-1 p-0.5 rounded-full hover:bg-background/20 text-muted-foreground hover:text-foreground transition-colors"
+              type="button"
             >
-              <Hash className="h-3 w-3 text-muted-foreground" />
-              <span>{stream.name}</span>
-              <button
-                onClick={() => toggleStream(stream.id, isPending)}
-                className="ml-1 p-0.5 rounded-full hover:bg-background/20 text-muted-foreground hover:text-foreground transition-colors"
-                type="button"
-              >
-                <X className="h-3 w-3" />
-                <span className="sr-only">Remove {stream.name}</span>
-              </button>
-            </div>
+              <X className="h-3 w-3" />
+              <span className="sr-only">Remove {stream.name}</span>
+            </button>
+          </div>
           );
         })}
       </div>
@@ -402,23 +437,22 @@ export function StreamPicker({
               const isPending = stream.status === 'pending';
               const totalSelected = selectedStreamIds.length + pendingStreamNames.length;
               return (
-                <button
-                  key={stream.id}
+              <button
+                key={stream.id}
                   onClick={() => toggleStream(stream.id, isPending)}
-                  disabled={disabled || totalSelected <= STREAM_VALIDATION.MIN_STREAMS_PER_ASSET}
-                  className={cn(
-                    "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm",
+                  disabled={disabled}
+                className={cn(
+                  "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm",
                     "bg-primary/10 text-primary",
-                    "hover:bg-primary/20 transition-colors",
+                  "hover:bg-primary/20 transition-colors",
                     isPending ? "border-2 border-dashed border-blue-500/50" : "border border-primary/20",
-                    disabled && "opacity-50 cursor-not-allowed",
-                    totalSelected <= STREAM_VALIDATION.MIN_STREAMS_PER_ASSET && "cursor-not-allowed opacity-60"
-                  )}
-                >
-                  <Hash className="h-3 w-3" />
-                  <span>{stream.name}</span>
-                  <span className="ml-1 text-primary/60">×</span>
-                </button>
+                    disabled && "opacity-50 cursor-not-allowed"
+                )}
+              >
+                <Hash className="h-3 w-3" />
+                <span>{stream.name}</span>
+                <span className="ml-1 text-primary/60">×</span>
+              </button>
               );
             })}
           </div>

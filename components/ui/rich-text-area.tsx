@@ -32,7 +32,7 @@ export const RichTextArea = React.forwardRef<HTMLDivElement, RichTextAreaProps>(
 
     // Track cursor position before updates
     const cursorPositionRef = React.useRef<number>(0);
-    
+
     // Cooldown mechanism to prevent immediate re-trigger after hashtag replacement
     const justReplacedRef = React.useRef(false);
     const cooldownTimerRef = React.useRef<NodeJS.Timeout | null>(null);

@@ -3,11 +3,6 @@
 import * as React from "react";
 import { useDebounce } from "@/lib/hooks/use-debounce";
 import { SEARCH_CONSTANTS } from "@/lib/constants/search";
-import {
-  getRecentColors,
-  addRecentColor as addRecentColorUtil,
-  clearRecentColors as clearRecentColorsUtil,
-} from "@/lib/utils/color";
 
 interface SearchContextType {
   query: string;
@@ -18,12 +13,6 @@ interface SearchContextType {
   addRecentSearch: (query: string) => void;
   clearRecentSearches: () => void;
   clearSearch: () => void;
-  // Color search
-  selectedColor: string | null;
-  setSelectedColor: (color: string | null) => void;
-  recentColors: string[];
-  addRecentColor: (color: string) => void;
-  clearRecentColors: () => void;
 }
 
 const SearchContext = React.createContext<SearchContextType | undefined>(undefined);
@@ -38,24 +27,16 @@ export function SearchProvider({ children }: { children: React.ReactNode }) {
   const [recentSearches, setRecentSearches] = React.useState<string[]>([]);
   const [isSearching] = React.useState(false); // Future: API loading state
   
-  // Color search state
-  const [selectedColor, setSelectedColorState] = React.useState<string | null>(null);
-  const [recentColors, setRecentColors] = React.useState<string[]>([]);
-  
   // Debounce the query for performance (300ms)
   const debouncedQuery = useDebounce(query, 300);
 
-  // Load recent searches and colors from localStorage on mount
+  // Load recent searches from localStorage on mount
   React.useEffect(() => {
     try {
       const saved = localStorage.getItem(SEARCH_CONSTANTS.RECENT_SEARCHES_STORAGE_KEY);
       if (saved) {
         setRecentSearches(JSON.parse(saved));
       }
-      
-      // Load recent colors
-      const colors = getRecentColors();
-      setRecentColors(colors);
     } catch (error) {
       console.error("Failed to load recent searches:", error);
     }
@@ -109,21 +90,6 @@ export function SearchProvider({ children }: { children: React.ReactNode }) {
     setQueryState("");
   }, []);
 
-  const setSelectedColor = React.useCallback((color: string | null) => {
-    setSelectedColorState(color);
-  }, []);
-
-  const addRecentColor = React.useCallback((color: string) => {
-    addRecentColorUtil(color);
-    // Update state to reflect changes
-    setRecentColors(getRecentColors());
-  }, []);
-
-  const clearRecentColors = React.useCallback(() => {
-    clearRecentColorsUtil();
-    setRecentColors([]);
-  }, []);
-
   const value = React.useMemo(
     () => ({
       query,
@@ -134,13 +100,8 @@ export function SearchProvider({ children }: { children: React.ReactNode }) {
       addRecentSearch,
       clearRecentSearches,
       clearSearch,
-      selectedColor,
-      setSelectedColor,
-      recentColors,
-      addRecentColor,
-      clearRecentColors,
     }),
-    [query, setQuery, debouncedQuery, isSearching, recentSearches, addRecentSearch, clearRecentSearches, clearSearch, selectedColor, setSelectedColor, recentColors, addRecentColor, clearRecentColors]
+    [query, setQuery, debouncedQuery, isSearching, recentSearches, addRecentSearch, clearRecentSearches, clearSearch]
   );
 
   return (
