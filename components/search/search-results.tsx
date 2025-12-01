@@ -51,23 +51,23 @@ export function SearchResults({ initialQuery }: SearchResultsProps) {
     const fetchResults = async () => {
       setIsLoading(true);
       try {
-        // Text search - use search API
-        const params = new URLSearchParams();
-        if (query.trim()) params.append('q', query.trim());
-        
-        const res = await fetch(`/api/search?${params}`);
-        const data = await res.json();
-        
-        const total = (data.assets?.length || 0) + 
-                     (data.streams?.length || 0) + 
-                     (data.users?.length || 0);
-        
-        setResults({
-          assets: data.assets || [],
-          streams: data.streams || [],
-          users: data.users || [],
-          total,
-        });
+          // Text search - use search API
+          const params = new URLSearchParams();
+          if (query.trim()) params.append('q', query.trim());
+          
+          const res = await fetch(`/api/search?${params}`);
+          const data = await res.json();
+          
+          const total = (data.assets?.length || 0) + 
+                       (data.streams?.length || 0) + 
+                       (data.users?.length || 0);
+          
+          setResults({
+            assets: data.assets || [],
+            streams: data.streams || [],
+            users: data.users || [],
+            total,
+          });
       } catch (error) {
         console.error('Search failed:', error);
         setResults({ assets: [], streams: [], users: [], total: 0 });
@@ -224,12 +224,12 @@ export function SearchResults({ initialQuery }: SearchResultsProps) {
   return (
     <div className="w-full">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold mb-2">
-          Search results for &quot;{query}&quot;
-        </h1>
-        <p className="text-muted-foreground">
-          Found {results.total} result{results.total !== 1 ? 's' : ''}
-        </p>
+            <h1 className="text-2xl font-bold mb-2">
+              Search results for &quot;{query}&quot;
+            </h1>
+            <p className="text-muted-foreground">
+              Found {results.total} result{results.total !== 1 ? 's' : ''}
+            </p>
       </div>
 
       <SearchResultsTabs
