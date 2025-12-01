@@ -337,13 +337,12 @@ export function UploadDialog({ open, onOpenChange }: UploadDialogProps) {
       console.log(`  - Asset ID: ${data.asset.id}`);
       console.log(`  - URLs created: full, medium, thumbnail`);
 
-      // Success! Close dialog and navigate
+      // Success! Close dialog and refresh current page
       console.log('[UploadDialog] Closing dialog and refreshing...');
       onOpenChange(false);
       
-      // Navigate using Next.js router for better UX
-      router.push('/home');
-      router.refresh(); // Revalidate server components
+      // Stay on current page and refresh to show new asset
+      router.refresh();
       
       console.log('[UploadDialog] ✨ Complete!');
     } catch (err) {

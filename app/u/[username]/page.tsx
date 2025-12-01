@@ -254,6 +254,14 @@ export default function UserProfile({ params }: UserProfileProps) {
     });
   }, [activeTab, username, router]);
 
+  // Handle like changes from the Liked tab - remove unliked assets
+  const handleLikedAssetChange = React.useCallback((assetId: string, isLiked: boolean) => {
+    if (!isLiked) {
+      // Asset was unliked - remove from likedAssets array
+      setLikedAssets(prev => prev.filter(asset => asset.id !== assetId));
+    }
+  }, []);
+
   // Cleanup RAF on unmount
   React.useEffect(() => {
     return () => {
@@ -345,7 +353,7 @@ export default function UserProfile({ params }: UserProfileProps) {
         >
           {visitedTabs.has("liked") && (
             likedAssets.length > 0 ? (
-              <MasonryGrid assets={likedAssets} />
+              <MasonryGrid assets={likedAssets} onLikeChange={handleLikedAssetChange} />
             ) : (
               <div className="text-center py-24">
                 <p className="text-lg font-medium text-muted-foreground">No liked assets yet.</p>

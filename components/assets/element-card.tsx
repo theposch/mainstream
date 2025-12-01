@@ -14,10 +14,12 @@ import type { Asset } from "@/lib/types/database";
 interface ElementCardProps {
   asset: Asset;
   className?: string;
+  /** Callback when like status changes - receives assetId and new isLiked state */
+  onLikeChange?: (assetId: string, isLiked: boolean) => void;
 }
 
 export const ElementCard = React.memo(
-  function ElementCard({ asset, className }: ElementCardProps) {
+  function ElementCard({ asset, className, onLikeChange }: ElementCardProps) {
   const [isHovered, setIsHovered] = React.useState(false);
   const [imageLoaded, setImageLoaded] = React.useState(false);
   
@@ -32,10 +34,13 @@ export const ElementCard = React.memo(
   const handleMouseEnter = React.useCallback(() => setIsHovered(true), []);
   const handleMouseLeave = React.useCallback(() => setIsHovered(false), []);
   const handleImageLoad = React.useCallback(() => setImageLoaded(true), []);
-  const handleLikeClick = React.useCallback((e: React.MouseEvent) => {
+  const handleLikeClick = React.useCallback(async (e: React.MouseEvent) => {
     e.preventDefault();
-    toggleLike();
-  }, [toggleLike]);
+    const wasLiked = isLiked;
+    await toggleLike();
+    // Notify parent of like change (new state is opposite of what it was)
+    onLikeChange?.(asset.id, !wasLiked);
+  }, [toggleLike, isLiked, asset.id, onLikeChange]);
 
   // Ensure we have valid numbers for aspect ratio (prevent division by zero)
   const width = asset.width && asset.width > 0 ? asset.width : 800;
@@ -168,6 +173,7 @@ export const ElementCard = React.memo(
     return prevProps.asset.id === nextProps.asset.id &&
            prevProps.asset.likeCount === nextProps.asset.likeCount &&
            prevProps.asset.isLikedByCurrentUser === nextProps.asset.isLikedByCurrentUser &&
-           prevProps.className === nextProps.className;
+           prevProps.className === nextProps.className &&
+           prevProps.onLikeChange === nextProps.onLikeChange;
   }
 );
