@@ -15,9 +15,13 @@ import { useAssetLike } from "@/lib/hooks/use-asset-like";
 import { createClient } from "@/lib/supabase/client";
 
 export function useAssetDetail(asset: any) {
-  // Use real hooks
+  // Use real hooks (pass pre-fetched like data to avoid delay)
   const { comments, addComment, updateComment, deleteComment, loading: commentsLoading } = useAssetComments(asset.id);
-  const { isLiked, likeCount, toggleLike } = useAssetLike(asset.id);
+  const { isLiked, likeCount, toggleLike } = useAssetLike(
+    asset.id,
+    asset.isLikedByCurrentUser,
+    asset.likeCount
+  );
 
   // Local UI state
   const [replyingToId, setReplyingToId] = React.useState<string | null>(null);

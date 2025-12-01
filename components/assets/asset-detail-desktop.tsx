@@ -42,9 +42,13 @@ export function AssetDetailDesktop({ asset }: AssetDetailDesktopProps) {
   const modalRef = React.useRef<HTMLDivElement>(null);
   const commentsSectionRef = React.useRef<HTMLDivElement>(null);
   
-  // Use real hooks for comments and likes
+  // Use real hooks for comments and likes (pass pre-fetched data to avoid delay)
   const { comments, addComment, updateComment, deleteComment, loading: commentsLoading } = useAssetComments(asset.id);
-  const { isLiked, likeCount, toggleLike } = useAssetLike(asset.id);
+  const { isLiked, likeCount, toggleLike } = useAssetLike(
+    asset.id,
+    asset.isLikedByCurrentUser,
+    asset.likeCount
+  );
   
   // Local UI state for comment interactions
   const [replyingToId, setReplyingToId] = React.useState<string | null>(null);
