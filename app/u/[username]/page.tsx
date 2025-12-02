@@ -45,6 +45,7 @@ export default function UserProfile({ params }: UserProfileProps) {
   const [likedAssets, setLikedAssets] = React.useState<Asset[]>([]);
   const [stats, setStats] = React.useState({ followers: 0, following: 0, assets: 0 });
   const [currentUserId, setCurrentUserId] = React.useState<string | null>(null);
+  const [refreshKey, setRefreshKey] = React.useState(0);
   
   // Bug #3 Fix: URL state synchronization
   const urlTab = searchParams.get('tab') as UserProfileTab | null;
@@ -80,6 +81,16 @@ export default function UserProfile({ params }: UserProfileProps) {
       }
     });
   }, [params]);
+
+  // Listen for asset upload events to refresh data
+  React.useEffect(() => {
+    const handleAssetUploaded = () => {
+      setRefreshKey(prev => prev + 1);
+    };
+    
+    window.addEventListener('asset-uploaded', handleAssetUploaded);
+    return () => window.removeEventListener('asset-uploaded', handleAssetUploaded);
+  }, []);
 
   // Fetch user data from Supabase
   React.useEffect(() => {
@@ -223,7 +234,7 @@ export default function UserProfile({ params }: UserProfileProps) {
     };
 
     fetchUserData();
-  }, [username]);
+  }, [username, refreshKey]);
 
   // Bug #2, #3, #5 Fix: Improved tab change with URL sync and per-tab scroll
   const handleTabChange = React.useCallback((tab: UserProfileTab) => {

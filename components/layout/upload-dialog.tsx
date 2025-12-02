@@ -341,7 +341,10 @@ export function UploadDialog({ open, onOpenChange }: UploadDialogProps) {
       console.log('[UploadDialog] Closing dialog and refreshing...');
       onOpenChange(false);
       
-      // Stay on current page and refresh to show new asset
+      // Dispatch custom event to notify other components of new upload
+      window.dispatchEvent(new CustomEvent('asset-uploaded', { detail: { asset: data.asset } }));
+      
+      // Also refresh server components
       router.refresh();
       
       console.log('[UploadDialog] ✨ Complete!');
