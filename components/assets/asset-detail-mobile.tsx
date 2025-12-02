@@ -15,6 +15,7 @@ import { CommentList } from "./comment-list";
 import { CommentInput } from "./comment-input";
 import { useAssetDetail } from "./use-asset-detail";
 import { MoreMenuSheet } from "./more-menu-sheet";
+import { EditAssetDialog } from "./edit-asset-dialog";
 import { StreamBadge } from "@/components/streams/stream-badge";
 import { useUserFollow } from "@/lib/hooks/use-user-follow";
 import { formatRelativeTime } from "@/lib/utils/time";
@@ -41,12 +42,21 @@ export function AssetDetailMobile({ asset }: AssetDetailMobileProps) {
   const [moreMenuOpen, setMoreMenuOpen] = React.useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = React.useState(false);
   const [isDeleting, setIsDeleting] = React.useState(false);
+  const [showEditDialog, setShowEditDialog] = React.useState(false);
+  
+  // Local asset state for optimistic updates after editing
+  const [localAsset, setLocalAsset] = React.useState(asset);
   
   // Track the currently visible asset in the carousel
   const [currentCarouselIndex, setCurrentCarouselIndex] = React.useState<number>(-1);
 
+  // Sync localAsset when asset prop changes
+  React.useEffect(() => {
+    setLocalAsset(asset);
+  }, [asset]);
+  
   // Simplified navigation (carousel removed for now)
-  const allAssets = React.useMemo(() => [asset], [asset]);
+  const allAssets = React.useMemo(() => [localAsset], [localAsset]);
 
   const initialIndex = 0;
 
@@ -63,8 +73,8 @@ export function AssetDetailMobile({ asset }: AssetDetailMobileProps) {
     if (currentCarouselIndex >= 0 && currentCarouselIndex < allAssets.length) {
       return allAssets[currentCarouselIndex];
     }
-    return asset; // Fallback to initial asset
-  }, [currentCarouselIndex, allAssets, asset]);
+    return localAsset; // Fallback to local asset
+  }, [currentCarouselIndex, allAssets, localAsset]);
 
   // Use the current asset for all data
   const {
@@ -249,7 +259,26 @@ export function AssetDetailMobile({ asset }: AssetDetailMobileProps) {
     setShowDeleteDialog(true);
   };
 
+  const handleEditClick = () => {
+    setMoreMenuOpen(false);
+    setShowEditDialog(true);
+  };
+
+  // Handle edit success - update local state optimistically
+  const handleEditSuccess = React.useCallback((updatedAsset: any) => {
+    setLocalAsset((prev: any) => ({
+      ...prev,
+      title: updatedAsset.title,
+      description: updatedAsset.description,
+    }));
+    // Also update streams if provided
+    if (updatedAsset.streams) {
+      setAssetStreams(updatedAsset.streams);
+    }
+  }, []);
+
   const canDelete = currentUser && currentUser.id === currentAsset.uploader_id;
+  const canEdit = canDelete; // Same permission as delete
 
   return (
     <div className="fixed inset-0 z-[100] bg-black flex flex-col">
@@ -435,8 +464,19 @@ export function AssetDetailMobile({ asset }: AssetDetailMobileProps) {
         onShare={handleShare}
         onDownload={handleDownload}
         onReport={handleReport}
+        onEdit={handleEditClick}
+        canEdit={canEdit}
         onDelete={handleDeleteClick}
         canDelete={canDelete}
+      />
+
+      {/* Edit Asset Dialog */}
+      <EditAssetDialog
+        open={showEditDialog}
+        onOpenChange={setShowEditDialog}
+        asset={currentAsset}
+        currentStreams={assetStreams}
+        onSuccess={handleEditSuccess}
       />
 
       {/* Delete Confirmation Dialog */}

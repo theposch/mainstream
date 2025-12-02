@@ -13,9 +13,10 @@ import { StreamBadge } from "@/components/streams/stream-badge";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { KEYS, ANIMATION_DURATION, ANIMATION_EASING, IMAGE_SIZES } from "@/lib/constants";
-import { X, Heart, MessageCircle, Share2, Download, MoreHorizontal, Reply, Trash2, Eye, Loader2 } from "lucide-react";
+import { X, Heart, MessageCircle, Share2, Download, MoreHorizontal, Reply, Trash2, Eye, Loader2, Pencil } from "lucide-react";
 import { CommentList } from "./comment-list";
 import { CommentInput } from "./comment-input";
+import { EditAssetDialog } from "./edit-asset-dialog";
 import { formatRelativeTime } from "@/lib/utils/time";
 import {
   DropdownMenu,
@@ -62,6 +63,12 @@ export function AssetDetailDesktop({ asset }: AssetDetailDesktopProps) {
   const [showDeleteDialog, setShowDeleteDialog] = React.useState(false);
   const [isDeleting, setIsDeleting] = React.useState(false);
   
+  // Edit dialog state
+  const [showEditDialog, setShowEditDialog] = React.useState(false);
+  
+  // Local asset state for optimistic updates
+  const [currentAsset, setCurrentAsset] = React.useState(asset);
+  
   // Fetch current user
   React.useEffect(() => {
     const fetchCurrentUser = async () => {
@@ -79,14 +86,19 @@ export function AssetDetailDesktop({ asset }: AssetDetailDesktopProps) {
     fetchCurrentUser();
   }, []);
   
+  // Sync currentAsset when asset prop changes (e.g., navigation)
+  React.useEffect(() => {
+    setCurrentAsset(asset);
+  }, [asset]);
+  
   // Get uploader from asset object (already joined in server query)
-  const uploader = asset.uploader;
+  const uploader = currentAsset.uploader;
   
   // Use follow hook for the uploader
   const { isFollowing, toggleFollow, loading: followLoading } = useUserFollow(uploader?.username || '');
   
   // Check if current user is viewing their own post
-  const isOwnPost = currentUser?.id === asset.uploader_id;
+  const isOwnPost = currentUser?.id === currentAsset.uploader_id;
   
   // TODO: Implement view tracking - add asset_views table and API
   // Future migration: scripts/migrations/005_asset_views.sql
@@ -274,7 +286,21 @@ export function AssetDetailDesktop({ asset }: AssetDetailDesktopProps) {
     }
   };
 
-  const canDelete = currentUser && currentUser.id === asset.uploader_id;
+  const canDelete = currentUser && currentUser.id === currentAsset.uploader_id;
+  const canEdit = canDelete; // Same permission as delete
+  
+  // Handle edit success - update local state optimistically
+  const handleEditSuccess = React.useCallback((updatedAsset: any) => {
+    setCurrentAsset((prev: any) => ({
+      ...prev,
+      title: updatedAsset.title,
+      description: updatedAsset.description,
+    }));
+    // Also update streams
+    if (updatedAsset.streams) {
+      setAssetStreams(updatedAsset.streams);
+    }
+  }, []);
 
   return (
     <div 
@@ -336,7 +362,7 @@ export function AssetDetailDesktop({ asset }: AssetDetailDesktopProps) {
               {/* 1. Title + 3-dot Menu Row */}
               <div className="flex items-start justify-between gap-4">
                 <h1 className="text-2xl font-bold text-white leading-tight flex-1">
-                  {asset.title}
+                  {currentAsset.title}
                 </h1>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
@@ -345,6 +371,12 @@ export function AssetDetailDesktop({ asset }: AssetDetailDesktopProps) {
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="z-[110]">
+                    {canEdit && (
+                      <DropdownMenuItem onClick={() => setShowEditDialog(true)}>
+                        <Pencil className="h-4 w-4 mr-2" />
+                        Edit Post
+                      </DropdownMenuItem>
+                    )}
                     <DropdownMenuItem onClick={handleShare}>
                       <Share2 className="h-4 w-4 mr-2" />
                       Share
@@ -386,7 +418,7 @@ export function AssetDetailDesktop({ asset }: AssetDetailDesktopProps) {
                       {uploader?.display_name || 'Unknown User'}
                     </Link>
                     <span className="text-xs text-muted-foreground">
-                      {formatRelativeTime(asset.created_at)}
+                      {formatRelativeTime(currentAsset.created_at)}
                     </span>
                   </div>
                 </div>
@@ -409,9 +441,9 @@ export function AssetDetailDesktop({ asset }: AssetDetailDesktopProps) {
               </div>
 
               {/* 3. Description (conditional) */}
-              {asset.description && (
+              {currentAsset.description && (
                 <p className="text-sm text-zinc-400 leading-relaxed">
-                  {asset.description}
+                  {currentAsset.description}
                 </p>
               )}
 
@@ -493,6 +525,15 @@ export function AssetDetailDesktop({ asset }: AssetDetailDesktopProps) {
            />
         </div>
       </div>
+
+      {/* Edit Asset Dialog */}
+      <EditAssetDialog
+        open={showEditDialog}
+        onOpenChange={setShowEditDialog}
+        asset={currentAsset}
+        currentStreams={assetStreams}
+        onSuccess={handleEditSuccess}
+      />
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
