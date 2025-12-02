@@ -189,7 +189,7 @@
 
 **After Login:**
 1. Should see navigation bar
-2. All nav links work: COSMOS®, Teams, Streams
+2. All nav links work: MAINSTREAM®, Streams
 
 ---
 

@@ -86,6 +86,6 @@ npm run dev
 # Open http://localhost:3000
 ```
 
-## Documentation Archive
+## Documentation
 
-Historical documentation is in `docs/archive/` for reference.
+For authentication setup details, see `docs/auth/`.
