@@ -11,7 +11,7 @@
 
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import type { StreamBookmark } from "@/lib/types/database";
 
 interface BookmarkWithCreator extends StreamBookmark {
@@ -36,6 +36,10 @@ export function useStreamBookmarks(streamId: string): UseStreamBookmarksReturn {
   const [bookmarks, setBookmarks] = useState<BookmarkWithCreator[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  
+  // Ref to track current bookmarks for rollback without adding to callback dependencies
+  const bookmarksRef = useRef<BookmarkWithCreator[]>([]);
+  bookmarksRef.current = bookmarks;
 
   // Fetch bookmarks from API
   const fetchBookmarks = useCallback(async () => {
@@ -101,8 +105,10 @@ export function useStreamBookmarks(streamId: string): UseStreamBookmarksReturn {
   const deleteBookmark = useCallback(async (bookmarkId: string): Promise<boolean> => {
     if (!streamId) return false;
     
+    // Capture current state for rollback using ref (avoids dependency on bookmarks)
+    const previousBookmarks = bookmarksRef.current;
+    
     // Optimistic update
-    const previousBookmarks = bookmarks;
     setBookmarks(prev => prev.filter(b => b.id !== bookmarkId));
     
     try {
@@ -124,7 +130,7 @@ export function useStreamBookmarks(streamId: string): UseStreamBookmarksReturn {
       setBookmarks(previousBookmarks);
       return false;
     }
-  }, [streamId, bookmarks]);
+  }, [streamId]);
 
   // Memoize return object to prevent unnecessary re-renders
   return useMemo(() => ({
