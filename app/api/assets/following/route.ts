@@ -173,6 +173,12 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // Check if ANY individual query returned fetchLimit items (indicates that source has more data)
+    // This is more reliable than checking merged count, which can be reduced by deduplication
+    const anyQueryHasMore = queryResults.some(result => 
+      result.data && result.data.length >= fetchLimit
+    );
+
     // Merge and deduplicate results by asset ID
     const assetMap = new Map<string, any>();
     queryResults.forEach(result => {
@@ -187,8 +193,10 @@ export async function GET(request: NextRequest) {
     const allMergedAssets = Array.from(assetMap.values())
       .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
     
-    // Check if there are more results than requested (indicates more data exists)
-    const hasMore = allMergedAssets.length > limit;
+    // hasMore is true if:
+    // 1. Any individual query returned fetchLimit items (indicating more in that source), OR
+    // 2. The merged result has more than limit items (after deduplication)
+    const hasMore = anyQueryHasMore || allMergedAssets.length > limit;
     
     // Apply limit after checking hasMore
     const rawAssets = allMergedAssets.slice(0, limit);

@@ -51,6 +51,10 @@ export function UploadDialog({ open, onOpenChange, initialStreamId }: UploadDial
   const replaceHashtagRef = React.useRef<((newText: string) => void) | null>(null);
 
   const fileInputRef = React.useRef<HTMLInputElement>(null);
+  
+  // Track if we've already initialized the stream for this dialog session
+  // This prevents overwriting user selections when initialStreamId changes while dialog is open
+  const hasInitializedStreamRef = React.useRef(false);
 
   // Fetch streams from API
   React.useEffect(() => {
@@ -71,12 +75,14 @@ export function UploadDialog({ open, onOpenChange, initialStreamId }: UploadDial
     }
   }, [open]);
 
-  // Pre-populate stream when initialStreamId is provided
+  // Pre-populate stream when initialStreamId is provided (only on initial open)
   React.useEffect(() => {
-    if (open && initialStreamId && !streamIds.includes(initialStreamId)) {
+    if (open && initialStreamId && !hasInitializedStreamRef.current) {
+      // Only set on first open, not when initialStreamId changes while dialog is open
       setStreamIds([initialStreamId]);
+      hasInitializedStreamRef.current = true;
     }
-  }, [open, initialStreamId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [open, initialStreamId]);
 
   // Sync hashtags in description with streams (now uses pending streams)
   useStreamMentions(
@@ -93,6 +99,8 @@ export function UploadDialog({ open, onOpenChange, initialStreamId }: UploadDial
   React.useEffect(() => {
     if (!open) {
       resetForm();
+      // Reset initialization flag so next open can pre-populate again
+      hasInitializedStreamRef.current = false;
     }
   }, [open]);
 
