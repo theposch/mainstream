@@ -118,6 +118,8 @@ export async function GET(request: NextRequest) {
 
     // Fetch assets using separate queries to avoid complex OR filter issues with UUIDs
     // Then merge and deduplicate the results
+    // Request limit + 1 to accurately detect if more data exists
+    const fetchLimit = limit + 1;
     const assetQueries: Promise<any>[] = [];
     
     // Query for assets from followed users
@@ -125,13 +127,16 @@ export async function GET(request: NextRequest) {
       let userAssetsQuery = supabase
         .from('assets')
         .select(baseSelect)
-        .in('uploader_id', followingUserIds)
-        .order('created_at', { ascending: false })
-        .limit(limit);
+        .in('uploader_id', followingUserIds);
       
+      // Apply cursor filter BEFORE limit for correct pagination semantics
       if (cursor) {
         userAssetsQuery = userAssetsQuery.lt('created_at', cursor);
       }
+      
+      userAssetsQuery = userAssetsQuery
+        .order('created_at', { ascending: false })
+        .limit(fetchLimit);
       
       assetQueries.push(userAssetsQuery);
     }
@@ -141,13 +146,16 @@ export async function GET(request: NextRequest) {
       let streamAssetsQuery = supabase
         .from('assets')
         .select(baseSelect)
-        .in('id', streamAssetIds)
-        .order('created_at', { ascending: false })
-        .limit(limit);
+        .in('id', streamAssetIds);
       
+      // Apply cursor filter BEFORE limit for correct pagination semantics
       if (cursor) {
         streamAssetsQuery = streamAssetsQuery.lt('created_at', cursor);
       }
+      
+      streamAssetsQuery = streamAssetsQuery
+        .order('created_at', { ascending: false })
+        .limit(fetchLimit);
       
       assetQueries.push(streamAssetsQuery);
     }
@@ -175,10 +183,15 @@ export async function GET(request: NextRequest) {
       });
     });
     
-    // Sort by created_at DESC and apply limit
-    const rawAssets = Array.from(assetMap.values())
-      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-      .slice(0, limit);
+    // Sort by created_at DESC
+    const allMergedAssets = Array.from(assetMap.values())
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    
+    // Check if there are more results than requested (indicates more data exists)
+    const hasMore = allMergedAssets.length > limit;
+    
+    // Apply limit after checking hasMore
+    const rawAssets = allMergedAssets.slice(0, limit);
     
     // Batch fetch which assets the user has liked
     let userLikedAssetIds: Set<string> = new Set();
@@ -204,9 +217,6 @@ export async function GET(request: NextRequest) {
       asset_likes: undefined,
       isLikedByCurrentUser: userLikedAssetIds.has(asset.id),
     }));
-
-    // Determine if there are more assets
-    const hasMore = assets && assets.length === limit;
 
     return NextResponse.json({
       assets: assets || [],
