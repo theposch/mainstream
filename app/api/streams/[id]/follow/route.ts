@@ -122,7 +122,7 @@ export async function GET(
         };
       };
     }
-    const contributorMap = new Map<string, ContributorItem['assets']['uploader']>();
+    const contributorMap = new Map<string, NonNullable<NonNullable<ContributorItem['assets']>['uploader']>>();
     (contributorsResult.data as ContributorItem[] | null)?.forEach((item) => {
       const uploader = item.assets?.uploader;
       if (uploader && !contributorMap.has(uploader.id)) {
