@@ -1,9 +1,9 @@
 /**
  * Following Feed API Route
  * 
- * Fetches assets from users that the current user follows
+ * Fetches assets from users AND streams that the current user follows
  * 
- * GET /api/assets/following - Get assets from followed users with cursor pagination
+ * GET /api/assets/following - Get assets from followed users and streams with cursor pagination
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -18,8 +18,11 @@ export const dynamic = 'force-dynamic';
  * - cursor: created_at timestamp for pagination (optional)
  * - limit: number of assets to fetch (default: 20, max: 50)
  * 
- * Returns assets from users that the current user follows,
- * ordered by created_at DESC with cursor-based pagination
+ * Returns assets from:
+ * 1. Users that the current user follows
+ * 2. Streams that the current user follows
+ * 
+ * Results are deduplicated and ordered by created_at DESC with cursor-based pagination
  */
 export async function GET(request: NextRequest) {
   try {
@@ -39,32 +42,51 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Get list of users that current user follows
-    const { data: followingList, error: followingError } = await supabase
-      .from('user_follows')
-      .select('following_id')
-      .eq('follower_id', currentUser.id);
+    // Fetch both user follows and stream follows in parallel
+    const [userFollowsResult, streamFollowsResult] = await Promise.all([
+      supabase
+        .from('user_follows')
+        .select('following_id')
+        .eq('follower_id', currentUser.id),
+      supabase
+        .from('stream_follows')
+        .select('stream_id')
+        .eq('user_id', currentUser.id),
+    ]);
 
-    if (followingError) {
-      console.error('[GET /api/assets/following] Error fetching following list:', followingError);
-      return NextResponse.json(
-        { error: 'Failed to fetch following list' },
-        { status: 500 }
-      );
+    if (userFollowsResult.error) {
+      console.error('[GET /api/assets/following] Error fetching user follows:', userFollowsResult.error);
+    }
+    if (streamFollowsResult.error) {
+      console.error('[GET /api/assets/following] Error fetching stream follows:', streamFollowsResult.error);
     }
 
-    // If not following anyone, return empty array
-    if (!followingList || followingList.length === 0) {
+    const followingUserIds = userFollowsResult.data?.map(f => f.following_id) || [];
+    const followingStreamIds = streamFollowsResult.data?.map(f => f.stream_id) || [];
+
+    // If not following anyone or any streams, return empty array
+    if (followingUserIds.length === 0 && followingStreamIds.length === 0) {
       return NextResponse.json({
         assets: [],
         hasMore: false
       });
     }
 
-    // Extract following user IDs
-    const followingIds = followingList.map(f => f.following_id);
+    // Get asset IDs from followed streams
+    let streamAssetIds: string[] = [];
+    if (followingStreamIds.length > 0) {
+      const { data: streamAssets } = await supabase
+        .from('asset_streams')
+        .select('asset_id')
+        .in('stream_id', followingStreamIds);
+      
+      streamAssetIds = streamAssets?.map(sa => sa.asset_id) || [];
+    }
 
-    // Build query for assets from followed users (including streams + likes to prevent N+1)
+    // Build the query based on what we're following
+    // We need assets where:
+    // - uploader_id is in followingUserIds, OR
+    // - asset id is in streamAssetIds
     let query = supabase
       .from('assets')
       .select(`
@@ -81,9 +103,20 @@ export async function GET(request: NextRequest) {
         ),
         asset_likes(count)
       `)
-      .in('uploader_id', followingIds)
       .order('created_at', { ascending: false })
       .limit(limit);
+
+    // Build filter based on what we're following
+    if (followingUserIds.length > 0 && streamAssetIds.length > 0) {
+      // Following both users and streams - use OR filter
+      query = query.or(`uploader_id.in.(${followingUserIds.join(',')}),id.in.(${streamAssetIds.join(',')})`);
+    } else if (followingUserIds.length > 0) {
+      // Only following users
+      query = query.in('uploader_id', followingUserIds);
+    } else if (streamAssetIds.length > 0) {
+      // Only following streams
+      query = query.in('id', streamAssetIds);
+    }
 
     // Apply cursor pagination if provided
     if (cursor) {
@@ -141,4 +174,3 @@ export async function GET(request: NextRequest) {
     );
   }
 }
-
