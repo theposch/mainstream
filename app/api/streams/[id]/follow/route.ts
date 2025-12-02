@@ -111,8 +111,19 @@ export async function GET(
     }
 
     // Extract unique contributors with their details
-    const contributorMap = new Map();
-    contributorsResult.data?.forEach((item: any) => {
+    interface ContributorItem {
+      assets?: {
+        uploader_id: string;
+        uploader?: {
+          id: string;
+          username: string;
+          display_name: string;
+          avatar_url: string;
+        };
+      };
+    }
+    const contributorMap = new Map<string, ContributorItem['assets']['uploader']>();
+    (contributorsResult.data as ContributorItem[] | null)?.forEach((item) => {
       const uploader = item.assets?.uploader;
       if (uploader && !contributorMap.has(uploader.id)) {
         contributorMap.set(uploader.id, uploader);

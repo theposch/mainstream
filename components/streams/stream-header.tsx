@@ -36,15 +36,15 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import type { Stream, User } from "@/lib/types/database";
 
 interface StreamHeaderProps {
-  stream: any;
-  owner: any;
+  stream: Stream;
 }
 
 export const StreamHeader = React.memo(function StreamHeader({ stream }: StreamHeaderProps) {
   const router = useRouter();
-  const [currentUser, setCurrentUser] = React.useState<any>(null);
+  const [currentUser, setCurrentUser] = React.useState<User | null>(null);
   const [showDeleteDialog, setShowDeleteDialog] = React.useState(false);
   const [isDeleting, setIsDeleting] = React.useState(false);
   const [uploadDialogOpen, setUploadDialogOpen] = React.useState(false);
@@ -110,21 +110,29 @@ export const StreamHeader = React.memo(function StreamHeader({ stream }: StreamH
     };
   }, [bookmarks, maxVisibleBookmarks]);
 
-  // Fetch current user
+  // Fetch current user with cleanup to prevent state updates on unmounted component
   React.useEffect(() => {
+    let isMounted = true;
+    
     const fetchCurrentUser = async () => {
       const supabase = createClient();
       const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
+      if (user && isMounted) {
         const { data: profile } = await supabase
           .from('users')
           .select('*')
           .eq('id', user.id)
           .single();
-        setCurrentUser(profile);
+        if (isMounted) {
+          setCurrentUser(profile as User | null);
+        }
       }
     };
     fetchCurrentUser();
+    
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   // Memoized callbacks
