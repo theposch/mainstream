@@ -52,9 +52,17 @@ export function useStreamFollow(streamId: string): UseStreamFollowReturn {
           setFollowers(data.followers || []);
           setContributorCount(data.contributorCount || 0);
           setContributors(data.contributors || []);
+          setError(null);
+        } else {
+          // Handle non-ok responses (401, 404, 500, etc.)
+          const errorData = await response.json().catch(() => ({}));
+          const errorMessage = errorData.error || `Request failed with status ${response.status}`;
+          console.error('[useStreamFollow] API error:', errorMessage);
+          setError(errorMessage);
         }
       } catch (err) {
         console.error('[useStreamFollow] Error fetching follow state:', err);
+        setError(err instanceof Error ? err.message : 'Failed to fetch follow state');
       } finally {
         setInitialLoading(false);
       }
