@@ -8,13 +8,15 @@ import { motion, AnimatePresence } from "framer-motion";
 import { createClient } from "@/lib/supabase/client";
 import { useAssetComments } from "@/lib/hooks/use-asset-comments";
 import { useAssetLike } from "@/lib/hooks/use-asset-like";
+import { useUserFollow } from "@/lib/hooks/use-user-follow";
 import { StreamBadge } from "@/components/streams/stream-badge";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { KEYS, ANIMATION_DURATION, ANIMATION_EASING, IMAGE_SIZES } from "@/lib/constants";
-import { X, Heart, MessageCircle, Share2, Download, MoreHorizontal, ArrowLeft, ChevronRight, Reply, Trash2 } from "lucide-react";
+import { X, Heart, MessageCircle, Share2, Download, MoreHorizontal, Reply, Trash2, Eye, Loader2 } from "lucide-react";
 import { CommentList } from "./comment-list";
 import { CommentInput } from "./comment-input";
+import { formatRelativeTime } from "@/lib/utils/time";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -77,8 +79,24 @@ export function AssetDetailDesktop({ asset }: AssetDetailDesktopProps) {
     fetchCurrentUser();
   }, []);
   
-  // Get uploader and streams from asset object (already joined in server query)
+  // Get uploader from asset object (already joined in server query)
   const uploader = asset.uploader;
+  
+  // Use follow hook for the uploader
+  const { isFollowing, toggleFollow, loading: followLoading } = useUserFollow(uploader?.username || '');
+  
+  // Check if current user is viewing their own post
+  const isOwnPost = currentUser?.id === asset.uploader_id;
+  
+  // TODO: Implement view tracking - add asset_views table and API
+  // Future migration: scripts/migrations/005_asset_views.sql
+  // CREATE TABLE asset_views (
+  //   asset_id UUID REFERENCES assets(id),
+  //   user_id UUID REFERENCES users(id),
+  //   viewed_at TIMESTAMP DEFAULT NOW(),
+  //   PRIMARY KEY (asset_id, user_id)
+  // );
+  const viewCount = 11; // Placeholder until backend implemented
   
   // Get streams for this asset
   const [assetStreams, setAssetStreams] = React.useState<any[]>([]);
@@ -97,13 +115,8 @@ export function AssetDetailDesktop({ asset }: AssetDetailDesktopProps) {
     };
     fetchStreams();
   }, [asset.id]);
-  
-  const visibleStreams = assetStreams.slice(0, 3);
-  const overflowCount = Math.max(0, assetStreams.length - 3);
 
   // Navigation between assets (simplified for now - can be enhanced with context)
-  const hasPrevious = false;
-  const hasNext = false;
   const previousAsset: any = null;
   const nextAsset: any = null;
   
@@ -318,134 +331,137 @@ export function AssetDetailDesktop({ asset }: AssetDetailDesktopProps) {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: ANIMATION_DURATION.fast, ease: ANIMATION_EASING.easeInOut }}
-              className="p-6 space-y-8 pb-20"
+              className="p-6 space-y-5 pb-20"
             >
-              {/* Header Actions */}
-              <div className="flex items-center justify-between">
-                  <div className="flex gap-2">
-                      <Button variant="secondary" size="icon-lg" onClick={handleShare}>
-                          <Share2 className="h-4 w-4" />
-                      </Button>
-                      <Button variant="secondary" size="icon-lg" onClick={handleDownload}>
-                          <Download className="h-4 w-4" />
-                      </Button>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                      <Button variant="secondary" size="icon-lg">
-                          <MoreHorizontal className="h-4 w-4" />
-                      </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="z-[110]">
-                          <DropdownMenuItem onClick={handleShare}>
-                            <Share2 className="h-4 w-4" />
-                            Share
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={handleDownload}>
-                            <Download className="h-4 w-4" />
-                            Download
-                          </DropdownMenuItem>
-                          {canDelete && (
-                            <>
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem
-                                variant="destructive"
-                                onClick={() => setShowDeleteDialog(true)}
-                              >
-                                <Trash2 className="h-4 w-4" />
-                                Delete Asset
-                              </DropdownMenuItem>
-                            </>
-                          )}
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                  </div>
-                  <Button variant="default" size="default">
-                      Save
-                  </Button>
+              {/* 1. Title + 3-dot Menu Row */}
+              <div className="flex items-start justify-between gap-4">
+                <h1 className="text-2xl font-bold text-white leading-tight flex-1">
+                  {asset.title}
+                </h1>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="icon" className="shrink-0 text-zinc-400 hover:text-white">
+                      <MoreHorizontal className="h-5 w-5" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="z-[110]">
+                    <DropdownMenuItem onClick={handleShare}>
+                      <Share2 className="h-4 w-4 mr-2" />
+                      Share
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={handleDownload}>
+                      <Download className="h-4 w-4 mr-2" />
+                      Download
+                    </DropdownMenuItem>
+                    {canDelete && (
+                      <>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          className="text-destructive focus:text-destructive"
+                          onClick={() => setShowDeleteDialog(true)}
+                        >
+                          <Trash2 className="h-4 w-4 mr-2" />
+                          Delete Asset
+                        </DropdownMenuItem>
+                      </>
+                    )}
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
 
-              {/* Stream Badges */}
+              {/* 2. Author Row */}
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <Link href={`/u/${uploader?.username}`}>
+                    <Avatar className="h-10 w-10 border border-border hover:opacity-80 transition-opacity">
+                      <AvatarImage src={uploader?.avatar_url} />
+                      <AvatarFallback>{uploader?.username?.charAt(0).toUpperCase()}</AvatarFallback>
+                    </Avatar>
+                  </Link>
+                  <div className="flex flex-col">
+                    <Link 
+                      href={`/u/${uploader?.username}`}
+                      className="text-sm font-medium text-white hover:underline"
+                    >
+                      {uploader?.display_name || 'Unknown User'}
+                    </Link>
+                    <span className="text-xs text-muted-foreground">
+                      {formatRelativeTime(asset.created_at)}
+                    </span>
+                  </div>
+                </div>
+                {!isOwnPost && (
+                  <Button 
+                    variant={isFollowing ? "secondary" : "default"} 
+                    size="sm"
+                    onClick={toggleFollow}
+                    disabled={followLoading}
+                  >
+                    {followLoading ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : isFollowing ? (
+                      'Following'
+                    ) : (
+                      'Follow'
+                    )}
+                  </Button>
+                )}
+              </div>
+
+              {/* 3. Description (conditional) */}
+              {asset.description && (
+                <p className="text-sm text-zinc-400 leading-relaxed">
+                  {asset.description}
+                </p>
+              )}
+
+              {/* 4. Stream Badges */}
               {assetStreams.length > 0 && (
-                <div className="flex items-center gap-2 flex-wrap -mt-4">
-                  {visibleStreams.map((stream) => (
+                <div className="flex items-center gap-2 flex-wrap">
+                  {assetStreams.map((stream) => (
                     <StreamBadge key={stream.id} stream={stream} clickable={true} />
                   ))}
-                  {overflowCount > 0 && (
-                    <span className="text-xs text-white/70 px-2 py-1 bg-white/10 backdrop-blur-md rounded-md">
-                      +{overflowCount} more
-                    </span>
-                  )}
                 </div>
               )}
 
-              {/* Title & Uploader */}
-              <div className="space-y-4">
-                  <h1 className="text-2xl font-bold text-white leading-tight">{asset.title}</h1>
-                  
-                  <div className="flex items-center gap-3 py-2">
-                      <Avatar className="h-10 w-10 border border-border">
-                          <AvatarImage src={uploader?.avatar_url} />
-                          <AvatarFallback>{uploader?.username?.charAt(0).toUpperCase()}</AvatarFallback>
-                      </Avatar>
-                      <div className="flex flex-col">
-                          <span className="text-sm font-medium text-white">{uploader?.display_name || 'Unknown User'}</span>
-                          <span className="text-xs text-muted-foreground">Added {new Date(asset.created_at).toLocaleDateString()}</span>
-                      </div>
-                      <Button variant="secondary" size="sm" className="ml-auto">
-                          Follow
-                      </Button>
-                  </div>
+              {/* 5. Engagement Row */}
+              <div className="flex items-center gap-4 py-3 border-y border-zinc-900">
+                <button 
+                  onClick={handleAssetLike}
+                  className="flex items-center gap-1.5 text-zinc-400 hover:text-white transition-colors group"
+                >
+                  <Heart className={`h-5 w-5 ${isLiked ? "fill-red-500 text-red-500" : "group-hover:text-white"}`} />
+                  <span className={`text-sm font-medium ${isLiked ? "text-red-500" : ""}`}>{likeCount}</span>
+                </button>
+                <button 
+                  onClick={scrollToComments}
+                  className="flex items-center gap-1.5 text-zinc-400 hover:text-white transition-colors"
+                >
+                  <MessageCircle className="h-5 w-5" />
+                </button>
+                <span className="ml-auto text-xs text-zinc-500 flex items-center gap-1.5">
+                  <Eye className="h-3.5 w-3.5" />
+                  Seen by {viewCount} people
+                </span>
               </div>
 
-              {/* Interactions */}
-              <div className="flex gap-6 border-y border-zinc-900 py-4">
-                  <button 
-                    onClick={handleAssetLike}
-                    className="flex items-center gap-2 text-zinc-400 hover:text-white transition-colors group"
-                  >
-                      <Heart className={`h-5 w-5 ${isLiked ? "fill-red-500 text-red-500" : "group-hover:text-white"}`} />
-                      <span className={`text-sm font-medium ${isLiked ? "text-red-500" : ""}`}>{likeCount}</span>
-                  </button>
-                  <button 
-                    onClick={scrollToComments}
-                    className="flex items-center gap-2 text-zinc-400 hover:text-white transition-colors"
-                  >
-                      <MessageCircle className="h-5 w-5" />
-                      <span className="text-sm font-medium">
-                        {comments.length} {comments.length === 1 ? 'Comment' : 'Comments'}
-                      </span>
-                  </button>
-              </div>
-
-               {/* Streams */}
-               {assetStreams.length > 0 && (
-               <div className="space-y-3">
-                    <h3 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Streams</h3>
-                  <div className="flex flex-wrap gap-2">
-                      {assetStreams.map((stream) => (
-                        <StreamBadge key={stream.id} stream={stream} clickable={true} className="text-sm" />
-                      ))}
-                       </div>
-                  </div>
-               )}
-
-              {/* Comments List */}
-              <div ref={commentsSectionRef} id="comments-section" className="space-y-6 pt-2">
-                  <div className="flex items-center justify-between border-t border-zinc-900 pt-6">
-                     <h3 className="text-sm font-semibold text-white">Comments ({comments.length})</h3>
-                  </div>
-                  
-                  <CommentList 
-                    comments={comments}
-                    currentUser={currentUser}
-                    onReply={setReplyingToId}
-                    onEdit={handleEditComment}
-                    onStartEdit={setEditingCommentId}
-                    onDelete={handleDeleteComment}
-                    onLike={handleLikeComment}
-                    editingCommentId={editingCommentId}
-                    onCancelEdit={() => setEditingCommentId(null)}
-                  />
+              {/* 6. Comments Section */}
+              <div ref={commentsSectionRef} id="comments-section" className="space-y-4 pt-2">
+                <h3 className="text-sm font-semibold text-white">
+                  Comments ({comments.length})
+                </h3>
+                
+                <CommentList 
+                  comments={comments}
+                  currentUser={currentUser}
+                  onReply={setReplyingToId}
+                  onEdit={handleEditComment}
+                  onStartEdit={setEditingCommentId}
+                  onDelete={handleDeleteComment}
+                  onLike={handleLikeComment}
+                  editingCommentId={editingCommentId}
+                  onCancelEdit={() => setEditingCommentId(null)}
+                />
               </div>
             </motion.div>
           </AnimatePresence>
@@ -503,4 +519,3 @@ export function AssetDetailDesktop({ asset }: AssetDetailDesktopProps) {
     </div>
   );
 }
-

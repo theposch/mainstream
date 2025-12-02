@@ -1,7 +1,7 @@
 import React from "react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Loader2 } from "lucide-react";
+import { Loader2, Type, Smile, AtSign, Send } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { User } from "@/lib/types/database";
 
@@ -214,12 +214,33 @@ export const CommentInput = React.memo(function CommentInput({
                 />
                 
                 <div className="flex items-center justify-between pt-1">
-                    <div className="text-xs text-muted-foreground">
-                        {content.length > 0 && (
-                            <span className={cn(content.length > MAX_CHARS * 0.9 ? "text-amber-500" : "")}>
-                                {content.length}/{MAX_CHARS}
-                            </span>
-                        )}
+                    {/* Visual-only formatting toolbar */}
+                    {/* TODO: Implement rich text formatting */}
+                    <div className="flex items-center gap-0.5">
+                        <button 
+                            type="button" 
+                            disabled 
+                            className="p-1.5 text-zinc-600 hover:text-zinc-500 transition-colors cursor-not-allowed"
+                            title="Formatting (coming soon)"
+                        >
+                            <Type className="h-4 w-4" />
+                        </button>
+                        <button 
+                            type="button" 
+                            disabled 
+                            className="p-1.5 text-zinc-600 hover:text-zinc-500 transition-colors cursor-not-allowed"
+                            title="Emoji (coming soon)"
+                        >
+                            <Smile className="h-4 w-4" />
+                        </button>
+                        <button 
+                            type="button" 
+                            disabled 
+                            className="p-1.5 text-zinc-600 hover:text-zinc-500 transition-colors cursor-not-allowed"
+                            title="Mention (coming soon)"
+                        >
+                            <AtSign className="h-4 w-4" />
+                        </button>
                     </div>
                     
                     <div className="flex items-center gap-2">
@@ -239,17 +260,14 @@ export const CommentInput = React.memo(function CommentInput({
                         <Button 
                             type="submit" 
                             variant="default" 
-                            size="sm" 
+                            size="icon" 
                             disabled={!content.trim() || isSubmitting}
-                            className="h-8 px-4"
+                            className="h-8 w-8"
                         >
                             {isSubmitting ? (
-                                <>
-                                    <Loader2 className="mr-2 h-3 w-3 animate-spin" />
-                                    Posting...
-                                </>
+                                <Loader2 className="h-4 w-4 animate-spin" />
                             ) : (
-                                onCancel ? "Save" : "Post"
+                                <Send className="h-4 w-4" />
                             )}
                         </Button>
                     </div>
