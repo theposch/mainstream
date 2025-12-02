@@ -3,7 +3,7 @@
 import * as React from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Lock, Globe, Plus, MoreHorizontal, Share, Hash, Archive, Trash2, Check, Loader2 } from "lucide-react";
+import { Lock, Globe, Plus, MoreHorizontal, Share, Archive, Trash2, Check, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
@@ -126,8 +126,9 @@ export const StreamHeader = React.memo(function StreamHeader({ stream, owner }: 
   
   return (
     <div className="flex flex-col gap-6 mb-10">
-      {/* Breadcrumb / Meta */}
-      <div className="flex items-center gap-2 text-muted-foreground text-sm">
+      {/* Stream Meta */}
+      <div className="flex items-center gap-3 text-muted-foreground text-sm">
+        {/* Owner */}
         {isUser ? (
           <Link 
             href={`/u/${owner.username}`}
@@ -148,19 +149,19 @@ export const StreamHeader = React.memo(function StreamHeader({ stream, owner }: 
             <span>{ownerName}</span>
           </div>
         )}
-        <span className="text-zinc-600">/</span>
+        
+        <span className="text-zinc-600">·</span>
+        
+        {/* Visibility Badge */}
         <div className="flex items-center gap-1.5">
-          <Hash className="h-3 w-3" />
-          <span className="text-foreground">Stream</span>
+          {stream.is_private ? <Lock className="h-3 w-3" /> : <Globe className="h-3 w-3" />}
+          <span>{stream.is_private ? 'Private' : 'Public'}</span>
         </div>
-        <span className="text-zinc-600">/</span>
-        <div className="flex items-center gap-1.5">
-           {stream.is_private ? <Lock className="h-3 w-3" /> : <Globe className="h-3 w-3" />}
-           <span className="text-foreground">{stream.is_private ? 'Private' : 'Public'}</span>
-        </div>
+        
+        {/* Archived Badge */}
         {stream.status === 'archived' && (
           <>
-            <span className="text-zinc-600">/</span>
+            <span className="text-zinc-600">·</span>
             <div className="flex items-center gap-1.5 text-orange-500">
               <Archive className="h-3 w-3" />
               <span>Archived</span>
