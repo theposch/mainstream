@@ -151,7 +151,7 @@ export function EditAssetDialog({
   
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px] bg-zinc-950 border-zinc-800">
+      <DialogContent className="sm:max-w-[500px] bg-zinc-950 border-zinc-800 z-[120]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-white">
             <Pencil className="h-5 w-5" />
