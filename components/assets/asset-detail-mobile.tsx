@@ -5,7 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import useEmblaCarousel from "embla-carousel-react";
-import { X, Reply } from "lucide-react";
+import { X, Reply, Heart, MessageCircle, Eye, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { IMAGE_SIZES } from "@/lib/constants";
@@ -15,6 +15,10 @@ import { CommentList } from "./comment-list";
 import { CommentInput } from "./comment-input";
 import { useAssetDetail } from "./use-asset-detail";
 import { MoreMenuSheet } from "./more-menu-sheet";
+import { StreamBadge } from "@/components/streams/stream-badge";
+import { useUserFollow } from "@/lib/hooks/use-user-follow";
+import { formatRelativeTime } from "@/lib/utils/time";
+import { createClient } from "@/lib/supabase/client";
 import type { Asset } from "@/lib/types/database";
 import {
   AlertDialog,
@@ -83,6 +87,33 @@ export function AssetDetailMobile({ asset }: AssetDetailMobileProps) {
 
   // Get uploader from asset (already joined in server query)
   const uploader = currentAsset.uploader;
+  
+  // Use follow hook for the uploader
+  const { isFollowing, toggleFollow, loading: followLoading } = useUserFollow(uploader?.username || '');
+  
+  // Check if current user is viewing their own post
+  const isOwnPost = currentUser?.id === currentAsset.uploader_id;
+  
+  // TODO: Implement view tracking - add asset_views table and API
+  const viewCount = 11; // Placeholder until backend implemented
+  
+  // Get streams for this asset
+  const [assetStreams, setAssetStreams] = React.useState<any[]>([]);
+  
+  React.useEffect(() => {
+    const fetchStreams = async () => {
+      const supabase = createClient();
+      const { data } = await supabase
+        .from('asset_streams')
+        .select('streams(*)')
+        .eq('asset_id', currentAsset.id);
+      
+      if (data) {
+        setAssetStreams(data.map(rel => rel.streams).filter(Boolean));
+      }
+    };
+    fetchStreams();
+  }, [currentAsset.id]);
 
   // Initialize carousel index
   React.useEffect(() => {
@@ -259,38 +290,102 @@ export function AssetDetailMobile({ asset }: AssetDetailMobileProps) {
         likes={likeCount}
         hasLiked={isLiked}
         commentCount={comments.length}
+        viewCount={viewCount}
         onLike={handleAssetLike}
         onCommentsTap={() => setSheetOpen(true)}
         onMoreTap={() => setMoreMenuOpen(true)}
       />
       
       {/* Bottom sheet with details - synced with current carousel asset */}
-      <BottomSheet open={sheetOpen} onOpenChange={setSheetOpen} title="Comments">
+      <BottomSheet open={sheetOpen} onOpenChange={setSheetOpen} title="Details">
         <div className="flex flex-col h-full">
           {/* Scrollable content */}
           <div className="flex-1 overflow-y-auto pb-4">
             {/* Header Info */}
-            <div className="px-4 pt-2 pb-6 border-b border-zinc-900">
-              <h1 className="text-xl font-bold text-white mb-4">{currentAsset.title}</h1>
-              <div className="flex items-center justify-between">
+            <div className="px-4 pt-2 pb-4 border-b border-zinc-900 space-y-4">
+              {/* Title */}
+              <h1 className="text-xl font-bold text-white">{currentAsset.title}</h1>
+              
+              {/* Author Row */}
+              <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
-                  <Avatar className="h-10 w-10 border border-zinc-800">
-                    <AvatarImage src={uploader?.avatar_url} />
-                    <AvatarFallback>{uploader?.username?.charAt(0).toUpperCase() || 'U'}</AvatarFallback>
-                  </Avatar>
+                  <Link href={`/u/${uploader?.username}`}>
+                    <Avatar className="h-10 w-10 border border-zinc-800 hover:opacity-80 transition-opacity">
+                      <AvatarImage src={uploader?.avatar_url} />
+                      <AvatarFallback>{uploader?.username?.charAt(0).toUpperCase() || 'U'}</AvatarFallback>
+                    </Avatar>
+                  </Link>
                   <div className="flex flex-col">
-                    <span className="text-sm font-medium text-white">{uploader?.display_name || 'Unknown User'}</span>
-                    <span className="text-xs text-zinc-500">Added {new Date(currentAsset.created_at).toLocaleDateString()}</span>
+                    <Link 
+                      href={`/u/${uploader?.username}`}
+                      className="text-sm font-medium text-white hover:underline"
+                    >
+                      {uploader?.display_name || 'Unknown User'}
+                    </Link>
+                    <span className="text-xs text-zinc-500">
+                      {formatRelativeTime(currentAsset.created_at)}
+                    </span>
                   </div>
                 </div>
-                <Button variant="secondary" size="sm">
-                  Follow
-                </Button>
+                {!isOwnPost && (
+                  <Button 
+                    variant={isFollowing ? "secondary" : "default"} 
+                    size="sm"
+                    onClick={toggleFollow}
+                    disabled={followLoading}
+                  >
+                    {followLoading ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : isFollowing ? (
+                      'Following'
+                    ) : (
+                      'Follow'
+                    )}
+                  </Button>
+                )}
+              </div>
+
+              {/* Description */}
+              {currentAsset.description && (
+                <p className="text-sm text-zinc-400 leading-relaxed">
+                  {currentAsset.description}
+                </p>
+              )}
+
+              {/* Stream Badges */}
+              {assetStreams.length > 0 && (
+                <div className="flex items-center gap-2 flex-wrap">
+                  {assetStreams.map((stream) => (
+                    <StreamBadge key={stream.id} stream={stream} clickable={true} />
+                  ))}
+                </div>
+              )}
+
+              {/* Engagement Row */}
+              <div className="flex items-center gap-4 pt-2">
+                <button 
+                  onClick={handleAssetLike}
+                  className="flex items-center gap-1.5 text-zinc-400 hover:text-white transition-colors group"
+                >
+                  <Heart className={`h-5 w-5 ${isLiked ? "fill-red-500 text-red-500" : "group-hover:text-white"}`} />
+                  <span className={`text-sm font-medium ${isLiked ? "text-red-500" : ""}`}>{likeCount}</span>
+                </button>
+                <div className="flex items-center gap-1.5 text-zinc-400">
+                  <MessageCircle className="h-5 w-5" />
+                  <span className="text-sm font-medium">{comments.length}</span>
+                </div>
+                <span className="ml-auto text-xs text-zinc-500 flex items-center gap-1.5">
+                  <Eye className="h-3.5 w-3.5" />
+                  Seen by {viewCount}
+                </span>
               </div>
             </div>
 
             {/* Comments List */}
             <div className="p-4">
+              <h3 className="text-sm font-semibold text-white mb-4">
+                Comments ({comments.length})
+              </h3>
               <CommentList 
                 comments={comments}
                 currentUser={currentUser}
@@ -368,4 +463,3 @@ export function AssetDetailMobile({ asset }: AssetDetailMobileProps) {
     </div>
   );
 }
-
