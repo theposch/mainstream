@@ -55,15 +55,12 @@ export function SearchSuggestions({
         const res = await fetch(`/api/search?${params}`);
         const data = await res.json();
         
-        const total = (data.assets?.length || 0) + 
-                     (data.streams?.length || 0) + 
-                     (data.users?.length || 0);
-        
+        // Use total from API (actual count, not limited results count)
         setResults({
           assets: data.assets || [],
           streams: data.streams || [],
           users: data.users || [],
-          total,
+          total: data.total || 0,
         });
       } catch (error) {
         console.error('[SearchSuggestions] Failed to fetch search results:', error);

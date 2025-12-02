@@ -44,10 +44,15 @@ export async function GET(request: NextRequest) {
       assets?: any[];
       users?: any[];
       streams?: any[];
+      totalAssets?: number;
+      totalUsers?: number;
+      totalStreams?: number;
+      total?: number;
     } = {};
 
     // Search assets (with like counts)
     if (type === 'all' || type === 'assets') {
+      // Get limited results for display
       const { data: assets } = await supabase
         .from('assets')
         .select(`
@@ -58,6 +63,14 @@ export async function GET(request: NextRequest) {
         .or(`title.ilike.%${searchTerm}%`)
         .order('created_at', { ascending: false })
         .limit(limit);
+
+      // Get total count (without limit)
+      const { count: totalAssets } = await supabase
+        .from('assets')
+        .select('*', { count: 'exact', head: true })
+        .or(`title.ilike.%${searchTerm}%`);
+
+      results.totalAssets = totalAssets || 0;
 
       // Batch fetch which assets the user has liked
       let userLikedAssetIds: Set<string> = new Set();
@@ -91,7 +104,14 @@ export async function GET(request: NextRequest) {
         .or(`username.ilike.%${searchTerm}%,display_name.ilike.%${searchTerm}%`)
         .limit(limit);
 
+      // Get total count (without limit)
+      const { count: totalUsers } = await supabase
+        .from('users')
+        .select('*', { count: 'exact', head: true })
+        .or(`username.ilike.%${searchTerm}%,display_name.ilike.%${searchTerm}%`);
+
       results.users = users || [];
+      results.totalUsers = totalUsers || 0;
     }
 
     // Search streams
@@ -103,8 +123,19 @@ export async function GET(request: NextRequest) {
         .eq('status', 'active')
         .limit(limit);
 
+      // Get total count (without limit)
+      const { count: totalStreams } = await supabase
+        .from('streams')
+        .select('*', { count: 'exact', head: true })
+        .or(`name.ilike.%${searchTerm}%,description.ilike.%${searchTerm}%`)
+        .eq('status', 'active');
+
       results.streams = streams || [];
+      results.totalStreams = totalStreams || 0;
     }
+
+    // Calculate grand total
+    results.total = (results.totalAssets || 0) + (results.totalUsers || 0) + (results.totalStreams || 0);
 
     return NextResponse.json(results);
   } catch (error) {
