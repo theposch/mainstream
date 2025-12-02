@@ -1,23 +1,24 @@
 # AI Agent Quick Start
 
-Quick onboarding guide for AI assistants working on the Cosmos codebase.
+Quick onboarding guide for AI assistants working on the Mainstream codebase.
 
 ## 30-Second Summary
 
 **What:** Design collaboration platform (Pinterest-style)  
 **Status:** ✅ Fully functional with Supabase backend  
 **Tech:** Next.js 15, TypeScript, Tailwind, shadcn/ui, Supabase  
-**Last Updated:** November 2025
+**Last Updated:** December 2025
 
 ## Critical Context
 
 ### Recent Major Changes
+- ✅ **Rebranded** - Cosmos → Mainstream
+- ✅ **Performance optimized** - N+1 queries fixed, React.memo added
+- ✅ **Like system rebuilt** - Server-side like status pre-fetching
 - ✅ **Teams feature removed** - Streams serve this purpose now
 - ✅ **Discover page removed** - Focus on Home feed and Streams
 - ✅ **Data migration complete** - All components use Supabase (no mock data)
-- ✅ **Comment likes implemented** - Real-time like functionality on comments
-- ✅ **Following feed implemented** - See assets from users you follow
-- ✅ **Settings API implemented** - User profile updates
+- ✅ **Delete functionality** - Assets and streams can be deleted by owner
 
 ### What NOT to Look For
 - ❌ No `lib/mock-data/` (deleted after migration)
@@ -25,7 +26,7 @@ Quick onboarding guide for AI assistants working on the Cosmos codebase.
 - ❌ No teams pages (`/teams`, `/t/[slug]`) - removed
 - ❌ No discover page (`/library`) - removed
 - ❌ No workspace switcher component - removed
-- ❌ No `website` field in user profiles - removed
+- ❌ No color extraction/search - removed
 
 ## Project Structure
 
@@ -47,6 +48,7 @@ assets/
   upload/route.ts      - POST: Upload asset
   following/route.ts   - GET: Assets from followed users
   [id]/
+    route.ts           - DELETE: Delete asset
     like/route.ts      - POST/DELETE: Toggle like
     comments/route.ts  - GET/POST: Comments
 
@@ -64,15 +66,15 @@ users/
     follow/route.ts    - POST/DELETE: Toggle follow
   me/route.ts          - PUT: Update current user
 
-search/route.ts        - GET: Search assets/users/streams
+search/route.ts        - GET: Search assets/users/streams (with total counts)
 notifications/route.ts - GET/PUT: Notifications
 ```
 
 ### Key Components
 ```
 assets/
-  element-card.tsx          - Asset card with hover
-  masonry-grid.tsx          - Pinterest-style layout
+  element-card.tsx          - Asset card with hover (React.memo)
+  masonry-grid.tsx          - Pinterest-style layout (React.memo)
   asset-detail-desktop.tsx  - Desktop modal
   asset-detail-mobile.tsx   - Mobile carousel
   comment-input.tsx         - Comment form with @mentions
@@ -80,7 +82,7 @@ assets/
   comment-list.tsx          - Threaded comments
 
 streams/
-  stream-header.tsx         - Stream page header
+  stream-header.tsx         - Stream page header with delete
   stream-grid.tsx           - Stream listing grid
   stream-picker.tsx         - Stream selector for uploads
 
@@ -100,18 +102,20 @@ layout/
 ```
 use-assets-infinite.ts      - Infinite scroll for recent assets
 use-following-assets.ts     - Infinite scroll for following feed
-use-asset-like.ts           - Like/unlike with real-time updates
+use-asset-like.ts           - Like/unlike with optimistic updates
 use-asset-comments.ts       - CRUD operations for comments
 use-comment-like.ts         - Like/unlike comments
 use-user-follow.ts          - Follow/unfollow users
 use-notifications.ts        - Real-time notifications
 use-stream-mentions.ts      - Parse and create streams from hashtags
+use-stream-dropdown-options.ts - Shared stream dropdown logic
 ```
 
 ### Types (`lib/types/`)
 ```
 database.ts - TypeScript interfaces for all DB entities:
-  - Asset, Stream, User, Comment, Notification
+  - Asset (includes likeCount, isLikedByCurrentUser, streams)
+  - Stream, User, Comment, Notification
   - All use snake_case (database convention)
 ```
 
@@ -128,9 +132,9 @@ streams
 
 assets
   ├─ title, url, uploader_id, width, height
-  ├─ dominant_color, color_palette[]
   ├─ belongs to → streams (many-to-many)
-  └─ has → likes, comments
+  ├─ has → likes, comments
+  └─ includes pre-fetched: likeCount, isLikedByCurrentUser, streams
 
 asset_likes
   └─ asset_id, user_id, created_at
@@ -185,33 +189,64 @@ const supabase = await createAdminClient();
 
 ### Database (snake_case)
 ```typescript
-display_name
-avatar_url
-created_at
-is_private
+display_name, avatar_url, created_at, is_private, like_count
 ```
 
 ### TypeScript/React (camelCase)
 ```typescript
-displayName
-avatarUrl
-createdAt
-isPrivate
+displayName, avatarUrl, createdAt, isPrivate, likeCount
 ```
 
-### Conversion
-```typescript
-// Database → TypeScript
-const user = {
-  display_name: row.display_name,
-  avatar_url: row.avatar_url,
-};
+## Performance Patterns
 
-// TypeScript → Database
-const updates = {
-  display_name: displayName,
-  avatar_url: avatarUrl,
-};
+### Pre-fetched Like Data
+```typescript
+// Server-side pages fetch like data with assets
+const assetsWithData = assets.map(asset => ({
+  ...asset,
+  likeCount: asset.asset_likes?.[0]?.count || 0,
+  isLikedByCurrentUser: userLikedAssetIds.has(asset.id),
+}));
+
+// Client hooks trust server data
+const { isLiked, likeCount, toggleLike } = useAssetLike(
+  asset.id,
+  asset.isLikedByCurrentUser ?? false,  // From server
+  asset.likeCount ?? 0                   // From server
+);
+```
+
+### Batch Fetching (N+1 Prevention)
+```typescript
+// Fetch all data in single query
+const { data: assets } = await supabase
+  .from('assets')
+  .select(`
+    *,
+    uploader:users!uploader_id(*),
+    asset_streams(streams(*)),
+    asset_likes(count)
+  `);
+
+// Then batch fetch user's likes
+const { data: userLikes } = await supabase
+  .from('asset_likes')
+  .select('asset_id')
+  .eq('user_id', user.id)
+  .in('asset_id', assetIds);
+```
+
+### Memoization
+```typescript
+// Components
+export const ElementCard = React.memo(function ElementCard({ ... }) {
+  // ...
+});
+
+// Callbacks
+const handleClick = useCallback(() => {
+  // ...
+}, [dependencies]);
 ```
 
 ## Common Patterns
@@ -223,26 +258,6 @@ const { assets, loadMore, hasMore, loading } = useAssetsInfinite(initialAssets);
 // Intersection Observer triggers loadMore()
 ```
 
-### Real-time Updates
-```typescript
-// Subscribe to changes
-useEffect(() => {
-  const channel = supabase
-    .channel('asset-likes')
-    .on('postgres_changes', {
-      event: '*',
-      schema: 'public',
-      table: 'asset_likes',
-      filter: `asset_id=eq.${assetId}`
-    }, handleChange)
-    .subscribe();
-
-  return () => {
-    supabase.removeChannel(channel);
-  };
-}, [assetId]);
-```
-
 ### Optimistic Updates
 ```typescript
 // Update UI immediately
@@ -250,7 +265,6 @@ setLiked(true);
 setLikeCount(prev => prev + 1);
 
 try {
-  // Then sync with server
   await fetch(`/api/assets/${id}/like`, { method: 'POST' });
 } catch {
   // Revert on error
@@ -259,121 +273,18 @@ try {
 }
 ```
 
-## File Upload Flow
-
-1. User selects file in `upload-dialog.tsx`
-2. Client creates FormData with:
-   - `file` - The file blob
-   - `title` - Asset title
-   - `description` - Optional description
-   - `streamIds` - JSON array of stream IDs
-3. POST to `/api/assets/upload`
-4. Server:
-   - Validates authentication
-   - Uploads to Supabase Storage (`assets` bucket)
-   - Extracts image dimensions
-   - Inserts into `assets` table
-   - Creates `asset_streams` relationships
-5. Returns asset ID
-6. Client navigates to asset detail page
-
-## Search Flow
-
-1. User types in search bar
-2. Debounced (300ms) query sent to context
-3. Auto-suggest dropdown fetches from `/api/search`
-4. Clicking result:
-   - Assets → `/e/[id]`
-   - Users → `/u/[username]`
-   - Streams → `/stream/[slug]`
-5. Pressing Enter → `/search?q=query`
-
-## Streams + Hashtags
-
-### Creation
-Type `#stream-name` during upload → stream created if not exists
-
-### Validation
-- Lowercase letters, numbers, hyphens only
-- 3-50 characters
-- No leading/trailing hyphens
-
-### Storage
-- `streams` table: Stream metadata
-- `asset_streams` table: Asset-stream relationships
-
-## Performance Optimizations
-
-### Image Optimization
-- Next.js Image component for automatic optimization
-- Thumbnail, medium, and full sizes generated on upload
-- Lazy loading with Intersection Observer
-
-### Code Splitting
-- Dynamic imports for heavy components
-- Server components by default
-- Client components only when needed
-
-### Memoization
+### Upload Refresh
 ```typescript
-// Expensive computations
-const filtered = useMemo(() => 
-  assets.filter(a => a.title.includes(query))
-, [assets, query]);
+// Upload dialog dispatches event
+window.dispatchEvent(new CustomEvent('asset-uploaded', { detail: { asset } }));
 
-// Component memoization
-export const Card = React.memo(CardComponent);
+// Profile page listens and refreshes
+useEffect(() => {
+  const handler = () => setRefreshKey(k => k + 1);
+  window.addEventListener('asset-uploaded', handler);
+  return () => window.removeEventListener('asset-uploaded', handler);
+}, []);
 ```
-
-## Testing
-
-### Manual Testing
-1. Start Supabase: `cd supabase-docker && docker-compose up -d`
-2. Start dev server: `npm run dev`
-3. Create test user at `/auth/signup`
-4. Upload test asset
-5. Test likes, comments, following
-
-### Database Queries
-```bash
-# Connect to PostgreSQL
-docker-compose exec db psql -U postgres
-
-# Example queries
-SELECT * FROM users;
-SELECT * FROM assets LIMIT 10;
-SELECT a.*, u.username FROM assets a JOIN users u ON a.uploader_id = u.id;
-```
-
-## Common Issues
-
-### "Column does not exist"
-- Check snake_case vs camelCase
-- Verify column exists in database schema
-
-### "Permission denied for table"
-- Check RLS policies in Supabase Studio
-- Use admin client for server-side operations
-
-### Real-time not working
-- Verify Supabase Realtime is enabled
-- Check channel subscription setup
-- Ensure proper cleanup in useEffect
-
-### Build cache issues
-```bash
-rm -rf .next
-npm run dev
-```
-
-## Key Files to Review First
-
-When working on a feature, review:
-1. Database schema: `scripts/migrations/001_initial_schema.sql`
-2. Type definitions: `lib/types/database.ts`
-3. Related API route: `app/api/[feature]/route.ts`
-4. Related hook: `lib/hooks/use-[feature].ts`
-5. Related component: `components/[feature]/`
 
 ## Where Things Are
 
@@ -393,16 +304,37 @@ When working on a feature, review:
 Current branch strategy:
 - `main` - Production-ready code
 - `feature/*` - Feature branches
+- `docs/*` - Documentation updates
 - Commit frequently, merge when tested
 
-## Questions to Ask
+## Common Issues
 
-When implementing features:
-1. Does this need real-time updates? → Use Supabase Realtime
-2. Should this be a server or client component? → Default to server
-3. Does this need authentication? → Check session in API route
-4. Is this a list? → Consider pagination/infinite scroll
-5. Does this modify data? → Add optimistic UI updates
+### "Column does not exist"
+- Check snake_case vs camelCase
+- Verify column exists in database schema
+
+### "Permission denied for table"
+- Check RLS policies in Supabase Studio
+- Use admin client for server-side operations
+
+### Like icon fills with delay
+- Ensure server-side pages pre-fetch `isLikedByCurrentUser`
+- Pass to `useAssetLike` hook as initial value
+
+### Build cache issues
+```bash
+rm -rf .next
+npm run dev
+```
+
+## Key Files to Review First
+
+When working on a feature, review:
+1. Database schema: `scripts/migrations/001_initial_schema.sql`
+2. Type definitions: `lib/types/database.ts`
+3. Related API route: `app/api/[feature]/route.ts`
+4. Related hook: `lib/hooks/use-[feature].ts`
+5. Related component: `components/[feature]/`
 
 ## Resources
 

@@ -1,12 +1,12 @@
-# Cosmos - Quick Start Guide
+# Mainstream - Quick Start Guide
 
 Design collaboration platform for internal teams. Share work, organize into streams, and collaborate.
 
-## What is Cosmos?
+## What is Mainstream?
 
 A Pinterest-style design sharing platform with:
 - **Streams** - Flexible organizational units (like projects + tags)
-- **Assets** - Uploaded designs with likes, comments, and color extraction
+- **Assets** - Uploaded designs with likes and comments
 - **Following** - See work from people you follow
 - **Search** - Find assets, users, and streams
 
@@ -79,7 +79,7 @@ app/
 
 components/
 ├── assets/           # Asset cards, detail views, comments
-├── streams/          # Stream headers, grids
+├── streams/          # Stream headers, grids, pickers
 ├── users/            # Profile headers, tabs
 ├── layout/           # Navbar, search, notifications
 └── ui/               # Base components (shadcn)
@@ -105,10 +105,10 @@ Organizational units that support many-to-many relationships. An asset can belon
 ### Assets
 
 Uploaded images and designs. Features:
-- Automatic color extraction
 - Likes with real-time updates
 - Threaded comments
 - Multiple stream assignment
+- Owner can delete
 
 **Database:** `assets` table
 
@@ -130,6 +130,7 @@ Home page has two tabs:
 ### Search
 - Real-time search across assets, users, streams
 - Auto-suggest dropdown
+- Accurate total counts
 - Debounced queries (300ms)
 
 ### Real-time Updates
@@ -158,16 +159,20 @@ Home page has two tabs:
 1. Log in
 2. Click "Create" button
 3. Select file
-4. Add to streams (type `#stream-name`)
+4. Add to streams (type `#stream-name` or use picker)
 5. Upload
 
 ### Create a Stream
 
-Streams are created automatically when mentioned with `#` during upload or via the streams management UI.
+Streams are created automatically when mentioned with `#` during upload or via the stream picker.
 
 ### Follow a User
 
 Visit user profile (`/u/username`) → Click "Follow"
+
+### Delete an Asset
+
+Open asset detail → Click "..." menu → Delete (owner only)
 
 ## Database Schema
 
@@ -195,6 +200,7 @@ All tables have RLS policies:
 ### Assets
 - `GET /api/assets` - List assets (paginated)
 - `POST /api/assets/upload` - Upload new asset
+- `DELETE /api/assets/[id]` - Delete asset (owner only)
 - `GET /api/assets/following` - Assets from followed users
 - `POST /api/assets/[id]/like` - Toggle like
 - `GET /api/assets/[id]/comments` - Get comments
@@ -204,6 +210,7 @@ All tables have RLS policies:
 - `POST /api/streams` - Create stream
 - `GET /api/streams/[id]` - Get stream details
 - `PUT /api/streams/[id]` - Update stream
+- `DELETE /api/streams/[id]` - Delete stream (owner only)
 
 ### Users
 - `GET /api/users/[username]` - Get user profile
@@ -211,7 +218,7 @@ All tables have RLS policies:
 - `PUT /api/users/me` - Update current user settings
 
 ### Search
-- `GET /api/search?q=query&type=assets` - Search
+- `GET /api/search?q=query&type=assets` - Search with total counts
 
 ## Troubleshooting
 
@@ -279,6 +286,7 @@ After schema changes:
 - Use `React.memo()` for performance
 - Prefer server components when possible
 - Use client components only when needed (hooks, interactivity)
+- Pre-fetch like data server-side to avoid UI flashes
 
 ## Resources
 
