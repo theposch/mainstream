@@ -75,10 +75,14 @@ export async function GET(request: NextRequest) {
     // Get asset IDs from followed streams
     let streamAssetIds: string[] = [];
     if (followingStreamIds.length > 0) {
-      const { data: streamAssets } = await supabase
+      const { data: streamAssets, error: streamAssetsError } = await supabase
         .from('asset_streams')
         .select('asset_id')
         .in('stream_id', followingStreamIds);
+      
+      if (streamAssetsError) {
+        console.error('[GET /api/assets/following] Error fetching stream assets:', streamAssetsError);
+      }
       
       streamAssetIds = streamAssets?.map(sa => sa.asset_id) || [];
     }

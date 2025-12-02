@@ -93,6 +93,14 @@ export async function GET(
       );
     }
 
+    // Log errors for followers and contributors queries (non-blocking)
+    if (followersResult.error) {
+      console.error('[GET /api/streams/[id]/follow] Error getting followers:', followersResult.error);
+    }
+    if (contributorsResult.error) {
+      console.error('[GET /api/streams/[id]/follow] Error getting contributors:', contributorsResult.error);
+    }
+
     // Extract unique contributors with their details
     const contributorMap = new Map();
     contributorsResult.data?.forEach((item: any) => {
