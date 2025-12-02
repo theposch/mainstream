@@ -20,7 +20,7 @@
 
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 
 interface UseAssetLikeReturn {
   isLiked: boolean;
@@ -39,10 +39,14 @@ export function useAssetLike(
   const [isLiked, setIsLiked] = useState(initialLiked);
   const [likeCount, setLikeCount] = useState(initialCount);
   const [loading, setLoading] = useState(false);
+  
+  // Use ref for loading guard to avoid recreating callback on loading state change
+  const loadingRef = useRef(false);
 
   const toggleLike = useCallback(async (): Promise<boolean> => {
-    if (loading) return false;
+    if (loadingRef.current) return false;
 
+    loadingRef.current = true;
     setLoading(true);
 
     // Store previous state for potential rollback
@@ -80,9 +84,10 @@ export function useAssetLike(
       setLikeCount(previousCount);
       return false; // Failed
     } finally {
+      loadingRef.current = false;
       setLoading(false);
     }
-  }, [assetId, isLiked, likeCount, loading]);
+  }, [assetId, isLiked, likeCount]);
 
   return { isLiked, likeCount, toggleLike, loading };
 }
