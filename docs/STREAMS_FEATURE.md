@@ -1,11 +1,11 @@
 # Streams Feature
 
 **Status:** ✅ Fully implemented and functional  
-**Last Updated:** November 2025
+**Last Updated:** December 2025
 
 ## Overview
 
-**Streams** are the primary organizational unit in Cosmos. They're a hybrid between projects and tags, supporting many-to-many relationships with assets.
+**Streams** are the primary organizational unit in Mainstream. They're a hybrid between projects and tags, supporting many-to-many relationships with assets.
 
 ### Core Concept
 
@@ -95,11 +95,19 @@ Type `#stream-name` during upload → stream created if doesn't exist
 
 **Validation:**
 - Lowercase letters, numbers, hyphens only
-- 3-50 characters
+- 2-50 characters
 - No leading/trailing hyphens
 - Unique names
+- Accepts uppercase input (converts to lowercase)
 
-### 3. Multiple Stream Assignment
+### 3. Pending Streams
+
+New streams are "pending" until post is submitted:
+- Shown with dashed border in UI
+- Only created in database when "Post" is clicked
+- Prevents orphaned streams if user cancels
+
+### 4. Multiple Stream Assignment
 
 Assets can belong to many streams:
 
@@ -108,17 +116,24 @@ Assets can belong to many streams:
 {
   id: "asset-123",
   title: "Login Screen",
-  streamIds: ["mobile-app", "onboarding", "design-system"]
+  streams: ["mobile-app", "onboarding", "design-system"]
 }
 ```
 
-### 4. Stream Pages
+### 5. Stream Pages
 
 Visit `/stream/[slug]` to see:
 - Stream description
 - All assets in stream
 - Owner information
-- Creation date
+- Delete option (owner only)
+
+### 6. Stream Deletion
+
+Owner can delete streams:
+- Assets remain (just unlinked from stream)
+- Stream removed from database
+- Confirmation required
 
 ## Implementation
 
@@ -129,10 +144,16 @@ Visit `/stream/[slug]` to see:
 // In upload dialog, type:
 "Mobile app login screen #mobile-app #onboarding"
 
-// Streams created automatically if they don't exist
+// Streams created automatically when Post is clicked
 ```
 
-**Method 2: Via API**
+**Method 2: Via Stream Picker**
+```typescript
+// Click "Add stream" → search or type new name
+// New streams shown as "pending" until Post
+```
+
+**Method 3: Via API**
 ```typescript
 POST /api/streams
 {
@@ -140,6 +161,7 @@ POST /api/streams
   "description": "iOS app designs",
   "isPrivate": false
 }
+// Returns existing stream if name conflict (idempotent)
 ```
 
 ### Adding Assets to Streams
@@ -150,7 +172,7 @@ POST /api/assets/upload
 FormData {
   file: <blob>,
   title: "Login Screen",
-  streamIds: ["mobile-app", "onboarding"]
+  streamIds: ["mobile-app-id", "onboarding-id"]
 }
 
 // Creates asset_streams relationships automatically
@@ -159,15 +181,18 @@ FormData {
 ### Querying Stream Assets
 
 ```typescript
-// Get all assets in a stream
+// Get all assets in a stream (with like data)
 const { data } = await supabase
-  .from('assets')
+  .from('asset_streams')
   .select(`
-    *,
-    uploader:users(*),
-    asset_streams!inner(stream_id)
+    asset_id,
+    assets (
+      *,
+      uploader:users!uploader_id(*),
+      asset_likes(count)
+    )
   `)
-  .eq('asset_streams.stream_id', streamId);
+  .eq('stream_id', streamId);
 ```
 
 ### Querying Asset Streams
@@ -192,18 +217,24 @@ Used in upload dialog to select streams:
 ```typescript
 // components/streams/stream-picker.tsx
 <StreamPicker
-  selectedIds={streamIds}
-  onChange={setStreamIds}
+  selectedStreamIds={streamIds}
+  onStreamIdsChange={setStreamIds}
+  pendingStreamNames={pendingNames}
+  onPendingStreamsChange={setPendingNames}
 />
 ```
 
-### Stream Grid
+### Stream Mention Dropdown
 
-Displays all streams:
+Auto-suggest when typing hashtags:
 
 ```typescript
-// components/streams/stream-grid.tsx
-<StreamGrid streams={streams} />
+// components/streams/stream-mention-dropdown.tsx
+<StreamMentionDropdown
+  query={mentionQuery}
+  onSelect={handleSelect}
+  position={position}
+/>
 ```
 
 ### Stream Header
@@ -224,12 +255,13 @@ GET /api/streams
 Response: { streams: Stream[] }
 ```
 
-### Create Stream
+### Create Stream (Idempotent)
 
 ```
 POST /api/streams
 Body: { name, description, isPrivate }
 Response: { stream: Stream }
+// Returns existing stream if name already exists
 ```
 
 ### Get Stream
@@ -247,11 +279,12 @@ Body: { description, isPrivate, status }
 Response: { stream: Stream }
 ```
 
-### Delete Stream
+### Delete Stream (Owner Only)
 
 ```
 DELETE /api/streams/[id]
 Response: { success: true }
+// Assets remain, just unlinked from stream
 ```
 
 ## Real-World Examples
@@ -311,17 +344,23 @@ CREATE INDEX idx_streams_name ON streams(name);
 CREATE INDEX idx_streams_owner ON streams(owner_id);
 ```
 
-### Pagination
+### Pre-fetched with Assets
 
-Stream pages use cursor-based pagination:
+Streams are batch-fetched with assets to prevent N+1 queries:
 
 ```typescript
 const { data } = await supabase
   .from('assets')
-  .select('*, asset_streams!inner(stream_id)')
-  .eq('asset_streams.stream_id', streamId)
-  .order('created_at', { ascending: false })
-  .range(0, 19); // 20 items per page
+  .select(`
+    *,
+    asset_streams(streams(*))
+  `);
+
+// Transform to flat structure
+const assets = data.map(asset => ({
+  ...asset,
+  streams: asset.asset_streams?.map(rel => rel.streams) || []
+}));
 ```
 
 ## Testing
@@ -344,22 +383,24 @@ curl http://localhost:3000/api/streams/[stream-id]
 
 ```bash
 # In UI: Upload asset and type #test-stream in description
-# Stream link created automatically
+# Stream created on Post if doesn't exist
 ```
 
 ## Edge Cases
 
 ### Duplicate Stream Names
 
-Prevented by database UNIQUE constraint on `streams.name`.
+Prevented by:
+- Database UNIQUE constraint on `streams.name`
+- Idempotent API returns existing stream
 
 ### Invalid Stream Names
 
 Validated on client and server:
-- Lowercase only
+- Lowercase only (uppercase converted)
 - No spaces (use hyphens)
 - No special characters except hyphens
-- 3-50 characters
+- 2-50 characters
 
 ### Archived Streams
 
@@ -369,14 +410,11 @@ Assets remain visible, but stream shows as archived on stream page.
 
 Visible only to owner. Assets in private streams are still publicly visible (privacy is per-stream, not per-asset).
 
-## Future Enhancements
+### Removed Pending Streams
 
-Possible additions:
-- [ ] Stream members (collaborative streams)
-- [ ] Stream permissions (who can add assets)
-- [ ] Stream templates
-- [ ] Stream analytics (view counts, popular assets)
-- [ ] Stream following (get notified of new assets)
+If user removes a pending stream pill before posting:
+- Stream is not created
+- Text in description remains as link/mention
 
 ## Troubleshooting
 
@@ -384,9 +422,9 @@ Possible additions:
 
 Check hashtag format:
 - Must start with `#`
-- Lowercase only
+- Lowercase (or will be converted)
 - Use hyphens for spaces
-- 3-50 characters
+- 2-50 characters
 
 ### Assets Not Appearing in Stream
 
@@ -405,29 +443,13 @@ Verify stream exists:
 SELECT * FROM streams WHERE name = 'stream-slug';
 ```
 
-## Migration from Projects
-
-If upgrading from old "projects" system:
-
-```sql
--- Convert projectId to streamIds
-INSERT INTO asset_streams (asset_id, stream_id, added_by, added_at)
-SELECT 
-  a.id,
-  p.id,
-  a.uploader_id,
-  a.created_at
-FROM assets a
-JOIN projects p ON a.project_id = p.id
-WHERE a.project_id IS NOT NULL;
-```
-
 ## Resources
 
 - Database schema: `scripts/migrations/001_initial_schema.sql`
 - Stream types: `lib/types/database.ts`
 - Stream picker: `components/streams/stream-picker.tsx`
 - Stream hooks: `lib/hooks/use-stream-mentions.ts`
+- Dropdown options hook: `lib/hooks/use-stream-dropdown-options.ts`
 - API routes: `app/api/streams/`
 
 ---

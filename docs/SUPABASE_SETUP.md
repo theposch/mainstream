@@ -335,7 +335,7 @@ docker-compose exec -T db psql -U postgres < backup.sql
 4. Configure firewall
 5. Set up daily backups:
    ```bash
-   0 2 * * * pg_dump > /backups/cosmos_$(date +\%Y\%m\%d).sql
+   0 2 * * * pg_dump > /backups/mainstream_$(date +\%Y\%m\%d).sql
    ```
 
 ### Security Checklist
@@ -369,4 +369,4 @@ Now you can:
 
 ---
 
-*Last updated: November 2025*
+*Last updated: December 2025*

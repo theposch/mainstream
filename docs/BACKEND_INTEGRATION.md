@@ -1,6 +1,6 @@
 # Backend Integration Status
 
-Current status of Cosmos backend integration with Supabase.
+Current status of Mainstream backend integration with Supabase.
 
 ## Overview
 
@@ -62,6 +62,7 @@ Storage policies allow:
 #### Assets
 - `GET /api/assets` - List assets with pagination
 - `POST /api/assets/upload` - Upload new asset
+- `DELETE /api/assets/[id]` - Delete asset (owner only)
 - `GET /api/assets/following` - Assets from followed users
 - `POST /api/assets/[id]/like` - Like asset
 - `DELETE /api/assets/[id]/like` - Unlike asset
@@ -76,10 +77,10 @@ Storage policies allow:
 
 #### Streams
 - `GET /api/streams` - List streams
-- `POST /api/streams` - Create stream
+- `POST /api/streams` - Create stream (idempotent)
 - `GET /api/streams/[id]` - Get stream details
 - `PUT /api/streams/[id]` - Update stream
-- `DELETE /api/streams/[id]` - Delete stream
+- `DELETE /api/streams/[id]` - Delete stream (owner only)
 
 #### Users
 - `GET /api/users/[username]` - Get user profile
@@ -88,26 +89,18 @@ Storage policies allow:
 - `PUT /api/users/me` - Update current user
 
 #### Other
-- `GET /api/search` - Search assets, users, streams
+- `GET /api/search` - Search with total counts
 - `GET /api/notifications` - Get notifications
 - `PUT /api/notifications` - Mark as read
 
-### ✅ Data Migration
-All components migrated from mock data to Supabase:
-- ✅ Home feed
-- ✅ Asset detail pages
-- ✅ Stream pages
-- ✅ User profiles
-- ✅ Search functionality
-- ✅ Notifications
-- ✅ Comments system
-- ✅ Like system
-- ✅ Following feed
-
-Mock data files deleted:
-- ~~`lib/mock-data/`~~ (removed)
-- ~~`lib/utils/assets-storage.ts`~~ (removed)
-- ~~`lib/utils/stream-storage.ts`~~ (removed)
+### ✅ Performance Optimizations
+- **N+1 query fixes** - Batch fetch streams, likes, user data with assets
+- **Server-side like pre-fetching** - `isLikedByCurrentUser` and `likeCount` from server
+- **React.memo** - Key components memoized
+- **Cursor-based pagination** - Efficient infinite scroll
+- **Optimistic UI updates** - Instant feedback for likes and comments
+- **JOIN queries** - Avoid N+1 problems
+- **Database indexes** - On foreign keys and common lookups
 
 ### ✅ Real-time Features
 Implemented with Supabase Realtime:
@@ -121,13 +114,6 @@ Implemented with Supabase Realtime:
 - `lib/hooks/use-comment-like.ts`
 - `lib/hooks/use-asset-comments.ts`
 - `lib/hooks/use-notifications.ts`
-
-### ✅ Performance Optimizations
-- Cursor-based pagination for infinite scroll
-- Optimistic UI updates for likes and comments
-- JOIN queries to avoid N+1 problems
-- Database indexes on foreign keys
-- Memoized components with React.memo
 
 ## Architecture Decisions
 
@@ -223,6 +209,7 @@ Indexes on:
 
 **Owner Only:**
 - Update/delete own assets
+- Update/delete own streams
 - Update/delete own comments
 - Update own profile
 

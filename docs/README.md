@@ -1,4 +1,4 @@
-# Cosmos - Documentation
+# Mainstream - Documentation
 
 Design collaboration platform for internal teams to share work and organize into streams.
 
@@ -7,6 +7,7 @@ Design collaboration platform for internal teams to share work and organize into
 - **[Getting Started](./ONBOARDING.md)** - Project overview and setup
 - **[Supabase Setup](./SUPABASE_SETUP.md)** - Database configuration
 - **[Streams Feature](./STREAMS_FEATURE.md)** - Core organizational system
+- **[Backend Integration](./BACKEND_INTEGRATION.md)** - API and database details
 - **[AI Agent Guide](./AI_AGENT_GUIDE.md)** - For AI assistants working on this codebase
 
 ## Tech Stack
@@ -26,11 +27,13 @@ Design collaboration platform for internal teams to share work and organize into
 ✅ **Complete** - Real-time likes and comments  
 ✅ **Complete** - Following feed  
 ✅ **Complete** - User profiles and settings  
+✅ **Complete** - Performance optimizations (N+1 fixes, memoization)  
+✅ **Complete** - Asset and stream deletion  
 
 ## Project Structure
 
 ```
-cosmos/
+mainstream/
 ├── app/                    # Next.js pages and API routes
 │   ├── home/              # Main feed
 │   ├── e/[id]/            # Asset detail pages
@@ -60,10 +63,10 @@ cosmos/
 Organizational units that support many-to-many relationships with assets. An asset can belong to multiple streams (e.g., #mobile-app, #onboarding, #design-system).
 
 ### Assets
-Uploaded designs and images organized by streams. Supports likes, comments, and color extraction.
+Uploaded designs and images organized by streams. Supports likes, comments, and deletion by owner.
 
 ### Search
-Real-time search across assets, users, and streams with auto-suggest.
+Real-time search across assets, users, and streams with auto-suggest and accurate total counts.
 
 ### Following Feed
 See assets from users you follow.
@@ -86,4 +89,3 @@ npm run dev
 ## Documentation Archive
 
 Historical documentation is in `docs/archive/` for reference.
-
