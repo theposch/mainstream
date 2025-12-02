@@ -173,45 +173,57 @@ export default function UserProfile({ params }: UserProfileProps) {
         }));
         setUserAssets(transformedAssets);
         
-        // Enrich streams with asset count and recent posts for thumbnails
-        const enrichedStreams = await Promise.all(
-          (streamsData || []).map(async (stream) => {
-            // Get asset count for this stream
-            const { count: streamAssetsCount } = await supabase
-              .from('asset_streams')
-              .select('*', { count: 'exact', head: true })
-              .eq('stream_id', stream.id);
+        // Enrich streams with asset count and recent posts - batch query to prevent N+1
+        const streamIds = (streamsData || []).map(s => s.id);
+        
+        let enrichedStreams: StreamWithAssets[] = [];
+        if (streamIds.length > 0) {
+          // Single batch query: get all asset_streams for all user streams at once
+          const { data: allAssetRelations } = await supabase
+            .from('asset_streams')
+            .select(`
+              stream_id,
+              added_at,
+              assets (
+                id,
+                url,
+                thumbnail_url,
+                title
+              )
+            `)
+            .in('stream_id', streamIds)
+            .order('added_at', { ascending: false });
 
-            // Get 4 most recent assets for thumbnails
-            const { data: assetRelations } = await supabase
-              .from('asset_streams')
-              .select(`
-                assets (
-                  id,
-                  url,
-                  thumbnail_url,
-                  title
-                )
-              `)
-              .eq('stream_id', stream.id)
-              .order('added_at', { ascending: false })
-              .limit(4);
+          // Group results by stream_id
+          const streamAssetMap = new Map<string, { count: number; posts: any[] }>();
+          streamIds.forEach(id => streamAssetMap.set(id, { count: 0, posts: [] }));
+          
+          (allAssetRelations || []).forEach((rel: any) => {
+            const entry = streamAssetMap.get(rel.stream_id);
+            if (entry) {
+              entry.count++;
+              if (entry.posts.length < 4 && rel.assets) {
+                entry.posts.push({
+                  id: rel.assets.id,
+                  url: rel.assets.thumbnail_url || rel.assets.url || '',
+                  title: rel.assets.title || '',
+                });
+              }
+            }
+          });
 
-            const recentPosts = assetRelations?.map((rel: any) => ({
-              id: rel.assets?.id || '',
-              url: rel.assets?.thumbnail_url || rel.assets?.url || '',
-              title: rel.assets?.title || '',
-            })).filter(post => post.id) || [];
-
+          // Build enriched streams
+          enrichedStreams = (streamsData || []).map(stream => {
+            const data = streamAssetMap.get(stream.id) || { count: 0, posts: [] };
             return {
               ...stream,
-              assetsCount: streamAssetsCount || 0,
-              recentPosts,
+              assetsCount: data.count,
+              recentPosts: data.posts,
             };
-          })
-        );
+          });
+        }
         
-        setUserStreams(enrichedStreams as any);
+        setUserStreams(enrichedStreams);
         
         // Extract and transform liked assets with like count and status
         const liked = (likedData?.map(item => {
