@@ -42,7 +42,7 @@ interface StreamHeaderProps {
   owner: any;
 }
 
-export const StreamHeader = React.memo(function StreamHeader({ stream, owner }: StreamHeaderProps) {
+export const StreamHeader = React.memo(function StreamHeader({ stream }: StreamHeaderProps) {
   const router = useRouter();
   const [currentUser, setCurrentUser] = React.useState<any>(null);
   const [showDeleteDialog, setShowDeleteDialog] = React.useState(false);
@@ -68,29 +68,41 @@ export const StreamHeader = React.memo(function StreamHeader({ stream, owner }: 
   } = useStreamBookmarks(stream.id);
 
   // Track window width for responsive bookmark display
-  const [maxVisibleBookmarks, setMaxVisibleBookmarks] = React.useState(6);
+  // Start with null to avoid SSR hydration mismatch, then set on client
+  const [maxVisibleBookmarks, setMaxVisibleBookmarks] = React.useState<number | null>(null);
   
   React.useEffect(() => {
-    const updateMaxVisible = () => {
-      const width = window.innerWidth;
-      if (width < 640) {
-        setMaxVisibleBookmarks(1); // Mobile
-      } else if (width < 1024) {
-        setMaxVisibleBookmarks(4); // Tablet
-      } else {
-        setMaxVisibleBookmarks(6); // Desktop
-      }
+    const getMaxVisible = (width: number) => {
+      if (width < 640) return 1;      // Mobile
+      if (width < 1024) return 4;     // Tablet
+      return 6;                        // Desktop
     };
     
-    updateMaxVisible();
-    window.addEventListener('resize', updateMaxVisible);
-    return () => window.removeEventListener('resize', updateMaxVisible);
+    // Set initial value
+    setMaxVisibleBookmarks(getMaxVisible(window.innerWidth));
+    
+    // Debounced resize handler
+    let timeoutId: NodeJS.Timeout;
+    const handleResize = () => {
+      clearTimeout(timeoutId);
+      timeoutId = setTimeout(() => {
+        setMaxVisibleBookmarks(getMaxVisible(window.innerWidth));
+      }, 100);
+    };
+    
+    window.addEventListener('resize', handleResize);
+    return () => {
+      clearTimeout(timeoutId);
+      window.removeEventListener('resize', handleResize);
+    };
   }, []);
 
   // Memoized bookmark display logic
   const { visibleBookmarks, overflowBookmarks, hasOverflow } = React.useMemo(() => {
-    const visible = bookmarks.slice(0, maxVisibleBookmarks);
-    const overflow = bookmarks.slice(maxVisibleBookmarks);
+    // Default to 6 during SSR, actual value set on client
+    const max = maxVisibleBookmarks ?? 6;
+    const visible = bookmarks.slice(0, max);
+    const overflow = bookmarks.slice(max);
     return {
       visibleBookmarks: visible,
       overflowBookmarks: overflow,
