@@ -89,3 +89,14 @@ export interface StreamFollow {
   user_id: string;
   created_at: string;
 }
+
+// Stream bookmark (external links like Jira, Figma, etc.)
+export interface StreamBookmark {
+  id: string;
+  stream_id: string;
+  url: string;
+  title?: string;
+  created_by: string;
+  created_at: string;
+  position: number;
+}
