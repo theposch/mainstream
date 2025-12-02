@@ -20,6 +20,7 @@ interface UseStreamFollowReturn {
   followers: User[];
   contributorCount: number;
   contributors: User[];
+  assetCount: number;
   toggleFollow: () => Promise<void>;
   loading: boolean;
   error: string | null;
@@ -31,6 +32,7 @@ export function useStreamFollow(streamId: string): UseStreamFollowReturn {
   const [followers, setFollowers] = useState<User[]>([]);
   const [contributorCount, setContributorCount] = useState(0);
   const [contributors, setContributors] = useState<User[]>([]);
+  const [assetCount, setAssetCount] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [initialLoading, setInitialLoading] = useState(true);
@@ -52,6 +54,7 @@ export function useStreamFollow(streamId: string): UseStreamFollowReturn {
           setFollowers(data.followers || []);
           setContributorCount(data.contributorCount || 0);
           setContributors(data.contributors || []);
+          setAssetCount(data.assetCount || 0);
           setError(null);
         } else {
           // Handle non-ok responses (401, 404, 500, etc.)
@@ -122,9 +125,10 @@ export function useStreamFollow(streamId: string): UseStreamFollowReturn {
     followers,
     contributorCount,
     contributors,
+    assetCount,
     toggleFollow,
     loading: loading || initialLoading,
     error,
-  }), [isFollowing, followerCount, followers, contributorCount, contributors, toggleFollow, loading, initialLoading, error]);
+  }), [isFollowing, followerCount, followers, contributorCount, contributors, assetCount, toggleFollow, loading, initialLoading, error]);
 }
 

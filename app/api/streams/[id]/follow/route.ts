@@ -34,7 +34,7 @@ export async function GET(
     const { data: { user: currentUser } } = await supabase.auth.getUser();
 
     // Execute all queries in parallel for better performance
-    const [countResult, followersResult, userFollowResult, contributorsResult] = await Promise.all([
+    const [countResult, followersResult, userFollowResult, contributorsResult, assetCountResult] = await Promise.all([
       // Get follower count
       supabase
         .from('stream_follows')
@@ -83,6 +83,12 @@ export async function GET(
           )
         `)
         .eq('stream_id', streamId),
+      
+      // Get asset count (number of shots in this stream)
+      supabase
+        .from('asset_streams')
+        .select('*', { count: 'exact', head: true })
+        .eq('stream_id', streamId),
     ]);
 
     if (countResult.error) {
@@ -93,12 +99,15 @@ export async function GET(
       );
     }
 
-    // Log errors for followers and contributors queries (non-blocking)
+    // Log errors for followers, contributors, and asset count queries (non-blocking)
     if (followersResult.error) {
       console.error('[GET /api/streams/[id]/follow] Error getting followers:', followersResult.error);
     }
     if (contributorsResult.error) {
       console.error('[GET /api/streams/[id]/follow] Error getting contributors:', contributorsResult.error);
+    }
+    if (assetCountResult.error) {
+      console.error('[GET /api/streams/[id]/follow] Error getting asset count:', assetCountResult.error);
     }
 
     // Extract unique contributors with their details
@@ -118,6 +127,7 @@ export async function GET(
       followers: followersResult.data?.map(f => f.users).filter(Boolean) || [],
       contributorCount,
       contributors: contributors.slice(0, 10), // Limit to 10 for tooltip display
+      assetCount: assetCountResult.count || 0,
     });
   } catch (error) {
     console.error('[GET /api/streams/[id]/follow] Error:', error);
