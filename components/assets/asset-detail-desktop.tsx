@@ -124,9 +124,8 @@ export function AssetDetailDesktop({ asset }: AssetDetailDesktopProps) {
     await deleteComment(commentId);
   }, [deleteComment]);
 
-  const handleLikeComment = React.useCallback((commentId: string) => {
-    // Comment likes are now handled by useCommentLike hook in CommentItem component
-    console.log('Like comment:', commentId);
+  const handleLikeComment = React.useCallback((_commentId: string) => {
+    // Comment likes are handled by useCommentLike hook in CommentItem component
   }, []);
 
   const handleAssetLike = React.useCallback(async () => {

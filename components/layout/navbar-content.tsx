@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Zap, Bookmark, ChevronDown } from "lucide-react";
+import { Bookmark, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SearchBar } from "./search-bar";
 import { UserMenu } from "./user-menu";
