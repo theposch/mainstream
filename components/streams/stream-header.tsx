@@ -46,6 +46,7 @@ export const StreamHeader = React.memo(function StreamHeader({ stream, owner }: 
     followers,
     contributorCount,
     contributors,
+    assetCount,
     toggleFollow, 
     loading: followLoading 
   } = useStreamFollow(stream.id);
@@ -170,6 +171,14 @@ export const StreamHeader = React.memo(function StreamHeader({ stream, owner }: 
                     </div>
                   )}
                 </div>
+              </>
+            )}
+            
+            {/* Asset Count (Shots) */}
+            {assetCount > 0 && (
+              <>
+                <span className="text-zinc-600">•</span>
+                <span>{assetCount} {assetCount === 1 ? 'Shot' : 'Shots'}</span>
               </>
             )}
             
