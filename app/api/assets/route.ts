@@ -37,8 +37,6 @@ export const revalidate = 0;
  */
 export async function GET() {
   try {
-    console.log('[GET /api/assets] Fetching assets from Supabase...');
-    
     const supabase = await createClient();
     
     // Query assets from Supabase with uploader information
@@ -60,15 +58,6 @@ export async function GET() {
         },
         { status: 500 }
       );
-    }
-    
-    console.log(`[GET /api/assets] Found ${assets?.length || 0} total assets`);
-    
-    if (assets && assets.length > 0) {
-    console.log('[GET /api/assets] Top 3 assets (newest):');
-      assets.slice(0, 3).forEach((asset, i) => {
-        console.log(`  ${i + 1}. ${asset.title} (${asset.id}) - ${asset.created_at}`);
-    });
     }
     
     return NextResponse.json(

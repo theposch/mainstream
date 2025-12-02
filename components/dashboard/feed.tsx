@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { X, Upload, Loader2 } from "lucide-react";
+import { X, Upload, Loader2, Users } from "lucide-react";
 import { FeedTabs } from "./feed-tabs";
 import { MasonryGrid } from "@/components/assets/masonry-grid";
 import { useSearch } from "@/lib/contexts/search-context";
@@ -9,39 +9,23 @@ import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
 import { useAssetsInfinite } from "@/lib/hooks/use-assets-infinite";
 import { useFollowingAssets } from "@/lib/hooks/use-following-assets";
-
-interface Asset {
-  id: string;
-  title: string;
-  type: string;
-  url: string;
-  thumbnail_url?: string;
-  medium_url?: string;
-  uploader_id: string;
-  width?: number;
-  height?: number;
-  created_at: string;
-  updated_at: string;
-  uploader?: {
-    id: string;
-    username: string;
-    display_name: string;
-    email: string;
-    avatar_url?: string;
-    job_title?: string;
-  };
-}
+import type { Asset } from "@/lib/types/database";
 
 interface DashboardFeedProps {
   initialAssets: Asset[];
 }
 
-export function DashboardFeed({ initialAssets }: DashboardFeedProps) {
+export const DashboardFeed = React.memo(function DashboardFeed({ initialAssets }: DashboardFeedProps) {
   const router = useRouter();
   const [activeTab, setActiveTab] = React.useState<"recent" | "following">("recent");
   const { debouncedQuery, clearSearch } = useSearch();
   const [searchResults, setSearchResults] = React.useState<Asset[]>([]);
   const [searching, setSearching] = React.useState(false);
+  
+  // Memoized callbacks for stable references
+  const handleUploadClick = React.useCallback(() => {
+    router.push('/upload');
+  }, [router]);
   
   // Infinite scroll hook for recent feed
   const { assets, loadMore, hasMore, loading } = useAssetsInfinite(initialAssets);
@@ -121,13 +105,18 @@ export function DashboardFeed({ initialAssets }: DashboardFeedProps) {
     performSearch();
   }, [debouncedQuery]);
   
-  // Switch between recent and following based on active tab
-  const baseAssets = activeTab === "recent" ? assets : followingAssets;
+  // Memoized computed values to prevent recalculation on every render
+  const baseAssets = React.useMemo(
+    () => activeTab === "recent" ? assets : followingAssets,
+    [activeTab, assets, followingAssets]
+  );
   const currentLoading = activeTab === "recent" ? loading : loadingFollowing;
   const currentHasMore = activeTab === "recent" ? hasMore : hasMoreFollowing;
 
-  // Use search results if searching, otherwise use base assets
-  const displayedAssets = debouncedQuery.trim() ? searchResults : baseAssets;
+  const displayedAssets = React.useMemo(
+    () => debouncedQuery.trim() ? searchResults : baseAssets,
+    [debouncedQuery, searchResults, baseAssets]
+  );
 
   // Show search result info
   const isSearching = debouncedQuery.trim().length > 0;
@@ -166,23 +155,45 @@ export function DashboardFeed({ initialAssets }: DashboardFeedProps) {
 
       <div className="mt-6">
         {isEmpty ? (
-          <div className="flex flex-col items-center justify-center py-20 text-center">
-            <div className="w-20 h-20 rounded-full bg-muted flex items-center justify-center mb-6">
-              <Upload className="w-10 h-10 text-muted-foreground" />
+          activeTab === "following" ? (
+            // Empty state for Following tab
+            <div className="flex flex-col items-center justify-center py-20 text-center">
+              <div className="w-20 h-20 rounded-full bg-muted flex items-center justify-center mb-6">
+                <Users className="w-10 h-10 text-muted-foreground" />
+              </div>
+              <h3 className="text-2xl font-semibold mb-2">No posts yet</h3>
+              <p className="text-muted-foreground mb-6 max-w-md">
+                Follow some creators to see their latest work here. Discover amazing designs from the community.
+              </p>
+              <Button 
+                variant="default" 
+                size="lg"
+                onClick={() => router.push('/streams')}
+              >
+                <Users className="w-4 h-4 mr-2" />
+                Discover Creators
+              </Button>
             </div>
-            <h3 className="text-2xl font-semibold mb-2">Upload your first design</h3>
-            <p className="text-muted-foreground mb-6 max-w-md">
-              Start building your portfolio by uploading your first design. Share your work with the community and get feedback.
-            </p>
-            <Button 
-              variant="default" 
-              size="lg"
-              onClick={() => router.push('/upload')}
-            >
-              <Upload className="w-4 h-4 mr-2" />
-              Upload Design
-            </Button>
-          </div>
+          ) : (
+            // Empty state for Recent tab
+            <div className="flex flex-col items-center justify-center py-20 text-center">
+              <div className="w-20 h-20 rounded-full bg-muted flex items-center justify-center mb-6">
+                <Upload className="w-10 h-10 text-muted-foreground" />
+              </div>
+              <h3 className="text-2xl font-semibold mb-2">Upload your first design</h3>
+              <p className="text-muted-foreground mb-6 max-w-md">
+                Start building your portfolio by uploading your first design. Share your work with the community and get feedback.
+              </p>
+              <Button 
+                variant="default" 
+                size="lg"
+                onClick={handleUploadClick}
+              >
+                <Upload className="w-4 h-4 mr-2" />
+                Upload Design
+              </Button>
+            </div>
+          )
         ) : hasResults ? (
           <>
           <MasonryGrid assets={displayedAssets} />
@@ -219,4 +230,4 @@ export function DashboardFeed({ initialAssets }: DashboardFeedProps) {
       </div>
     </div>
   );
-}
+});

@@ -9,44 +9,40 @@ import { StreamBadge } from "@/components/streams/stream-badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import { useAssetLike } from "@/lib/hooks/use-asset-like";
-import { createClient } from "@/lib/supabase/client";
-
-// Database asset type (snake_case from Supabase)
-interface DatabaseAsset {
-  id: string;
-  title: string;
-  type: string;
-  url: string;
-  thumbnail_url?: string;
-  medium_url?: string;
-  uploader_id: string;
-  width?: number;
-  height?: number;
-  created_at: string;
-  updated_at: string;
-  streamIds?: string[]; // Kept for backwards compatibility
-  uploader?: {
-    id: string;
-    username: string;
-    display_name: string;
-    email: string;
-    avatar_url?: string;
-    job_title?: string;
-  };
-}
+import type { Asset } from "@/lib/types/database";
 
 interface ElementCardProps {
-  asset: DatabaseAsset;
+  asset: Asset;
   className?: string;
+  /** Callback when like status changes - receives assetId and new isLiked state */
+  onLikeChange?: (assetId: string, isLiked: boolean) => void;
 }
 
 export const ElementCard = React.memo(
-  function ElementCard({ asset, className }: ElementCardProps) {
+  function ElementCard({ asset, className, onLikeChange }: ElementCardProps) {
   const [isHovered, setIsHovered] = React.useState(false);
   const [imageLoaded, setImageLoaded] = React.useState(false);
   
-  // Use real like functionality from database
-  const { isLiked, likeCount, toggleLike, loading } = useAssetLike(asset.id);
+  // Use pre-fetched like data from server
+  const { isLiked, likeCount, toggleLike, loading } = useAssetLike(
+    asset.id,
+    asset.isLikedByCurrentUser ?? false,
+    asset.likeCount ?? 0
+  );
+
+  // Memoized callbacks for stable references
+  const handleMouseEnter = React.useCallback(() => setIsHovered(true), []);
+  const handleMouseLeave = React.useCallback(() => setIsHovered(false), []);
+  const handleImageLoad = React.useCallback(() => setImageLoaded(true), []);
+  const handleLikeClick = React.useCallback(async (e: React.MouseEvent) => {
+    e.preventDefault();
+    const wasLiked = isLiked;
+    const success = await toggleLike();
+    // Only notify parent if toggle succeeded (prevents desynced state on API failure)
+    if (success) {
+      onLikeChange?.(asset.id, !wasLiked);
+    }
+  }, [toggleLike, isLiked, asset.id, onLikeChange]);
 
   // Ensure we have valid numbers for aspect ratio (prevent division by zero)
   const width = asset.width && asset.width > 0 ? asset.width : 800;
@@ -60,26 +56,10 @@ export const ElementCard = React.memo(
   // Get uploader from the asset (already joined from database query)
   const uploader = asset.uploader;
 
-  // Fetch streams for this asset from database
-  const [assetStreams, setAssetStreams] = React.useState<any[]>([]);
-  
-  React.useEffect(() => {
-    const fetchStreams = async () => {
-      const supabase = createClient();
-      const { data } = await supabase
-        .from('asset_streams')
-        .select('streams(*)')
-        .eq('asset_id', asset.id);
-      
-      if (data) {
-        setAssetStreams(data.map(rel => rel.streams).filter(Boolean));
-      }
-    };
-    fetchStreams();
-  }, [asset.id]);
-
-  const visibleStreams = assetStreams.slice(0, 3);
-  const overflowCount = Math.max(0, assetStreams.length - 3);
+  // Use pre-fetched streams from asset (prevents N+1 query)
+  const streams = asset.streams || [];
+  const visibleStreams = streams.slice(0, 3);
+  const overflowCount = Math.max(0, streams.length - 3);
 
   return (
     <motion.div
@@ -87,8 +67,8 @@ export const ElementCard = React.memo(
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3 }}
       className={cn("relative group break-inside-avoid w-full", className)}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
     >
       <Link href={`/e/${asset.id}`} className="block w-full">
         <div className="relative rounded-xl overflow-hidden bg-secondary cursor-zoom-in w-full">
@@ -103,7 +83,7 @@ export const ElementCard = React.memo(
               fill
               className="absolute inset-0 object-cover w-full h-full transition-transform duration-500 group-hover:scale-105"
               sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-              onLoadingComplete={() => setImageLoaded(true)}
+              onLoad={handleImageLoad}
             />
           </div>
 
@@ -128,7 +108,7 @@ export const ElementCard = React.memo(
             {/* Bottom Section */}
             <div className="absolute bottom-0 left-0 right-0 p-4 flex flex-col gap-2" onClick={(e) => e.preventDefault()}>
               {/* Streams - Show on hover (clickable=false to avoid nested <a> tags) */}
-              {assetStreams.length > 0 && (
+              {streams.length > 0 && (
                 <div className="flex items-center gap-1.5 flex-wrap">
                   {visibleStreams.map((stream) => (
                     <StreamBadge key={stream.id} stream={stream} clickable={false} className="text-xs" />
@@ -170,17 +150,14 @@ export const ElementCard = React.memo(
                 )}
               <button 
                 className={cn(
-                    "p-2.5 rounded-full backdrop-blur-md transition-all shadow-lg",
+                  "p-2.5 rounded-full backdrop-blur-md transition-all shadow-lg",
                   isLiked 
                     ? "bg-red-500 text-white" 
-                      : "bg-white/90 hover:bg-white text-black",
-                    loading && "opacity-50 cursor-wait"
+                    : "bg-white/90 hover:bg-white text-black",
+                  loading && "opacity-50 cursor-wait"
                 )}
-                onClick={(e) => {
-                  e.preventDefault();
-                    toggleLike();
-                }}
-                  disabled={loading}
+                onClick={handleLikeClick}
+                disabled={loading}
               >
                 <Heart className={cn("w-4 h-4", isLiked && "fill-current")} />
               </button>
@@ -192,10 +169,5 @@ export const ElementCard = React.memo(
       </Link>
     </motion.div>
   );
-  },
-  // Custom comparison to make memo actually work
-  (prevProps, nextProps) => {
-    return prevProps.asset.id === nextProps.asset.id &&
-           prevProps.className === nextProps.className;
   }
 );

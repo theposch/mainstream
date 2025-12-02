@@ -129,7 +129,7 @@ export function useNotifications(): UseNotificationsReturn {
           // Only log subscription issues in development
           if (process.env.NODE_ENV === 'development') {
             if (status === 'SUBSCRIBED') {
-              console.log('[useNotifications] Real-time connected');
+              // Connected to real-time notifications
             } else if (status === 'CHANNEL_ERROR') {
               console.warn('[useNotifications] Real-time unavailable - using polling fallback');
             }

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Zap, Bookmark, ChevronDown } from "lucide-react";
+import { Bookmark, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SearchBar } from "./search-bar";
 import { UserMenu } from "./user-menu";
@@ -16,7 +16,7 @@ export function Navbar() {
           {/* Left Section */}
           <div className="flex items-center gap-8 shrink-0">
             <Link href="/home" className="flex items-center gap-2">
-              <span className="text-xl font-bold tracking-tight text-white">COSMOS®</span>
+              <span className="text-xl font-bold tracking-tight text-white">MAINSTREAM</span>
             </Link>
             <div className="hidden md:flex items-center gap-6">
               <Link 

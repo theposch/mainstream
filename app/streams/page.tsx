@@ -55,7 +55,6 @@ export default async function StreamsPage() {
     })
   );
 
-  console.log(`[Streams Page] Loaded ${streamsData.length} streams from database`);
 
   return (
     <div className="w-full min-h-screen pb-20">

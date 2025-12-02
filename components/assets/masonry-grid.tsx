@@ -13,9 +13,16 @@ interface MasonryGridProps {
   assets: Asset[];
   className?: string;
   isLoading?: boolean;
+  /** Callback when like status changes on any card */
+  onLikeChange?: (assetId: string, isLiked: boolean) => void;
 }
 
-export function MasonryGrid({ assets, className, isLoading = false }: MasonryGridProps) {
+export const MasonryGrid = React.memo(function MasonryGrid({ 
+  assets, 
+  className, 
+  isLoading = false,
+  onLikeChange
+}: MasonryGridProps) {
 
   if (isLoading) {
     return <LoadingSpinner />;
@@ -40,8 +47,13 @@ export function MasonryGrid({ assets, className, isLoading = false }: MasonryGri
       columnClassName="pl-6 bg-clip-padding"
     >
       {assets.map((asset) => (
-        <ElementCard key={asset.id} asset={asset} className="mb-6" />
+        <ElementCard 
+          key={asset.id} 
+          asset={asset} 
+          className="mb-6" 
+          onLikeChange={onLikeChange}
+        />
       ))}
     </Masonry>
   );
-}
+});

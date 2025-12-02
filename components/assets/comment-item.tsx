@@ -19,9 +19,9 @@ interface Comment {
   asset_id: string;
   user_id: string;
   content: string;
-  parent_id?: string;
+  parent_id: string | null;
   created_at: string;
-  updated_at?: string;
+  updated_at: string;
   is_edited: boolean;
   likes: number;
   has_liked: boolean;
@@ -32,7 +32,9 @@ interface User {
   id: string;
   username: string;
   display_name: string;
-  avatar_url: string;
+  avatar_url?: string;
+  email?: string;
+  job_title?: string;
 }
 
 interface CommentItemProps {

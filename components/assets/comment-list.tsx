@@ -8,9 +8,9 @@ interface Comment {
   asset_id: string;
   user_id: string;
   content: string;
-  parent_id?: string;
+  parent_id: string | null;
   created_at: string;
-  updated_at?: string;
+  updated_at: string;
   is_edited: boolean;
   likes: number;
   has_liked: boolean;
@@ -21,7 +21,9 @@ interface User {
   id: string;
   username: string;
   display_name: string;
-  avatar_url: string;
+  avatar_url?: string;
+  email?: string;
+  job_title?: string;
 }
 
 interface CommentListProps {
@@ -80,7 +82,7 @@ export const CommentList = React.memo(function CommentList({
             {/* Parent Comment */}
             <CommentItem
               comment={comment}
-              author={getUser(comment.userId)}
+              author={getUser(comment.user_id)}
               currentUser={currentUser}
               onReply={onReply}
               onEdit={onEdit}
@@ -98,7 +100,7 @@ export const CommentList = React.memo(function CommentList({
                   <CommentItem
                     key={reply.id}
                     comment={reply}
-                    author={getUser(reply.userId)}
+                    author={getUser(reply.user_id)}
                     currentUser={currentUser}
                     onReply={onReply} // Replying to a reply targets the reply (or parent?) - typically targets the specific comment
                     onEdit={onEdit}

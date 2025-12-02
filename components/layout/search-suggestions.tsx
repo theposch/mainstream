@@ -7,33 +7,7 @@ import { Clock, Search, Image as ImageIcon, Hash, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Avatar } from "@/components/ui/avatar";
 import { SEARCH_CONSTANTS } from "@/lib/constants/search";
-
-// Types for database records
-interface Asset {
-  id: string;
-  title: string;
-  url: string;
-  uploader_id: string;
-  uploader?: {
-    id: string;
-    display_name: string;
-    avatar_url: string;
-  };
-}
-
-interface Stream {
-  id: string;
-  name: string;
-  description?: string;
-  owner_type: string;
-}
-
-interface User {
-  id: string;
-  username: string;
-  display_name: string;
-  avatar_url: string;
-}
+import type { Asset, Stream, User } from "@/lib/types/database";
 
 interface SearchSuggestionsProps {
   query: string;
@@ -81,15 +55,12 @@ export function SearchSuggestions({
         const res = await fetch(`/api/search?${params}`);
         const data = await res.json();
         
-        const total = (data.assets?.length || 0) + 
-                     (data.streams?.length || 0) + 
-                     (data.users?.length || 0);
-        
+        // Use total from API (actual count, not limited results count)
         setResults({
           assets: data.assets || [],
           streams: data.streams || [],
           users: data.users || [],
-          total,
+          total: data.total || 0,
         });
       } catch (error) {
         console.error('[SearchSuggestions] Failed to fetch search results:', error);
