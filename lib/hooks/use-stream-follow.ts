@@ -11,7 +11,7 @@
 
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import type { User } from "@/lib/types/database";
 
 interface UseStreamFollowReturn {
@@ -101,13 +101,14 @@ export function useStreamFollow(streamId: string): UseStreamFollowReturn {
     }
   }, [streamId, isFollowing, loading]);
 
-  return {
+  // Memoize return object to prevent unnecessary re-renders in consuming components
+  return useMemo(() => ({
     isFollowing,
     followerCount,
     followers,
     toggleFollow,
     loading: loading || initialLoading,
     error,
-  };
+  }), [isFollowing, followerCount, followers, toggleFollow, loading, initialLoading, error]);
 }
 

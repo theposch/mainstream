@@ -11,17 +11,21 @@ interface AvatarGroupProps extends React.ComponentProps<"div"> {
   max?: number;
 }
 
-export const AvatarGroup = ({
+export const AvatarGroup = React.memo(function AvatarGroup({
   children,
   max,
   className,
   ...props
-}: AvatarGroupProps) => {
-  const totalAvatars = React.Children.count(children);
-  const displayedAvatars = React.Children.toArray(children)
-    .slice(0, max)
-    .reverse();
-  const remainingAvatars = max ? Math.max(totalAvatars - max, 0) : 0;
+}: AvatarGroupProps) {
+  // Memoize computed values
+  const { totalAvatars, displayedAvatars, remainingAvatars } = React.useMemo(() => {
+    const totalAvatars = React.Children.count(children);
+    const displayedAvatars = React.Children.toArray(children)
+      .slice(0, max)
+      .reverse();
+    const remainingAvatars = max ? Math.max(totalAvatars - max, 0) : 0;
+    return { totalAvatars, displayedAvatars, remainingAvatars };
+  }, [children, max]);
 
   return (
     <div
@@ -48,7 +52,7 @@ export const AvatarGroup = ({
       })}
     </div>
   );
-};
+});
 
 /**
  * StreamFollowers component
@@ -64,26 +68,31 @@ interface StreamFollowersProps {
   className?: string;
 }
 
-export function StreamFollowers({ 
+export const StreamFollowers = React.memo(function StreamFollowers({ 
   followers, 
   max = 3, 
   totalCount,
   size = "md",
   className 
 }: StreamFollowersProps) {
+  // Memoize computed values to avoid recalculation on every render
+  const { sizeClass, textSize, displayedFollowers, remaining } = React.useMemo(() => {
+    const sizeClass = size === "sm" ? "h-6 w-6" : "h-8 w-8";
+    const textSize = size === "sm" ? "text-[10px]" : "text-xs";
+    
+    // Slice and reverse without mutating original array
+    const displayedFollowers = followers.slice(0, max).reverse();
+    const remaining = totalCount 
+      ? Math.max(totalCount - max, 0)
+      : Math.max(followers.length - max, 0);
+    
+    return { sizeClass, textSize, displayedFollowers, remaining };
+  }, [followers, max, totalCount, size]);
+
   // If no followers, show empty state
   if (!followers || followers.length === 0) {
     return null;
   }
-
-  const sizeClass = size === "sm" ? "h-6 w-6" : "h-8 w-8";
-  const textSize = size === "sm" ? "text-[10px]" : "text-xs";
-  
-  // Calculate remaining count based on total if provided, otherwise from array
-  const displayedFollowers = followers.slice(0, max);
-  const remaining = totalCount 
-    ? Math.max(totalCount - max, 0)
-    : Math.max(followers.length - max, 0);
 
   return (
     <div className={cn("flex items-center flex-row-reverse", className)}>
@@ -94,7 +103,7 @@ export function StreamFollowers({
           </AvatarFallback>
         </Avatar>
       )}
-      {displayedFollowers.reverse().map((user) => (
+      {displayedFollowers.map((user) => (
         <div key={user.id} className="-ml-2 hover:z-10 relative">
           <Avatar 
             className={cn("ring-2 ring-background cursor-pointer", sizeClass)}
@@ -109,7 +118,7 @@ export function StreamFollowers({
       ))}
     </div>
   );
-}
+});
 
 // Demo component for testing
 export default function AvatarGroupDemo() {

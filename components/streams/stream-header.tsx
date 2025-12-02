@@ -33,7 +33,7 @@ interface StreamHeaderProps {
   owner: any;   // User or Team from database
 }
 
-export function StreamHeader({ stream, owner }: StreamHeaderProps) {
+export const StreamHeader = React.memo(function StreamHeader({ stream, owner }: StreamHeaderProps) {
   const router = useRouter();
   const [currentUser, setCurrentUser] = React.useState<any>(null);
   const [showDeleteDialog, setShowDeleteDialog] = React.useState(false);
@@ -49,12 +49,14 @@ export function StreamHeader({ stream, owner }: StreamHeaderProps) {
     loading: followLoading 
   } = useStreamFollow(stream.id);
 
-  const isTeam = stream.owner_type === 'team';
-  const isUser = stream.owner_type === 'user';
-  
-  // Get owner name - Team has 'name', User has 'display_name'
-  const ownerName = isTeam ? owner.name : owner.display_name;
-  const ownerInitial = ownerName?.substring(0, 1).toUpperCase() || 'O';
+  // Memoize computed values
+  const { isTeam, isUser, ownerName, ownerInitial } = React.useMemo(() => {
+    const isTeam = stream.owner_type === 'team';
+    const isUser = stream.owner_type === 'user';
+    const ownerName = isTeam ? owner.name : owner.display_name;
+    const ownerInitial = ownerName?.substring(0, 1).toUpperCase() || 'O';
+    return { isTeam, isUser, ownerName, ownerInitial };
+  }, [stream.owner_type, owner.name, owner.display_name]);
 
   // Fetch current user
   React.useEffect(() => {
@@ -73,7 +75,8 @@ export function StreamHeader({ stream, owner }: StreamHeaderProps) {
     fetchCurrentUser();
   }, []);
 
-  const handleDelete = async () => {
+  // Memoized callbacks
+  const handleDelete = React.useCallback(async () => {
     if (isDeleting) return;
     
     setIsDeleting(true);
@@ -95,19 +98,31 @@ export function StreamHeader({ stream, owner }: StreamHeaderProps) {
       setIsDeleting(false);
       setShowDeleteDialog(false);
     }
-  };
+  }, [isDeleting, stream.id, router]);
 
-  const handleShare = () => {
+  const handleShare = React.useCallback(() => {
     const url = `${window.location.origin}/stream/${stream.name}`;
     navigator.clipboard.writeText(url);
     // TODO: Show toast notification
-  };
+  }, [stream.name]);
 
-  const handleFollow = async () => {
+  const handleFollow = React.useCallback(async () => {
     await toggleFollow();
-  };
+  }, [toggleFollow]);
 
-  const canDelete = currentUser && stream.owner_type === 'user' && stream.owner_id === currentUser.id;
+  const handleOpenUploadDialog = React.useCallback(() => {
+    setUploadDialogOpen(true);
+  }, []);
+
+  const handleOpenDeleteDialog = React.useCallback(() => {
+    setShowDeleteDialog(true);
+  }, []);
+
+  // Memoize canDelete computation
+  const canDelete = React.useMemo(() => 
+    currentUser && stream.owner_type === 'user' && stream.owner_id === currentUser.id,
+    [currentUser, stream.owner_type, stream.owner_id]
+  );
   
   return (
     <div className="flex flex-col gap-6 mb-10">
@@ -208,7 +223,7 @@ export function StreamHeader({ stream, owner }: StreamHeaderProps) {
             <Button 
               variant="default" 
               size="default"
-              onClick={() => setUploadDialogOpen(true)}
+              onClick={handleOpenUploadDialog}
             >
                 <Plus className="h-4 w-4 mr-2" />
                 Add Asset
@@ -231,7 +246,7 @@ export function StreamHeader({ stream, owner }: StreamHeaderProps) {
                     <DropdownMenuSeparator />
                     <DropdownMenuItem
                       variant="destructive"
-                      onClick={() => setShowDeleteDialog(true)}
+                      onClick={handleOpenDeleteDialog}
                     >
                       <Trash2 className="h-4 w-4" />
                       Delete Stream
@@ -273,4 +288,4 @@ export function StreamHeader({ stream, owner }: StreamHeaderProps) {
       />
     </div>
   );
-}
+});
