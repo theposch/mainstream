@@ -175,7 +175,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                   />
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Your profile URL: cosmos.so/u/{username}
+                  Your profile URL: mainstream.so/u/{username}
                 </p>
               </div>
 
