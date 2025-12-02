@@ -3,10 +3,13 @@
 import * as React from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Lock, Globe, Plus, MoreHorizontal, Share, Hash, Archive, Trash2 } from "lucide-react";
+import { Lock, Globe, Plus, MoreHorizontal, Share, Hash, Archive, Trash2, Check, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { useStreamFollow } from "@/lib/hooks/use-stream-follow";
+import { StreamFollowers } from "@/components/customized/avatar/avatar-12";
+import { UploadDialog } from "@/components/layout/upload-dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -35,6 +38,16 @@ export function StreamHeader({ stream, owner }: StreamHeaderProps) {
   const [currentUser, setCurrentUser] = React.useState<any>(null);
   const [showDeleteDialog, setShowDeleteDialog] = React.useState(false);
   const [isDeleting, setIsDeleting] = React.useState(false);
+  const [uploadDialogOpen, setUploadDialogOpen] = React.useState(false);
+
+  // Use stream follow hook
+  const { 
+    isFollowing, 
+    followerCount, 
+    followers, 
+    toggleFollow, 
+    loading: followLoading 
+  } = useStreamFollow(stream.id);
 
   const isTeam = stream.owner_type === 'team';
   const isUser = stream.owner_type === 'user';
@@ -88,6 +101,10 @@ export function StreamHeader({ stream, owner }: StreamHeaderProps) {
     const url = `${window.location.origin}/stream/${stream.name}`;
     navigator.clipboard.writeText(url);
     // TODO: Show toast notification
+  };
+
+  const handleFollow = async () => {
+    await toggleFollow();
   };
 
   const canDelete = currentUser && stream.owner_type === 'user' && stream.owner_id === currentUser.id;
@@ -151,22 +168,34 @@ export function StreamHeader({ stream, owner }: StreamHeaderProps) {
         </div>
 
         <div className="flex items-center gap-3 shrink-0">
-            {/* Stream Members/Followers */}
-            <div className="flex -space-x-2 mr-4">
-                {[1,2,3].map((i) => (
-                    <div key={i} className="h-8 w-8 rounded-full border-2 border-background bg-secondary flex items-center justify-center text-xs font-medium text-muted-foreground">
-                       M{i}
-                    </div>
-                ))}
-                 <div className="h-8 w-8 rounded-full border-2 border-background bg-secondary flex items-center justify-center text-xs font-medium text-muted-foreground hover:bg-accent cursor-pointer">
-                       +5
-                </div>
-            </div>
+            {/* Stream Followers - Real data from API */}
+            {(followers.length > 0 || followerCount > 0) && (
+              <div className="mr-4">
+                <StreamFollowers 
+                  followers={followers} 
+                  max={3} 
+                  totalCount={followerCount}
+                  size="md"
+                />
+              </div>
+            )}
             
             {/* Follow/Unfollow Button */}
-            <Button variant="secondary" size="default">
+            <Button 
+              variant={isFollowing ? "secondary" : "secondary"}
+              size="default"
+              onClick={handleFollow}
+              disabled={followLoading}
+              className={isFollowing ? "bg-secondary hover:bg-secondary/80" : ""}
+            >
+              {followLoading ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : isFollowing ? (
+                <Check className="h-4 w-4 mr-2" />
+              ) : (
                 <Plus className="h-4 w-4 mr-2" />
-                Follow
+              )}
+              {isFollowing ? 'Following' : 'Follow'}
             </Button>
             
             {/* Share Stream */}
@@ -176,7 +205,11 @@ export function StreamHeader({ stream, owner }: StreamHeaderProps) {
             </Button>
             
             {/* Add Asset to Stream */}
-            <Button variant="default" size="default">
+            <Button 
+              variant="default" 
+              size="default"
+              onClick={() => setUploadDialogOpen(true)}
+            >
                 <Plus className="h-4 w-4 mr-2" />
                 Add Asset
             </Button>
@@ -231,7 +264,13 @@ export function StreamHeader({ stream, owner }: StreamHeaderProps) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Upload Dialog with pre-selected stream */}
+      <UploadDialog 
+        open={uploadDialogOpen} 
+        onOpenChange={setUploadDialogOpen}
+        initialStreamId={stream.id}
+      />
     </div>
   );
 }
-

@@ -82,3 +82,10 @@ export interface SearchResults {
   users: User[];
   total?: number;
 }
+
+// Stream follow relationship
+export interface StreamFollow {
+  stream_id: string;
+  user_id: string;
+  created_at: string;
+}

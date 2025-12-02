@@ -22,9 +22,11 @@ import type { Stream } from "@/lib/types/database";
 interface UploadDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** Pre-select a stream when opening from a stream page */
+  initialStreamId?: string;
 }
 
-export function UploadDialog({ open, onOpenChange }: UploadDialogProps) {
+export function UploadDialog({ open, onOpenChange, initialStreamId }: UploadDialogProps) {
   const router = useRouter();
   const [isLoading, setIsLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
@@ -68,6 +70,13 @@ export function UploadDialog({ open, onOpenChange }: UploadDialogProps) {
       fetchStreams();
     }
   }, [open]);
+
+  // Pre-populate stream when initialStreamId is provided
+  React.useEffect(() => {
+    if (open && initialStreamId && !streamIds.includes(initialStreamId)) {
+      setStreamIds([initialStreamId]);
+    }
+  }, [open, initialStreamId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Sync hashtags in description with streams (now uses pending streams)
   useStreamMentions(
