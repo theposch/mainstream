@@ -37,9 +37,11 @@ export const ElementCard = React.memo(
   const handleLikeClick = React.useCallback(async (e: React.MouseEvent) => {
     e.preventDefault();
     const wasLiked = isLiked;
-    await toggleLike();
-    // Notify parent of like change (new state is opposite of what it was)
-    onLikeChange?.(asset.id, !wasLiked);
+    const success = await toggleLike();
+    // Only notify parent if toggle succeeded (prevents desynced state on API failure)
+    if (success) {
+      onLikeChange?.(asset.id, !wasLiked);
+    }
   }, [toggleLike, isLiked, asset.id, onLikeChange]);
 
   // Ensure we have valid numbers for aspect ratio (prevent division by zero)

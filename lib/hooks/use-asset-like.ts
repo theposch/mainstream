@@ -25,7 +25,8 @@ import { useState, useCallback } from "react";
 interface UseAssetLikeReturn {
   isLiked: boolean;
   likeCount: number;
-  toggleLike: () => Promise<void>;
+  /** Returns true if toggle succeeded, false if it failed and was rolled back */
+  toggleLike: () => Promise<boolean>;
   loading: boolean;
 }
 
@@ -39,8 +40,8 @@ export function useAssetLike(
   const [likeCount, setLikeCount] = useState(initialCount);
   const [loading, setLoading] = useState(false);
 
-  const toggleLike = useCallback(async () => {
-    if (loading) return;
+  const toggleLike = useCallback(async (): Promise<boolean> => {
+    if (loading) return false;
 
     setLoading(true);
 
@@ -70,11 +71,14 @@ export function useAssetLike(
         setIsLiked(true);
         setLikeCount(previousCount);
       }
+      
+      return true; // Success
     } catch (error) {
       console.error("[useAssetLike] Error toggling like:", error);
       // Rollback optimistic update on error
       setIsLiked(previousLiked);
       setLikeCount(previousCount);
+      return false; // Failed
     } finally {
       setLoading(false);
     }
