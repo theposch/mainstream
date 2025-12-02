@@ -1,10 +1,8 @@
 "use client";
 
 import * as React from "react";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Lock, Globe, Plus, MoreHorizontal, Share, Archive, Trash2, Check, Loader2 } from "lucide-react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useStreamFollow } from "@/lib/hooks/use-stream-follow";
@@ -48,15 +46,6 @@ export const StreamHeader = React.memo(function StreamHeader({ stream, owner }: 
     toggleFollow, 
     loading: followLoading 
   } = useStreamFollow(stream.id);
-
-  // Memoize computed values
-  const { isTeam, isUser, ownerName, ownerInitial } = React.useMemo(() => {
-    const isTeam = stream.owner_type === 'team';
-    const isUser = stream.owner_type === 'user';
-    const ownerName = isTeam ? owner.name : owner.display_name;
-    const ownerInitial = ownerName?.substring(0, 1).toUpperCase() || 'O';
-    return { isTeam, isUser, ownerName, ownerInitial };
-  }, [stream.owner_type, owner.name, owner.display_name]);
 
   // Fetch current user
   React.useEffect(() => {
@@ -128,30 +117,6 @@ export const StreamHeader = React.memo(function StreamHeader({ stream, owner }: 
     <div className="flex flex-col gap-6 mb-10">
       {/* Stream Meta */}
       <div className="flex items-center gap-3 text-muted-foreground text-sm">
-        {/* Owner */}
-        {isUser ? (
-          <Link 
-            href={`/u/${owner.username}`}
-            className="flex items-center gap-2 hover:text-foreground transition-colors"
-          >
-            <Avatar className="h-5 w-5">
-              <AvatarImage src={owner.avatar_url} />
-              <AvatarFallback>{ownerInitial}</AvatarFallback>
-            </Avatar>
-            <span>{ownerName}</span>
-          </Link>
-        ) : (
-          <div className="flex items-center gap-2">
-            <Avatar className="h-5 w-5">
-              <AvatarImage src={owner.avatar_url} />
-              <AvatarFallback>{ownerInitial}</AvatarFallback>
-            </Avatar>
-            <span>{ownerName}</span>
-          </div>
-        )}
-        
-        <span className="text-zinc-600">·</span>
-        
         {/* Visibility Badge */}
         <div className="flex items-center gap-1.5">
           {stream.is_private ? <Lock className="h-3 w-3" /> : <Globe className="h-3 w-3" />}
