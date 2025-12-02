@@ -204,7 +204,7 @@ export async function POST(request: NextRequest) {
           username: user.username,
           display_name: user.displayName,
           email: user.email,
-          avatar_url: `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.username}`,
+          avatar_url: `https://avatar.vercel.sh/${user.username}.png`,
         });
 
       if (userCreateError) {
