@@ -74,7 +74,7 @@ export const StreamHeader = React.memo(function StreamHeader({ stream, owner }: 
     const updateMaxVisible = () => {
       const width = window.innerWidth;
       if (width < 640) {
-        setMaxVisibleBookmarks(2); // Mobile
+        setMaxVisibleBookmarks(1); // Mobile
       } else if (width < 1024) {
         setMaxVisibleBookmarks(4); // Tablet
       } else {
