@@ -129,8 +129,8 @@ export function AssetDetailDesktop({ asset }: AssetDetailDesktopProps) {
     console.log('Like comment:', commentId);
   }, []);
 
-  const handleAssetLike = React.useCallback(() => {
-    toggleLike();
+  const handleAssetLike = React.useCallback(async () => {
+    await toggleLike();
   }, [toggleLike]);
 
   const replyingToUser = React.useMemo(() => {
