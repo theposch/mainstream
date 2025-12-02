@@ -68,11 +68,19 @@ export async function GET(
             .maybeSingle()
         : Promise.resolve({ data: null, error: null }),
       
-      // Get contributor count (unique users who have added assets to this stream)
+      // Get contributors (unique users who have added assets to this stream)
       supabase
         .from('asset_streams')
         .select(`
-          assets!inner(uploader_id)
+          assets!inner(
+            uploader_id,
+            uploader:users!uploader_id(
+              id,
+              username,
+              display_name,
+              avatar_url
+            )
+          )
         `)
         .eq('stream_id', streamId),
     ]);
@@ -85,19 +93,23 @@ export async function GET(
       );
     }
 
-    // Calculate unique contributor count from the assets in this stream
-    const uniqueUploaders = new Set(
-      contributorsResult.data
-        ?.map((item: any) => item.assets?.uploader_id)
-        .filter(Boolean) || []
-    );
-    const contributorCount = uniqueUploaders.size;
+    // Extract unique contributors with their details
+    const contributorMap = new Map();
+    contributorsResult.data?.forEach((item: any) => {
+      const uploader = item.assets?.uploader;
+      if (uploader && !contributorMap.has(uploader.id)) {
+        contributorMap.set(uploader.id, uploader);
+      }
+    });
+    const contributors = Array.from(contributorMap.values());
+    const contributorCount = contributors.length;
 
     return NextResponse.json({
       isFollowing: !!userFollowResult.data,
       followerCount: countResult.count || 0,
       followers: followersResult.data?.map(f => f.users).filter(Boolean) || [],
       contributorCount,
+      contributors: contributors.slice(0, 10), // Limit to 10 for tooltip display
     });
   } catch (error) {
     console.error('[GET /api/streams/[id]/follow] Error:', error);

@@ -19,6 +19,7 @@ interface UseStreamFollowReturn {
   followerCount: number;
   followers: User[];
   contributorCount: number;
+  contributors: User[];
   toggleFollow: () => Promise<void>;
   loading: boolean;
   error: string | null;
@@ -29,6 +30,7 @@ export function useStreamFollow(streamId: string): UseStreamFollowReturn {
   const [followerCount, setFollowerCount] = useState(0);
   const [followers, setFollowers] = useState<User[]>([]);
   const [contributorCount, setContributorCount] = useState(0);
+  const [contributors, setContributors] = useState<User[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [initialLoading, setInitialLoading] = useState(true);
@@ -49,6 +51,7 @@ export function useStreamFollow(streamId: string): UseStreamFollowReturn {
           setFollowerCount(data.followerCount || 0);
           setFollowers(data.followers || []);
           setContributorCount(data.contributorCount || 0);
+          setContributors(data.contributors || []);
         }
       } catch (err) {
         console.error('[useStreamFollow] Error fetching follow state:', err);
@@ -110,9 +113,10 @@ export function useStreamFollow(streamId: string): UseStreamFollowReturn {
     followerCount,
     followers,
     contributorCount,
+    contributors,
     toggleFollow,
     loading: loading || initialLoading,
     error,
-  }), [isFollowing, followerCount, followers, contributorCount, toggleFollow, loading, initialLoading, error]);
+  }), [isFollowing, followerCount, followers, contributorCount, contributors, toggleFollow, loading, initialLoading, error]);
 }
 

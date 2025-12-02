@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { Button } from "@/components/ui/button";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Lock, Globe, Plus, MoreHorizontal, Share, Archive, Trash2, Check, Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
@@ -44,6 +45,7 @@ export const StreamHeader = React.memo(function StreamHeader({ stream, owner }: 
     followerCount, 
     followers,
     contributorCount,
+    contributors,
     toggleFollow, 
     loading: followLoading 
   } = useStreamFollow(stream.id);
@@ -131,11 +133,43 @@ export const StreamHeader = React.memo(function StreamHeader({ stream, owner }: 
               <span>{stream.is_private ? 'Private' : 'Public'}</span>
             </div>
             
-            {/* Contributors */}
+            {/* Contributors with hover tooltip */}
             {contributorCount > 0 && (
               <>
                 <span className="text-zinc-600">•</span>
-                <span>{contributorCount} {contributorCount === 1 ? 'Contributor' : 'Contributors'}</span>
+                <div className="relative group/contributors">
+                  <span className="cursor-default hover:text-foreground transition-colors">
+                    {contributorCount} {contributorCount === 1 ? 'Contributor' : 'Contributors'}
+                  </span>
+                  
+                  {/* Hover tooltip */}
+                  {contributors.length > 0 && (
+                    <div className="absolute left-0 top-full mt-2 opacity-0 invisible group-hover/contributors:opacity-100 group-hover/contributors:visible transition-all duration-200 z-50">
+                      <div className="bg-popover border border-border rounded-lg shadow-lg p-3 min-w-[200px]">
+                        <div className="space-y-2">
+                          {contributors.slice(0, 8).map((contributor) => (
+                            <div key={contributor.id} className="flex items-center gap-2">
+                              <Avatar className="h-6 w-6">
+                                <AvatarImage src={contributor.avatar_url} alt={contributor.display_name || contributor.username} />
+                                <AvatarFallback className="text-[10px] bg-secondary">
+                                  {(contributor.display_name || contributor.username)?.substring(0, 2).toUpperCase()}
+                                </AvatarFallback>
+                              </Avatar>
+                              <span className="text-sm text-foreground">
+                                {contributor.display_name || contributor.username}
+                              </span>
+                            </div>
+                          ))}
+                          {contributorCount > 8 && (
+                            <div className="text-xs text-muted-foreground pt-1 border-t border-border">
+                              +{contributorCount - 8} more
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </>
             )}
             
