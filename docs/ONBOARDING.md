@@ -6,8 +6,10 @@ Design collaboration platform for internal teams. Share work, organize into stre
 
 A Pinterest-style design sharing platform with:
 - **Streams** - Flexible organizational units (like projects + tags)
+- **Stream Following** - Follow streams to see their posts in your feed
+- **Stream Bookmarks** - Add external links (Jira, Figma, Notion) to streams
 - **Assets** - Uploaded designs with likes and comments
-- **Following** - See work from people you follow
+- **Following** - See work from people and streams you follow
 - **Search** - Find assets, users, and streams
 
 ## Tech Stack
@@ -100,7 +102,12 @@ Organizational units that support many-to-many relationships. An asset can belon
 - `#onboarding` (the feature)
 - `#design-system` (the system)
 
-**Database:** `streams` table + `asset_streams` junction table
+**Features:**
+- Follow streams to see posts in your Following feed
+- Add bookmarks (external links) with favicons
+- Contributor tooltip showing who has posted
+
+**Database:** `streams` table + `asset_streams` junction table + `stream_follows` + `stream_bookmarks`
 
 ### Assets
 
@@ -116,9 +123,9 @@ Uploaded images and designs. Features:
 
 Home page has two tabs:
 - **Recent** - All assets (chronological)
-- **Following** - Assets from users you follow
+- **Following** - Assets from users AND streams you follow
 
-**Database:** `user_follows` table
+**Database:** `user_follows` table + `stream_follows` table
 
 ## Key Features
 
@@ -170,6 +177,17 @@ Streams are created automatically when mentioned with `#` during upload or via t
 
 Visit user profile (`/u/username`) → Click "Follow"
 
+### Follow a Stream
+
+Visit stream page (`/stream/stream-name`) → Click "Follow"
+
+### Add a Bookmark to a Stream
+
+1. Visit stream page (`/stream/stream-name`)
+2. Click "Add Bookmark"
+3. Enter URL and optional title
+4. Favicon is displayed automatically
+
 ### Delete an Asset
 
 Open asset detail → Click "..." menu → Delete (owner only)
@@ -185,7 +203,9 @@ Open asset detail → Click "..." menu → Delete (owner only)
 - `asset_likes` - Like tracking
 - `asset_comments` - Comments with threading
 - `comment_likes` - Comment like tracking
-- `user_follows` - Following relationships
+- `user_follows` - User following relationships
+- `stream_follows` - Stream following relationships (NEW)
+- `stream_bookmarks` - External links for streams (NEW)
 - `notifications` - Activity feed
 
 ### Row Level Security (RLS)
@@ -211,6 +231,12 @@ All tables have RLS policies:
 - `GET /api/streams/[id]` - Get stream details
 - `PUT /api/streams/[id]` - Update stream
 - `DELETE /api/streams/[id]` - Delete stream (owner only)
+- `GET /api/streams/[id]/follow` - Get follow status
+- `POST /api/streams/[id]/follow` - Follow stream
+- `DELETE /api/streams/[id]/follow` - Unfollow stream
+- `GET /api/streams/[id]/bookmarks` - List bookmarks
+- `POST /api/streams/[id]/bookmarks` - Add bookmark
+- `DELETE /api/streams/[id]/bookmarks/[bookmarkId]` - Delete bookmark
 
 ### Users
 - `GET /api/users/[username]` - Get user profile
@@ -280,6 +306,10 @@ After schema changes:
 1. Create new migration in `scripts/migrations/`
 2. Apply migration via psql or Studio
 3. Update TypeScript types in `lib/types/database.ts`
+
+**Recent Migrations:**
+- `003_stream_follows.sql` - Stream following feature
+- `004_stream_bookmarks.sql` - Stream bookmarks feature
 
 ### Component Changes
 

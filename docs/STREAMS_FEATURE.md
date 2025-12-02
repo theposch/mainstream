@@ -7,6 +7,12 @@
 
 **Streams** are the primary organizational unit in Mainstream. They're a hybrid between projects and tags, supporting many-to-many relationships with assets.
 
+### New Features (Dec 2025)
+- ✅ **Stream Following** - Follow streams to see their posts in your Following feed
+- ✅ **Stream Bookmarks** - Add external links (Jira, Figma, Notion) with favicons
+- ✅ **Contributor Tooltip** - Hover to see who has posted to the stream
+- ✅ **Two-Row Header** - Clean layout with title, metadata, and bookmarks
+
 ### Core Concept
 
 An asset can belong to multiple streams simultaneously:
@@ -83,6 +89,72 @@ CREATE TABLE asset_streams (
 
 ## Features
 
+### Stream Following
+
+Users can follow streams to receive updates in their Following feed:
+
+```typescript
+// Follow a stream
+POST /api/streams/[id]/follow
+
+// Unfollow a stream
+DELETE /api/streams/[id]/follow
+
+// Get follow status (includes contributor count, asset count)
+GET /api/streams/[id]/follow
+// Returns: { isFollowing, followerCount, followers, contributorCount, contributors, assetCount }
+```
+
+**Database Table:**
+```sql
+CREATE TABLE stream_follows (
+  stream_id UUID NOT NULL REFERENCES streams(id) ON DELETE CASCADE,
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+  PRIMARY KEY (stream_id, user_id)
+);
+```
+
+**Following Feed Integration:**
+- Assets from followed streams appear in the "Following" tab
+- Merges with assets from followed users
+- Deduplication prevents showing the same asset twice
+
+### Stream Bookmarks
+
+Streams can have external links (bookmarks) for resources like Jira, Figma, Notion:
+
+```typescript
+// Get bookmarks for a stream
+GET /api/streams/[id]/bookmarks
+
+// Add a bookmark (any authenticated user)
+POST /api/streams/[id]/bookmarks
+{ "url": "https://figma.com/...", "title": "Designs" }
+
+// Delete a bookmark (creator or stream owner only)
+DELETE /api/streams/[id]/bookmarks/[bookmarkId]
+```
+
+**Database Table:**
+```sql
+CREATE TABLE stream_bookmarks (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  stream_id UUID NOT NULL REFERENCES streams(id) ON DELETE CASCADE,
+  url TEXT NOT NULL,
+  title TEXT,
+  created_by UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  position INTEGER NOT NULL DEFAULT 0,
+  created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+);
+```
+
+**UI Features:**
+- Favicons fetched via Google's favicon service
+- Responsive display: 1 on mobile, 4 on tablet, 6 on desktop
+- Overflow dropdown for additional bookmarks
+- Delete button on hover (for authorized users)
+
 ### 1. Semantic URLs
 
 Human-readable stream names in URLs:
@@ -123,10 +195,22 @@ Assets can belong to many streams:
 ### 5. Stream Pages
 
 Visit `/stream/[slug]` to see:
-- Stream description
-- All assets in stream
-- Owner information
-- Delete option (owner only)
+
+**Row 1 - Primary:**
+- Stream title with `#` prefix
+- Description (if set)
+- Action buttons: More menu, Create Drop, Follow
+
+**Row 2 - Info Bar:**
+- Metadata: visibility, contributor count (with tooltip), post count
+- Bookmarks row with favicons
+- Divider line
+
+**Features:**
+- Follow/unfollow with optimistic updates
+- Add bookmarks (any contributor)
+- Delete stream (owner only)
+- Create Drop button pre-selects this stream
 
 ### 6. Stream Deletion
 
@@ -239,12 +323,29 @@ Auto-suggest when typing hashtags:
 
 ### Stream Header
 
-Shows stream info on stream pages:
+Shows stream info, follow button, and bookmarks:
 
 ```typescript
 // components/streams/stream-header.tsx
-<StreamHeader stream={stream} />
+<StreamHeader 
+  stream={stream}
+  initialFollowData={initialFollowData}  // Server-prefetched
+  initialBookmarks={initialBookmarks}     // Server-prefetched
+  currentUser={currentUser}
+/>
 ```
+
+### Add Bookmark Dialog
+
+Dialog for adding external links:
+
+```typescript
+// components/streams/add-bookmark-dialog.tsx
+<AddBookmarkDialog
+  open={open}
+  onOpenChange={setOpen}
+  onSubmit={(url, title) => addBookmark(url, title)}
+/>
 
 ## API Routes
 
@@ -285,6 +386,57 @@ Response: { stream: Stream }
 DELETE /api/streams/[id]
 Response: { success: true }
 // Assets remain, just unlinked from stream
+```
+
+### Follow Stream
+
+```
+POST /api/streams/[id]/follow
+Response: { success: true }
+```
+
+### Unfollow Stream
+
+```
+DELETE /api/streams/[id]/follow
+Response: { success: true }
+```
+
+### Get Follow Status
+
+```
+GET /api/streams/[id]/follow
+Response: {
+  isFollowing: boolean,
+  followerCount: number,
+  followers: User[],
+  contributorCount: number,
+  contributors: User[],
+  assetCount: number
+}
+```
+
+### List Bookmarks
+
+```
+GET /api/streams/[id]/bookmarks
+Response: { bookmarks: StreamBookmark[] }
+```
+
+### Add Bookmark
+
+```
+POST /api/streams/[id]/bookmarks
+Body: { url: string, title?: string }
+Response: { bookmark: StreamBookmark }
+```
+
+### Delete Bookmark
+
+```
+DELETE /api/streams/[id]/bookmarks/[bookmarkId]
+Response: { success: true }
+// Only creator or stream owner can delete
 ```
 
 ## Real-World Examples
@@ -338,10 +490,36 @@ Streams:
 ### Indexes
 
 ```sql
+-- Core stream indexes
 CREATE INDEX idx_asset_streams_asset ON asset_streams(asset_id);
 CREATE INDEX idx_asset_streams_stream ON asset_streams(stream_id);
 CREATE INDEX idx_streams_name ON streams(name);
 CREATE INDEX idx_streams_owner ON streams(owner_id);
+
+-- Stream follows indexes
+CREATE INDEX idx_stream_follows_stream_id ON stream_follows(stream_id);
+CREATE INDEX idx_stream_follows_user_id ON stream_follows(user_id);
+
+-- Stream bookmarks indexes
+CREATE INDEX idx_stream_bookmarks_stream_id ON stream_bookmarks(stream_id);
+CREATE INDEX idx_stream_bookmarks_created_by ON stream_bookmarks(created_by);
+```
+
+### Server-Side Prefetch
+
+Stream pages load instantly by prefetching all data server-side:
+
+```typescript
+// app/stream/[slug]/page.tsx
+const [streamResult, followResult, bookmarksResult, ...] = await Promise.all([
+  supabase.from('streams').select('*').eq('name', slug).single(),
+  supabase.from('stream_follows').select('*', { count: 'exact', head: true }),
+  supabase.from('stream_bookmarks').select('*'),
+  // 9 parallel queries total
+]);
+
+// Pass to client component - no client-side fetches needed
+<StreamHeader initialFollowData={...} initialBookmarks={...} />
 ```
 
 ### Pre-fetched with Assets
@@ -446,12 +624,18 @@ SELECT * FROM streams WHERE name = 'stream-slug';
 ## Resources
 
 - Database schema: `scripts/migrations/001_initial_schema.sql`
-- Stream types: `lib/types/database.ts`
+- Stream follows migration: `scripts/migrations/003_stream_follows.sql`
+- Stream bookmarks migration: `scripts/migrations/004_stream_bookmarks.sql`
+- Stream types: `lib/types/database.ts` (includes StreamFollow, StreamBookmark)
 - Stream picker: `components/streams/stream-picker.tsx`
-- Stream hooks: `lib/hooks/use-stream-mentions.ts`
+- Stream header: `components/streams/stream-header.tsx`
+- Bookmark dialog: `components/streams/add-bookmark-dialog.tsx`
+- Stream follow hook: `lib/hooks/use-stream-follow.ts`
+- Stream bookmarks hook: `lib/hooks/use-stream-bookmarks.ts`
+- Stream mentions hook: `lib/hooks/use-stream-mentions.ts`
 - Dropdown options hook: `lib/hooks/use-stream-dropdown-options.ts`
 - API routes: `app/api/streams/`
 
 ---
 
-**Summary:** Streams provide flexible, multi-dimensional organization for assets. They combine the structure of projects with the flexibility of tags, supporting many-to-many relationships and semantic URLs.
+**Summary:** Streams provide flexible, multi-dimensional organization for assets. They combine the structure of projects with the flexibility of tags, supporting many-to-many relationships and semantic URLs. Users can follow streams to see their posts in the Following feed, and streams can have external bookmarks linking to tools like Jira, Figma, and Notion.
