@@ -62,7 +62,7 @@ export const CommentItem = React.memo(function CommentItem({
   isEditing,
   onCancelEdit
 }: CommentItemProps) {
-  const isOwner = currentUser.id === comment.user_id;
+  const isOwner = currentUser?.id === comment.user_id;
   const [isHovered, setIsHovered] = React.useState(false);
   
   // Use comment like hook for real-time like functionality
