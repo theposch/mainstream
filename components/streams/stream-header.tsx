@@ -4,8 +4,6 @@ import * as React from "react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { 
-  Lock, 
-  Globe, 
   Plus, 
   MoreHorizontal, 
   Share, 
@@ -14,14 +12,11 @@ import {
   Check, 
   Loader2, 
   X, 
-  Users,
-  Image as ImageIcon,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useStreamFollow } from "@/lib/hooks/use-stream-follow";
 import { useStreamBookmarks, extractDomain, getFaviconUrl } from "@/lib/hooks/use-stream-bookmarks";
-import { StreamFollowers } from "@/components/customized/avatar/avatar-12";
 import { UploadDialog } from "@/components/layout/upload-dialog";
 import { AddBookmarkDialog } from "@/components/streams/add-bookmark-dialog";
 import {
@@ -58,8 +53,6 @@ export const StreamHeader = React.memo(function StreamHeader({ stream, owner }: 
   // Use stream follow hook
   const { 
     isFollowing, 
-    followerCount, 
-    followers,
     contributorCount,
     contributors,
     assetCount,
@@ -170,125 +163,32 @@ export const StreamHeader = React.memo(function StreamHeader({ stream, owner }: 
   );
   
   return (
-      <div className="flex flex-col gap-4 mb-8">
-        {/* ═══════════════════════════════════════════════════════════════════
-            ROW 1: Primary Header (Title + Description + Actions)
-            ═══════════════════════════════════════════════════════════════════ */}
-        <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
-          {/* Left: Stream Identity */}
-          <div className="space-y-2 flex-1 min-w-0">
-            <h1 className="text-3xl md:text-4xl font-bold text-white tracking-tight flex items-center gap-2">
-              <span className="text-muted-foreground/60 font-normal">#</span>
-              <span className="truncate">{stream.name}</span>
-            </h1>
-            
-            {stream.description && (
-              <p className="text-base text-muted-foreground leading-relaxed max-w-xl">
-                {stream.description}
-              </p>
-            )}
-          </div>
-
-          {/* Right: Actions */}
-          <div className="flex items-center gap-2 shrink-0">
-            {/* Follower Avatars */}
-            {(followers.length > 0 || followerCount > 0) && (
-              <div className="mr-2 hidden sm:block">
-                <StreamFollowers 
-                  followers={followers} 
-                  max={3} 
-                  totalCount={followerCount}
-                  size="sm"
-                />
-              </div>
-            )}
-            
-            {/* Follow Button */}
-            <Button 
-              variant={isFollowing ? "secondary" : "outline"}
-              size="sm"
-              onClick={handleFollow}
-              disabled={followLoading}
-              className="h-9"
-            >
-              {followLoading ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : isFollowing ? (
-                <>
-                  <Check className="h-4 w-4 mr-1.5" />
-                  Following
-                </>
-              ) : (
-                <>
-                  <Plus className="h-4 w-4 mr-1.5" />
-                  Follow
-                </>
-              )}
-            </Button>
-            
-            {/* Add Asset Button */}
-            <Button 
-              variant="default" 
-              size="sm"
-              onClick={handleOpenUploadDialog}
-              className="h-9"
-            >
-              <Plus className="h-4 w-4 mr-1.5" />
-              <span className="hidden sm:inline">Create Drop</span>
-              <span className="sm:hidden">Add</span>
-            </Button>
-            
-            {/* More Menu */}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-9 w-9">
-                  <MoreHorizontal className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-48">
-                <DropdownMenuItem onClick={handleShare}>
-                  <Share className="h-4 w-4 mr-2" />
-                  Share Stream
-                </DropdownMenuItem>
-                {canDelete && (
-                  <>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem
-                      className="text-destructive focus:text-destructive"
-                      onClick={handleOpenDeleteDialog}
-                    >
-                      <Trash2 className="h-4 w-4 mr-2" />
-                      Delete Stream
-                    </DropdownMenuItem>
-                  </>
-                )}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-        </div>
-
-        {/* ═══════════════════════════════════════════════════════════════════
-            ROW 2: Info Bar (Stats + Bookmarks)
-            ═══════════════════════════════════════════════════════════════════ */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 py-3 border-t border-border/50">
-          {/* Left: Stats */}
-          <div className="flex items-center gap-4 text-sm text-muted-foreground">
-            {/* Visibility */}
-            <div className="flex items-center gap-1.5">
-              {stream.is_private ? (
-                <Lock className="h-3.5 w-3.5" />
-              ) : (
-                <Globe className="h-3.5 w-3.5" />
-              )}
-              <span>{stream.is_private ? 'Private' : 'Public'}</span>
-            </div>
-            
-            {/* Contributors */}
-            <div className="relative group/contributors">
-              <div className="flex items-center gap-1.5 cursor-default hover:text-foreground transition-colors">
-                <Users className="h-3.5 w-3.5" />
-                <span>{contributorCount} {contributorCount === 1 ? 'Contributor' : 'Contributors'}</span>
-              </div>
+    <div className="flex flex-col gap-5 mb-8">
+      {/* ═══════════════════════════════════════════════════════════════════
+          ROW 1: Title + Description + Stats (left) | Actions (right)
+          ═══════════════════════════════════════════════════════════════════ */}
+      <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
+        {/* Left: Stream Identity */}
+        <div className="space-y-1.5 flex-1 min-w-0">
+          {/* Title */}
+          <h1 className="text-2xl md:text-3xl font-semibold text-white tracking-tight">
+            <span className="text-muted-foreground font-normal"># </span>
+            {stream.name}
+          </h1>
+          
+          {/* Description */}
+          {stream.description && (
+            <p className="text-sm text-muted-foreground leading-relaxed">
+              {stream.description}
+            </p>
+          )}
+          
+          {/* Stats - inline text */}
+          <div className="flex items-center gap-1.5 text-sm text-muted-foreground pt-1">
+            <span>{stream.is_private ? 'Private' : 'Public'}</span>
+            <span>•</span>
+            <span className="relative group/contributors cursor-default hover:text-foreground transition-colors">
+              {contributorCount} {contributorCount === 1 ? 'contributor' : 'contributors'}
               
               {/* Contributors Tooltip */}
               {contributors.length > 0 && (
@@ -317,163 +217,226 @@ export const StreamHeader = React.memo(function StreamHeader({ stream, owner }: 
                   </div>
                 </div>
               )}
-            </div>
-            
-            {/* Shots */}
-            <div className="flex items-center gap-1.5">
-              <ImageIcon className="h-3.5 w-3.5" />
-              <span>{assetCount} {assetCount === 1 ? 'Shot' : 'Shots'}</span>
-            </div>
+            </span>
+            <span>•</span>
+            <span>{assetCount} {assetCount === 1 ? 'post' : 'posts'}</span>
             
             {/* Archived Badge */}
             {stream.status === 'archived' && (
-              <div className="flex items-center gap-1.5 text-orange-500">
-                <Archive className="h-3.5 w-3.5" />
-                <span>Archived</span>
-              </div>
-            )}
-          </div>
-
-          {/* Right: Bookmarks */}
-          <div className="flex items-center gap-1.5 flex-wrap">
-            {/* Bookmark Chips */}
-            {visibleBookmarks.map((bookmark) => (
-              <a
-                key={bookmark.id}
-                href={bookmark.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="group/bookmark inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-secondary/50 hover:bg-secondary text-xs text-muted-foreground hover:text-foreground transition-colors"
-              >
-                <img
-                  src={getFaviconUrl(bookmark.url)}
-                  alt=""
-                  className="w-3.5 h-3.5 shrink-0"
-                  onError={(e) => {
-                    (e.target as HTMLImageElement).style.display = 'none';
-                  }}
-                />
-                <span className="truncate max-w-[120px]">
-                  {bookmark.title || extractDomain(bookmark.url)}
+              <>
+                <span>•</span>
+                <span className="text-orange-500 flex items-center gap-1">
+                  <Archive className="h-3 w-3" />
+                  Archived
                 </span>
-                {canDeleteBookmark(bookmark.created_by) && (
-                  <button
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      handleDeleteBookmark(bookmark.id);
-                    }}
-                    className="ml-0.5 opacity-0 group-hover/bookmark:opacity-100 hover:text-destructive transition-opacity"
-                    aria-label="Delete bookmark"
-                  >
-                    <X className="h-3 w-3" />
-                  </button>
-                )}
-              </a>
-            ))}
-
-            {/* Overflow Dropdown */}
-            {hasOverflow && (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <button className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-secondary/50 hover:bg-secondary text-xs text-muted-foreground hover:text-foreground transition-colors">
-                    +{overflowBookmarks.length} more
-                  </button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-64">
-                  {overflowBookmarks.map((bookmark) => (
-                    <DropdownMenuItem
-                      key={bookmark.id}
-                      asChild
-                    >
-                      <a
-                        href={bookmark.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center gap-2 w-full"
-                      >
-                        <img
-                          src={getFaviconUrl(bookmark.url)}
-                          alt=""
-                          className="w-4 h-4 shrink-0"
-                          onError={(e) => {
-                            (e.target as HTMLImageElement).style.display = 'none';
-                          }}
-                        />
-                        <span className="truncate flex-1">
-                          {bookmark.title || extractDomain(bookmark.url)}
-                        </span>
-                        {canDeleteBookmark(bookmark.created_by) && (
-                          <button
-                            onClick={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              handleDeleteBookmark(bookmark.id);
-                            }}
-                            className="hover:text-destructive shrink-0"
-                            aria-label="Delete bookmark"
-                          >
-                            <X className="h-3 w-3" />
-                          </button>
-                        )}
-                      </a>
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
+              </>
             )}
-
-            {/* Add Bookmark Button */}
-            <button
-              onClick={handleOpenAddBookmarkDialog}
-              className="inline-flex items-center gap-1 px-2 py-1 rounded-md border border-dashed border-border/60 hover:border-muted-foreground hover:bg-secondary/30 text-xs text-muted-foreground hover:text-foreground transition-colors"
-            >
-              <Plus className="h-3 w-3" />
-              <span>Bookmark</span>
-            </button>
           </div>
         </div>
 
-        {/* ═══════════════════════════════════════════════════════════════════
-            Dialogs
-            ═══════════════════════════════════════════════════════════════════ */}
-        
-        {/* Delete Confirmation Dialog */}
-        <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Delete Stream?</AlertDialogTitle>
-              <AlertDialogDescription>
-                This action cannot be undone. This will permanently delete the stream. 
-                Assets in this stream will remain in your feed but won't be associated with this stream anymore.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
-              <AlertDialogAction
-                onClick={handleDelete}
-                disabled={isDeleting}
-                className="bg-destructive hover:bg-destructive/90"
-              >
-                {isDeleting ? 'Deleting...' : 'Delete'}
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
+        {/* Right: Actions */}
+        <div className="flex items-center gap-2 shrink-0">
+          {/* More Menu */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="icon" className="h-9 w-9">
+                <MoreHorizontal className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuItem onClick={handleShare}>
+                <Share className="h-4 w-4 mr-2" />
+                Share Stream
+              </DropdownMenuItem>
+              {canDelete && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    className="text-destructive focus:text-destructive"
+                    onClick={handleOpenDeleteDialog}
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Delete Stream
+                  </DropdownMenuItem>
+                </>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
 
-        {/* Upload Dialog */}
-        <UploadDialog 
-          open={uploadDialogOpen} 
-          onOpenChange={setUploadDialogOpen}
-          initialStreamId={stream.id}
-        />
-
-        {/* Add Bookmark Dialog */}
-        <AddBookmarkDialog
-          open={addBookmarkDialogOpen}
-          onOpenChange={setAddBookmarkDialogOpen}
-          onSubmit={handleAddBookmark}
-        />
+          {/* Create Drop Button */}
+          <Button 
+            variant="outline" 
+            size="default"
+            onClick={handleOpenUploadDialog}
+          >
+            Create Drop
+          </Button>
+          
+          {/* Follow Button */}
+          <Button 
+            variant={isFollowing ? "secondary" : "default"}
+            size="default"
+            onClick={handleFollow}
+            disabled={followLoading}
+          >
+            {followLoading ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : isFollowing ? (
+              <>
+                <Check className="h-4 w-4 mr-1.5" />
+                Following
+              </>
+            ) : (
+              'Follow'
+            )}
+          </Button>
+        </div>
       </div>
+
+      {/* ═══════════════════════════════════════════════════════════════════
+          ROW 2: Bookmarks
+          ═══════════════════════════════════════════════════════════════════ */}
+      <div className="flex items-center gap-2 flex-wrap">
+        {/* Bookmark Chips */}
+        {visibleBookmarks.map((bookmark) => (
+          <a
+            key={bookmark.id}
+            href={bookmark.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="group/bookmark inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-secondary hover:bg-secondary/80 text-sm text-foreground transition-colors"
+          >
+            <img
+              src={getFaviconUrl(bookmark.url)}
+              alt=""
+              className="w-4 h-4 shrink-0"
+              onError={(e) => {
+                (e.target as HTMLImageElement).style.display = 'none';
+              }}
+            />
+            <span className="truncate max-w-[150px]">
+              {bookmark.title || extractDomain(bookmark.url)}
+            </span>
+            {canDeleteBookmark(bookmark.created_by) && (
+              <button
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  handleDeleteBookmark(bookmark.id);
+                }}
+                className="ml-0.5 opacity-0 group-hover/bookmark:opacity-100 hover:text-destructive transition-opacity"
+                aria-label="Delete bookmark"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </a>
+        ))}
+
+        {/* Overflow Dropdown */}
+        {hasOverflow && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-secondary hover:bg-secondary/80 text-sm text-foreground transition-colors">
+                +{overflowBookmarks.length} more
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-64">
+              {overflowBookmarks.map((bookmark) => (
+                <DropdownMenuItem
+                  key={bookmark.id}
+                  asChild
+                >
+                  <a
+                    href={bookmark.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2 w-full"
+                  >
+                    <img
+                      src={getFaviconUrl(bookmark.url)}
+                      alt=""
+                      className="w-4 h-4 shrink-0"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).style.display = 'none';
+                      }}
+                    />
+                    <span className="truncate flex-1">
+                      {bookmark.title || extractDomain(bookmark.url)}
+                    </span>
+                    {canDeleteBookmark(bookmark.created_by) && (
+                      <button
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          handleDeleteBookmark(bookmark.id);
+                        }}
+                        className="hover:text-destructive shrink-0"
+                        aria-label="Delete bookmark"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    )}
+                  </a>
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
+
+        {/* Add Bookmark Button */}
+        <button
+          onClick={handleOpenAddBookmarkDialog}
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <Plus className="h-4 w-4" />
+          <span>Add Bookmark</span>
+        </button>
+      </div>
+
+      {/* Divider */}
+      <div className="border-t border-border/40" />
+
+      {/* ═══════════════════════════════════════════════════════════════════
+          Dialogs
+          ═══════════════════════════════════════════════════════════════════ */}
+      
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Stream?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the stream. 
+              Assets in this stream will remain in your feed but won't be associated with this stream anymore.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              disabled={isDeleting}
+              className="bg-destructive hover:bg-destructive/90"
+            >
+              {isDeleting ? 'Deleting...' : 'Delete'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Upload Dialog */}
+      <UploadDialog 
+        open={uploadDialogOpen} 
+        onOpenChange={setUploadDialogOpen}
+        initialStreamId={stream.id}
+      />
+
+      {/* Add Bookmark Dialog */}
+      <AddBookmarkDialog
+        open={addBookmarkDialogOpen}
+        onOpenChange={setAddBookmarkDialogOpen}
+        onSubmit={handleAddBookmark}
+      />
+    </div>
   );
 });
