@@ -39,12 +39,16 @@ All tables created with Row Level Security:
 - `asset_likes` - Like tracking
 - `asset_comments` - Comments with threading
 - `comment_likes` - Comment likes
-- `user_follows` - Following relationships
+- `user_follows` - User following relationships
+- `stream_follows` - Stream following relationships (NEW)
+- `stream_bookmarks` - External links for streams (NEW)
 - `notifications` - Activity feed
 
 **Migration Files:**
 - `scripts/migrations/001_initial_schema.sql`
 - `scripts/migrations/002_seed_data.sql`
+- `scripts/migrations/003_stream_follows.sql` (NEW)
+- `scripts/migrations/004_stream_bookmarks.sql` (NEW)
 - `scripts/migrations/007_add_comment_likes.sql`
 
 ### ✅ Storage
@@ -81,6 +85,12 @@ Storage policies allow:
 - `GET /api/streams/[id]` - Get stream details
 - `PUT /api/streams/[id]` - Update stream
 - `DELETE /api/streams/[id]` - Delete stream (owner only)
+- `GET /api/streams/[id]/follow` - Get follow status, follower count, contributors, asset count
+- `POST /api/streams/[id]/follow` - Follow stream
+- `DELETE /api/streams/[id]/follow` - Unfollow stream
+- `GET /api/streams/[id]/bookmarks` - List stream bookmarks
+- `POST /api/streams/[id]/bookmarks` - Add bookmark (any authenticated user)
+- `DELETE /api/streams/[id]/bookmarks/[bookmarkId]` - Delete bookmark (creator or owner)
 
 #### Users
 - `GET /api/users/[username]` - Get user profile
@@ -96,9 +106,11 @@ Storage policies allow:
 ### ✅ Performance Optimizations
 - **N+1 query fixes** - Batch fetch streams, likes, user data with assets
 - **Server-side like pre-fetching** - `isLikedByCurrentUser` and `likeCount` from server
+- **Server-side stream data prefetch** - Follow status, bookmarks, contributors loaded server-side
+- **Parallel queries** - `Promise.all()` for concurrent database requests
 - **React.memo** - Key components memoized
 - **Cursor-based pagination** - Efficient infinite scroll
-- **Optimistic UI updates** - Instant feedback for likes and comments
+- **Optimistic UI updates** - Instant feedback for likes, follows, and bookmarks
 - **JOIN queries** - Avoid N+1 problems
 - **Database indexes** - On foreign keys and common lookups
 
@@ -108,12 +120,16 @@ Implemented with Supabase Realtime:
 - Comment likes sync across tabs
 - New comments appear in real-time
 - Notification badges update live
+- Stream follow counts update (optimistic)
+- Bookmarks update across sessions
 
 **Hooks:**
 - `lib/hooks/use-asset-like.ts`
 - `lib/hooks/use-comment-like.ts`
 - `lib/hooks/use-asset-comments.ts`
 - `lib/hooks/use-notifications.ts`
+- `lib/hooks/use-stream-follow.ts` (NEW)
+- `lib/hooks/use-stream-bookmarks.ts` (NEW)
 
 ## Architecture Decisions
 
@@ -183,6 +199,8 @@ users (1) ----< (many) streams
 users (1) ----< (many) assets
 streams (many) >----< (many) assets  [via asset_streams]
 users (many) >----< (many) users     [via user_follows]
+users (many) >----< (many) streams   [via stream_follows]
+streams (1) ----< (many) stream_bookmarks
 assets (1) ----< (many) asset_likes
 assets (1) ----< (many) asset_comments
 comments (1) ----< (many) comment_likes
@@ -196,22 +214,27 @@ Indexes on:
 - `streams.name` (for slug lookups)
 - `assets.created_at` (for chronological feeds)
 - `asset_streams.stream_id` (for stream pages)
+- `stream_follows.stream_id` (for follower counts)
+- `stream_follows.user_id` (for user's followed streams)
+- `stream_bookmarks.stream_id` (for bookmark lists)
+- `stream_bookmarks.created_by` (for permission checks)
 
 ### RLS Policies
 
 **Public Read:**
-- Assets, streams, user profiles
+- Assets, streams, user profiles, stream bookmarks
 
 **Authenticated Write:**
-- Create assets, streams, comments
+- Create assets, streams, comments, bookmarks
 - Like assets and comments
-- Follow users
+- Follow users and streams
 
 **Owner Only:**
 - Update/delete own assets
 - Update/delete own streams
 - Update/delete own comments
 - Update own profile
+- Delete stream bookmarks (creator or stream owner)
 
 ## Testing
 
@@ -316,6 +339,8 @@ ORDER BY pg_total_relation_size(schemaname||'.'||tablename) DESC;
 - [ ] Stream permissions (public/private members)
 - [ ] Asset versioning
 - [ ] Activity analytics
+- [ ] Bookmark reordering (drag and drop)
+- [ ] Bookmark metadata auto-fetch (page titles)
 
 ### Scalability Considerations
 - Add read replicas for high traffic

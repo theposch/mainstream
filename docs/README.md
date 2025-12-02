@@ -24,10 +24,12 @@ Design collaboration platform for internal teams to share work and organize into
 ✅ **Complete** - Data migration from mock data to Supabase  
 ✅ **Complete** - Authentication (signup/login/logout)  
 ✅ **Complete** - Streams feature (many-to-many asset relationships)  
+✅ **Complete** - Stream following (follow streams, see posts in Following tab)  
+✅ **Complete** - Stream bookmarks (external links with favicons)  
 ✅ **Complete** - Real-time likes and comments  
-✅ **Complete** - Following feed  
+✅ **Complete** - Following feed (users + streams)  
 ✅ **Complete** - User profiles and settings  
-✅ **Complete** - Performance optimizations (N+1 fixes, memoization)  
+✅ **Complete** - Performance optimizations (N+1 fixes, memoization, server prefetch)  
 ✅ **Complete** - Asset and stream deletion  
 
 ## Project Structure
@@ -62,6 +64,11 @@ mainstream/
 ### Streams
 Organizational units that support many-to-many relationships with assets. An asset can belong to multiple streams (e.g., #mobile-app, #onboarding, #design-system).
 
+**New in Dec 2025:**
+- Follow streams to see their posts in your Following feed
+- Add bookmarks (external links to Jira, Figma, Notion) with favicons
+- Contributor tooltip showing who has posted to the stream
+
 ### Assets
 Uploaded designs and images organized by streams. Supports likes, comments, and deletion by owner.
 
@@ -69,7 +76,7 @@ Uploaded designs and images organized by streams. Supports likes, comments, and 
 Real-time search across assets, users, and streams with auto-suggest and accurate total counts.
 
 ### Following Feed
-See assets from users you follow.
+See assets from users and streams you follow.
 
 ## Development
 

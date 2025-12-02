@@ -12,8 +12,12 @@ Quick onboarding guide for AI assistants working on the Mainstream codebase.
 ## Critical Context
 
 ### Recent Major Changes
+- ✅ **Stream Following** - Users can follow streams; posts appear in Following tab
+- ✅ **Stream Bookmarks** - Add external links (Jira, Figma, etc.) with favicons
+- ✅ **Stream Header Redesign** - Two-row layout, `#` prefix, contributor tooltip
+- ✅ **Server-side Prefetch** - Instant stream page loading (zero client fetches)
 - ✅ **Rebranded** - Cosmos → Mainstream
-- ✅ **Performance optimized** - N+1 queries fixed, React.memo added
+- ✅ **Performance optimized** - N+1 queries fixed, React.memo, parallel queries
 - ✅ **Like system rebuilt** - Server-side like status pre-fetching
 - ✅ **Teams feature removed** - Streams serve this purpose now
 - ✅ **Discover page removed** - Focus on Home feed and Streams
@@ -59,6 +63,9 @@ comments/[id]/
 streams/
   route.ts             - GET/POST: List/create streams
   [id]/route.ts        - GET/PUT/DELETE: Stream operations
+  [id]/follow/route.ts - GET/POST/DELETE: Follow status & toggle
+  [id]/bookmarks/route.ts - GET/POST: Stream bookmarks
+  [id]/bookmarks/[bookmarkId]/route.ts - DELETE: Remove bookmark
 
 users/
   [username]/
@@ -82,9 +89,10 @@ assets/
   comment-list.tsx          - Threaded comments
 
 streams/
-  stream-header.tsx         - Stream page header with delete
+  stream-header.tsx         - Stream header (follow, bookmarks, contributors)
   stream-grid.tsx           - Stream listing grid
   stream-picker.tsx         - Stream selector for uploads
+  add-bookmark-dialog.tsx   - Dialog for adding bookmarks
 
 users/
   user-profile-header.tsx   - Profile header with follow button
@@ -101,11 +109,13 @@ layout/
 ### Hooks (`lib/hooks/`)
 ```
 use-assets-infinite.ts      - Infinite scroll for recent assets
-use-following-assets.ts     - Infinite scroll for following feed
+use-following-assets.ts     - Infinite scroll for following feed (users + streams)
 use-asset-like.ts           - Like/unlike with optimistic updates
 use-asset-comments.ts       - CRUD operations for comments
 use-comment-like.ts         - Like/unlike comments
 use-user-follow.ts          - Follow/unfollow users
+use-stream-follow.ts        - Follow/unfollow streams with optimistic updates
+use-stream-bookmarks.ts     - CRUD for stream bookmarks
 use-notifications.ts        - Real-time notifications
 use-stream-mentions.ts      - Parse and create streams from hashtags
 use-stream-dropdown-options.ts - Shared stream dropdown logic
@@ -116,6 +126,7 @@ use-stream-dropdown-options.ts - Shared stream dropdown logic
 database.ts - TypeScript interfaces for all DB entities:
   - Asset (includes likeCount, isLikedByCurrentUser, streams)
   - Stream, User, Comment, Notification
+  - StreamFollow, StreamBookmark (new)
   - All use snake_case (database convention)
 ```
 
@@ -128,7 +139,9 @@ users
 
 streams
   ├─ name (slug), description, owner_id, is_private
-  └─ assets (many-to-many via asset_streams)
+  ├─ assets (many-to-many via asset_streams)
+  ├─ has → followers (via stream_follows)
+  └─ has → bookmarks (via stream_bookmarks)
 
 assets
   ├─ title, url, uploader_id, width, height
@@ -148,6 +161,12 @@ comment_likes
 
 user_follows
   └─ follower_id, following_id, created_at
+
+stream_follows (NEW)
+  └─ stream_id, user_id, created_at
+
+stream_bookmarks (NEW)
+  └─ id, stream_id, url, title, created_by, position, created_at
 
 notifications
   └─ user_id, type, content, is_read
@@ -249,6 +268,34 @@ const handleClick = useCallback(() => {
 }, [dependencies]);
 ```
 
+### Server-Side Prefetch (Stream Pages)
+```typescript
+// app/stream/[slug]/page.tsx
+// All data fetched in parallel on server - zero client fetches
+const [
+  ownerResult,
+  followCountResult,
+  bookmarksResult,
+  // ... 9 queries total
+] = await Promise.all([
+  supabase.from('users').select('*').eq('id', stream.owner_id).single(),
+  supabase.from('stream_follows').select('*', { count: 'exact', head: true }),
+  supabase.from('stream_bookmarks').select('*'),
+  // ...
+]);
+
+// Pass as props to client component
+<StreamHeader 
+  stream={stream}
+  initialFollowData={initialFollowData}
+  initialBookmarks={bookmarks}
+  currentUser={currentUserProfile}
+/>
+
+// Hooks accept initial data and skip fetch
+const { isFollowing, toggleFollow } = useStreamFollow(streamId, initialFollowData);
+```
+
 ## Common Patterns
 
 ### Infinite Scroll
@@ -296,6 +343,8 @@ useEffect(() => {
 | Likes | - | `api/assets/[id]/like/route.ts` | `use-asset-like.ts` | `element-card.tsx` |
 | Comments | - | `api/assets/[id]/comments/route.ts` | `use-asset-comments.ts` | `comment-*.tsx` |
 | Streams | `app/stream/[slug]/page.tsx` | `api/streams/route.ts` | `use-stream-mentions.ts` | `stream-*.tsx` |
+| Stream Follow | `app/stream/[slug]/page.tsx` | `api/streams/[id]/follow/route.ts` | `use-stream-follow.ts` | `stream-header.tsx` |
+| Stream Bookmarks | `app/stream/[slug]/page.tsx` | `api/streams/[id]/bookmarks/route.ts` | `use-stream-bookmarks.ts` | `stream-header.tsx` |
 | Profiles | `app/u/[username]/page.tsx` | `api/users/[username]/route.ts` | `use-user-follow.ts` | `user-profile-*.tsx` |
 | Search | `app/search/page.tsx` | `api/search/route.ts` | - | `search-*.tsx` |
 
@@ -331,10 +380,11 @@ npm run dev
 
 When working on a feature, review:
 1. Database schema: `scripts/migrations/001_initial_schema.sql`
-2. Type definitions: `lib/types/database.ts`
-3. Related API route: `app/api/[feature]/route.ts`
-4. Related hook: `lib/hooks/use-[feature].ts`
-5. Related component: `components/[feature]/`
+2. New migrations: `scripts/migrations/003_stream_follows.sql`, `004_stream_bookmarks.sql`
+3. Type definitions: `lib/types/database.ts`
+4. Related API route: `app/api/[feature]/route.ts`
+5. Related hook: `lib/hooks/use-[feature].ts`
+6. Related component: `components/[feature]/`
 
 ## Resources
 
