@@ -100,15 +100,15 @@ export const StreamHeader = React.memo(function StreamHeader({ stream, owner }: 
     }
   }, [isDeleting, stream.id, router]);
 
+  const handleFollow = React.useCallback(async () => {
+    await toggleFollow();
+  }, [toggleFollow]);
+
   const handleShare = React.useCallback(() => {
     const url = `${window.location.origin}/stream/${stream.name}`;
     navigator.clipboard.writeText(url);
     // TODO: Show toast notification
   }, [stream.name]);
-
-  const handleFollow = React.useCallback(async () => {
-    await toggleFollow();
-  }, [toggleFollow]);
 
   const handleOpenUploadDialog = React.useCallback(() => {
     setUploadDialogOpen(true);
@@ -211,12 +211,6 @@ export const StreamHeader = React.memo(function StreamHeader({ stream, owner }: 
                 <Plus className="h-4 w-4 mr-2" />
               )}
               {isFollowing ? 'Following' : 'Follow'}
-            </Button>
-            
-            {/* Share Stream */}
-            <Button variant="secondary" size="default" onClick={handleShare}>
-                <Share className="h-4 w-4 mr-2" />
-                Share
             </Button>
             
             {/* Add Asset to Stream */}
