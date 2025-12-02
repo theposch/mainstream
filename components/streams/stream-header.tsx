@@ -3,12 +3,14 @@
 import * as React from "react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Lock, Globe, Plus, MoreHorizontal, Share, Archive, Trash2, Check, Loader2 } from "lucide-react";
+import { Lock, Globe, Plus, MoreHorizontal, Share, Archive, Trash2, Check, Loader2, Link as LinkIcon, X, ChevronDown } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useStreamFollow } from "@/lib/hooks/use-stream-follow";
+import { useStreamBookmarks, extractDomain, getFaviconUrl } from "@/lib/hooks/use-stream-bookmarks";
 import { StreamFollowers } from "@/components/customized/avatar/avatar-12";
 import { UploadDialog } from "@/components/layout/upload-dialog";
+import { AddBookmarkDialog } from "@/components/streams/add-bookmark-dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -38,7 +40,8 @@ export const StreamHeader = React.memo(function StreamHeader({ stream, owner }: 
   const [showDeleteDialog, setShowDeleteDialog] = React.useState(false);
   const [isDeleting, setIsDeleting] = React.useState(false);
   const [uploadDialogOpen, setUploadDialogOpen] = React.useState(false);
-
+  const [addBookmarkDialogOpen, setAddBookmarkDialogOpen] = React.useState(false);
+  
   // Use stream follow hook
   const { 
     isFollowing, 
@@ -50,6 +53,26 @@ export const StreamHeader = React.memo(function StreamHeader({ stream, owner }: 
     toggleFollow, 
     loading: followLoading 
   } = useStreamFollow(stream.id);
+
+  // Use stream bookmarks hook
+  const {
+    bookmarks,
+    addBookmark,
+    deleteBookmark,
+    loading: bookmarksLoading,
+  } = useStreamBookmarks(stream.id);
+
+  // Memoized bookmark display logic
+  const { visibleBookmarks, overflowBookmarks, hasOverflow } = React.useMemo(() => {
+    const MAX_VISIBLE = 5;
+    const visible = bookmarks.slice(0, MAX_VISIBLE);
+    const overflow = bookmarks.slice(MAX_VISIBLE);
+    return {
+      visibleBookmarks: visible,
+      overflowBookmarks: overflow,
+      hasOverflow: overflow.length > 0,
+    };
+  }, [bookmarks]);
 
   // Fetch current user
   React.useEffect(() => {
@@ -111,6 +134,27 @@ export const StreamHeader = React.memo(function StreamHeader({ stream, owner }: 
     setShowDeleteDialog(true);
   }, []);
 
+  const handleOpenAddBookmarkDialog = React.useCallback(() => {
+    setAddBookmarkDialogOpen(true);
+  }, []);
+
+  const handleAddBookmark = React.useCallback(async (url: string, title?: string): Promise<boolean> => {
+    const result = await addBookmark(url, title);
+    return result !== null;
+  }, [addBookmark]);
+
+  const handleDeleteBookmark = React.useCallback(async (bookmarkId: string) => {
+    await deleteBookmark(bookmarkId);
+  }, [deleteBookmark]);
+
+  // Check if current user can delete a bookmark (creator or stream owner)
+  const canDeleteBookmark = React.useCallback((createdById: string) => {
+    if (!currentUser) return false;
+    const isCreator = createdById === currentUser.id;
+    const isStreamOwner = stream.owner_type === 'user' && stream.owner_id === currentUser.id;
+    return isCreator || isStreamOwner;
+  }, [currentUser, stream.owner_type, stream.owner_id]);
+
   // Memoize canDelete computation
   const canDelete = React.useMemo(() => 
     currentUser && stream.owner_type === 'user' && stream.owner_id === currentUser.id,
@@ -123,11 +167,11 @@ export const StreamHeader = React.memo(function StreamHeader({ stream, owner }: 
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
         <div className="space-y-3 max-w-2xl">
           <h1 className="text-4xl md:text-5xl font-bold text-white tracking-tight">
-            {stream.name}
+            <span className="text-muted-foreground">#</span> {stream.name}
           </h1>
           
           {/* Stream Meta - Under title */}
-          <div className="flex items-center gap-2 text-muted-foreground text-sm">
+      <div className="flex items-center gap-2 text-muted-foreground text-sm">
             {/* Visibility Badge */}
             <div className="flex items-center gap-1.5">
               {stream.is_private ? <Lock className="h-3.5 w-3.5" /> : <Globe className="h-3.5 w-3.5" />}
@@ -155,7 +199,7 @@ export const StreamHeader = React.memo(function StreamHeader({ stream, owner }: 
                                 <AvatarFallback className="text-[10px] bg-secondary">
                                   {(contributor.display_name || contributor.username)?.substring(0, 2).toUpperCase()}
                                 </AvatarFallback>
-                              </Avatar>
+            </Avatar>
                               <span className="text-sm text-foreground">
                                 {contributor.display_name || contributor.username}
                               </span>
@@ -164,13 +208,13 @@ export const StreamHeader = React.memo(function StreamHeader({ stream, owner }: 
                           {contributorCount > 8 && (
                             <div className="text-xs text-muted-foreground pt-1 border-t border-border">
                               +{contributorCount - 8} more
-                            </div>
-                          )}
+          </div>
+        )}
                         </div>
                       </div>
-                    </div>
+        </div>
                   )}
-                </div>
+        </div>
               </>
             )}
             
@@ -183,22 +227,121 @@ export const StreamHeader = React.memo(function StreamHeader({ stream, owner }: 
             )}
             
             {/* Archived Badge */}
-            {stream.status === 'archived' && (
-              <>
+        {stream.status === 'archived' && (
+          <>
                 <span className="text-zinc-600">•</span>
-                <div className="flex items-center gap-1.5 text-orange-500">
+            <div className="flex items-center gap-1.5 text-orange-500">
                   <Archive className="h-3.5 w-3.5" />
-                  <span>Archived</span>
-                </div>
-              </>
-            )}
-          </div>
-          
+              <span>Archived</span>
+            </div>
+          </>
+        )}
+      </div>
+
           {stream.description && (
             <p className="text-lg text-zinc-400 leading-relaxed">
               {stream.description}
             </p>
           )}
+
+          {/* Bookmarks Row */}
+          <div className="flex items-center gap-2 flex-wrap">
+            {/* Visible Bookmarks */}
+            {visibleBookmarks.map((bookmark) => (
+              <a
+                key={bookmark.id}
+                href={bookmark.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="group/bookmark inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-secondary/50 hover:bg-secondary text-sm text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <img
+                  src={getFaviconUrl(bookmark.url)}
+                  alt=""
+                  className="w-4 h-4"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).style.display = 'none';
+                  }}
+                />
+                <span>{bookmark.title || extractDomain(bookmark.url)}</span>
+                {canDeleteBookmark(bookmark.created_by) && (
+                  <button
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      handleDeleteBookmark(bookmark.id);
+                    }}
+                    className="ml-1 opacity-0 group-hover/bookmark:opacity-100 hover:text-destructive transition-opacity"
+                    aria-label="Delete bookmark"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                )}
+              </a>
+            ))}
+
+            {/* Overflow Dropdown */}
+            {hasOverflow && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-secondary/50 hover:bg-secondary text-sm text-muted-foreground hover:text-foreground transition-colors">
+                    <span>+{overflowBookmarks.length} more</span>
+                    <ChevronDown className="h-3 w-3" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="w-64">
+                  {overflowBookmarks.map((bookmark) => (
+                    <DropdownMenuItem
+                      key={bookmark.id}
+                      asChild
+                      className="flex items-center justify-between"
+                    >
+                      <a
+                        href={bookmark.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-2 w-full"
+                      >
+                        <img
+                          src={getFaviconUrl(bookmark.url)}
+                          alt=""
+                          className="w-4 h-4"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).style.display = 'none';
+                          }}
+                        />
+                        <span className="truncate flex-1">
+                          {bookmark.title || extractDomain(bookmark.url)}
+                        </span>
+                        {canDeleteBookmark(bookmark.created_by) && (
+                          <button
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              handleDeleteBookmark(bookmark.id);
+                            }}
+                            className="hover:text-destructive"
+                            aria-label="Delete bookmark"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        )}
+                      </a>
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+
+            {/* Add Bookmark Button */}
+            <button
+              onClick={handleOpenAddBookmarkDialog}
+              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md border border-dashed border-border hover:border-muted-foreground text-sm text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <Plus className="h-3 w-3" />
+              <span>Bookmark</span>
+            </button>
+          </div>
         </div>
 
         <div className="flex items-center gap-3 shrink-0">
@@ -211,7 +354,7 @@ export const StreamHeader = React.memo(function StreamHeader({ stream, owner }: 
                   totalCount={followerCount}
                   size="md"
                 />
-              </div>
+                    </div>
             )}
             
             {/* Follow/Unfollow Button */}
@@ -298,6 +441,13 @@ export const StreamHeader = React.memo(function StreamHeader({ stream, owner }: 
         open={uploadDialogOpen} 
         onOpenChange={setUploadDialogOpen}
         initialStreamId={stream.id}
+      />
+
+      {/* Add Bookmark Dialog */}
+      <AddBookmarkDialog
+        open={addBookmarkDialogOpen}
+        onOpenChange={setAddBookmarkDialogOpen}
+        onSubmit={handleAddBookmark}
       />
     </div>
   );

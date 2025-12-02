@@ -45,8 +45,8 @@ export async function GET(request: NextRequest) {
     // Fetch both user follows and stream follows in parallel
     const [userFollowsResult, streamFollowsResult] = await Promise.all([
       supabase
-        .from('user_follows')
-        .select('following_id')
+      .from('user_follows')
+      .select('following_id')
         .eq('follower_id', currentUser.id),
       supabase
         .from('stream_follows')
@@ -65,7 +65,7 @@ export async function GET(request: NextRequest) {
         { status: 500 }
       );
     }
-    
+
     // Log individual errors but continue with partial data (graceful degradation)
     if (userFollowsResult.error) {
       console.error('[GET /api/assets/following] Error fetching user follows (continuing with stream follows):', userFollowsResult.error);
@@ -102,18 +102,18 @@ export async function GET(request: NextRequest) {
 
     // Build the base select query for assets
     const baseSelect = `
-      *,
-      uploader:users!uploader_id(
-        id,
-        username,
-        display_name,
-        avatar_url,
-        email
-      ),
-      asset_streams(
-        streams(*)
-      ),
-      asset_likes(count)
+        *,
+        uploader:users!uploader_id(
+          id,
+          username,
+          display_name,
+          avatar_url,
+          email
+        ),
+        asset_streams(
+          streams(*)
+        ),
+        asset_likes(count)
     `;
 
     // Fetch assets using separate queries to avoid complex OR filter issues with UUIDs
@@ -135,7 +135,7 @@ export async function GET(request: NextRequest) {
       }
       
       userAssetsQuery = userAssetsQuery
-        .order('created_at', { ascending: false })
+      .order('created_at', { ascending: false })
         .limit(fetchLimit);
       
       assetQueries.push(userAssetsQuery);
@@ -147,12 +147,12 @@ export async function GET(request: NextRequest) {
         .from('assets')
         .select(baseSelect)
         .in('id', streamAssetIds);
-      
+
       // Apply cursor filter BEFORE limit for correct pagination semantics
-      if (cursor) {
+    if (cursor) {
         streamAssetsQuery = streamAssetsQuery.lt('created_at', cursor);
-      }
-      
+    }
+
       streamAssetsQuery = streamAssetsQuery
         .order('created_at', { ascending: false })
         .limit(fetchLimit);

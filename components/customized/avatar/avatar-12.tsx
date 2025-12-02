@@ -21,10 +21,10 @@ export const AvatarGroup = React.memo(function AvatarGroup({
 }: AvatarGroupProps) {
   // Memoize computed values
   const { totalAvatars, displayedAvatars, remainingAvatars } = React.useMemo(() => {
-    const totalAvatars = React.Children.count(children);
-    const displayedAvatars = React.Children.toArray(children)
-      .slice(0, max)
-      .reverse();
+  const totalAvatars = React.Children.count(children);
+  const displayedAvatars = React.Children.toArray(children)
+    .slice(0, max)
+    .reverse();
     const remainingAvatars = max ? Math.max(totalAvatars - max, 0) : 0;
     return { totalAvatars, displayedAvatars, remainingAvatars };
   }, [children, max]);
