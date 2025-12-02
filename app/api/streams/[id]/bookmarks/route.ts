@@ -46,6 +46,12 @@ export async function GET(
       .order('created_at', { ascending: true });
 
     if (error) {
+      // Handle case where table doesn't exist yet (migration not run)
+      if (error.code === '42P01' || error.message?.includes('does not exist')) {
+        console.warn('[GET /api/streams/[id]/bookmarks] Table does not exist yet, returning empty array');
+        return NextResponse.json({ bookmarks: [] });
+      }
+      
       console.error('[GET /api/streams/[id]/bookmarks] Error:', error);
       return NextResponse.json(
         { error: 'Failed to fetch bookmarks' },
@@ -155,6 +161,14 @@ export async function POST(
       .single();
 
     if (insertError) {
+      // Handle case where table doesn't exist yet (migration not run)
+      if (insertError.code === '42P01' || insertError.message?.includes('does not exist')) {
+        return NextResponse.json(
+          { error: 'Bookmarks feature not available. Database migration required.' },
+          { status: 503 }
+        );
+      }
+      
       console.error('[POST /api/streams/[id]/bookmarks] Error:', insertError);
       return NextResponse.json(
         { error: 'Failed to create bookmark' },
