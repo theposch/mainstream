@@ -33,54 +33,54 @@ export async function GET(
     // Check authentication (optional for this endpoint)
     const { data: { user: currentUser } } = await supabase.auth.getUser();
 
-    // Get follower count
-    const { count: followerCount, error: countError } = await supabase
-      .from('stream_follows')
-      .select('*', { count: 'exact', head: true })
-      .eq('stream_id', streamId);
+    // Execute all queries in parallel for better performance
+    const [countResult, followersResult, userFollowResult] = await Promise.all([
+      // Get follower count
+      supabase
+        .from('stream_follows')
+        .select('*', { count: 'exact', head: true })
+        .eq('stream_id', streamId),
+      
+      // Get followers with user details (limit to recent 10 for avatar display)
+      supabase
+        .from('stream_follows')
+        .select(`
+          user_id,
+          created_at,
+          users:user_id (
+            id,
+            username,
+            display_name,
+            avatar_url
+          )
+        `)
+        .eq('stream_id', streamId)
+        .order('created_at', { ascending: false })
+        .limit(10),
+      
+      // Check if current user is following (only if authenticated)
+      currentUser
+        ? supabase
+            .from('stream_follows')
+            .select('stream_id')
+            .eq('stream_id', streamId)
+            .eq('user_id', currentUser.id)
+            .maybeSingle()
+        : Promise.resolve({ data: null, error: null }),
+    ]);
 
-    if (countError) {
-      console.error('[GET /api/streams/[id]/follow] Error getting count:', countError);
+    if (countResult.error) {
+      console.error('[GET /api/streams/[id]/follow] Error getting count:', countResult.error);
       return NextResponse.json(
         { error: 'Failed to get follower count' },
         { status: 500 }
       );
     }
 
-    // Check if current user is following (if authenticated)
-    let isFollowing = false;
-    if (currentUser) {
-      const { data: followData } = await supabase
-        .from('stream_follows')
-        .select('stream_id')
-        .eq('stream_id', streamId)
-        .eq('user_id', currentUser.id)
-        .single();
-      
-      isFollowing = !!followData;
-    }
-
-    // Get followers with user details (limit to recent 10 for avatar display)
-    const { data: followers } = await supabase
-      .from('stream_follows')
-      .select(`
-        user_id,
-        created_at,
-        users:user_id (
-          id,
-          username,
-          display_name,
-          avatar_url
-        )
-      `)
-      .eq('stream_id', streamId)
-      .order('created_at', { ascending: false })
-      .limit(10);
-
     return NextResponse.json({
-      isFollowing,
-      followerCount: followerCount || 0,
-      followers: followers?.map(f => f.users).filter(Boolean) || [],
+      isFollowing: !!userFollowResult.data,
+      followerCount: countResult.count || 0,
+      followers: followersResult.data?.map(f => f.users).filter(Boolean) || [],
     });
   } catch (error) {
     console.error('[GET /api/streams/[id]/follow] Error:', error);
