@@ -169,13 +169,5 @@ export const ElementCard = React.memo(
       </Link>
     </motion.div>
   );
-  },
-  // Custom comparison to make memo actually work
-  (prevProps, nextProps) => {
-    return prevProps.asset.id === nextProps.asset.id &&
-           prevProps.asset.likeCount === nextProps.asset.likeCount &&
-           prevProps.asset.isLikedByCurrentUser === nextProps.asset.isLikedByCurrentUser &&
-           prevProps.className === nextProps.className &&
-           prevProps.onLikeChange === nextProps.onLikeChange;
   }
 );
