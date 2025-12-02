@@ -67,17 +67,36 @@ export const StreamHeader = React.memo(function StreamHeader({ stream, owner }: 
     deleteBookmark,
   } = useStreamBookmarks(stream.id);
 
+  // Track window width for responsive bookmark display
+  const [maxVisibleBookmarks, setMaxVisibleBookmarks] = React.useState(6);
+  
+  React.useEffect(() => {
+    const updateMaxVisible = () => {
+      const width = window.innerWidth;
+      if (width < 640) {
+        setMaxVisibleBookmarks(2); // Mobile
+      } else if (width < 1024) {
+        setMaxVisibleBookmarks(4); // Tablet
+      } else {
+        setMaxVisibleBookmarks(6); // Desktop
+      }
+    };
+    
+    updateMaxVisible();
+    window.addEventListener('resize', updateMaxVisible);
+    return () => window.removeEventListener('resize', updateMaxVisible);
+  }, []);
+
   // Memoized bookmark display logic
   const { visibleBookmarks, overflowBookmarks, hasOverflow } = React.useMemo(() => {
-    const MAX_VISIBLE = 6;
-    const visible = bookmarks.slice(0, MAX_VISIBLE);
-    const overflow = bookmarks.slice(MAX_VISIBLE);
+    const visible = bookmarks.slice(0, maxVisibleBookmarks);
+    const overflow = bookmarks.slice(maxVisibleBookmarks);
     return {
       visibleBookmarks: visible,
       overflowBookmarks: overflow,
       hasOverflow: overflow.length > 0,
     };
-  }, [bookmarks]);
+  }, [bookmarks, maxVisibleBookmarks]);
 
   // Fetch current user
   React.useEffect(() => {
@@ -294,9 +313,9 @@ export const StreamHeader = React.memo(function StreamHeader({ stream, owner }: 
       </div>
 
       {/* ═══════════════════════════════════════════════════════════════════
-          ROW 2: Bookmarks
+          ROW 2: Bookmarks (single row, overflow goes to dropdown)
           ═══════════════════════════════════════════════════════════════════ */}
-      <div className="flex items-center gap-2 flex-wrap">
+      <div className="flex items-center gap-2 flex-nowrap">
         {/* Bookmark Chips */}
         {visibleBookmarks.map((bookmark) => (
           <a
@@ -304,7 +323,7 @@ export const StreamHeader = React.memo(function StreamHeader({ stream, owner }: 
             href={bookmark.url}
             target="_blank"
             rel="noopener noreferrer"
-            className="group/bookmark inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-secondary hover:bg-secondary/80 text-sm text-foreground transition-colors"
+            className="group/bookmark inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-secondary hover:bg-secondary/80 text-sm text-foreground transition-colors shrink-0"
           >
             <img
               src={getFaviconUrl(bookmark.url)}
@@ -337,7 +356,7 @@ export const StreamHeader = React.memo(function StreamHeader({ stream, owner }: 
         {hasOverflow && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <button className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-secondary hover:bg-secondary/80 text-sm text-foreground transition-colors">
+              <button className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-secondary hover:bg-secondary/80 text-sm text-foreground transition-colors shrink-0">
                 +{overflowBookmarks.length} more
               </button>
             </DropdownMenuTrigger>
@@ -387,7 +406,7 @@ export const StreamHeader = React.memo(function StreamHeader({ stream, owner }: 
         {/* Add Bookmark Button */}
         <button
           onClick={handleOpenAddBookmarkDialog}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors shrink-0"
         >
           <Plus className="h-4 w-4" />
           <span>Add Bookmark</span>
