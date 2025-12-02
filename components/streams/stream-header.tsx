@@ -14,10 +14,8 @@ import {
   Check, 
   Loader2, 
   X, 
-  ChevronDown,
   Users,
   Image as ImageIcon,
-  Bookmark
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
@@ -43,12 +41,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 
 interface StreamHeaderProps {
   stream: any;
@@ -178,7 +170,6 @@ export const StreamHeader = React.memo(function StreamHeader({ stream, owner }: 
   );
   
   return (
-    <TooltipProvider delayDuration={200}>
       <div className="flex flex-col gap-4 mb-8">
         {/* ═══════════════════════════════════════════════════════════════════
             ROW 1: Primary Header (Title + Description + Actions)
@@ -344,58 +335,49 @@ export const StreamHeader = React.memo(function StreamHeader({ stream, owner }: 
           </div>
 
           {/* Right: Bookmarks */}
-          <div className="flex items-center gap-1">
-            {/* Bookmark Icons */}
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {/* Bookmark Chips */}
             {visibleBookmarks.map((bookmark) => (
-              <Tooltip key={bookmark.id}>
-                <TooltipTrigger asChild>
-                  <a
-                    href={bookmark.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="group/bookmark relative flex items-center justify-center w-8 h-8 rounded-md bg-secondary/50 hover:bg-secondary transition-colors"
+              <a
+                key={bookmark.id}
+                href={bookmark.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="group/bookmark inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-secondary/50 hover:bg-secondary text-xs text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <img
+                  src={getFaviconUrl(bookmark.url)}
+                  alt=""
+                  className="w-3.5 h-3.5 shrink-0"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).style.display = 'none';
+                  }}
+                />
+                <span className="truncate max-w-[120px]">
+                  {bookmark.title || extractDomain(bookmark.url)}
+                </span>
+                {canDeleteBookmark(bookmark.created_by) && (
+                  <button
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      handleDeleteBookmark(bookmark.id);
+                    }}
+                    className="ml-0.5 opacity-0 group-hover/bookmark:opacity-100 hover:text-destructive transition-opacity"
+                    aria-label="Delete bookmark"
                   >
-                    <img
-                      src={getFaviconUrl(bookmark.url, 32)}
-                      alt=""
-                      className="w-4 h-4"
-                      onError={(e) => {
-                        const target = e.target as HTMLImageElement;
-                        target.style.display = 'none';
-                        target.nextElementSibling?.classList.remove('hidden');
-                      }}
-                    />
-                    <Bookmark className="w-4 h-4 text-muted-foreground hidden" />
-                    
-                    {/* Delete button on hover */}
-                    {canDeleteBookmark(bookmark.created_by) && (
-                      <button
-                        onClick={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          handleDeleteBookmark(bookmark.id);
-                        }}
-                        className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-destructive text-destructive-foreground opacity-0 group-hover/bookmark:opacity-100 transition-opacity flex items-center justify-center"
-                        aria-label="Delete bookmark"
-                      >
-                        <X className="h-2.5 w-2.5" />
-                      </button>
-                    )}
-                  </a>
-                </TooltipTrigger>
-                <TooltipContent side="bottom" className="max-w-xs">
-                  <p className="font-medium">{bookmark.title || extractDomain(bookmark.url)}</p>
-                  <p className="text-xs text-muted-foreground truncate">{bookmark.url}</p>
-                </TooltipContent>
-              </Tooltip>
+                    <X className="h-3 w-3" />
+                  </button>
+                )}
+              </a>
             ))}
 
             {/* Overflow Dropdown */}
             {hasOverflow && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <button className="flex items-center justify-center w-8 h-8 rounded-md bg-secondary/50 hover:bg-secondary text-xs text-muted-foreground hover:text-foreground transition-colors">
-                    +{overflowBookmarks.length}
+                  <button className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-secondary/50 hover:bg-secondary text-xs text-muted-foreground hover:text-foreground transition-colors">
+                    +{overflowBookmarks.length} more
                   </button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-64">
@@ -442,19 +424,13 @@ export const StreamHeader = React.memo(function StreamHeader({ stream, owner }: 
             )}
 
             {/* Add Bookmark Button */}
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  onClick={handleOpenAddBookmarkDialog}
-                  className="flex items-center justify-center w-8 h-8 rounded-md border border-dashed border-border hover:border-muted-foreground hover:bg-secondary/30 text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  <Plus className="h-3.5 w-3.5" />
-                </button>
-              </TooltipTrigger>
-              <TooltipContent side="bottom">
-                <p>Add bookmark</p>
-              </TooltipContent>
-            </Tooltip>
+            <button
+              onClick={handleOpenAddBookmarkDialog}
+              className="inline-flex items-center gap-1 px-2 py-1 rounded-md border border-dashed border-border/60 hover:border-muted-foreground hover:bg-secondary/30 text-xs text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <Plus className="h-3 w-3" />
+              <span>Bookmark</span>
+            </button>
           </div>
         </div>
 
@@ -499,6 +475,5 @@ export const StreamHeader = React.memo(function StreamHeader({ stream, owner }: 
           onSubmit={handleAddBookmark}
         />
       </div>
-    </TooltipProvider>
   );
 });
