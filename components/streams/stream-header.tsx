@@ -395,7 +395,7 @@ export const StreamHeader = React.memo(function StreamHeader({ stream, owner }: 
       </div>
 
       {/* Divider */}
-      <div className="border-t border-border/40" />
+      <div className="border-t border-border" />
 
       {/* ═══════════════════════════════════════════════════════════════════
           Dialogs
