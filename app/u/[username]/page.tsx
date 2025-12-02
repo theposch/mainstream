@@ -10,6 +10,7 @@ import { MasonryGrid } from "@/components/assets/masonry-grid";
 import { Button } from "@/components/ui/button";
 import { LoadingSpinner } from "@/components/ui/loading";
 import { createClient } from "@/lib/supabase/client";
+import type { Asset, User, Stream } from "@/lib/types/database";
 
 interface UserProfileProps {
   params: Promise<{
@@ -17,38 +18,8 @@ interface UserProfileProps {
   }>;
 }
 
-interface User {
-  id: string;
-  username: string;
-  display_name: string;
-  email: string;
-  avatar_url?: string;
-  bio?: string;
-  job_title?: string;
-}
-
-interface Asset {
-  id: string;
-  title: string;
-  url: string;
-  thumbnail_url?: string;
-  medium_url?: string;
-  uploader_id: string;
-  width?: number;
-  height?: number;
-  created_at: string;
-  uploader?: User;
-}
-
-interface StreamWithAssets {
-  id: string;
-  name: string;
-  description?: string;
-  owner_id: string;
-  owner_type: string;
-  is_private: boolean;
-  status: string;
-  created_at?: string;
+// Extended Stream type with assets info for profile page
+interface StreamWithAssets extends Stream {
   assetsCount?: number;
   recentPosts?: Array<{
     id: string;
@@ -74,6 +45,7 @@ export default function UserProfile({ params }: UserProfileProps) {
   const [likedAssets, setLikedAssets] = React.useState<Asset[]>([]);
   const [stats, setStats] = React.useState({ followers: 0, following: 0, assets: 0 });
   const [currentUserId, setCurrentUserId] = React.useState<string | null>(null);
+  const [refreshKey, setRefreshKey] = React.useState(0);
   
   // Bug #3 Fix: URL state synchronization
   const urlTab = searchParams.get('tab') as UserProfileTab | null;
@@ -110,6 +82,16 @@ export default function UserProfile({ params }: UserProfileProps) {
     });
   }, [params]);
 
+  // Listen for asset upload events to refresh data
+  React.useEffect(() => {
+    const handleAssetUploaded = () => {
+      setRefreshKey(prev => prev + 1);
+    };
+    
+    window.addEventListener('asset-uploaded', handleAssetUploaded);
+    return () => window.removeEventListener('asset-uploaded', handleAssetUploaded);
+  }, []);
+
   // Fetch user data from Supabase
   React.useEffect(() => {
     if (!username) return;
@@ -137,7 +119,8 @@ export default function UserProfile({ params }: UserProfileProps) {
 
         setUser(userData);
 
-        // Fetch all data in parallel
+        // Fetch all data in parallel (include like counts)
+        // Note: Like status is verified client-side for reliability
         const [
           { count: followersCount },
           { count: followingCount },
@@ -149,10 +132,10 @@ export default function UserProfile({ params }: UserProfileProps) {
           supabase.from('user_follows').select('*', { count: 'exact', head: true }).eq('following_id', userData.id),
           supabase.from('user_follows').select('*', { count: 'exact', head: true }).eq('follower_id', userData.id),
           supabase.from('assets').select('*', { count: 'exact', head: true }).eq('uploader_id', userData.id),
-          supabase.from('assets').select(`*, uploader:users!uploader_id(*)`).eq('uploader_id', userData.id).order('created_at', { ascending: false }),
+          supabase.from('assets').select(`*, uploader:users!uploader_id(*), asset_likes(count)`).eq('uploader_id', userData.id).order('created_at', { ascending: false }),
           supabase.from('streams').select('*').eq('owner_id', userData.id).eq('owner_type', 'user').eq('status', 'active'),
           supabase.from('asset_likes')
-            .select(`asset_id, assets(*, uploader:users!uploader_id(*))`)
+            .select(`asset_id, assets(*, uploader:users!uploader_id(*), asset_likes(count))`)
             .eq('user_id', userData.id)
         ]);
 
@@ -162,51 +145,98 @@ export default function UserProfile({ params }: UserProfileProps) {
           assets: assetsCount || 0,
         });
 
-        setUserAssets(assetsData || []);
+        // Collect all asset IDs for batch like status check
+        const userAssetIds = assetsData?.map((a: any) => a.id) || [];
+        const likedAssetIds = likedData?.map((l: any) => l.asset_id) || [];
+        const allAssetIds = [...new Set([...userAssetIds, ...likedAssetIds])];
         
-        // Enrich streams with asset count and recent posts for thumbnails
-        const enrichedStreams = await Promise.all(
-          (streamsData || []).map(async (stream) => {
-            // Get asset count for this stream
-            const { count: streamAssetsCount } = await supabase
-              .from('asset_streams')
-              .select('*', { count: 'exact', head: true })
-              .eq('stream_id', stream.id);
+        // Batch fetch which assets the current user has liked
+        let currentUserLikedIds: Set<string> = new Set();
+        if (authUser && allAssetIds.length > 0) {
+          const { data: currentUserLikes } = await supabase
+            .from('asset_likes')
+            .select('asset_id')
+            .eq('user_id', authUser.id)
+            .in('asset_id', allAssetIds);
+          
+          if (currentUserLikes) {
+            currentUserLikedIds = new Set(currentUserLikes.map(l => l.asset_id));
+          }
+        }
 
-            // Get 4 most recent assets for thumbnails
-            const { data: assetRelations } = await supabase
-              .from('asset_streams')
-              .select(`
-                assets (
-                  id,
-                  url,
-                  thumbnail_url,
-                  title
-                )
-              `)
-              .eq('stream_id', stream.id)
-              .order('added_at', { ascending: false })
-              .limit(4);
+        // Transform user assets with like count and status
+        const transformedAssets = (assetsData || []).map((asset: any) => ({
+          ...asset,
+          likeCount: asset.asset_likes?.[0]?.count || 0,
+          asset_likes: undefined,
+          isLikedByCurrentUser: currentUserLikedIds.has(asset.id),
+        }));
+        setUserAssets(transformedAssets);
+        
+        // Enrich streams with asset count and recent posts - batch query to prevent N+1
+        const streamIds = (streamsData || []).map(s => s.id);
+        
+        let enrichedStreams: StreamWithAssets[] = [];
+        if (streamIds.length > 0) {
+          // Single batch query: get all asset_streams for all user streams at once
+          const { data: allAssetRelations } = await supabase
+            .from('asset_streams')
+            .select(`
+              stream_id,
+              added_at,
+              assets (
+                id,
+                url,
+                thumbnail_url,
+                title
+              )
+            `)
+            .in('stream_id', streamIds)
+            .order('added_at', { ascending: false });
 
-            const recentPosts = assetRelations?.map((rel: any) => ({
-              id: rel.assets?.id || '',
-              url: rel.assets?.thumbnail_url || rel.assets?.url || '',
-              title: rel.assets?.title || '',
-            })).filter(post => post.id) || [];
+          // Group results by stream_id
+          const streamAssetMap = new Map<string, { count: number; posts: any[] }>();
+          streamIds.forEach(id => streamAssetMap.set(id, { count: 0, posts: [] }));
+          
+          (allAssetRelations || []).forEach((rel: any) => {
+            const entry = streamAssetMap.get(rel.stream_id);
+            if (entry) {
+              entry.count++;
+              if (entry.posts.length < 4 && rel.assets) {
+                entry.posts.push({
+                  id: rel.assets.id,
+                  url: rel.assets.thumbnail_url || rel.assets.url || '',
+                  title: rel.assets.title || '',
+                });
+              }
+            }
+          });
 
+          // Build enriched streams
+          enrichedStreams = (streamsData || []).map(stream => {
+            const data = streamAssetMap.get(stream.id) || { count: 0, posts: [] };
             return {
               ...stream,
-              assetsCount: streamAssetsCount || 0,
-              recentPosts,
+              assetsCount: data.count,
+              recentPosts: data.posts,
             };
-          })
-        );
+          });
+        }
         
-        setUserStreams(enrichedStreams as any);
+        setUserStreams(enrichedStreams);
         
-        // Extract assets from likes
-        const liked = likedData?.map(item => item.assets).filter(Boolean) || [];
-        setLikedAssets(liked as unknown as Asset[]);
+        // Extract and transform liked assets with like count and status
+        const liked = (likedData?.map(item => {
+          const asset = item.assets as any;
+          if (!asset) return null;
+          return {
+            ...asset,
+            likeCount: asset.asset_likes?.[0]?.count || 0,
+            asset_likes: undefined,
+            isLikedByCurrentUser: currentUserLikedIds.has(asset.id),
+          };
+        }).filter(Boolean) || []) as unknown as Asset[];
+        setLikedAssets(liked);
 
       } catch (error) {
         console.error('Error fetching user data:', error);
@@ -216,7 +246,7 @@ export default function UserProfile({ params }: UserProfileProps) {
     };
 
     fetchUserData();
-  }, [username]);
+  }, [username, refreshKey]);
 
   // Bug #2, #3, #5 Fix: Improved tab change with URL sync and per-tab scroll
   const handleTabChange = React.useCallback((tab: UserProfileTab) => {
@@ -246,6 +276,14 @@ export default function UserProfile({ params }: UserProfileProps) {
       rafIdRef.current = null;
     });
   }, [activeTab, username, router]);
+
+  // Handle like changes from the Liked tab - remove unliked assets
+  const handleLikedAssetChange = React.useCallback((assetId: string, isLiked: boolean) => {
+    if (!isLiked) {
+      // Asset was unliked - remove from likedAssets array
+      setLikedAssets(prev => prev.filter(asset => asset.id !== assetId));
+    }
+  }, []);
 
   // Cleanup RAF on unmount
   React.useEffect(() => {
@@ -338,7 +376,7 @@ export default function UserProfile({ params }: UserProfileProps) {
         >
           {visitedTabs.has("liked") && (
             likedAssets.length > 0 ? (
-              <MasonryGrid assets={likedAssets} />
+              <MasonryGrid assets={likedAssets} onLikeChange={handleLikedAssetChange} />
             ) : (
               <div className="text-center py-24">
                 <p className="text-lg font-medium text-muted-foreground">No liked assets yet.</p>

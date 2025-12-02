@@ -12,28 +12,8 @@
 
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
-
-interface Asset {
-  id: string;
-  title: string;
-  type: string;
-  url: string;
-  thumbnail_url?: string;
-  medium_url?: string;
-  uploader_id: string;
-  width?: number;
-  height?: number;
-  created_at: string;
-  updated_at: string;
-  uploader?: {
-    id: string;
-    username: string;
-    display_name: string;
-    email: string;
-    avatar_url?: string;
-  };
-}
+import { useState, useCallback } from "react";
+import type { Asset } from "@/lib/types/database";
 
 interface UseFollowingAssetsReturn {
   assets: Asset[];

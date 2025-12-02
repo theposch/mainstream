@@ -114,7 +114,6 @@ export async function POST(request: NextRequest) {
 
     if (existing) {
       // Return existing stream instead of error (idempotent API)
-      console.log(`[POST /api/streams] Stream "${name}" already exists, returning existing stream`);
       return NextResponse.json({ stream: existing }, { status: 200 });
     }
 

@@ -80,7 +80,6 @@ export function StreamPicker({
     );
     
     if (missingIds.length > 0) {
-      console.log('[StreamPicker] Detected missing stream IDs, refreshing...', missingIds);
       loadStreams();
     }
   }, [selectedStreamIds, allStreams, loadStreams]);
@@ -186,7 +185,6 @@ export function StreamPicker({
       const isExcluded = excludedStreamNames.includes(slug);
       
       if (alreadyPending || alreadyReal) {
-        console.log('[StreamPicker] Stream already added:', slug);
         setSearchQuery("");
         setOpen(false);
         return;
@@ -201,14 +199,12 @@ export function StreamPicker({
       
       // Check max streams
       if (totalSelected >= maxStreams) {
-        console.log('[StreamPicker] Max streams reached');
         return;
       }
       
       // Add to pending (will be created on Post)
       if (onPendingStreamsChange) {
         onPendingStreamsChange([...pendingStreamNames, slug]);
-        console.log('[StreamPicker] Added pending stream:', slug);
       }
       
       // Clear search and close dropdown

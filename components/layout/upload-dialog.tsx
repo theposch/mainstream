@@ -243,14 +243,6 @@ export function UploadDialog({ open, onOpenChange }: UploadDialogProps) {
       return;
     }
 
-    console.log('[UploadDialog] 🚀 Starting upload...');
-    console.log(`  - File: ${file.name}`);
-    console.log(`  - Size: ${(file.size / 1024).toFixed(2)} KB`);
-    console.log(`  - Title: ${title}`);
-    console.log(`  - Description: ${description || '(none)'}`);
-    console.log(`  - Real Streams: ${streamIds.length > 0 ? streamIds.join(', ') : '(none)'}`);
-    console.log(`  - Pending Streams: ${pendingStreamNames.length > 0 ? pendingStreamNames.join(', ') : '(none)'}`);
-
     setIsLoading(true);
 
     try {
@@ -259,7 +251,6 @@ export function UploadDialog({ open, onOpenChange }: UploadDialogProps) {
       let failedStreamNames: string[] = [];
       
       if (pendingStreamNames.length > 0) {
-        console.log('[UploadDialog] Creating pending streams...');
         const createPromises = pendingStreamNames.map(async (name) => {
           try {
             const response = await fetch('/api/streams', {
@@ -274,15 +265,11 @@ export function UploadDialog({ open, onOpenChange }: UploadDialogProps) {
 
             if (response.ok) {
               const { stream } = await response.json();
-              console.log(`  ✓ Created stream: ${stream.name} (${stream.id})`);
               return { success: true, id: stream.id, name };
             } else {
-              const errorData = await response.json().catch(() => ({}));
-              console.error(`  ✗ Failed to create stream: ${name}`, errorData);
               return { success: false, name };
             }
-          } catch (error) {
-            console.error(`  ✗ Error creating stream ${name}:`, error);
+          } catch {
             return { success: false, name };
           }
         });
@@ -290,8 +277,6 @@ export function UploadDialog({ open, onOpenChange }: UploadDialogProps) {
         const results = await Promise.all(createPromises);
         createdStreamIds = results.filter(r => r.success).map(r => r.id);
         failedStreamNames = results.filter(r => !r.success).map(r => r.name);
-        
-        console.log(`[UploadDialog] Created ${createdStreamIds.length}/${pendingStreamNames.length} streams`);
         
         // Show warning if any failed (non-blocking)
         if (failedStreamNames.length > 0) {
@@ -316,38 +301,27 @@ export function UploadDialog({ open, onOpenChange }: UploadDialogProps) {
         formData.append('streamIds', JSON.stringify(allStreamIds));
       }
 
-      console.log('[UploadDialog] 📤 Sending request to /api/assets/upload...');
-
       // Upload
       const response = await fetch('/api/assets/upload', {
         method: 'POST',
         body: formData,
       });
 
-      console.log(`[UploadDialog] Response status: ${response.status}`);
-
       const data = await response.json();
-      console.log('[UploadDialog] Response data:', data);
 
       if (!response.ok) {
         throw new Error(data.error || 'Failed to upload image');
       }
 
-      console.log('[UploadDialog] ✅ Upload successful!');
-      console.log(`  - Asset ID: ${data.asset.id}`);
-      console.log(`  - URLs created: full, medium, thumbnail`);
-
-      // Success! Close dialog and navigate
-      console.log('[UploadDialog] Closing dialog and refreshing...');
+      // Success! Close dialog and refresh current page
       onOpenChange(false);
       
-      // Navigate using Next.js router for better UX
-      router.push('/home');
-      router.refresh(); // Revalidate server components
+      // Dispatch custom event to notify other components of new upload
+      window.dispatchEvent(new CustomEvent('asset-uploaded', { detail: { asset: data.asset } }));
       
-      console.log('[UploadDialog] ✨ Complete!');
+      // Also refresh server components
+      router.refresh();
     } catch (err) {
-      console.error('[UploadDialog] ❌ Upload error:', err);
       setError(err instanceof Error ? err.message : 'Failed to upload image');
     } finally {
       setIsLoading(false);

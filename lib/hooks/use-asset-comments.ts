@@ -22,6 +22,9 @@ interface Comment {
   parent_id: string | null;
   created_at: string;
   updated_at: string;
+  is_edited: boolean;
+  likes: number;
+  has_liked: boolean;
   user?: {
     id: string;
     username: string;

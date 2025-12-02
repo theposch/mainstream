@@ -33,6 +33,7 @@ export const StreamCard = React.memo(function StreamCard({ stream }: StreamCardP
                   alt={post.title}
                   fill
                   className="object-cover"
+                  sizes="(max-width: 768px) 25vw, 150px"
                 />
               </div>
             ))}
@@ -53,7 +54,7 @@ export const StreamCard = React.memo(function StreamCard({ stream }: StreamCardP
       <div className="space-y-1 px-1">
         <div className="flex items-center justify-between">
           <h3 className="font-medium text-white truncate pr-2">{stream.name}</h3>
-          {stream.isPrivate ? (
+          {stream.is_private ? (
             <Lock className="h-3.5 w-3.5 text-zinc-500 shrink-0" />
           ) : (
             <Globe className="h-3.5 w-3.5 text-zinc-500 shrink-0" />

@@ -64,7 +64,7 @@ export async function GET(request: NextRequest) {
     // Extract following user IDs
     const followingIds = followingList.map(f => f.following_id);
 
-    // Build query for assets from followed users
+    // Build query for assets from followed users (including streams + likes to prevent N+1)
     let query = supabase
       .from('assets')
       .select(`
@@ -75,7 +75,11 @@ export async function GET(request: NextRequest) {
           display_name,
           avatar_url,
           email
-        )
+        ),
+        asset_streams(
+          streams(*)
+        ),
+        asset_likes(count)
       `)
       .in('uploader_id', followingIds)
       .order('created_at', { ascending: false })
@@ -86,7 +90,7 @@ export async function GET(request: NextRequest) {
       query = query.lt('created_at', cursor);
     }
 
-    const { data: assets, error: assetsError } = await query;
+    const { data: rawAssets, error: assetsError } = await query;
 
     if (assetsError) {
       console.error('[GET /api/assets/following] Error fetching assets:', assetsError);
@@ -95,6 +99,31 @@ export async function GET(request: NextRequest) {
         { status: 500 }
       );
     }
+    
+    // Batch fetch which assets the user has liked
+    let userLikedAssetIds: Set<string> = new Set();
+    if (rawAssets && rawAssets.length > 0) {
+      const assetIds = rawAssets.map((a: any) => a.id);
+      const { data: userLikes } = await supabase
+        .from('asset_likes')
+        .select('asset_id')
+        .eq('user_id', currentUser.id)
+        .in('asset_id', assetIds);
+      
+      if (userLikes) {
+        userLikedAssetIds = new Set(userLikes.map(l => l.asset_id));
+      }
+    }
+    
+    // Transform nested data to flat structure with like status
+    const assets = (rawAssets || []).map((asset: any) => ({
+      ...asset,
+      streams: asset.asset_streams?.map((rel: any) => rel.streams).filter(Boolean) || [],
+      asset_streams: undefined,
+      likeCount: asset.asset_likes?.[0]?.count || 0,
+      asset_likes: undefined,
+      isLikedByCurrentUser: userLikedAssetIds.has(asset.id),
+    }));
 
     // Determine if there are more assets
     const hasMore = assets && assets.length === limit;

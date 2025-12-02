@@ -15,9 +15,13 @@ import { useAssetLike } from "@/lib/hooks/use-asset-like";
 import { createClient } from "@/lib/supabase/client";
 
 export function useAssetDetail(asset: any) {
-  // Use real hooks
+  // Use real hooks for comments and likes (pass server-fetched like data)
   const { comments, addComment, updateComment, deleteComment, loading: commentsLoading } = useAssetComments(asset.id);
-  const { isLiked, likeCount, toggleLike } = useAssetLike(asset.id);
+  const { isLiked, likeCount, toggleLike } = useAssetLike(
+    asset.id,
+    asset.isLikedByCurrentUser ?? false,
+    asset.likeCount ?? 0
+  );
 
   // Local UI state
   const [replyingToId, setReplyingToId] = React.useState<string | null>(null);
@@ -65,13 +69,12 @@ export function useAssetDetail(asset: any) {
     await deleteComment(commentId);
   }, [deleteComment]);
 
-  const handleLikeComment = React.useCallback((commentId: string) => {
-    // Comment likes are now handled by useCommentLike hook in CommentItem component
-    console.log('Like comment:', commentId);
+  const handleLikeComment = React.useCallback((_commentId: string) => {
+    // Comment likes are handled by useCommentLike hook in CommentItem component
   }, []);
 
-  const handleAssetLike = React.useCallback(() => {
-    toggleLike();
+  const handleAssetLike = React.useCallback(async () => {
+    await toggleLike();
   }, [toggleLike]);
 
   const replyingToUser = React.useMemo(() => {

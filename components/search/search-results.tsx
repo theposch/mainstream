@@ -16,7 +16,7 @@ interface SearchResultsProps {
   initialQuery: string;
 }
 
-export function SearchResults({ initialQuery }: SearchResultsProps) {
+export const SearchResults = React.memo(function SearchResults({ initialQuery }: SearchResultsProps) {
   const { query, setQuery, recentSearches, clearSearch } = useSearch();
   const [activeTab, setActiveTab] = React.useState<SearchTab>("all");
   const [isLoading, setIsLoading] = React.useState(false);
@@ -58,15 +58,12 @@ export function SearchResults({ initialQuery }: SearchResultsProps) {
           const res = await fetch(`/api/search?${params}`);
           const data = await res.json();
           
-          const total = (data.assets?.length || 0) + 
-                       (data.streams?.length || 0) + 
-                       (data.users?.length || 0);
-          
+          // Use total from API response
           setResults({
             assets: data.assets || [],
             streams: data.streams || [],
             users: data.users || [],
-            total,
+            total: data.total || 0,
           });
       } catch (error) {
         console.error('Search failed:', error);
@@ -241,5 +238,5 @@ export function SearchResults({ initialQuery }: SearchResultsProps) {
       <div className="mt-8">{renderContent()}</div>
     </div>
   );
-}
+});
 

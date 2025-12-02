@@ -84,7 +84,6 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
       const filename = asset.url.split('/').pop();
       if (filename) {
         await deleteUploadedFiles(filename);
-        console.log(`[DELETE /api/assets/:id] Deleted files for: ${filename}`);
       }
     } catch (fileError) {
       // Log but don't fail the request if file deletion fails

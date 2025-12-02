@@ -5,7 +5,7 @@ import { ErrorBoundary } from "@/components/error-boundary";
 import { SearchProvider } from "@/lib/contexts/search-context";
 
 export const metadata: Metadata = {
-  title: "Cosmos | Design Collaboration",
+  title: "Mainstream | Design Collaboration",
   description: "Internal tool for design teams to share work.",
 };
 

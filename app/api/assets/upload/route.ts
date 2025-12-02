@@ -81,12 +81,8 @@ export async function POST(request: NextRequest) {
       email: authUser.email || '',
     };
     
-    console.log('[POST /api/assets/upload] 📤 Starting upload...');
-    console.log(`  - User: ${user.username} (${user.id})`);
-
     // Parse multipart/form-data
     const formData = await request.formData();
-    console.log('[POST /api/assets/upload] Form data received');
     const file = formData.get('file') as File | null;
     let title = formData.get('title') as string | null;
     const description = formData.get('description') as string | null;
@@ -261,13 +257,6 @@ export async function POST(request: NextRequest) {
       }
     }
     
-    console.log('[POST /api/assets/upload] ✅ Upload successful!');
-    console.log(`  - Asset ID: ${insertedAsset.id}`);
-    console.log(`  - Title: ${insertedAsset.title}`);
-    console.log(`  - Full URL: ${insertedAsset.url}`);
-    console.log(`  - Medium URL: ${insertedAsset.medium_url}`);
-    console.log(`  - Thumbnail URL: ${insertedAsset.thumbnail_url}`);
-
     return NextResponse.json(
       { asset: insertedAsset },
       { status: 201 }
