@@ -70,11 +70,8 @@ export function useAssetLike(
         throw new Error(data.error || "Failed to toggle like");
       }
 
-      // Handle "Already liked" case - sync state without changing count
-      if (data.message === "Already liked" && !previousLiked) {
-        setIsLiked(true);
-        setLikeCount(previousCount);
-      }
+      // "Already liked" means the like existed - keep optimistic state (isLiked=true)
+      // Don't revert count as that causes confusing UI decrements
       
       return true; // Success
     } catch (error) {
