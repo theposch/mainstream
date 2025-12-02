@@ -14,9 +14,8 @@ import {
   X, 
 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
-import { useStreamFollow } from "@/lib/hooks/use-stream-follow";
-import { useStreamBookmarks, extractDomain, getFaviconUrl } from "@/lib/hooks/use-stream-bookmarks";
+import { useStreamFollow, type InitialFollowData } from "@/lib/hooks/use-stream-follow";
+import { useStreamBookmarks, extractDomain, getFaviconUrl, type BookmarkWithCreator } from "@/lib/hooks/use-stream-bookmarks";
 import { UploadDialog } from "@/components/layout/upload-dialog";
 import { AddBookmarkDialog } from "@/components/streams/add-bookmark-dialog";
 import {
@@ -40,17 +39,27 @@ import type { Stream, User } from "@/lib/types/database";
 
 interface StreamHeaderProps {
   stream: Stream;
+  /** Server-prefetched follow data - avoids client-side fetch */
+  initialFollowData?: InitialFollowData;
+  /** Server-prefetched bookmarks - avoids client-side fetch */
+  initialBookmarks?: BookmarkWithCreator[];
+  /** Server-prefetched current user - avoids client-side fetch */
+  currentUser?: User | null;
 }
 
-export const StreamHeader = React.memo(function StreamHeader({ stream }: StreamHeaderProps) {
+export const StreamHeader = React.memo(function StreamHeader({ 
+  stream, 
+  initialFollowData,
+  initialBookmarks,
+  currentUser,
+}: StreamHeaderProps) {
   const router = useRouter();
-  const [currentUser, setCurrentUser] = React.useState<User | null>(null);
   const [showDeleteDialog, setShowDeleteDialog] = React.useState(false);
   const [isDeleting, setIsDeleting] = React.useState(false);
   const [uploadDialogOpen, setUploadDialogOpen] = React.useState(false);
   const [addBookmarkDialogOpen, setAddBookmarkDialogOpen] = React.useState(false);
   
-  // Use stream follow hook
+  // Use stream follow hook with server-prefetched initial data
   const { 
     isFollowing, 
     contributorCount,
@@ -58,14 +67,14 @@ export const StreamHeader = React.memo(function StreamHeader({ stream }: StreamH
     assetCount,
     toggleFollow, 
     loading: followLoading 
-  } = useStreamFollow(stream.id);
+  } = useStreamFollow(stream.id, initialFollowData);
 
-  // Use stream bookmarks hook
+  // Use stream bookmarks hook with server-prefetched initial data
   const {
     bookmarks,
     addBookmark,
     deleteBookmark,
-  } = useStreamBookmarks(stream.id);
+  } = useStreamBookmarks(stream.id, initialBookmarks);
 
   // Track window width for responsive bookmark display
   // Start with null to avoid SSR hydration mismatch, then set on client
@@ -110,30 +119,6 @@ export const StreamHeader = React.memo(function StreamHeader({ stream }: StreamH
     };
   }, [bookmarks, maxVisibleBookmarks]);
 
-  // Fetch current user with cleanup to prevent state updates on unmounted component
-  React.useEffect(() => {
-    let isMounted = true;
-    
-    const fetchCurrentUser = async () => {
-      const supabase = createClient();
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user && isMounted) {
-        const { data: profile } = await supabase
-          .from('users')
-          .select('*')
-          .eq('id', user.id)
-          .single();
-        if (isMounted) {
-          setCurrentUser(profile as User | null);
-        }
-      }
-    };
-    fetchCurrentUser();
-    
-    return () => {
-      isMounted = false;
-    };
-  }, []);
 
   // Memoized callbacks
   const handleDelete = React.useCallback(async () => {

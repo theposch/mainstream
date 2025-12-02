@@ -2,43 +2,65 @@
  * Stream Follow Hook
  * 
  * Manages following/unfollowing streams with optimistic updates.
+ * Accepts optional initial data from server-side rendering to avoid client-side fetch.
  * 
  * Usage:
  * ```tsx
- * const { isFollowing, followerCount, followers, toggleFollow, loading } = useStreamFollow(streamId);
+ * // Without initial data (will fetch on mount)
+ * const { isFollowing, followerCount, toggleFollow } = useStreamFollow(streamId);
+ * 
+ * // With server-prefetched data (instant, no fetch)
+ * const { isFollowing, followerCount, toggleFollow } = useStreamFollow(streamId, initialData);
  * ```
  */
 
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import type { User } from "@/lib/types/database";
 
-interface UseStreamFollowReturn {
+// Export for use in server components
+export interface InitialFollowData {
   isFollowing: boolean;
   followerCount: number;
   followers: User[];
   contributorCount: number;
   contributors: User[];
   assetCount: number;
+}
+
+interface UseStreamFollowReturn extends InitialFollowData {
   toggleFollow: () => Promise<void>;
   loading: boolean;
   error: string | null;
 }
 
-export function useStreamFollow(streamId: string): UseStreamFollowReturn {
-  const [isFollowing, setIsFollowing] = useState(false);
-  const [followerCount, setFollowerCount] = useState(0);
-  const [followers, setFollowers] = useState<User[]>([]);
-  const [contributorCount, setContributorCount] = useState(0);
-  const [contributors, setContributors] = useState<User[]>([]);
-  const [assetCount, setAssetCount] = useState(0);
+export function useStreamFollow(
+  streamId: string, 
+  initialData?: InitialFollowData
+): UseStreamFollowReturn {
+  // Use initial data if provided, otherwise use defaults
+  const [isFollowing, setIsFollowing] = useState(initialData?.isFollowing ?? false);
+  const [followerCount, setFollowerCount] = useState(initialData?.followerCount ?? 0);
+  const [followers, setFollowers] = useState<User[]>(initialData?.followers ?? []);
+  const [contributorCount, setContributorCount] = useState(initialData?.contributorCount ?? 0);
+  const [contributors, setContributors] = useState<User[]>(initialData?.contributors ?? []);
+  const [assetCount, setAssetCount] = useState(initialData?.assetCount ?? 0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [initialLoading, setInitialLoading] = useState(true);
+  // If initial data provided, we're not loading; otherwise we need to fetch
+  const [initialLoading, setInitialLoading] = useState(!initialData);
+  
+  // Track if we've initialized to prevent re-fetching when initial data changes
+  const hasInitialized = useRef(!!initialData);
 
-  // Fetch follow state from API
+  // Fetch follow state from API (only if no initial data provided)
   useEffect(() => {
+    // Skip fetch if we have initial data
+    if (hasInitialized.current) {
+      return;
+    }
+    
     const fetchFollowState = async () => {
       if (!streamId) return;
       
@@ -56,6 +78,7 @@ export function useStreamFollow(streamId: string): UseStreamFollowReturn {
           setContributors(data.contributors || []);
           setAssetCount(data.assetCount || 0);
           setError(null);
+          hasInitialized.current = true;
         } else {
           // Handle non-ok responses (401, 404, 500, etc.)
           const errorData = await response.json().catch(() => ({}));
