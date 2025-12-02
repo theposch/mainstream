@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { X, Upload, Loader2 } from "lucide-react";
+import { X, Upload, Loader2, Users } from "lucide-react";
 import { FeedTabs } from "./feed-tabs";
 import { MasonryGrid } from "@/components/assets/masonry-grid";
 import { useSearch } from "@/lib/contexts/search-context";
@@ -155,23 +155,45 @@ export const DashboardFeed = React.memo(function DashboardFeed({ initialAssets }
 
       <div className="mt-6">
         {isEmpty ? (
-          <div className="flex flex-col items-center justify-center py-20 text-center">
-            <div className="w-20 h-20 rounded-full bg-muted flex items-center justify-center mb-6">
-              <Upload className="w-10 h-10 text-muted-foreground" />
+          activeTab === "following" ? (
+            // Empty state for Following tab
+            <div className="flex flex-col items-center justify-center py-20 text-center">
+              <div className="w-20 h-20 rounded-full bg-muted flex items-center justify-center mb-6">
+                <Users className="w-10 h-10 text-muted-foreground" />
+              </div>
+              <h3 className="text-2xl font-semibold mb-2">No posts yet</h3>
+              <p className="text-muted-foreground mb-6 max-w-md">
+                Follow some creators to see their latest work here. Discover amazing designs from the community.
+              </p>
+              <Button 
+                variant="default" 
+                size="lg"
+                onClick={() => router.push('/streams')}
+              >
+                <Users className="w-4 h-4 mr-2" />
+                Discover Creators
+              </Button>
             </div>
-            <h3 className="text-2xl font-semibold mb-2">Upload your first design</h3>
-            <p className="text-muted-foreground mb-6 max-w-md">
-              Start building your portfolio by uploading your first design. Share your work with the community and get feedback.
-            </p>
-            <Button 
-              variant="default" 
-              size="lg"
-              onClick={handleUploadClick}
-            >
-              <Upload className="w-4 h-4 mr-2" />
-              Upload Design
-            </Button>
-          </div>
+          ) : (
+            // Empty state for Recent tab
+            <div className="flex flex-col items-center justify-center py-20 text-center">
+              <div className="w-20 h-20 rounded-full bg-muted flex items-center justify-center mb-6">
+                <Upload className="w-10 h-10 text-muted-foreground" />
+              </div>
+              <h3 className="text-2xl font-semibold mb-2">Upload your first design</h3>
+              <p className="text-muted-foreground mb-6 max-w-md">
+                Start building your portfolio by uploading your first design. Share your work with the community and get feedback.
+              </p>
+              <Button 
+                variant="default" 
+                size="lg"
+                onClick={handleUploadClick}
+              >
+                <Upload className="w-4 h-4 mr-2" />
+                Upload Design
+              </Button>
+            </div>
+          )
         ) : hasResults ? (
           <>
           <MasonryGrid assets={displayedAssets} />
