@@ -32,8 +32,7 @@ export function UserProfileHeader({
   const { isFollowing, followerCount, toggleFollow, loading } = useUserFollow(user.username);
 
   const handleSettingsClick = () => {
-    // TODO: Implement user settings navigation
-    // router.push('/settings') or router.push(`/u/${user.username}/settings`)
+    // Settings dialog is accessible from the user menu in the navbar
   };
 
   return (
