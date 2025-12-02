@@ -2,10 +2,15 @@
  * Stream Bookmarks Hook
  * 
  * Manages fetching and mutating stream bookmarks.
+ * Accepts optional initial data from server-side rendering to avoid client-side fetch.
  * 
  * Usage:
  * ```tsx
- * const { bookmarks, addBookmark, deleteBookmark, loading, error } = useStreamBookmarks(streamId);
+ * // Without initial data (will fetch on mount)
+ * const { bookmarks, addBookmark, deleteBookmark } = useStreamBookmarks(streamId);
+ * 
+ * // With server-prefetched data (instant, no fetch)
+ * const { bookmarks, addBookmark, deleteBookmark } = useStreamBookmarks(streamId, initialBookmarks);
  * ```
  */
 
@@ -14,7 +19,8 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import type { StreamBookmark } from "@/lib/types/database";
 
-interface BookmarkWithCreator extends StreamBookmark {
+// Export for use in server components
+export interface BookmarkWithCreator extends StreamBookmark {
   creator?: {
     id: string;
     username: string;
@@ -32,16 +38,24 @@ interface UseStreamBookmarksReturn {
   refetch: () => Promise<void>;
 }
 
-export function useStreamBookmarks(streamId: string): UseStreamBookmarksReturn {
-  const [bookmarks, setBookmarks] = useState<BookmarkWithCreator[]>([]);
-  const [loading, setLoading] = useState(true);
+export function useStreamBookmarks(
+  streamId: string,
+  initialBookmarks?: BookmarkWithCreator[]
+): UseStreamBookmarksReturn {
+  // Use initial data if provided, otherwise use empty array
+  const [bookmarks, setBookmarks] = useState<BookmarkWithCreator[]>(initialBookmarks ?? []);
+  // If initial data provided, we're not loading; otherwise we need to fetch
+  const [loading, setLoading] = useState(!initialBookmarks);
   const [error, setError] = useState<string | null>(null);
   
   // Ref to track current bookmarks for rollback without adding to callback dependencies
   const bookmarksRef = useRef<BookmarkWithCreator[]>([]);
   bookmarksRef.current = bookmarks;
+  
+  // Track if we've initialized to prevent re-fetching when initial data changes
+  const hasInitialized = useRef(!!initialBookmarks);
 
-  // Fetch bookmarks from API
+  // Fetch bookmarks from API (only if no initial data provided)
   const fetchBookmarks = useCallback(async () => {
     if (!streamId) return;
     
@@ -54,6 +68,7 @@ export function useStreamBookmarks(streamId: string): UseStreamBookmarksReturn {
       if (response.ok) {
         const data = await response.json();
         setBookmarks(data.bookmarks || []);
+        hasInitialized.current = true;
       } else {
         const errorData = await response.json().catch(() => ({}));
         const errorMessage = errorData.error || `Request failed with status ${response.status}`;
@@ -69,6 +84,10 @@ export function useStreamBookmarks(streamId: string): UseStreamBookmarksReturn {
   }, [streamId]);
 
   useEffect(() => {
+    // Skip fetch if we have initial data
+    if (hasInitialized.current) {
+      return;
+    }
     fetchBookmarks();
   }, [fetchBookmarks]);
 
