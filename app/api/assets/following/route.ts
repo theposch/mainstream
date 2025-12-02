@@ -54,11 +54,24 @@ export async function GET(request: NextRequest) {
         .eq('user_id', currentUser.id),
     ]);
 
+    // Return error if both queries fail (can't proceed without any follow data)
+    if (userFollowsResult.error && streamFollowsResult.error) {
+      console.error('[GET /api/assets/following] Error fetching follows:', {
+        userFollowsError: userFollowsResult.error,
+        streamFollowsError: streamFollowsResult.error,
+      });
+      return NextResponse.json(
+        { error: 'Failed to fetch following data' },
+        { status: 500 }
+      );
+    }
+    
+    // Log individual errors but continue with partial data (graceful degradation)
     if (userFollowsResult.error) {
-      console.error('[GET /api/assets/following] Error fetching user follows:', userFollowsResult.error);
+      console.error('[GET /api/assets/following] Error fetching user follows (continuing with stream follows):', userFollowsResult.error);
     }
     if (streamFollowsResult.error) {
-      console.error('[GET /api/assets/following] Error fetching stream follows:', streamFollowsResult.error);
+      console.error('[GET /api/assets/following] Error fetching stream follows (continuing with user follows):', streamFollowsResult.error);
     }
 
     const followingUserIds = userFollowsResult.data?.map(f => f.following_id) || [];
@@ -87,48 +100,63 @@ export async function GET(request: NextRequest) {
       streamAssetIds = streamAssets?.map(sa => sa.asset_id) || [];
     }
 
-    // Build the query based on what we're following
-    // We need assets where:
-    // - uploader_id is in followingUserIds, OR
-    // - asset id is in streamAssetIds
-    let query = supabase
-      .from('assets')
-      .select(`
-        *,
-        uploader:users!uploader_id(
-          id,
-          username,
-          display_name,
-          avatar_url,
-          email
-        ),
-        asset_streams(
-          streams(*)
-        ),
-        asset_likes(count)
-      `)
-      .order('created_at', { ascending: false })
-      .limit(limit);
+    // Build the base select query for assets
+    const baseSelect = `
+      *,
+      uploader:users!uploader_id(
+        id,
+        username,
+        display_name,
+        avatar_url,
+        email
+      ),
+      asset_streams(
+        streams(*)
+      ),
+      asset_likes(count)
+    `;
 
-    // Build filter based on what we're following
-    if (followingUserIds.length > 0 && streamAssetIds.length > 0) {
-      // Following both users and streams - use OR filter
-      query = query.or(`uploader_id.in.(${followingUserIds.join(',')}),id.in.(${streamAssetIds.join(',')})`);
-    } else if (followingUserIds.length > 0) {
-      // Only following users
-      query = query.in('uploader_id', followingUserIds);
-    } else if (streamAssetIds.length > 0) {
-      // Only following streams
-      query = query.in('id', streamAssetIds);
+    // Fetch assets using separate queries to avoid complex OR filter issues with UUIDs
+    // Then merge and deduplicate the results
+    const assetQueries: Promise<any>[] = [];
+    
+    // Query for assets from followed users
+    if (followingUserIds.length > 0) {
+      let userAssetsQuery = supabase
+        .from('assets')
+        .select(baseSelect)
+        .in('uploader_id', followingUserIds)
+        .order('created_at', { ascending: false })
+        .limit(limit);
+      
+      if (cursor) {
+        userAssetsQuery = userAssetsQuery.lt('created_at', cursor);
+      }
+      
+      assetQueries.push(userAssetsQuery);
+    }
+    
+    // Query for assets from followed streams
+    if (streamAssetIds.length > 0) {
+      let streamAssetsQuery = supabase
+        .from('assets')
+        .select(baseSelect)
+        .in('id', streamAssetIds)
+        .order('created_at', { ascending: false })
+        .limit(limit);
+      
+      if (cursor) {
+        streamAssetsQuery = streamAssetsQuery.lt('created_at', cursor);
+      }
+      
+      assetQueries.push(streamAssetsQuery);
     }
 
-    // Apply cursor pagination if provided
-    if (cursor) {
-      query = query.lt('created_at', cursor);
-    }
-
-    const { data: rawAssets, error: assetsError } = await query;
-
+    // Execute queries in parallel
+    const queryResults = await Promise.all(assetQueries);
+    
+    // Check for errors
+    const assetsError = queryResults.find(r => r.error)?.error;
     if (assetsError) {
       console.error('[GET /api/assets/following] Error fetching assets:', assetsError);
       return NextResponse.json(
@@ -136,6 +164,21 @@ export async function GET(request: NextRequest) {
         { status: 500 }
       );
     }
+
+    // Merge and deduplicate results by asset ID
+    const assetMap = new Map<string, any>();
+    queryResults.forEach(result => {
+      result.data?.forEach((asset: any) => {
+        if (!assetMap.has(asset.id)) {
+          assetMap.set(asset.id, asset);
+        }
+      });
+    });
+    
+    // Sort by created_at DESC and apply limit
+    const rawAssets = Array.from(assetMap.values())
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+      .slice(0, limit);
     
     // Batch fetch which assets the user has liked
     let userLikedAssetIds: Set<string> = new Set();
