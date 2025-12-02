@@ -42,7 +42,8 @@ export const StreamHeader = React.memo(function StreamHeader({ stream, owner }: 
   const { 
     isFollowing, 
     followerCount, 
-    followers, 
+    followers,
+    contributorCount,
     toggleFollow, 
     loading: followLoading 
   } = useStreamFollow(stream.id);
@@ -115,32 +116,41 @@ export const StreamHeader = React.memo(function StreamHeader({ stream, owner }: 
   
   return (
     <div className="flex flex-col gap-6 mb-10">
-      {/* Stream Meta */}
-      <div className="flex items-center gap-3 text-muted-foreground text-sm">
-        {/* Visibility Badge */}
-        <div className="flex items-center gap-1.5">
-          {stream.is_private ? <Lock className="h-3 w-3" /> : <Globe className="h-3 w-3" />}
-          <span>{stream.is_private ? 'Private' : 'Public'}</span>
-        </div>
-        
-        {/* Archived Badge */}
-        {stream.status === 'archived' && (
-          <>
-            <span className="text-zinc-600">·</span>
-            <div className="flex items-center gap-1.5 text-orange-500">
-              <Archive className="h-3 w-3" />
-              <span>Archived</span>
-            </div>
-          </>
-        )}
-      </div>
-
       {/* Main Header Content */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
-        <div className="space-y-4 max-w-2xl">
+        <div className="space-y-3 max-w-2xl">
           <h1 className="text-4xl md:text-5xl font-bold text-white tracking-tight">
             {stream.name}
           </h1>
+          
+          {/* Stream Meta - Under title */}
+          <div className="flex items-center gap-2 text-muted-foreground text-sm">
+            {/* Visibility Badge */}
+            <div className="flex items-center gap-1.5">
+              {stream.is_private ? <Lock className="h-3.5 w-3.5" /> : <Globe className="h-3.5 w-3.5" />}
+              <span>{stream.is_private ? 'Private' : 'Public'}</span>
+            </div>
+            
+            {/* Contributors */}
+            {contributorCount > 0 && (
+              <>
+                <span className="text-zinc-600">•</span>
+                <span>{contributorCount} {contributorCount === 1 ? 'Contributor' : 'Contributors'}</span>
+              </>
+            )}
+            
+            {/* Archived Badge */}
+            {stream.status === 'archived' && (
+              <>
+                <span className="text-zinc-600">•</span>
+                <div className="flex items-center gap-1.5 text-orange-500">
+                  <Archive className="h-3.5 w-3.5" />
+                  <span>Archived</span>
+                </div>
+              </>
+            )}
+          </div>
+          
           {stream.description && (
             <p className="text-lg text-zinc-400 leading-relaxed">
               {stream.description}

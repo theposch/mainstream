@@ -34,7 +34,7 @@ export async function GET(
     const { data: { user: currentUser } } = await supabase.auth.getUser();
 
     // Execute all queries in parallel for better performance
-    const [countResult, followersResult, userFollowResult] = await Promise.all([
+    const [countResult, followersResult, userFollowResult, contributorsResult] = await Promise.all([
       // Get follower count
       supabase
         .from('stream_follows')
@@ -67,6 +67,14 @@ export async function GET(
             .eq('user_id', currentUser.id)
             .maybeSingle()
         : Promise.resolve({ data: null, error: null }),
+      
+      // Get contributor count (unique users who have added assets to this stream)
+      supabase
+        .from('asset_streams')
+        .select(`
+          assets!inner(uploader_id)
+        `)
+        .eq('stream_id', streamId),
     ]);
 
     if (countResult.error) {
@@ -77,10 +85,19 @@ export async function GET(
       );
     }
 
+    // Calculate unique contributor count from the assets in this stream
+    const uniqueUploaders = new Set(
+      contributorsResult.data
+        ?.map((item: any) => item.assets?.uploader_id)
+        .filter(Boolean) || []
+    );
+    const contributorCount = uniqueUploaders.size;
+
     return NextResponse.json({
       isFollowing: !!userFollowResult.data,
       followerCount: countResult.count || 0,
       followers: followersResult.data?.map(f => f.users).filter(Boolean) || [],
+      contributorCount,
     });
   } catch (error) {
     console.error('[GET /api/streams/[id]/follow] Error:', error);
