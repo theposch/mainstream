@@ -193,8 +193,19 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       .eq('id', id)
       .single();
 
-    if (refetchError) {
+    if (refetchError || !updatedAsset) {
       console.error('[PATCH /api/assets/:id] Error fetching updated asset:', refetchError);
+      // Update succeeded but refetch failed - return partial success
+      // This lets client know the update worked but they may need to refresh
+      return NextResponse.json({
+        success: true,
+        partial: true,
+        message: 'Asset updated successfully but could not fetch updated data',
+        asset: {
+          id,
+          ...updates,
+        }
+      });
     }
 
     // Fetch streams separately
