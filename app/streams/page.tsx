@@ -4,7 +4,8 @@ import { StreamsGrid, StreamGridData } from "@/components/streams/streams-grid";
 export default async function StreamsPage() {
   const supabase = await createClient();
 
-  // Fetch all active streams
+  // Fetch all active streams with asset relations in a SINGLE query
+  // This eliminates the N+1 problem - previously we had O(n*2) queries, now O(1)
   const { data: streams, error } = await supabase
     .from('streams')
     .select('*')
@@ -16,44 +17,55 @@ export default async function StreamsPage() {
   }
 
   const allStreams = streams || [];
+  const streamIds = allStreams.map(s => s.id);
 
-  // Enrich each stream with asset count and recent posts
-  const streamsData: StreamGridData[] = await Promise.all(
-    allStreams.map(async (stream) => {
-      // Get asset count for this stream
-      const { count: assetsCount } = await supabase
-        .from('asset_streams')
-        .select('*', { count: 'exact', head: true })
-        .eq('stream_id', stream.id);
+  // Single batch query: get all asset relations for all streams at once
+  let assetRelationsMap = new Map<string, { count: number; posts: any[] }>();
+  
+  if (streamIds.length > 0) {
+    const { data: allAssetRelations } = await supabase
+      .from('asset_streams')
+      .select(`
+        stream_id,
+        added_at,
+        assets (
+          id,
+          url,
+          thumbnail_url,
+          title
+        )
+      `)
+      .in('stream_id', streamIds)
+      .order('added_at', { ascending: false });
 
-      // Get 4 most recent assets
-      const { data: assetRelations } = await supabase
-        .from('asset_streams')
-        .select(`
-          assets (
-            id,
-            url,
-            thumbnail_url,
-            title
-          )
-        `)
-        .eq('stream_id', stream.id)
-        .order('added_at', { ascending: false })
-        .limit(4);
+    // Group results by stream_id (O(n) instead of O(n*m) queries)
+    streamIds.forEach(id => assetRelationsMap.set(id, { count: 0, posts: [] }));
+    
+    (allAssetRelations || []).forEach((rel: any) => {
+      const entry = assetRelationsMap.get(rel.stream_id);
+      if (entry) {
+        entry.count++;
+        // Only keep first 4 posts per stream
+        if (entry.posts.length < 4 && rel.assets) {
+          entry.posts.push({
+            id: rel.assets.id || '',
+            url: rel.assets.thumbnail_url || rel.assets.url || '',
+            title: rel.assets.title || '',
+          });
+        }
+      }
+    });
+  }
 
-      const recentPosts = assetRelations?.map((rel: any) => ({
-        id: rel.assets?.id || '',
-        url: rel.assets?.thumbnail_url || rel.assets?.url || '',
-        title: rel.assets?.title || '',
-      })).filter(post => post.id) || [];
-
-      return {
-        ...stream,
-        assetsCount: assetsCount || 0,
-        recentPosts,
-      };
-    })
-  );
+  // Build enriched streams using the pre-fetched data
+  const streamsData: StreamGridData[] = allStreams.map(stream => {
+    const data = assetRelationsMap.get(stream.id) || { count: 0, posts: [] };
+    return {
+      ...stream,
+      assetsCount: data.count,
+      recentPosts: data.posts,
+    };
+  });
 
 
   return (
