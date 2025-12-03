@@ -6,6 +6,7 @@
  */
 
 import type { QueryClient } from "@tanstack/react-query";
+import type { Asset } from "@/lib/types/database";
 
 // ============================================================================
 // Query Key Factory
@@ -48,6 +49,21 @@ export interface Comment {
 // ============================================================================
 // Fetch Functions
 // ============================================================================
+
+/**
+ * Fetch a single asset by ID (for deep linking support)
+ */
+export async function fetchAssetById(assetId: string): Promise<Asset | null> {
+  const response = await fetch(`/api/assets/${assetId}`);
+  
+  if (!response.ok) {
+    if (response.status === 404) return null;
+    throw new Error("Failed to fetch asset");
+  }
+  
+  const data = await response.json();
+  return data.asset || null;
+}
 
 /**
  * Fetch comments for an asset

@@ -3,6 +3,7 @@
 import * as React from "react";
 import { X, Upload, Loader2, Users } from "lucide-react";
 import { useQueryState } from "nuqs";
+import { useQuery } from "@tanstack/react-query";
 import { FeedTabs } from "./feed-tabs";
 import { MasonryGrid } from "@/components/assets/masonry-grid";
 import { AssetDetail } from "@/components/assets/asset-detail";
@@ -11,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
 import { useAssetsInfinite } from "@/lib/hooks/use-assets-infinite";
 import { useFollowingAssets } from "@/lib/hooks/use-following-assets";
+import { assetKeys, fetchAssetById } from "@/lib/queries/asset-queries";
 import type { Asset } from "@/lib/types/database";
 
 interface DashboardFeedProps {
@@ -135,9 +137,9 @@ export const DashboardFeed = React.memo(function DashboardFeed({ initialAssets }
   const isEmpty = !isSearching && baseAssets.length === 0;
 
   // Find selected asset from current assets for modal
-  const selectedAsset = React.useMemo(() => {
+  const assetFromCache = React.useMemo(() => {
     if (!selectedAssetId) return null;
-    // Search in all asset sources
+    // Search in all loaded asset sources
     return (
       assets.find((a) => a.id === selectedAssetId) ||
       followingAssets.find((a) => a.id === selectedAssetId) ||
@@ -145,6 +147,18 @@ export const DashboardFeed = React.memo(function DashboardFeed({ initialAssets }
       null
     );
   }, [selectedAssetId, assets, followingAssets, searchResults]);
+
+  // Deep linking support: fetch asset from API if not in cache
+  // This handles direct URLs like /home?asset=xxx
+  const { data: fetchedAsset } = useQuery({
+    queryKey: assetKeys.detail(selectedAssetId || ""),
+    queryFn: () => fetchAssetById(selectedAssetId!),
+    enabled: !!selectedAssetId && !assetFromCache, // Only fetch if not in cache
+    staleTime: 5 * 60 * 1000,
+  });
+
+  // Use cached asset if available, otherwise use fetched asset
+  const selectedAsset = assetFromCache || fetchedAsset || null;
 
   // Modal handlers
   const handleAssetClick = React.useCallback(

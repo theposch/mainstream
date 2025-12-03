@@ -40,7 +40,7 @@ interface User {
 interface CommentItemProps {
   comment: Comment;
   author?: User;
-  currentUser: User;
+  currentUser: User | null;
   onReply: (commentId: string) => void;
   onEdit: (commentId: string, newContent: string) => Promise<void>;
   onStartEdit: (commentId: string) => void;
