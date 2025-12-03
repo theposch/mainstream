@@ -58,6 +58,10 @@ export interface Asset {
   uploader_id: string;
   created_at: string;
   updated_at?: string;
+  // Embed support (for URL-based assets like Figma, YouTube, etc.)
+  asset_type?: 'image' | 'embed';
+  embed_url?: string;  // Original URL (e.g., figma.com/file/...)
+  embed_provider?: string;  // Provider identifier (e.g., 'figma', 'youtube')
   // Joined data (pre-fetched to prevent N+1 queries)
   uploader?: User;
   streams?: Stream[];

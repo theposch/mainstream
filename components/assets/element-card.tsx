@@ -4,12 +4,13 @@ import * as React from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { Heart, Bookmark, Play } from "lucide-react";
+import { Heart, Bookmark, Play, ExternalLink } from "lucide-react";
 import { StreamBadge } from "@/components/streams/stream-badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import { useAssetLike } from "@/lib/hooks/use-asset-like";
 import { useAssetPrefetch } from "@/lib/hooks/use-asset-prefetch";
+import { getProviderInfo, type EmbedProvider } from "@/lib/utils/embed-providers";
 import type { Asset } from "@/lib/types/database";
 
 interface ElementCardProps {
@@ -74,6 +75,11 @@ export const ElementCard = React.memo(
   // Check if this is an animated GIF
   const isGif = asset.mime_type === 'image/gif';
 
+  // Check if this is an embed asset (Figma, YouTube, etc.)
+  const isEmbed = asset.asset_type === 'embed';
+  const embedProvider = isEmbed ? (asset.embed_provider as EmbedProvider) : null;
+  const providerInfo = embedProvider ? getProviderInfo(embedProvider) : null;
+
   // Progressive loading: use thumbnailUrl first, then upgrade to mediumUrl or full url
   // For GIFs: thumbnail is static JPEG, medium/full are animated
   // On hover for GIFs: show animated version
@@ -108,10 +114,20 @@ export const ElementCard = React.memo(
           {/* Aspect Ratio Container */}
           <div 
             className="relative w-full"
-            style={{ paddingBottom: `${aspectRatio}%` }}
+            style={{ paddingBottom: isEmbed ? '56.25%' : `${aspectRatio}%` }}
           >
-            {/* Use unoptimized for GIFs to preserve animation */}
-            {isGif && isHovered ? (
+            {/* Embed placeholder (Figma, YouTube, etc.) */}
+            {isEmbed && providerInfo ? (
+              <div className="absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-br from-zinc-900 via-zinc-800 to-zinc-900">
+                <div className={cn(
+                  "flex items-center justify-center w-16 h-16 rounded-2xl mb-3 shadow-lg",
+                  providerInfo.bgColor
+                )}>
+                  <span className="text-3xl">{providerInfo.icon}</span>
+                </div>
+                <span className="text-sm font-medium text-zinc-400">{providerInfo.name}</span>
+              </div>
+            ) : isGif && isHovered ? (
               // Animated GIF on hover - use img tag to ensure animation plays
               // eslint-disable-next-line @next/next/no-img-element
               <img
@@ -154,6 +170,19 @@ export const ElementCard = React.memo(
                   GIF
                 </>
               )}
+            </div>
+          )}
+
+          {/* Embed Badge - Always visible for embeds */}
+          {isEmbed && providerInfo && (
+            <div className={cn(
+              "absolute top-3 left-3 z-10 flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-bold transition-all duration-200",
+              providerInfo.bgColor,
+              "text-white"
+            )}>
+              <span>{providerInfo.icon}</span>
+              <span>{providerInfo.name.toUpperCase()}</span>
+              <ExternalLink className="w-3 h-3 ml-0.5 opacity-70" />
             </div>
           )}
 

@@ -1,0 +1,198 @@
+/**
+ * Embed Asset API Route
+ * 
+ * Creates a new asset from a URL (Figma, YouTube, etc.)
+ * 
+ * POST /api/assets/embed - Create an embed asset
+ */
+
+import { NextRequest, NextResponse } from 'next/server';
+import { createClient } from '@/lib/supabase/server';
+import {
+  detectProvider,
+  isSupportedUrl,
+  getFigmaTitle,
+  getProviderInfo,
+} from '@/lib/utils/embed-providers';
+
+export const dynamic = 'force-dynamic';
+
+export async function POST(request: NextRequest) {
+  console.log('[POST /api/assets/embed] Starting embed creation...');
+
+  const supabase = await createClient();
+
+  // Check authentication
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (authError || !user) {
+    console.log('[POST /api/assets/embed] Authentication failed');
+    return NextResponse.json(
+      { error: 'Authentication required' },
+      { status: 401 }
+    );
+  }
+
+  try {
+    const body = await request.json();
+    const { url, title, description, streamIds } = body;
+
+    // Validate URL
+    if (!url || typeof url !== 'string') {
+      return NextResponse.json(
+        { error: 'URL is required' },
+        { status: 400 }
+      );
+    }
+
+    // Validate URL format
+    try {
+      new URL(url);
+    } catch {
+      return NextResponse.json(
+        { error: 'Invalid URL format' },
+        { status: 400 }
+      );
+    }
+
+    // Detect provider
+    const provider = detectProvider(url);
+    
+    if (!isSupportedUrl(url)) {
+      const supportedList = 'Figma';
+      return NextResponse.json(
+        { error: `Unsupported URL. Currently supported: ${supportedList}` },
+        { status: 400 }
+      );
+    }
+
+    console.log(`[POST /api/assets/embed] Detected provider: ${provider}`);
+
+    // Extract title from URL if not provided
+    let finalTitle = title?.trim();
+    if (!finalTitle) {
+      if (provider === 'figma') {
+        finalTitle = getFigmaTitle(url) || 'Figma Design';
+      } else {
+        finalTitle = 'Embedded Content';
+      }
+    }
+
+    // Get provider info for default display
+    const providerInfo = getProviderInfo(provider);
+
+    // Ensure user profile exists in public.users
+    const { data: existingUser, error: userCheckError } = await supabase
+      .from('users')
+      .select('id')
+      .eq('id', user.id)
+      .single();
+
+    if (userCheckError && userCheckError.code === 'PGRST116') {
+      // User doesn't exist, create them
+      const username = user.email?.split('@')[0] || `user_${user.id.slice(0, 8)}`;
+      const displayName = user.user_metadata?.full_name || username;
+      
+      const { error: createUserError } = await supabase
+        .from('users')
+        .insert({
+          id: user.id,
+          username: username,
+          display_name: displayName,
+          avatar_url: user.user_metadata?.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${username}`,
+        });
+
+      if (createUserError) {
+        console.error('[POST /api/assets/embed] Error creating user profile:', createUserError);
+      }
+    }
+
+    // Create the asset record
+    const assetData = {
+      title: finalTitle,
+      description: description?.trim() || null,
+      type: 'embed',  // Legacy type field
+      asset_type: 'embed',
+      embed_url: url,
+      embed_provider: provider,
+      // For embeds, we don't have actual image URLs
+      // We'll use placeholder values that the UI will handle
+      url: url,  // Store original URL as fallback
+      uploader_id: user.id,
+    };
+
+    console.log('[POST /api/assets/embed] Creating asset with data:', assetData);
+
+    const { data: asset, error: assetError } = await supabase
+      .from('assets')
+      .insert(assetData)
+      .select(`
+        *,
+        uploader:users!uploader_id (
+          id,
+          username,
+          display_name,
+          avatar_url
+        )
+      `)
+      .single();
+
+    if (assetError) {
+      console.error('[POST /api/assets/embed] Error creating asset:', assetError);
+      return NextResponse.json(
+        { error: 'Failed to create embed asset' },
+        { status: 500 }
+      );
+    }
+
+    console.log('[POST /api/assets/embed] Asset created:', asset.id);
+
+    // Associate with streams if provided
+    if (streamIds && Array.isArray(streamIds) && streamIds.length > 0) {
+      const streamAssociations = streamIds.map((streamId: string) => ({
+        asset_id: asset.id,
+        stream_id: streamId,
+      }));
+
+      const { error: streamError } = await supabase
+        .from('asset_streams')
+        .insert(streamAssociations);
+
+      if (streamError) {
+        console.error('[POST /api/assets/embed] Error associating streams:', streamError);
+        // Non-fatal - continue
+      } else {
+        console.log(`[POST /api/assets/embed] Associated with ${streamIds.length} stream(s)`);
+      }
+
+      // Fetch the streams for the response
+      const { data: streams } = await supabase
+        .from('streams')
+        .select('id, name, description, owner_type, owner_id, is_private, status, cover_image_url, created_at, updated_at')
+        .in('id', streamIds);
+
+      if (streams) {
+        asset.streams = streams;
+      }
+    }
+
+    console.log('[POST /api/assets/embed] Embed creation complete');
+
+    return NextResponse.json({
+      success: true,
+      asset: {
+        ...asset,
+        likeCount: 0,
+        isLikedByCurrentUser: false,
+        view_count: 0,
+      },
+    });
+
+  } catch (error) {
+    console.error('[POST /api/assets/embed] Unexpected error:', error);
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
+  }
+}
+
