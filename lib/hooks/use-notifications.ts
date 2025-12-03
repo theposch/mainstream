@@ -72,6 +72,7 @@ export function useNotifications(): UseNotificationsReturn {
   useEffect(() => {
     const supabase = createClient();
     let channel: any = null;
+    let hasLoggedError = false; // Only log once per session
 
     const setupSubscription = async () => {
       const { data: { user } } = await supabase.auth.getUser();
@@ -126,17 +127,11 @@ export function useNotifications(): UseNotificationsReturn {
           }
         )
         .subscribe((status) => {
-          // Only log subscription issues in development
-          if (process.env.NODE_ENV === 'development') {
-            if (status === 'SUBSCRIBED') {
-              // Connected to real-time notifications
-            } else if (status === 'CHANNEL_ERROR') {
-              console.warn('[useNotifications] Real-time unavailable - using polling fallback');
-            }
+          // Only log once per session to avoid console spam
+          if (status === 'CHANNEL_ERROR' && !hasLoggedError) {
+            hasLoggedError = true;
+            // Silently handle - real-time is optional, initial fetch still works
           }
-          
-          // Don't set error state - app works fine without real-time
-          // Notifications will still load via the initial fetch
         });
     };
 

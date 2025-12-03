@@ -33,14 +33,8 @@ const PREFETCH_DELAY_MS = 150; // Wait 150ms before prefetching to avoid unneces
 function preloadImage(url: string): Promise<void> {
   return new Promise((resolve, reject) => {
     const img = new window.Image();
-    img.onload = () => {
-      console.log(`[useAssetPrefetch] Image preloaded: ${url.substring(0, 50)}...`);
-      resolve();
-    };
-    img.onerror = () => {
-      console.warn(`[useAssetPrefetch] Failed to preload image: ${url.substring(0, 50)}...`);
-      reject(new Error('Failed to preload image'));
-    };
+    img.onload = () => resolve();
+    img.onerror = () => reject(new Error('Failed to preload image'));
     img.src = url;
   });
 }
@@ -58,8 +52,6 @@ export function useAssetPrefetch(assetId: string, fullImageUrl?: string): UseAss
 
     // Set a new timeout to prefetch after delay
     timeoutRef.current = setTimeout(() => {
-      console.log(`[useAssetPrefetch] Prefetching data for asset: ${assetId}`);
-      
       // Prefetch comments/data
       prefetchAssetData(queryClient, assetId);
       
