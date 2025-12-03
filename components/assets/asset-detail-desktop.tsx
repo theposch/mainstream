@@ -4,7 +4,7 @@ import * as React from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { motion, AnimatePresence } from "framer-motion";
+// Removed framer-motion for instant modal opening - no animation delay
 import { createClient } from "@/lib/supabase/client";
 import { useAssetComments } from "@/lib/hooks/use-asset-comments";
 import { useAssetLike } from "@/lib/hooks/use-asset-like";
@@ -12,7 +12,7 @@ import { useUserFollow } from "@/lib/hooks/use-user-follow";
 import { StreamBadge } from "@/components/streams/stream-badge";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { KEYS, ANIMATION_DURATION, ANIMATION_EASING, IMAGE_SIZES } from "@/lib/constants";
+import { KEYS, IMAGE_SIZES } from "@/lib/constants";
 import { X, Heart, MessageCircle, Share2, Download, MoreHorizontal, Reply, Trash2, Eye, Loader2, Pencil } from "lucide-react";
 import { CommentList } from "./comment-list";
 import { CommentInput } from "./comment-input";
@@ -336,25 +336,16 @@ export function AssetDetailDesktop({ asset, onClose }: AssetDetailDesktopProps) 
       {/* Left: Media View */}
       <div className="flex-1 relative bg-zinc-950 flex items-center justify-center p-4 md:p-10 overflow-y-auto">
         <div className="relative w-full h-full max-h-[90vh] flex items-center justify-center">
-          <AnimatePresence mode="wait">
-            <motion.div 
-              key={asset.id}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: ANIMATION_DURATION.fast, ease: ANIMATION_EASING.easeInOut }}
-              className="relative w-full h-full"
-            >
-              <Image
-                src={asset.url}
-                alt={asset.title}
-                fill
-                className="object-contain"
-                sizes={IMAGE_SIZES.full}
-                priority
-              />
-            </motion.div>
-          </AnimatePresence>
+          <div className="relative w-full h-full">
+            <Image
+              src={asset.url}
+              alt={asset.title}
+              fill
+              className="object-contain"
+              sizes={IMAGE_SIZES.full}
+              priority
+            />
+          </div>
         </div>
       </div>
 
@@ -362,15 +353,7 @@ export function AssetDetailDesktop({ asset, onClose }: AssetDetailDesktopProps) 
       <div className="w-[400px] lg:w-[480px] bg-black border-l border-zinc-900 flex flex-col h-full overflow-hidden shrink-0">
         {/* Scrollable Content */}
         <div className="flex-1 overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-          <AnimatePresence mode="wait">
-            <motion.div 
-              key={asset.id}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: ANIMATION_DURATION.fast, ease: ANIMATION_EASING.easeInOut }}
-              className="p-6 space-y-5 pb-20"
-            >
+          <div className="p-6 space-y-5 pb-20">
               {/* 1. Title + 3-dot Menu Row */}
               <div className="flex items-start justify-between gap-4">
                 <h1 className="text-2xl font-bold text-white leading-tight flex-1">
@@ -507,8 +490,7 @@ export function AssetDetailDesktop({ asset, onClose }: AssetDetailDesktopProps) 
                   onCancelEdit={() => setEditingCommentId(null)}
                 />
               </div>
-            </motion.div>
-          </AnimatePresence>
+            </div>
         </div>
 
         {/* Fixed Comment Input */}
