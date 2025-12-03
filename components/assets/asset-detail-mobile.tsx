@@ -270,7 +270,7 @@ export function AssetDetailMobile({ asset, onClose }: AssetDetailMobileProps) {
 
   // Handle edit success - update local state optimistically
   const handleEditSuccess = React.useCallback((updatedAsset: Partial<Asset>) => {
-    setLocalAsset((prev) => ({
+    setLocalAsset((prev: Asset) => ({
       ...prev,
       title: updatedAsset.title ?? prev.title,
       description: updatedAsset.description ?? prev.description,

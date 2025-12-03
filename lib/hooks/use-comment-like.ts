@@ -82,7 +82,9 @@ export function useCommentLike(
         },
         (payload) => {
           // Ignore our own actions - we already handled them optimistically
-          const eventUserId = payload.new?.user_id || payload.old?.user_id;
+          const newRecord = payload.new as { user_id?: string } | null;
+          const oldRecord = payload.old as { user_id?: string } | null;
+          const eventUserId = newRecord?.user_id || oldRecord?.user_id;
           if (eventUserId === currentUserIdRef.current) return;
 
           if (payload.eventType === "INSERT") {

@@ -3,7 +3,7 @@
  * 
  * This module handles all image optimization and resizing operations.
  * Sharp is a high-performance Node.js image processing library that
- * supports various formats (JPEG, PNG, WebP, AVIF, etc.).
+ * supports various formats (JPEG, PNG, WebP, AVIF, GIF, etc.).
  * 
  * Key Features:
  * - Fast processing (10-20x faster than ImageMagick)
@@ -12,6 +12,7 @@
  * - Smart compression (format-specific)
  * - Maintains aspect ratios
  * - No image enlargement
+ * - **Animated GIF support** (preserves animation)
  * 
  * Dependencies:
  * - sharp (npm install sharp)
@@ -36,8 +37,10 @@ import sharp from 'sharp';
 export interface ImageMetadata {
   width: number;
   height: number;
-  format: string; // 'jpeg', 'png', 'webp', etc.
+  format: string; // 'jpeg', 'png', 'webp', 'gif', etc.
   size: number;   // File size in bytes
+  isAnimated: boolean; // True if GIF has multiple frames
+  pages?: number; // Number of frames for animated GIFs
 }
 
 /**
@@ -46,17 +49,24 @@ export interface ImageMetadata {
  * Uses Sharp to read image dimensions, format, and other properties
  * without fully decoding the image. Fast and memory efficient.
  * 
+ * For GIFs, also detects if the image is animated (has multiple frames).
+ * 
  * @param buffer - Image buffer from file upload
- * @returns Image metadata (dimensions, format, size)
+ * @returns Image metadata (dimensions, format, size, animation info)
  */
 export async function extractImageMetadata(buffer: Buffer): Promise<ImageMetadata> {
   const metadata = await sharp(buffer).metadata();
+  
+  // Detect animated GIF: format is 'gif' and has multiple pages (frames)
+  const isAnimated = metadata.format === 'gif' && (metadata.pages ?? 1) > 1;
   
   return {
     width: metadata.width || 0,
     height: metadata.height || 0,
     format: metadata.format || 'unknown',
     size: buffer.length,
+    isAnimated,
+    pages: metadata.pages,
   };
 }
 
@@ -158,5 +168,106 @@ export async function isValidImage(buffer: Buffer): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+// ============================================================================
+// Animated GIF Support
+// ============================================================================
+
+/**
+ * Checks if an image buffer is an animated GIF
+ * 
+ * Animated GIFs have multiple "pages" (frames). This function reads
+ * the metadata to determine if there's more than one frame.
+ * 
+ * @param buffer - Image buffer to check
+ * @returns True if animated GIF, false otherwise
+ */
+export async function isAnimatedGif(buffer: Buffer): Promise<boolean> {
+  try {
+    const metadata = await sharp(buffer).metadata();
+    return metadata.format === 'gif' && (metadata.pages ?? 1) > 1;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Optimizes an animated GIF while preserving all frames
+ * 
+ * Resizes the GIF if it exceeds max dimensions, but keeps all frames
+ * intact for smooth animation playback.
+ * 
+ * Options:
+ * - animated: true - Process all frames, not just the first
+ * - fit: 'inside' - Maintains aspect ratio within bounds
+ * - withoutEnlargement: true - Never upscales small GIFs
+ * 
+ * Note: Animated GIFs are typically larger than static images.
+ * Consider file size limits when uploading.
+ * 
+ * @param buffer - Original animated GIF buffer
+ * @param maxWidth - Maximum width (default: 1200px)
+ * @param maxHeight - Maximum height (default: 1200px)
+ * @returns Optimized animated GIF buffer
+ */
+export async function optimizeAnimatedGif(
+  buffer: Buffer,
+  maxWidth: number = 1200,
+  maxHeight: number = 1200
+): Promise<Buffer> {
+  return await sharp(buffer, { animated: true })
+    .resize(maxWidth, maxHeight, {
+      fit: 'inside',
+      withoutEnlargement: true,
+    })
+    .gif({
+      // Use reasonable compression without losing too much quality
+      effort: 7, // 1-10, higher = smaller file, slower
+    })
+    .toBuffer();
+}
+
+/**
+ * Generates a medium-sized animated GIF (800px max)
+ * 
+ * Creates a smaller version of the animated GIF for detail views
+ * while preserving all frames for smooth playback.
+ * 
+ * @param buffer - Original animated GIF buffer
+ * @returns Medium-sized animated GIF buffer (max 800x800px)
+ */
+export async function generateAnimatedMedium(buffer: Buffer): Promise<Buffer> {
+  return await sharp(buffer, { animated: true })
+    .resize(800, 800, {
+      fit: 'inside',
+      withoutEnlargement: true,
+    })
+    .gif({ effort: 7 })
+    .toBuffer();
+}
+
+/**
+ * Generates a static thumbnail from the first frame of a GIF
+ * 
+ * Extracts the first frame of an animated GIF and creates a static
+ * JPEG thumbnail. This is much smaller than an animated thumbnail
+ * and loads faster in image grids.
+ * 
+ * The user sees the static thumbnail, then can click to view the
+ * animated version in the detail view.
+ * 
+ * @param buffer - Animated GIF buffer
+ * @returns Static JPEG thumbnail (max 300x300px)
+ */
+export async function generateGifThumbnail(buffer: Buffer): Promise<Buffer> {
+  // Sharp with animated: false (default) only reads the first frame
+  return await sharp(buffer, { animated: false })
+    .resize(300, 300, {
+      fit: 'inside',
+      withoutEnlargement: true,
+    })
+    .jpeg({ quality: 80, progressive: true })
+    .toBuffer();
 }
 
