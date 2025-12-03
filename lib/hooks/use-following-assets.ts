@@ -2,7 +2,7 @@
  * Following Assets Hook
  * 
  * Provides infinite scrolling functionality for assets from followed users
- * using cursor-based pagination.
+ * using cursor-based pagination with React Query for caching.
  * 
  * Usage:
  * ```tsx
@@ -12,56 +12,74 @@
 
 "use client";
 
-import { useState, useCallback } from "react";
+import { useCallback, useMemo } from "react";
+import { useInfiniteQuery } from "@tanstack/react-query";
 import type { Asset } from "@/lib/types/database";
+
+interface FollowingAssetsResponse {
+  assets: Asset[];
+  hasMore: boolean;
+  cursor: string | null;
+}
 
 interface UseFollowingAssetsReturn {
   assets: Asset[];
-  loadMore: () => Promise<void>;
+  loadMore: () => void;
   hasMore: boolean;
   loading: boolean;
   error: string | null;
 }
 
+const fetchFollowingAssets = async ({ pageParam }: { pageParam: string | null }): Promise<FollowingAssetsResponse> => {
+  const url = new URL('/api/assets/following', window.location.origin);
+  if (pageParam) {
+    url.searchParams.set('cursor', pageParam);
+  }
+  url.searchParams.set('limit', '20');
+
+  const response = await fetch(url.toString());
+
+  if (!response.ok) {
+    throw new Error('Failed to fetch following assets');
+  }
+
+  return response.json();
+};
+
 export function useFollowingAssets(): UseFollowingAssetsReturn {
-  const [assets, setAssets] = useState<Asset[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [hasMore, setHasMore] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [cursor, setCursor] = useState<string | null>(null);
+  const {
+    data,
+    fetchNextPage,
+    hasNextPage,
+    isFetching,
+    isFetchingNextPage,
+    error,
+  } = useInfiniteQuery({
+    queryKey: ['assets', 'following'],
+    queryFn: fetchFollowingAssets,
+    initialPageParam: null as string | null,
+    getNextPageParam: (lastPage) => lastPage.hasMore ? lastPage.cursor : undefined,
+    staleTime: 5 * 60 * 1000, // 5 minutes - cached between tab switches
+    gcTime: 30 * 60 * 1000, // 30 minutes
+  });
 
-  const loadMore = useCallback(async () => {
-    if (loading || (!hasMore && cursor !== null)) return;
-    
-    setLoading(true);
-    setError(null);
+  // Flatten all pages into a single array
+  const assets = useMemo(() => {
+    return data?.pages.flatMap(page => page.assets) || [];
+  }, [data]);
 
-    try {
-      const url = new URL('/api/assets/following', window.location.origin);
-      if (cursor) {
-        url.searchParams.set('cursor', cursor);
-      }
-      url.searchParams.set('limit', '20');
-
-      const response = await fetch(url.toString());
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch following assets');
-      }
-
-      const data = await response.json();
-      
-      setAssets((prev) => [...prev, ...(data.assets || [])]);
-      setHasMore(data.hasMore || false);
-      setCursor(data.cursor || null);
-    } catch (err) {
-      console.error("[useFollowingAssets] Error loading assets:", err);
-      setError(err instanceof Error ? err.message : 'Unknown error');
-    } finally {
-      setLoading(false);
+  const loadMore = useCallback(() => {
+    if (!isFetching && hasNextPage) {
+      fetchNextPage();
     }
-  }, [cursor, loading, hasMore]);
+  }, [fetchNextPage, hasNextPage, isFetching]);
 
-  return { assets, loadMore, hasMore, loading, error };
+  return {
+    assets,
+    loadMore,
+    hasMore: hasNextPage ?? true,
+    loading: isFetching || isFetchingNextPage,
+    error: error instanceof Error ? error.message : null,
+  };
 }
 
