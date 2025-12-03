@@ -50,35 +50,43 @@ export async function GET(
       );
     }
 
-    // Enhance comments with like counts and user's like status
-    const enhancedComments = await Promise.all(
-      (comments || []).map(async (comment) => {
-        // Get total like count for this comment
-        const { count: likeCount } = await supabase
-          .from('comment_likes')
-          .select('*', { count: 'exact', head: true })
-          .eq('comment_id', comment.id);
+    // Early return if no comments
+    if (!comments || comments.length === 0) {
+      return NextResponse.json({ comments: [] });
+    }
 
-        // Check if current user has liked this comment
-        let hasLiked = false;
-        if (currentUser) {
-          const { data: userLike } = await supabase
-            .from('comment_likes')
-            .select('*')
-            .eq('comment_id', comment.id)
-            .eq('user_id', currentUser.id)
-            .single();
+    const commentIds = comments.map(c => c.id);
 
-          hasLiked = !!userLike;
-        }
+    // Batch fetch: Get all like counts in one query
+    const { data: likeCounts } = await supabase
+      .from('comment_likes')
+      .select('comment_id')
+      .in('comment_id', commentIds);
 
-        return {
-          ...comment,
-          likes: likeCount || 0,
-          has_liked: hasLiked,
-        };
-      })
-    );
+    // Count likes per comment
+    const likeCountMap: Record<string, number> = {};
+    (likeCounts || []).forEach(like => {
+      likeCountMap[like.comment_id] = (likeCountMap[like.comment_id] || 0) + 1;
+    });
+
+    // Batch fetch: Get current user's likes in one query
+    let userLikedCommentIds = new Set<string>();
+    if (currentUser) {
+      const { data: userLikes } = await supabase
+        .from('comment_likes')
+        .select('comment_id')
+        .in('comment_id', commentIds)
+        .eq('user_id', currentUser.id);
+
+      userLikedCommentIds = new Set((userLikes || []).map(l => l.comment_id));
+    }
+
+    // Enhance comments with batch-fetched data
+    const enhancedComments = comments.map(comment => ({
+      ...comment,
+      likes: likeCountMap[comment.id] || 0,
+      has_liked: userLikedCommentIds.has(comment.id),
+    }));
 
     return NextResponse.json({ comments: enhancedComments });
   } catch (error) {
@@ -163,13 +171,24 @@ export async function POST(
 
     // Create notification if commenting on someone else's asset
     if (asset && asset.uploader_id !== user.id) {
-      await supabase.from('notifications').insert({
-        type: parent_id ? 'reply_comment' : 'like_comment',
+      // Truncate comment for preview (max 100 chars)
+      const commentPreview = content.trim().length > 100 
+        ? content.trim().substring(0, 100) + '...' 
+        : content.trim();
+
+      const { error: notificationError } = await supabase.from('notifications').insert({
+        type: parent_id ? 'reply_comment' : 'comment',
         recipient_id: asset.uploader_id,
         actor_id: user.id,
-        resource_id: comment.id,
-        resource_type: 'comment',
+        resource_id: assetId,
+        resource_type: 'asset',
+        content: commentPreview,
+        comment_id: comment.id,
       });
+
+      if (notificationError) {
+        console.warn('[POST /api/assets/[id]/comments] Failed to create notification:', notificationError);
+      }
     }
 
     return NextResponse.json({ comment }, { status: 201 });

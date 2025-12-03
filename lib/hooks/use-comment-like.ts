@@ -12,7 +12,7 @@
 
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 
 interface UseCommentLikeReturn {
@@ -30,6 +30,8 @@ export function useCommentLike(
   const [isLiked, setIsLiked] = useState(initialLiked);
   const [likeCount, setLikeCount] = useState(initialCount);
   const [loading, setLoading] = useState(false);
+  // Use ref to avoid stale closure in real-time callback
+  const currentUserIdRef = useRef<string | null>(null);
 
   // Subscribe to real-time like count changes
   useEffect(() => {
@@ -38,6 +40,11 @@ export function useCommentLike(
     // Fetch current like count and user's like status
     const fetchLikeData = async () => {
       const { data: { user } } = await supabase.auth.getUser();
+      
+      // Store current user ID for filtering real-time events
+      if (user) {
+        currentUserIdRef.current = user.id;
+      }
 
       // Get total like count
       const { count } = await supabase
@@ -62,7 +69,7 @@ export function useCommentLike(
 
     fetchLikeData();
 
-    // Subscribe to real-time changes
+    // Subscribe to real-time changes (for OTHER users' actions only)
     const channel = supabase
       .channel(`comment_likes:${commentId}`)
       .on(
@@ -74,6 +81,10 @@ export function useCommentLike(
           filter: `comment_id=eq.${commentId}`,
         },
         (payload) => {
+          // Ignore our own actions - we already handled them optimistically
+          const eventUserId = payload.new?.user_id || payload.old?.user_id;
+          if (eventUserId === currentUserIdRef.current) return;
+
           if (payload.eventType === "INSERT") {
             setLikeCount((prev) => prev + 1);
           } else if (payload.eventType === "DELETE") {

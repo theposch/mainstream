@@ -27,6 +27,8 @@ Design collaboration platform for internal teams to share work and organize into
 ✅ **Complete** - Stream following (follow streams, see posts in Following tab)  
 ✅ **Complete** - Stream bookmarks (external links with favicons)  
 ✅ **Complete** - Real-time likes and comments  
+✅ **Complete** - Comment likes  
+✅ **Complete** - View tracking ("Seen by X people" with viewer tooltip)  
 ✅ **Complete** - Following feed (users + streams)  
 ✅ **Complete** - User profiles and settings  
 ✅ **Complete** - Performance optimizations (N+1 fixes, memoization, server prefetch)  
@@ -70,7 +72,7 @@ Organizational units that support many-to-many relationships with assets. An ass
 - Contributor tooltip showing who has posted to the stream
 
 ### Assets
-Uploaded designs and images organized by streams. Supports likes, comments, and deletion by owner.
+Uploaded designs and images organized by streams. Supports likes, comments, view tracking ("Seen by X people" with hover tooltip), and deletion by owner.
 
 ### Search
 Real-time search across assets, users, and streams with auto-suggest and accurate total counts.

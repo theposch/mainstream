@@ -64,6 +64,17 @@ export interface Asset {
   // Pre-fetched like data (server provides both count and status)
   likeCount?: number;
   isLikedByCurrentUser?: boolean;
+  // Pre-fetched view count (denormalized for performance)
+  view_count?: number;
+}
+
+// Viewer type for tooltip display
+export interface AssetViewer {
+  id: string;
+  username: string;
+  display_name: string;
+  avatar_url: string | null;
+  viewed_at: string;
 }
 
 export interface StreamResource {

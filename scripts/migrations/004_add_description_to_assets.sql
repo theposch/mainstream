@@ -9,3 +9,5 @@ ADD COLUMN IF NOT EXISTS description TEXT;
 -- Add comment explaining the column
 COMMENT ON COLUMN assets.description IS 'Optional description for the asset, can include hashtags and stream mentions';
 
+
+

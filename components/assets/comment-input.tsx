@@ -4,6 +4,8 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Loader2, Type, Smile, AtSign, Send } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { User } from "@/lib/types/database";
+import { useTypingIndicator } from "@/lib/hooks/use-typing-indicator";
+import { TypingIndicator } from "./typing-indicator";
 
 interface CommentInputProps {
   currentUser: any; // User from database with snake_case fields
@@ -13,6 +15,7 @@ interface CommentInputProps {
   autoFocus?: boolean;
   initialValue?: string;
   onCancel?: () => void;
+  assetId?: string; // For typing indicator
 }
 
 export const CommentInput = React.memo(function CommentInput({
@@ -22,11 +25,15 @@ export const CommentInput = React.memo(function CommentInput({
   placeholder = "Add a comment...",
   autoFocus = false,
   initialValue = "",
-  onCancel
+  onCancel,
+  assetId
 }: CommentInputProps) {
   const [content, setContent] = React.useState(initialValue);
   const textareaRef = React.useRef<HTMLTextAreaElement>(null);
   const MAX_CHARS = 2000;
+  
+  // Typing indicator
+  const { typingUsers, setTyping } = useTypingIndicator(assetId || "");
 
   // Mention State
   const [showMentions, setShowMentions] = React.useState(false);
@@ -65,6 +72,11 @@ export const CommentInput = React.memo(function CommentInput({
   const handleContentChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const newContent = e.target.value;
     setContent(newContent);
+    
+    // Notify typing indicator
+    if (assetId && newContent.length > 0) {
+      setTyping(true);
+    }
 
     // Check for mention trigger
     const cursorPosition = e.target.selectionStart;
@@ -116,6 +128,9 @@ export const CommentInput = React.memo(function CommentInput({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!content.trim() || isSubmitting) return;
+    
+    // Clear typing indicator
+    if (assetId) setTyping(false);
     
     await onSubmit(content.trim());
     if (!onCancel) {
@@ -273,6 +288,9 @@ export const CommentInput = React.memo(function CommentInput({
                     </div>
                 </div>
             </form>
+            
+            {/* Typing indicator */}
+            {assetId && <TypingIndicator users={typingUsers} />}
         </div>
     </div>
   );

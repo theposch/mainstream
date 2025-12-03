@@ -80,3 +80,5 @@ echo "   2. Upload your first asset"
 echo "   3. Enjoy the fresh start! 🎉"
 echo ""
 
+
+
