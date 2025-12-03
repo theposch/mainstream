@@ -5,7 +5,8 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import useEmblaCarousel from "embla-carousel-react";
-import { X, Reply, Heart, MessageCircle, Loader2 } from "lucide-react";
+import { X, Reply, Heart, MessageCircle, Loader2, ExternalLink } from "lucide-react";
+import { getFigmaEmbedUrl, getProviderInfo, type EmbedProvider } from "@/lib/utils/embed-providers";
 import { useAssetView } from "@/lib/hooks/use-asset-view";
 import { ViewersTooltip } from "./viewers-tooltip";
 import { Button } from "@/components/ui/button";
@@ -303,7 +304,7 @@ export function AssetDetailMobile({ asset, onClose }: AssetDetailMobileProps) {
         </Link>
       )}
       
-      {/* Embla Carousel - Full-screen image slider */}
+      {/* Embla Carousel - Full-screen image/embed slider */}
       <div className="flex-1 relative w-full h-full bg-black overflow-hidden" ref={emblaRef}>
         <div className="flex h-full touch-pan-y">
           {allAssets.map((carouselAsset: Asset, index: number) => (
@@ -311,17 +312,67 @@ export function AssetDetailMobile({ asset, onClose }: AssetDetailMobileProps) {
               key={`${carouselAsset.id}-${index}`} 
               className="flex-[0_0_100%] min-w-0 relative flex items-center justify-center"
             >
-              <div className="relative w-full h-full max-h-[80vh]">
-                <Image 
-                  src={carouselAsset.url} 
-                  alt={carouselAsset.title} 
-                  fill
-                  className="object-contain select-none"
-                  sizes={IMAGE_SIZES.full}
-                  priority={index === currentCarouselIndex}
-                  draggable={false}
-                />
-              </div>
+              {/* Embed View (Figma, etc.) */}
+              {carouselAsset.asset_type === 'embed' && carouselAsset.embed_url ? (
+                <div className="relative w-full h-full p-4">
+                  {carouselAsset.embed_provider === 'figma' ? (
+                    <>
+                      <iframe
+                        src={getFigmaEmbedUrl(carouselAsset.embed_url)}
+                        className="w-full h-full rounded-lg"
+                        allowFullScreen
+                      />
+                      {/* Open in Figma button */}
+                      <a
+                        href={carouselAsset.embed_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="absolute bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-2 px-4 py-2 rounded-full bg-black/70 hover:bg-black/90 text-white text-sm font-medium backdrop-blur-sm transition-colors"
+                      >
+                        <ExternalLink className="h-4 w-4" />
+                        Open in Figma
+                      </a>
+                    </>
+                  ) : (
+                    // Generic embed fallback
+                    <div className="flex flex-col items-center justify-center w-full h-full">
+                      {(() => {
+                        const providerInfo = getProviderInfo(carouselAsset.embed_provider as EmbedProvider);
+                        return (
+                          <>
+                            <div className={`flex items-center justify-center w-20 h-20 rounded-2xl mb-4 ${providerInfo.bgColor}`}>
+                              <span className="text-4xl">{providerInfo.icon}</span>
+                            </div>
+                            <p className="text-base font-medium text-zinc-400 mb-4">{providerInfo.name}</p>
+                            <a
+                              href={carouselAsset.embed_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="flex items-center gap-2 px-4 py-2 rounded-full bg-white text-black font-medium"
+                            >
+                              <ExternalLink className="h-4 w-4" />
+                              Open Link
+                            </a>
+                          </>
+                        );
+                      })()}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                // Image View
+                <div className="relative w-full h-full max-h-[80vh]">
+                  <Image 
+                    src={carouselAsset.url} 
+                    alt={carouselAsset.title} 
+                    fill
+                    className="object-contain select-none"
+                    sizes={IMAGE_SIZES.full}
+                    priority={index === currentCarouselIndex}
+                    draggable={false}
+                  />
+                </div>
+              )}
             </div>
           ))}
         </div>
