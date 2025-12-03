@@ -99,7 +99,7 @@ export function StreamMentionDropdown({
   const dropdownContent = (
     <div
       ref={dropdownRef}
-      className="fixed z-50 min-w-[280px] max-w-[320px] bg-zinc-900 border border-zinc-700 rounded-lg shadow-2xl overflow-hidden"
+      className="fixed z-[150] min-w-[280px] max-w-[320px] bg-zinc-900 border border-zinc-700 rounded-lg shadow-2xl overflow-hidden"
       style={{
         top: `${position.top + 4}px`,
         left: `${position.left}px`,
