@@ -114,7 +114,9 @@ export function useAssetComments(assetId: string): UseAssetCommentsReturn {
           );
         }
       )
-      .subscribe();
+      .subscribe(() => {
+        // Silently handle connection status - real-time is optional
+      });
 
     return () => {
       channel.unsubscribe();

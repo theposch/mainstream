@@ -12,7 +12,7 @@ import { useUserFollow } from "@/lib/hooks/use-user-follow";
 import { StreamBadge } from "@/components/streams/stream-badge";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { KEYS, IMAGE_SIZES } from "@/lib/constants";
+import { KEYS } from "@/lib/constants";
 import { X, Heart, MessageCircle, Share2, Download, MoreHorizontal, Reply, Trash2, Eye, Loader2, Pencil } from "lucide-react";
 import { CommentList } from "./comment-list";
 import { CommentInput } from "./comment-input";
@@ -81,7 +81,7 @@ function ProgressiveImage({
       alt={alt}
       fill
       className="object-contain"
-      sizes={IMAGE_SIZES.full}
+      sizes="(max-width: 768px) 100vw, calc(100vw - 480px)"
       priority
     />
   );

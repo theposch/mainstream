@@ -81,7 +81,9 @@ export function useCommentLike(
           }
         }
       )
-      .subscribe();
+      .subscribe(() => {
+        // Silently handle connection status - real-time is optional
+      });
 
     return () => {
       channel.unsubscribe();
