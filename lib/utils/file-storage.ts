@@ -118,23 +118,32 @@ export function generateUniqueFilename(originalFilename: string): string {
  * @param buffer - Image buffer from Sharp processing
  * @param filename - Unique filename (from generateUniqueFilename)
  * @param size - Size variant directory ('full', 'medium', or 'thumbnails')
+ * @param overrideExtension - Optional: override the file extension (e.g., '.jpg' for GIF thumbnails)
  * @returns Public URL path (e.g., "/uploads/full/1234567890-abc123.jpg")
  */
 export async function saveImageToPublic(
   buffer: Buffer,
   filename: string,
-  size: 'full' | 'medium' | 'thumbnails'
+  size: 'full' | 'medium' | 'thumbnails',
+  overrideExtension?: string
 ): Promise<string> {
   ensureUploadDirectories();
   
-  const filePath = path.join(UPLOAD_DIR, size, filename);
+  // Allow overriding extension (useful for GIF thumbnails which are converted to JPEG)
+  let finalFilename = filename;
+  if (overrideExtension) {
+    const baseName = path.parse(filename).name;
+    finalFilename = `${baseName}${overrideExtension}`;
+  }
+  
+  const filePath = path.join(UPLOAD_DIR, size, finalFilename);
   
   // Write file synchronously for simplicity
   // TODO: Consider async writeFile for better performance
   fs.writeFileSync(filePath, buffer);
   
   // Return public URL path (served by Next.js from public/ directory)
-  return `/uploads/${size}/${filename}`;
+  return `/uploads/${size}/${finalFilename}`;
 }
 
 /**

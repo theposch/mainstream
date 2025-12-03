@@ -80,7 +80,8 @@ export async function GET(
     }
 
     // Transform the data to flatten user info
-    const viewers: Viewer[] = ((views || []) as ViewRecord[])
+    // Note: Supabase returns joined data in various shapes, so we use unknown first
+    const viewers: Viewer[] = ((views || []) as unknown as ViewRecord[])
       .filter((v): v is ViewRecord & { user: UserData } => v.user !== null)
       .map(v => ({
         id: v.user.id,

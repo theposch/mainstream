@@ -35,7 +35,7 @@ export function NotificationsPopover() {
 
     let content = "";
     let link = "#";
-    let preview: string | null = null;
+    let preview: string | null | undefined = null;
 
     // Helper to build link with optional comment highlight
     const buildAssetLink = (assetId: string | null, commentId?: string | null) => {
