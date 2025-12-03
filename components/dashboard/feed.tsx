@@ -25,9 +25,12 @@ export const DashboardFeed = React.memo(function DashboardFeed({ initialAssets }
   const [searching, setSearching] = React.useState(false);
   
   // Modal state with URL sync via nuqs
+  // shallow: true = URL updates without server re-render (client-side only)
+  // history: 'push' = back button closes modal
   const [selectedAssetId, setSelectedAssetId] = useQueryState("asset", {
     defaultValue: "",
-    shallow: false, // Update URL
+    shallow: true,
+    history: "push",
   });
   
   // Memoized callbacks for stable references
