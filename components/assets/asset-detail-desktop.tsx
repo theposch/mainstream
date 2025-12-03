@@ -38,7 +38,10 @@ import {
 
 /**
  * Progressive Image Component
- * Shows thumbnail/medium immediately (cached from feed), then upgrades to full res
+ * Shows thumbnail/medium immediately (cached from feed), then upgrades to full res.
+ * 
+ * Pattern: Same as Pinterest - display low-res immediately, upgrade when high-res ready.
+ * The thumbnail is already in browser cache from the feed, so it appears instantly.
  */
 function ProgressiveImage({ 
   thumbnailSrc, 
@@ -49,35 +52,42 @@ function ProgressiveImage({
   fullSrc: string; 
   alt: string;
 }) {
-  const [showFull, setShowFull] = React.useState(false);
-  const loadingRef = React.useRef(false);
-
-  // Start loading full image immediately
+  // Track which image we're currently showing
+  // Key: reset to thumbnail when fullSrc changes (navigating to different asset)
+  const [currentSrc, setCurrentSrc] = React.useState(thumbnailSrc);
+  
+  // Reset to thumbnail when asset changes
   React.useEffect(() => {
+    // If same image, just show it
     if (thumbnailSrc === fullSrc) {
-      setShowFull(true);
+      setCurrentSrc(fullSrc);
       return;
     }
-
-    // Prevent double-load from StrictMode
-    if (loadingRef.current) return;
-    loadingRef.current = true;
     
+    // Show thumbnail immediately (should be cached from feed)
+    setCurrentSrc(thumbnailSrc);
+    
+    // Load full-res in background
     const img = new window.Image();
+    let cancelled = false;
+    
     img.onload = () => {
-      requestAnimationFrame(() => setShowFull(true));
+      if (!cancelled) {
+        // Use rAF to batch with next paint
+        requestAnimationFrame(() => setCurrentSrc(fullSrc));
+      }
     };
     img.src = fullSrc;
 
     return () => {
+      cancelled = true;
       img.onload = null;
-      loadingRef.current = false;
     };
   }, [fullSrc, thumbnailSrc]);
 
   return (
     <Image
-      src={showFull ? fullSrc : thumbnailSrc}
+      src={currentSrc}
       alt={alt}
       fill
       className="object-contain"
@@ -87,8 +97,10 @@ function ProgressiveImage({
   );
 }
 
+import type { Asset, User } from "@/lib/types/database";
+
 interface AssetDetailDesktopProps {
-  asset: any; // Asset from database (snake_case)
+  asset: Asset;
   /** Callback when modal should close (for overlay mode) */
   onClose?: () => void;
 }
@@ -110,7 +122,7 @@ export function AssetDetailDesktop({ asset, onClose }: AssetDetailDesktopProps) 
   const [replyingToId, setReplyingToId] = React.useState<string | null>(null);
   const [editingCommentId, setEditingCommentId] = React.useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
-  const [currentUser, setCurrentUser] = React.useState<any>(null);
+  const [currentUser, setCurrentUser] = React.useState<User | null>(null);
   
   // Delete dialog state
   const [showDeleteDialog, setShowDeleteDialog] = React.useState(false);
@@ -120,7 +132,7 @@ export function AssetDetailDesktop({ asset, onClose }: AssetDetailDesktopProps) 
   const [showEditDialog, setShowEditDialog] = React.useState(false);
   
   // Local asset state for optimistic updates
-  const [currentAsset, setCurrentAsset] = React.useState(asset);
+  const [currentAsset, setCurrentAsset] = React.useState<Asset>(asset);
   
   // Fetch current user
   React.useEffect(() => {
@@ -165,7 +177,7 @@ export function AssetDetailDesktop({ asset, onClose }: AssetDetailDesktopProps) 
   
   // Get streams from asset (already joined in server query or passed from feed)
   // Use local state to allow optimistic updates from edit dialog
-  const [assetStreams, setAssetStreams] = React.useState<any[]>(asset.streams || []);
+  const [assetStreams, setAssetStreams] = React.useState(asset.streams || []);
   
   // Sync streams when asset prop changes
   React.useEffect(() => {
@@ -342,11 +354,11 @@ export function AssetDetailDesktop({ asset, onClose }: AssetDetailDesktopProps) 
   const canEdit = canDelete; // Same permission as delete
   
   // Handle edit success - update local state optimistically
-  const handleEditSuccess = React.useCallback((updatedAsset: any) => {
-    setCurrentAsset((prev: any) => ({
+  const handleEditSuccess = React.useCallback((updatedAsset: Partial<Asset>) => {
+    setCurrentAsset((prev) => ({
       ...prev,
-      title: updatedAsset.title,
-      description: updatedAsset.description,
+      title: updatedAsset.title ?? prev.title,
+      description: updatedAsset.description ?? prev.description,
     }));
     // Also update streams
     if (updatedAsset.streams) {

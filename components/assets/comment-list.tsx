@@ -28,7 +28,7 @@ interface User {
 
 interface CommentListProps {
   comments: Comment[];
-  currentUser: User;
+  currentUser: User | null;
   onReply: (commentId: string) => void;
   onEdit: (commentId: string, newContent: string) => Promise<void>;
   onStartEdit: (commentId: string) => void;
