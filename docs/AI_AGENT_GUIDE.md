@@ -12,6 +12,10 @@ Quick onboarding guide for AI assistants working on the Mainstream codebase.
 ## Critical Context
 
 ### Recent Major Changes
+- ✅ **Modal Overlay for Assets** - Pinterest-style instant modal from feed (React Query + nuqs)
+- ✅ **React Query Integration** - Caching, prefetching, and optimistic updates
+- ✅ **URL State Sync** - Modal state syncs with URL for deep linking & back button
+- ✅ **Hover Prefetching** - Comments pre-loaded on card hover (150ms debounce)
 - ✅ **Stream Following** - Users can follow streams; posts appear in Following tab
 - ✅ **Stream Bookmarks** - Add external links (Jira, Figma, etc.) with favicons
 - ✅ **Stream Header Redesign** - Two-row layout, `#` prefix, contributor tooltip
@@ -111,7 +115,8 @@ layout/
 use-assets-infinite.ts      - Infinite scroll for recent assets
 use-following-assets.ts     - Infinite scroll for following feed (users + streams)
 use-asset-like.ts           - Like/unlike with optimistic updates
-use-asset-comments.ts       - CRUD operations for comments
+use-asset-comments.ts       - CRUD operations (React Query + Supabase Realtime)
+use-asset-prefetch.ts       - Hover-based data prefetching for instant modal
 use-comment-like.ts         - Like/unlike comments
 use-user-follow.ts          - Follow/unfollow users
 use-stream-follow.ts        - Follow/unfollow streams with optimistic updates
@@ -119,6 +124,16 @@ use-stream-bookmarks.ts     - CRUD for stream bookmarks
 use-notifications.ts        - Real-time notifications
 use-stream-mentions.ts      - Parse and create streams from hashtags
 use-stream-dropdown-options.ts - Shared stream dropdown logic
+```
+
+### Providers (`lib/providers/`)
+```
+query-provider.tsx          - React Query provider with DevTools (dev only)
+```
+
+### Queries (`lib/queries/`)
+```
+asset-queries.ts            - Query keys factory and fetch functions
 ```
 
 ### Types (`lib/types/`)
@@ -294,6 +309,38 @@ const [
 
 // Hooks accept initial data and skip fetch
 const { isFollowing, toggleFollow } = useStreamFollow(streamId, initialFollowData);
+```
+
+### Modal Overlay Pattern (Asset Detail)
+```typescript
+// Feed opens assets as modal overlay (not page navigation)
+// components/dashboard/feed.tsx
+const [selectedAssetId, setSelectedAssetId] = useQueryState("asset"); // URL sync
+
+const handleAssetClick = (asset: Asset) => setSelectedAssetId(asset.id);
+const handleCloseModal = () => setSelectedAssetId("");
+
+// Render modal when selected
+{selectedAsset && (
+  <AssetDetail asset={selectedAsset} onClose={handleCloseModal} />
+)}
+```
+
+### React Query Prefetching
+```typescript
+// Hover prefetch for instant modal opening
+// lib/hooks/use-asset-prefetch.ts
+const { onMouseEnter, onMouseLeave } = useAssetPrefetch(assetId);
+
+// Prefetches comments after 150ms hover
+<ElementCard onMouseEnter={onMouseEnter} onMouseLeave={onMouseLeave} />
+
+// Query keys for cache consistency
+import { assetKeys } from "@/lib/queries/asset-queries";
+queryClient.prefetchQuery({
+  queryKey: assetKeys.comments(assetId),
+  queryFn: () => fetchAssetComments(assetId),
+});
 ```
 
 ## Common Patterns
