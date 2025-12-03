@@ -33,8 +33,8 @@ export const ElementCard = React.memo(
     asset.likeCount ?? 0
   );
 
-  // Prefetch hook for hover-based data loading
-  const { onMouseEnter: prefetchOnEnter, onMouseLeave: prefetchOnLeave } = useAssetPrefetch(asset.id);
+  // Prefetch hook for hover-based data loading AND full-res image preload
+  const { onMouseEnter: prefetchOnEnter, onMouseLeave: prefetchOnLeave } = useAssetPrefetch(asset.id, asset.url);
 
   // Memoized callbacks for stable references - combine hover state with prefetch
   const handleMouseEnter = React.useCallback(() => {

@@ -146,12 +146,18 @@ export const DashboardFeed = React.memo(function DashboardFeed({ initialAssets }
   // Modal handlers
   const handleAssetClick = React.useCallback(
     (asset: Asset) => {
+      console.log('[Feed] Opening modal for asset:', asset.id, {
+        hasUrl: !!asset.url,
+        hasMediumUrl: !!asset.medium_url,
+        hasThumbnailUrl: !!asset.thumbnail_url,
+      });
       setSelectedAssetId(asset.id);
     },
     [setSelectedAssetId]
   );
 
   const handleCloseModal = React.useCallback(() => {
+    console.log('[Feed] Closing modal');
     setSelectedAssetId("");
   }, [setSelectedAssetId]);
 
