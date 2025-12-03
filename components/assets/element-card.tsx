@@ -110,14 +110,26 @@ export const ElementCard = React.memo(
             className="relative w-full"
             style={{ paddingBottom: `${aspectRatio}%` }}
           >
-            <Image
-              src={displayUrl}
-              alt={asset.title}
-              fill
-              className="absolute inset-0 object-cover w-full h-full transition-transform duration-500 group-hover:scale-105"
-              sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-              onLoad={handleImageLoad}
-            />
+            {/* Use unoptimized for GIFs to preserve animation */}
+            {isGif && isHovered ? (
+              // Animated GIF on hover - use img tag to ensure animation plays
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={animatedUrl}
+                alt={asset.title}
+                className="absolute inset-0 object-cover w-full h-full transition-transform duration-500 group-hover:scale-105"
+              />
+            ) : (
+              <Image
+                src={displayUrl}
+                alt={asset.title}
+                fill
+                className="absolute inset-0 object-cover w-full h-full transition-transform duration-500 group-hover:scale-105"
+                sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                onLoad={handleImageLoad}
+                unoptimized={isGif} // Don't optimize GIFs (preserves animation)
+              />
+            )}
           </div>
 
           {/* GIF Badge - Always visible for GIFs */}
