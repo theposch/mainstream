@@ -1,9 +1,11 @@
 import React from "react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Loader2 } from "lucide-react";
+import { Loader2, Type, Smile, AtSign, Send } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { User } from "@/lib/types/database";
+import { useTypingIndicator } from "@/lib/hooks/use-typing-indicator";
+import { TypingIndicator } from "./typing-indicator";
 
 interface CommentInputProps {
   currentUser: any; // User from database with snake_case fields
@@ -13,6 +15,7 @@ interface CommentInputProps {
   autoFocus?: boolean;
   initialValue?: string;
   onCancel?: () => void;
+  assetId?: string; // For typing indicator
 }
 
 export const CommentInput = React.memo(function CommentInput({
@@ -22,11 +25,15 @@ export const CommentInput = React.memo(function CommentInput({
   placeholder = "Add a comment...",
   autoFocus = false,
   initialValue = "",
-  onCancel
+  onCancel,
+  assetId
 }: CommentInputProps) {
   const [content, setContent] = React.useState(initialValue);
   const textareaRef = React.useRef<HTMLTextAreaElement>(null);
   const MAX_CHARS = 2000;
+  
+  // Typing indicator
+  const { typingUsers, setTyping } = useTypingIndicator(assetId || "");
 
   // Mention State
   const [showMentions, setShowMentions] = React.useState(false);
@@ -65,6 +72,11 @@ export const CommentInput = React.memo(function CommentInput({
   const handleContentChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const newContent = e.target.value;
     setContent(newContent);
+    
+    // Notify typing indicator
+    if (assetId && newContent.length > 0) {
+      setTyping(true);
+    }
 
     // Check for mention trigger
     const cursorPosition = e.target.selectionStart;
@@ -116,6 +128,9 @@ export const CommentInput = React.memo(function CommentInput({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!content.trim() || isSubmitting) return;
+    
+    // Clear typing indicator
+    if (assetId) setTyping(false);
     
     await onSubmit(content.trim());
     if (!onCancel) {
@@ -214,12 +229,33 @@ export const CommentInput = React.memo(function CommentInput({
                 />
                 
                 <div className="flex items-center justify-between pt-1">
-                    <div className="text-xs text-muted-foreground">
-                        {content.length > 0 && (
-                            <span className={cn(content.length > MAX_CHARS * 0.9 ? "text-amber-500" : "")}>
-                                {content.length}/{MAX_CHARS}
-                            </span>
-                        )}
+                    {/* Visual-only formatting toolbar */}
+                    {/* TODO: Implement rich text formatting */}
+                    <div className="flex items-center gap-0.5">
+                        <button 
+                            type="button" 
+                            disabled 
+                            className="p-1.5 text-zinc-600 hover:text-zinc-500 transition-colors cursor-not-allowed"
+                            title="Formatting (coming soon)"
+                        >
+                            <Type className="h-4 w-4" />
+                        </button>
+                        <button 
+                            type="button" 
+                            disabled 
+                            className="p-1.5 text-zinc-600 hover:text-zinc-500 transition-colors cursor-not-allowed"
+                            title="Emoji (coming soon)"
+                        >
+                            <Smile className="h-4 w-4" />
+                        </button>
+                        <button 
+                            type="button" 
+                            disabled 
+                            className="p-1.5 text-zinc-600 hover:text-zinc-500 transition-colors cursor-not-allowed"
+                            title="Mention (coming soon)"
+                        >
+                            <AtSign className="h-4 w-4" />
+                        </button>
                     </div>
                     
                     <div className="flex items-center gap-2">
@@ -239,22 +275,22 @@ export const CommentInput = React.memo(function CommentInput({
                         <Button 
                             type="submit" 
                             variant="default" 
-                            size="sm" 
+                            size="icon" 
                             disabled={!content.trim() || isSubmitting}
-                            className="h-8 px-4"
+                            className="h-8 w-8"
                         >
                             {isSubmitting ? (
-                                <>
-                                    <Loader2 className="mr-2 h-3 w-3 animate-spin" />
-                                    Posting...
-                                </>
+                                <Loader2 className="h-4 w-4 animate-spin" />
                             ) : (
-                                onCancel ? "Save" : "Post"
+                                <Send className="h-4 w-4" />
                             )}
                         </Button>
                     </div>
                 </div>
             </form>
+            
+            {/* Typing indicator */}
+            {assetId && <TypingIndicator users={typingUsers} />}
         </div>
     </div>
   );

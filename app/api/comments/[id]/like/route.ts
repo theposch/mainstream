@@ -63,6 +63,37 @@ export async function POST(
       );
     }
 
+    // Get comment author to create notification
+    const { data: comment, error: commentError } = await supabase
+      .from('asset_comments')
+      .select('user_id, asset_id')
+      .eq('id', commentId)
+      .single();
+
+    if (commentError || !comment) {
+      console.warn('[POST /api/comments/[id]/like] Comment not found for notification');
+      return NextResponse.json({ success: true });
+    }
+
+    // Only create notification if user is not liking their own comment
+    if (comment.user_id !== user.id) {
+      const { error: notificationError } = await supabase
+        .from('notifications')
+        .insert({
+          type: 'like_comment',
+          recipient_id: comment.user_id,
+          actor_id: user.id,
+          resource_id: comment.asset_id,
+          resource_type: 'asset',
+          comment_id: commentId,
+        });
+
+      if (notificationError) {
+        console.warn('[POST /api/comments/[id]/like] Failed to create notification:', notificationError);
+        // Continue anyway - like was successful
+      }
+    }
+
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('[POST /api/comments/[id]/like] Error:', error);

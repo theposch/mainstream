@@ -2,14 +2,17 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useQueryState } from "nuqs";
+import { useQuery } from "@tanstack/react-query";
 import { SearchResultsTabs, SearchTab } from "./search-results-tabs";
 import { SearchEmptyState } from "./search-empty-state";
 import { MasonryGrid } from "@/components/assets/masonry-grid";
+import { AssetDetail } from "@/components/assets/asset-detail";
 import { StreamGrid } from "@/components/streams/stream-grid";
 import { useSearch } from "@/lib/contexts/search-context";
 import { Avatar } from "@/components/ui/avatar";
 import { Loader2 } from "lucide-react";
+import { assetKeys, fetchAssetById } from "@/lib/queries/asset-queries";
 import type { Asset, Stream, User } from "@/lib/types/database";
 
 interface SearchResultsProps {
@@ -31,6 +34,42 @@ export const SearchResults = React.memo(function SearchResults({ initialQuery }:
     users: [],
     total: 0,
   });
+
+  // Modal state with URL sync via nuqs (Pinterest-style overlay)
+  const [selectedAssetId, setSelectedAssetId] = useQueryState("asset", {
+    defaultValue: "",
+    shallow: true,
+    history: "push",
+  });
+
+  // Find selected asset from search results for modal
+  const assetFromCache = React.useMemo(() => {
+    if (!selectedAssetId) return null;
+    return results.assets.find((a) => a.id === selectedAssetId) || null;
+  }, [selectedAssetId, results.assets]);
+
+  // Deep linking support: fetch asset from API if not in cache
+  const { data: fetchedAsset } = useQuery({
+    queryKey: assetKeys.detail(selectedAssetId || ""),
+    queryFn: () => fetchAssetById(selectedAssetId!),
+    enabled: !!selectedAssetId && !assetFromCache,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  // Use cached asset if available, otherwise use fetched asset
+  const selectedAsset = assetFromCache || fetchedAsset || null;
+
+  // Modal handlers
+  const handleAssetClick = React.useCallback(
+    (asset: Asset) => {
+      setSelectedAssetId(asset.id);
+    },
+    [setSelectedAssetId]
+  );
+
+  const handleCloseModal = React.useCallback(() => {
+    setSelectedAssetId("");
+  }, [setSelectedAssetId]);
 
   // Sync initial query from URL with context on mount only
   React.useEffect(() => {
@@ -121,7 +160,7 @@ export const SearchResults = React.memo(function SearchResults({ initialQuery }:
                     View all {results.assets.length} →
                   </button>
                 </div>
-                <MasonryGrid assets={results.assets.slice(0, 12)} />
+                <MasonryGrid assets={results.assets.slice(0, 12)} onAssetClick={handleAssetClick} />
               </section>
             )}
 
@@ -174,7 +213,7 @@ export const SearchResults = React.memo(function SearchResults({ initialQuery }:
         );
 
       case "assets":
-        return <MasonryGrid assets={results.assets} />;
+        return <MasonryGrid assets={results.assets} onAssetClick={handleAssetClick} />;
 
       case "streams":
         return <StreamGrid streams={results.streams} />;
@@ -219,24 +258,34 @@ export const SearchResults = React.memo(function SearchResults({ initialQuery }:
   }
 
   return (
-    <div className="w-full">
-      <div className="mb-6">
-            <h1 className="text-2xl font-bold mb-2">
-              Search results for &quot;{query}&quot;
-            </h1>
-            <p className="text-muted-foreground">
-              Found {results.total} result{results.total !== 1 ? 's' : ''}
-            </p>
+    <>
+      <div className="w-full">
+        <div className="mb-6">
+              <h1 className="text-2xl font-bold mb-2">
+                Search results for &quot;{query}&quot;
+              </h1>
+              <p className="text-muted-foreground">
+                Found {results.total} result{results.total !== 1 ? 's' : ''}
+              </p>
+        </div>
+
+        <SearchResultsTabs
+          activeTab={activeTab}
+          onTabChange={setActiveTab}
+          counts={counts}
+        />
+
+        <div className="mt-8">{renderContent()}</div>
       </div>
 
-      <SearchResultsTabs
-        activeTab={activeTab}
-        onTabChange={setActiveTab}
-        counts={counts}
-      />
-
-      <div className="mt-8">{renderContent()}</div>
-    </div>
+      {/* Asset Detail Modal Overlay */}
+      {selectedAsset && (
+        <AssetDetail 
+          asset={selectedAsset} 
+          onClose={handleCloseModal}
+        />
+      )}
+    </>
   );
 });
 

@@ -3,13 +3,17 @@
 import * as React from "react";
 import Link from "next/link";
 import { notFound, useRouter, useSearchParams } from "next/navigation";
+import { useQueryState } from "nuqs";
+import { useQuery } from "@tanstack/react-query";
 import { UserProfileHeader } from "@/components/users/user-profile-header";
 import { UserProfileTabs, UserProfileTab } from "@/components/users/user-profile-tabs";
 import { StreamGrid } from "@/components/streams/stream-grid";
 import { MasonryGrid } from "@/components/assets/masonry-grid";
+import { AssetDetail } from "@/components/assets/asset-detail";
 import { Button } from "@/components/ui/button";
 import { LoadingSpinner } from "@/components/ui/loading";
 import { createClient } from "@/lib/supabase/client";
+import { assetKeys, fetchAssetById } from "@/lib/queries/asset-queries";
 import type { Asset, User, Stream } from "@/lib/types/database";
 
 interface UserProfileProps {
@@ -60,6 +64,13 @@ export default function UserProfile({ params }: UserProfileProps) {
   // Bug #5 Fix: Store scroll position per tab
   const scrollPositions = React.useRef<Record<string, number>>({});
   const rafIdRef = React.useRef<number | null>(null);
+
+  // Modal state with URL sync via nuqs (Pinterest-style overlay)
+  const [selectedAssetId, setSelectedAssetId] = useQueryState("asset", {
+    defaultValue: "",
+    shallow: true,
+    history: "push",
+  });
 
   // Issue #13 Fix: Add error handling for decodeURIComponent
   React.useEffect(() => {
@@ -285,6 +296,40 @@ export default function UserProfile({ params }: UserProfileProps) {
     }
   }, []);
 
+  // Find selected asset from current assets for modal
+  const assetFromCache = React.useMemo(() => {
+    if (!selectedAssetId) return null;
+    // Search in all profile asset sources
+    return (
+      userAssets.find((a) => a.id === selectedAssetId) ||
+      likedAssets.find((a) => a.id === selectedAssetId) ||
+      null
+    );
+  }, [selectedAssetId, userAssets, likedAssets]);
+
+  // Deep linking support: fetch asset from API if not in cache
+  const { data: fetchedAsset } = useQuery({
+    queryKey: assetKeys.detail(selectedAssetId || ""),
+    queryFn: () => fetchAssetById(selectedAssetId!),
+    enabled: !!selectedAssetId && !assetFromCache,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  // Use cached asset if available, otherwise use fetched asset
+  const selectedAsset = assetFromCache || fetchedAsset || null;
+
+  // Modal handlers
+  const handleAssetClick = React.useCallback(
+    (asset: Asset) => {
+      setSelectedAssetId(asset.id);
+    },
+    [setSelectedAssetId]
+  );
+
+  const handleCloseModal = React.useCallback(() => {
+    setSelectedAssetId("");
+  }, [setSelectedAssetId]);
+
   // Cleanup RAF on unmount
   React.useEffect(() => {
     return () => {
@@ -348,7 +393,7 @@ export default function UserProfile({ params }: UserProfileProps) {
         >
           {visitedTabs.has("shots") && (
             userAssets.length > 0 ? (
-              <MasonryGrid assets={userAssets} />
+              <MasonryGrid assets={userAssets} onAssetClick={handleAssetClick} />
             ) : (
               <div className="text-center py-24">
                 <p className="text-lg font-medium text-muted-foreground">No shots yet.</p>
@@ -376,7 +421,11 @@ export default function UserProfile({ params }: UserProfileProps) {
         >
           {visitedTabs.has("liked") && (
             likedAssets.length > 0 ? (
-              <MasonryGrid assets={likedAssets} onLikeChange={handleLikedAssetChange} />
+              <MasonryGrid 
+                assets={likedAssets} 
+                onLikeChange={handleLikedAssetChange} 
+                onAssetClick={handleAssetClick}
+              />
             ) : (
               <div className="text-center py-24">
                 <p className="text-lg font-medium text-muted-foreground">No liked assets yet.</p>
@@ -423,6 +472,14 @@ export default function UserProfile({ params }: UserProfileProps) {
           )}
         </div>
       </div>
+
+      {/* Asset Detail Modal Overlay */}
+      {selectedAsset && (
+        <AssetDetail 
+          asset={selectedAsset} 
+          onClose={handleCloseModal}
+        />
+      )}
     </div>
   );
 }

@@ -1,11 +1,11 @@
 import { DashboardFeed } from "@/components/dashboard/feed";
-import { unstable_noStore as noStore } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 
+// Revalidate every 30 seconds - balances freshness with performance
+// Like status is updated client-side via optimistic updates, so stale data is fine
+export const revalidate = 30;
+
 export default async function HomePage() {
-  // Opt out of caching to show fresh like status
-  noStore();
-  
   const supabase = await createClient();
   
   // Get current user for like status check

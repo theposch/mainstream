@@ -13,3 +13,5 @@ ALTER COLUMN added_by DROP NOT NULL;
 -- Add comment explaining the behavior
 COMMENT ON COLUMN asset_streams.added_by IS 'User who added the asset to the stream. Set to NULL if user is deleted to preserve stream association history.';
 
+
+

@@ -3,18 +3,23 @@
 import * as React from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { motion, AnimatePresence } from "framer-motion";
+import { useRouter, useSearchParams } from "next/navigation";
+// Removed framer-motion for instant modal opening - no animation delay
 import { createClient } from "@/lib/supabase/client";
 import { useAssetComments } from "@/lib/hooks/use-asset-comments";
 import { useAssetLike } from "@/lib/hooks/use-asset-like";
+import { useAssetView } from "@/lib/hooks/use-asset-view";
+import { useUserFollow } from "@/lib/hooks/use-user-follow";
+import { ViewersTooltip } from "./viewers-tooltip";
 import { StreamBadge } from "@/components/streams/stream-badge";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { KEYS, ANIMATION_DURATION, ANIMATION_EASING, IMAGE_SIZES } from "@/lib/constants";
-import { X, Heart, MessageCircle, Share2, Download, MoreHorizontal, ArrowLeft, ChevronRight, Reply, Trash2 } from "lucide-react";
+import { KEYS } from "@/lib/constants";
+import { X, Heart, MessageCircle, Share2, Download, MoreHorizontal, Reply, Trash2, Loader2, Pencil } from "lucide-react";
 import { CommentList } from "./comment-list";
 import { CommentInput } from "./comment-input";
+import { EditAssetDialog } from "./edit-asset-dialog";
+import { formatRelativeTime } from "@/lib/utils/time";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -33,12 +38,79 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
-interface AssetDetailDesktopProps {
-  asset: any; // Asset from database (snake_case)
+/**
+ * Progressive Image Component
+ * Shows thumbnail/medium immediately (cached from feed), then upgrades to full res.
+ * 
+ * Pattern: Same as Pinterest - display low-res immediately, upgrade when high-res ready.
+ * The thumbnail is already in browser cache from the feed, so it appears instantly.
+ */
+function ProgressiveImage({ 
+  thumbnailSrc, 
+  fullSrc, 
+  alt 
+}: { 
+  thumbnailSrc: string; 
+  fullSrc: string; 
+  alt: string;
+}) {
+  // Track which image we're currently showing
+  // Key: reset to thumbnail when fullSrc changes (navigating to different asset)
+  const [currentSrc, setCurrentSrc] = React.useState(thumbnailSrc);
+  
+  // Reset to thumbnail when asset changes
+  React.useEffect(() => {
+    // If same image, just show it
+    if (thumbnailSrc === fullSrc) {
+      setCurrentSrc(fullSrc);
+      return;
+    }
+    
+    // Show thumbnail immediately (should be cached from feed)
+    setCurrentSrc(thumbnailSrc);
+    
+    // Load full-res in background
+    const img = new window.Image();
+    let cancelled = false;
+    
+    img.onload = () => {
+      if (!cancelled) {
+        // Use rAF to batch with next paint
+        requestAnimationFrame(() => setCurrentSrc(fullSrc));
+      }
+    };
+    img.src = fullSrc;
+
+    return () => {
+      cancelled = true;
+      img.onload = null;
+    };
+  }, [fullSrc, thumbnailSrc]);
+
+  return (
+    <Image
+      src={currentSrc}
+      alt={alt}
+      fill
+      className="object-contain"
+      sizes="(max-width: 768px) 100vw, calc(100vw - 480px)"
+      priority
+    />
+  );
 }
 
-export function AssetDetailDesktop({ asset }: AssetDetailDesktopProps) {
+import type { Asset, User } from "@/lib/types/database";
+
+interface AssetDetailDesktopProps {
+  asset: Asset;
+  /** Callback when modal should close (for overlay mode) */
+  onClose?: () => void;
+}
+
+export function AssetDetailDesktop({ asset, onClose }: AssetDetailDesktopProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const highlightedCommentId = searchParams.get('comment');
   const modalRef = React.useRef<HTMLDivElement>(null);
   const commentsSectionRef = React.useRef<HTMLDivElement>(null);
   
@@ -54,11 +126,17 @@ export function AssetDetailDesktop({ asset }: AssetDetailDesktopProps) {
   const [replyingToId, setReplyingToId] = React.useState<string | null>(null);
   const [editingCommentId, setEditingCommentId] = React.useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
-  const [currentUser, setCurrentUser] = React.useState<any>(null);
+  const [currentUser, setCurrentUser] = React.useState<User | null>(null);
   
   // Delete dialog state
   const [showDeleteDialog, setShowDeleteDialog] = React.useState(false);
   const [isDeleting, setIsDeleting] = React.useState(false);
+  
+  // Edit dialog state
+  const [showEditDialog, setShowEditDialog] = React.useState(false);
+  
+  // Local asset state for optimistic updates
+  const [currentAsset, setCurrentAsset] = React.useState<Asset>(asset);
   
   // Fetch current user
   React.useEffect(() => {
@@ -77,33 +155,36 @@ export function AssetDetailDesktop({ asset }: AssetDetailDesktopProps) {
     fetchCurrentUser();
   }, []);
   
-  // Get uploader and streams from asset object (already joined in server query)
-  const uploader = asset.uploader;
-  
-  // Get streams for this asset
-  const [assetStreams, setAssetStreams] = React.useState<any[]>([]);
-  
+  // Sync currentAsset when asset prop changes (e.g., navigation)
   React.useEffect(() => {
-    const fetchStreams = async () => {
-      const supabase = createClient();
-      const { data } = await supabase
-        .from('asset_streams')
-        .select('streams(*)')
-        .eq('asset_id', asset.id);
-      
-      if (data) {
-        setAssetStreams(data.map(rel => rel.streams).filter(Boolean));
-      }
-    };
-    fetchStreams();
-  }, [asset.id]);
+    setCurrentAsset(asset);
+  }, [asset]);
   
-  const visibleStreams = assetStreams.slice(0, 3);
-  const overflowCount = Math.max(0, assetStreams.length - 3);
+  // Get uploader from asset object (already joined in server query)
+  const uploader = currentAsset.uploader;
+  
+  // Use follow hook for the uploader
+  const { isFollowing, toggleFollow, loading: followLoading } = useUserFollow(uploader?.username || '');
+  
+  // Check if current user is viewing their own post
+  const isOwnPost = currentUser?.id === currentAsset.uploader_id;
+  
+  // Track view after 2 seconds (excludes owner views)
+  useAssetView(currentAsset.id, !isOwnPost);
+  
+  // Get view count from asset (denormalized for performance)
+  const viewCount = currentAsset.view_count || 0;
+  
+  // Get streams from asset (already joined in server query or passed from feed)
+  // Use local state to allow optimistic updates from edit dialog
+  const [assetStreams, setAssetStreams] = React.useState(asset.streams || []);
+  
+  // Sync streams when asset prop changes
+  React.useEffect(() => {
+    setAssetStreams(asset.streams || []);
+  }, [asset.streams]);
 
   // Navigation between assets (simplified for now - can be enhanced with context)
-  const hasPrevious = false;
-  const hasNext = false;
   const previousAsset: any = null;
   const nextAsset: any = null;
   
@@ -148,7 +229,11 @@ export function AssetDetailDesktop({ asset }: AssetDetailDesktopProps) {
 
       switch(e.key) {
         case KEYS.escape:
-          router.push('/home');
+          if (onClose) {
+            onClose();
+          } else {
+            router.push('/home');
+          }
           break;
         case KEYS.arrowLeft:
           if (previousAsset) {
@@ -167,7 +252,7 @@ export function AssetDetailDesktop({ asset }: AssetDetailDesktopProps) {
 
     document.addEventListener('keydown', handleKeyPress);
     return () => document.removeEventListener('keydown', handleKeyPress);
-  }, [router, previousAsset, nextAsset]);
+  }, [router, previousAsset, nextAsset, onClose]);
 
   // Preload adjacent images
   React.useEffect(() => {
@@ -228,8 +313,12 @@ export function AssetDetailDesktop({ asset }: AssetDetailDesktopProps) {
         throw new Error(data.message || 'Failed to delete asset');
       }
 
-      // Success - redirect to home
-      router.push('/home');
+      // Success - close modal or redirect to home
+      if (onClose) {
+        onClose();
+      } else {
+        router.push('/home');
+      }
     } catch (error) {
       console.error('Error deleting asset:', error);
       alert(error instanceof Error ? error.message : 'Failed to delete asset');
@@ -261,7 +350,21 @@ export function AssetDetailDesktop({ asset }: AssetDetailDesktopProps) {
     }
   };
 
-  const canDelete = currentUser && currentUser.id === asset.uploader_id;
+  const canDelete = currentUser && currentUser.id === currentAsset.uploader_id;
+  const canEdit = canDelete; // Same permission as delete
+  
+  // Handle edit success - update local state optimistically
+  const handleEditSuccess = React.useCallback((updatedAsset: Partial<Asset>) => {
+    setCurrentAsset((prev) => ({
+      ...prev,
+      title: updatedAsset.title ?? prev.title,
+      description: updatedAsset.description ?? prev.description,
+    }));
+    // Also update streams
+    if (updatedAsset.streams) {
+      setAssetStreams(updatedAsset.streams);
+    }
+  }, []);
 
   return (
     <div 
@@ -273,37 +376,38 @@ export function AssetDetailDesktop({ asset }: AssetDetailDesktopProps) {
       tabIndex={-1}
     >
       {/* Close Button */}
-      <Link 
-        href="/home" 
-        className="absolute top-4 left-4 z-50 p-2 bg-background/50 hover:bg-accent rounded-full text-foreground transition-colors backdrop-blur-md"
-        aria-label="Close asset detail"
-        title="Close (ESC)"
-      >
-        <X className="h-6 w-6" aria-hidden="true" />
-      </Link>
+      {onClose ? (
+        <button
+          onClick={onClose}
+          className="absolute top-4 left-4 z-50 p-2 bg-background/50 hover:bg-accent rounded-full text-foreground transition-colors backdrop-blur-md"
+          aria-label="Close asset detail"
+          title="Close (ESC)"
+        >
+          <X className="h-6 w-6" aria-hidden="true" />
+        </button>
+      ) : (
+        <Link 
+          href="/home" 
+          className="absolute top-4 left-4 z-50 p-2 bg-background/50 hover:bg-accent rounded-full text-foreground transition-colors backdrop-blur-md"
+          aria-label="Close asset detail"
+          title="Close (ESC)"
+        >
+          <X className="h-6 w-6" aria-hidden="true" />
+        </Link>
+      )}
 
       {/* Left: Media View */}
       <div className="flex-1 relative bg-zinc-950 flex items-center justify-center p-4 md:p-10 overflow-y-auto">
         <div className="relative w-full h-full max-h-[90vh] flex items-center justify-center">
-          <AnimatePresence mode="wait">
-            <motion.div 
-              key={asset.id}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: ANIMATION_DURATION.fast, ease: ANIMATION_EASING.easeInOut }}
-              className="relative w-full h-full"
-            >
-              <Image
-                src={asset.url}
-                alt={asset.title}
-                fill
-                className="object-contain"
-                sizes={IMAGE_SIZES.full}
-                priority
-              />
-            </motion.div>
-          </AnimatePresence>
+          <div className="relative w-full h-full">
+            {/* Progressive loading: show medium_url immediately (already cached from feed), 
+                then upgrade to full url when it loads */}
+            <ProgressiveImage
+              thumbnailSrc={asset.medium_url || asset.thumbnail_url || asset.url}
+              fullSrc={asset.url}
+              alt={asset.title}
+            />
+          </div>
         </div>
       </div>
 
@@ -311,144 +415,146 @@ export function AssetDetailDesktop({ asset }: AssetDetailDesktopProps) {
       <div className="w-[400px] lg:w-[480px] bg-black border-l border-zinc-900 flex flex-col h-full overflow-hidden shrink-0">
         {/* Scrollable Content */}
         <div className="flex-1 overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-          <AnimatePresence mode="wait">
-            <motion.div 
-              key={asset.id}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: ANIMATION_DURATION.fast, ease: ANIMATION_EASING.easeInOut }}
-              className="p-6 space-y-8 pb-20"
-            >
-              {/* Header Actions */}
-              <div className="flex items-center justify-between">
-                  <div className="flex gap-2">
-                      <Button variant="secondary" size="icon-lg" onClick={handleShare}>
-                          <Share2 className="h-4 w-4" />
-                      </Button>
-                      <Button variant="secondary" size="icon-lg" onClick={handleDownload}>
-                          <Download className="h-4 w-4" />
-                      </Button>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                      <Button variant="secondary" size="icon-lg">
-                          <MoreHorizontal className="h-4 w-4" />
-                      </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="z-[110]">
-                          <DropdownMenuItem onClick={handleShare}>
-                            <Share2 className="h-4 w-4" />
-                            Share
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={handleDownload}>
-                            <Download className="h-4 w-4" />
-                            Download
-                          </DropdownMenuItem>
-                          {canDelete && (
-                            <>
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem
-                                variant="destructive"
-                                onClick={() => setShowDeleteDialog(true)}
-                              >
-                                <Trash2 className="h-4 w-4" />
-                                Delete Asset
-                              </DropdownMenuItem>
-                            </>
-                          )}
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                  </div>
-                  <Button variant="default" size="default">
-                      Save
-                  </Button>
+          <div className="p-6 space-y-5 pb-20">
+              {/* 1. Title + 3-dot Menu Row */}
+              <div className="flex items-start justify-between gap-4">
+                <h1 className="text-2xl font-bold text-white leading-tight flex-1">
+                  {currentAsset.title}
+                </h1>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="icon" className="shrink-0 text-zinc-400 hover:text-white">
+                      <MoreHorizontal className="h-5 w-5" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="z-[110]">
+                    {canEdit && (
+                      <DropdownMenuItem onClick={() => setShowEditDialog(true)}>
+                        <Pencil className="h-4 w-4 mr-2" />
+                        Edit Post
+                      </DropdownMenuItem>
+                    )}
+                    <DropdownMenuItem onClick={handleShare}>
+                      <Share2 className="h-4 w-4 mr-2" />
+                      Share
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={handleDownload}>
+                      <Download className="h-4 w-4 mr-2" />
+                      Download
+                    </DropdownMenuItem>
+                    {canDelete && (
+                      <>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          className="text-destructive focus:text-destructive"
+                          onClick={() => setShowDeleteDialog(true)}
+                        >
+                          <Trash2 className="h-4 w-4 mr-2" />
+                          Delete Asset
+                        </DropdownMenuItem>
+                      </>
+                    )}
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
 
-              {/* Stream Badges */}
+              {/* 2. Author Row */}
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <Link href={`/u/${uploader?.username}`}>
+                    <Avatar className="h-10 w-10 border border-border hover:opacity-80 transition-opacity">
+                      <AvatarImage src={uploader?.avatar_url} />
+                      <AvatarFallback>{uploader?.username?.charAt(0).toUpperCase()}</AvatarFallback>
+                    </Avatar>
+                  </Link>
+                  <div className="flex flex-col">
+                    <Link 
+                      href={`/u/${uploader?.username}`}
+                      className="text-sm font-medium text-white hover:underline"
+                    >
+                      {uploader?.display_name || 'Unknown User'}
+                    </Link>
+                    <span className="text-xs text-muted-foreground">
+                      {formatRelativeTime(currentAsset.created_at)}
+                    </span>
+                  </div>
+                </div>
+                {!isOwnPost && (
+                  <Button 
+                    variant={isFollowing ? "secondary" : "default"} 
+                    size="sm"
+                    onClick={toggleFollow}
+                    disabled={followLoading}
+                  >
+                    {followLoading ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : isFollowing ? (
+                      'Following'
+                    ) : (
+                      'Follow'
+                    )}
+                  </Button>
+                )}
+              </div>
+
+              {/* 3. Description (conditional) */}
+              {currentAsset.description && (
+                <p className="text-sm text-zinc-400 leading-relaxed">
+                  {currentAsset.description}
+                </p>
+              )}
+
+              {/* 4. Stream Badges */}
               {assetStreams.length > 0 && (
-                <div className="flex items-center gap-2 flex-wrap -mt-4">
-                  {visibleStreams.map((stream) => (
+                <div className="flex items-center gap-2 flex-wrap">
+                  {assetStreams.map((stream) => (
                     <StreamBadge key={stream.id} stream={stream} clickable={true} />
                   ))}
-                  {overflowCount > 0 && (
-                    <span className="text-xs text-white/70 px-2 py-1 bg-white/10 backdrop-blur-md rounded-md">
-                      +{overflowCount} more
-                    </span>
-                  )}
                 </div>
               )}
 
-              {/* Title & Uploader */}
-              <div className="space-y-4">
-                  <h1 className="text-2xl font-bold text-white leading-tight">{asset.title}</h1>
-                  
-                  <div className="flex items-center gap-3 py-2">
-                      <Avatar className="h-10 w-10 border border-border">
-                          <AvatarImage src={uploader?.avatar_url} />
-                          <AvatarFallback>{uploader?.username?.charAt(0).toUpperCase()}</AvatarFallback>
-                      </Avatar>
-                      <div className="flex flex-col">
-                          <span className="text-sm font-medium text-white">{uploader?.display_name || 'Unknown User'}</span>
-                          <span className="text-xs text-muted-foreground">Added {new Date(asset.created_at).toLocaleDateString()}</span>
-                      </div>
-                      <Button variant="secondary" size="sm" className="ml-auto">
-                          Follow
-                      </Button>
-                  </div>
+              {/* 5. Engagement Row */}
+              <div className="flex items-center gap-4 py-3 border-y border-zinc-900">
+                <button 
+                  onClick={handleAssetLike}
+                  className="flex items-center gap-1.5 text-zinc-400 hover:text-white transition-colors group"
+                >
+                  <Heart className={`h-5 w-5 ${isLiked ? "fill-red-500 text-red-500" : "group-hover:text-white"}`} />
+                  <span className={`text-sm font-medium ${isLiked ? "text-red-500" : ""}`}>{likeCount}</span>
+                </button>
+                <button 
+                  onClick={scrollToComments}
+                  className="flex items-center gap-1.5 text-zinc-400 hover:text-white transition-colors"
+                >
+                  <MessageCircle className="h-5 w-5" />
+                </button>
+                <ViewersTooltip 
+                  assetId={currentAsset.id} 
+                  viewCount={viewCount} 
+                  className="ml-auto"
+                />
               </div>
 
-              {/* Interactions */}
-              <div className="flex gap-6 border-y border-zinc-900 py-4">
-                  <button 
-                    onClick={handleAssetLike}
-                    className="flex items-center gap-2 text-zinc-400 hover:text-white transition-colors group"
-                  >
-                      <Heart className={`h-5 w-5 ${isLiked ? "fill-red-500 text-red-500" : "group-hover:text-white"}`} />
-                      <span className={`text-sm font-medium ${isLiked ? "text-red-500" : ""}`}>{likeCount}</span>
-                  </button>
-                  <button 
-                    onClick={scrollToComments}
-                    className="flex items-center gap-2 text-zinc-400 hover:text-white transition-colors"
-                  >
-                      <MessageCircle className="h-5 w-5" />
-                      <span className="text-sm font-medium">
-                        {comments.length} {comments.length === 1 ? 'Comment' : 'Comments'}
-                      </span>
-                  </button>
+              {/* 6. Comments Section */}
+              <div ref={commentsSectionRef} id="comments-section" className="space-y-4 pt-2">
+                <h3 className="text-sm font-semibold text-white">
+                  Comments ({comments.length})
+                </h3>
+                
+                <CommentList 
+                  comments={comments}
+                  currentUser={currentUser}
+                  onReply={setReplyingToId}
+                  onEdit={handleEditComment}
+                  onStartEdit={setEditingCommentId}
+                  onDelete={handleDeleteComment}
+                  onLike={handleLikeComment}
+                  editingCommentId={editingCommentId}
+                  onCancelEdit={() => setEditingCommentId(null)}
+                  highlightedCommentId={highlightedCommentId}
+                />
               </div>
-
-               {/* Streams */}
-               {assetStreams.length > 0 && (
-               <div className="space-y-3">
-                    <h3 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Streams</h3>
-                  <div className="flex flex-wrap gap-2">
-                      {assetStreams.map((stream) => (
-                        <StreamBadge key={stream.id} stream={stream} clickable={true} className="text-sm" />
-                      ))}
-                       </div>
-                  </div>
-               )}
-
-              {/* Comments List */}
-              <div ref={commentsSectionRef} id="comments-section" className="space-y-6 pt-2">
-                  <div className="flex items-center justify-between border-t border-zinc-900 pt-6">
-                     <h3 className="text-sm font-semibold text-white">Comments ({comments.length})</h3>
-                  </div>
-                  
-                  <CommentList 
-                    comments={comments}
-                    currentUser={currentUser}
-                    onReply={setReplyingToId}
-                    onEdit={handleEditComment}
-                    onStartEdit={setEditingCommentId}
-                    onDelete={handleDeleteComment}
-                    onLike={handleLikeComment}
-                    editingCommentId={editingCommentId}
-                    onCancelEdit={() => setEditingCommentId(null)}
-                  />
-              </div>
-            </motion.div>
-          </AnimatePresence>
+            </div>
         </div>
 
         {/* Fixed Comment Input */}
@@ -474,9 +580,19 @@ export function AssetDetailDesktop({ asset }: AssetDetailDesktopProps) {
               placeholder={replyingToId ? "Write a reply..." : "Add a comment..."}
               autoFocus={!!replyingToId}
               onCancel={replyingToId ? () => setReplyingToId(null) : undefined}
+              assetId={asset.id}
            />
         </div>
       </div>
+
+      {/* Edit Asset Dialog */}
+      <EditAssetDialog
+        open={showEditDialog}
+        onOpenChange={setShowEditDialog}
+        asset={currentAsset}
+        currentStreams={assetStreams}
+        onSuccess={handleEditSuccess}
+      />
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
@@ -503,4 +619,3 @@ export function AssetDetailDesktop({ asset }: AssetDetailDesktopProps) {
     </div>
   );
 }
-

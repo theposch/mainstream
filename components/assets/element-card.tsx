@@ -9,6 +9,7 @@ import { StreamBadge } from "@/components/streams/stream-badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import { useAssetLike } from "@/lib/hooks/use-asset-like";
+import { useAssetPrefetch } from "@/lib/hooks/use-asset-prefetch";
 import type { Asset } from "@/lib/types/database";
 
 interface ElementCardProps {
@@ -16,10 +17,12 @@ interface ElementCardProps {
   className?: string;
   /** Callback when like status changes - receives assetId and new isLiked state */
   onLikeChange?: (assetId: string, isLiked: boolean) => void;
+  /** Callback when card is clicked - for modal overlay mode */
+  onClick?: (asset: Asset) => void;
 }
 
 export const ElementCard = React.memo(
-  function ElementCard({ asset, className, onLikeChange }: ElementCardProps) {
+  function ElementCard({ asset, className, onLikeChange, onClick }: ElementCardProps) {
   const [isHovered, setIsHovered] = React.useState(false);
   const [imageLoaded, setImageLoaded] = React.useState(false);
   
@@ -30,10 +33,29 @@ export const ElementCard = React.memo(
     asset.likeCount ?? 0
   );
 
-  // Memoized callbacks for stable references
-  const handleMouseEnter = React.useCallback(() => setIsHovered(true), []);
-  const handleMouseLeave = React.useCallback(() => setIsHovered(false), []);
+  // Prefetch hook for hover-based data loading AND full-res image preload
+  const { onMouseEnter: prefetchOnEnter, onMouseLeave: prefetchOnLeave } = useAssetPrefetch(asset.id, asset.url);
+
+  // Memoized callbacks for stable references - combine hover state with prefetch
+  const handleMouseEnter = React.useCallback(() => {
+    setIsHovered(true);
+    prefetchOnEnter();
+  }, [prefetchOnEnter]);
+  
+  const handleMouseLeave = React.useCallback(() => {
+    setIsHovered(false);
+    prefetchOnLeave();
+  }, [prefetchOnLeave]);
   const handleImageLoad = React.useCallback(() => setImageLoaded(true), []);
+  
+  // Handle card click - for modal overlay mode
+  const handleCardClick = React.useCallback((e: React.MouseEvent) => {
+    if (onClick) {
+      e.preventDefault();
+      onClick(asset);
+    }
+  }, [onClick, asset]);
+  
   const handleLikeClick = React.useCallback(async (e: React.MouseEvent) => {
     e.preventDefault();
     const wasLiked = isLiked;
@@ -70,7 +92,7 @@ export const ElementCard = React.memo(
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
     >
-      <Link href={`/e/${asset.id}`} className="block w-full">
+      <Link href={`/e/${asset.id}`} className="block w-full" onClick={handleCardClick}>
         <div className="relative rounded-xl overflow-hidden bg-secondary cursor-zoom-in w-full">
           {/* Aspect Ratio Container */}
           <div 

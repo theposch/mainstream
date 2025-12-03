@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import { unstable_noStore as noStore } from 'next/cache';
 import { createClient } from "@/lib/supabase/server";
 import { StreamHeader } from "@/components/streams/stream-header";
-import { MasonryGrid } from "@/components/assets/masonry-grid";
+import { StreamPageContent } from "@/components/streams/stream-page-content";
 import type { User } from "@/lib/types/database";
 
 interface StreamPageProps {
@@ -218,18 +218,7 @@ export default async function StreamPage({ params }: StreamPageProps) {
         currentUser={currentUserProfile}
       />
       
-      <div className="mt-8">
-        {streamAssets.length > 0 ? (
-          <MasonryGrid assets={streamAssets} />
-        ) : (
-          <div className="text-center py-20">
-            <p className="text-lg font-medium text-muted-foreground">No assets in this stream yet.</p>
-            <p className="text-sm text-muted-foreground mt-2">
-              Assets will appear here when added to the stream.
-            </p>
-          </div>
-        )}
-      </div>
+      <StreamPageContent assets={streamAssets} />
     </div>
   );
 }

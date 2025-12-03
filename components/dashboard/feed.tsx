@@ -2,13 +2,17 @@
 
 import * as React from "react";
 import { X, Upload, Loader2, Users } from "lucide-react";
+import { useQueryState } from "nuqs";
+import { useQuery } from "@tanstack/react-query";
 import { FeedTabs } from "./feed-tabs";
 import { MasonryGrid } from "@/components/assets/masonry-grid";
+import { AssetDetail } from "@/components/assets/asset-detail";
 import { useSearch } from "@/lib/contexts/search-context";
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
 import { useAssetsInfinite } from "@/lib/hooks/use-assets-infinite";
 import { useFollowingAssets } from "@/lib/hooks/use-following-assets";
+import { assetKeys, fetchAssetById } from "@/lib/queries/asset-queries";
 import type { Asset } from "@/lib/types/database";
 
 interface DashboardFeedProps {
@@ -21,6 +25,15 @@ export const DashboardFeed = React.memo(function DashboardFeed({ initialAssets }
   const { debouncedQuery, clearSearch } = useSearch();
   const [searchResults, setSearchResults] = React.useState<Asset[]>([]);
   const [searching, setSearching] = React.useState(false);
+  
+  // Modal state with URL sync via nuqs
+  // shallow: true = URL updates without server re-render (client-side only)
+  // history: 'push' = back button closes modal
+  const [selectedAssetId, setSelectedAssetId] = useQueryState("asset", {
+    defaultValue: "",
+    shallow: true,
+    history: "push",
+  });
   
   // Memoized callbacks for stable references
   const handleUploadClick = React.useCallback(() => {
@@ -123,6 +136,42 @@ export const DashboardFeed = React.memo(function DashboardFeed({ initialAssets }
   const hasResults = displayedAssets.length > 0;
   const isEmpty = !isSearching && baseAssets.length === 0;
 
+  // Find selected asset from current assets for modal
+  const assetFromCache = React.useMemo(() => {
+    if (!selectedAssetId) return null;
+    // Search in all loaded asset sources
+    return (
+      assets.find((a) => a.id === selectedAssetId) ||
+      followingAssets.find((a) => a.id === selectedAssetId) ||
+      searchResults.find((a) => a.id === selectedAssetId) ||
+      null
+    );
+  }, [selectedAssetId, assets, followingAssets, searchResults]);
+
+  // Deep linking support: fetch asset from API if not in cache
+  // This handles direct URLs like /home?asset=xxx
+  const { data: fetchedAsset } = useQuery({
+    queryKey: assetKeys.detail(selectedAssetId || ""),
+    queryFn: () => fetchAssetById(selectedAssetId!),
+    enabled: !!selectedAssetId && !assetFromCache, // Only fetch if not in cache
+    staleTime: 5 * 60 * 1000,
+  });
+
+  // Use cached asset if available, otherwise use fetched asset
+  const selectedAsset = assetFromCache || fetchedAsset || null;
+
+  // Modal handlers
+  const handleAssetClick = React.useCallback(
+    (asset: Asset) => {
+      setSelectedAssetId(asset.id);
+    },
+    [setSelectedAssetId]
+  );
+
+  const handleCloseModal = React.useCallback(() => {
+    setSelectedAssetId("");
+  }, [setSelectedAssetId]);
+
   return (
     <div className="w-full min-h-screen">
       <FeedTabs activeTab={activeTab} onTabChange={setActiveTab} />
@@ -196,7 +245,10 @@ export const DashboardFeed = React.memo(function DashboardFeed({ initialAssets }
           )
         ) : hasResults ? (
           <>
-          <MasonryGrid assets={displayedAssets} />
+          <MasonryGrid 
+            assets={displayedAssets} 
+            onAssetClick={handleAssetClick}
+          />
             
             {/* Infinite scroll sentinel - only show for non-search queries */}
             {!isSearching && (
@@ -228,6 +280,14 @@ export const DashboardFeed = React.memo(function DashboardFeed({ initialAssets }
           </div>
         ) : null}
       </div>
+
+      {/* Asset Detail Modal Overlay */}
+      {selectedAsset && (
+        <AssetDetail 
+          asset={selectedAsset} 
+          onClose={handleCloseModal}
+        />
+      )}
     </div>
   );
 });

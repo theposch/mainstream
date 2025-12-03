@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Share2, Download, Flag, X, Trash2 } from "lucide-react";
+import { Share2, Download, Flag, X, Trash2, Pencil } from "lucide-react";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { cn } from "@/lib/utils";
 
@@ -11,6 +11,8 @@ interface MoreMenuSheetProps {
   onShare: () => void;
   onDownload: () => void;
   onReport: () => void;
+  onEdit?: () => void;
+  canEdit?: boolean;
   onDelete?: () => void;
   canDelete?: boolean;
 }
@@ -21,10 +23,18 @@ export function MoreMenuSheet({
   onShare,
   onDownload,
   onReport,
+  onEdit,
+  canEdit = false,
   onDelete,
   canDelete = false
 }: MoreMenuSheetProps) {
   const menuItems = [
+    ...(canEdit && onEdit ? [{
+      icon: Pencil,
+      label: "Edit Post",
+      onClick: onEdit,
+      variant: "default" as const
+    }] : []),
     {
       icon: Share2,
       label: "Share",

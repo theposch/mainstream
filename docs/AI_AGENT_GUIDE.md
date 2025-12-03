@@ -12,6 +12,12 @@ Quick onboarding guide for AI assistants working on the Mainstream codebase.
 ## Critical Context
 
 ### Recent Major Changes
+- ✅ **View Tracking** - "Seen by X people" with hover tooltip showing viewers (2s threshold)
+- ✅ **Comment Likes** - Like/unlike comments with real-time updates
+- ✅ **Modal Overlay for Assets** - Pinterest-style instant modal from feed (React Query + nuqs)
+- ✅ **React Query Integration** - Caching, prefetching, and optimistic updates
+- ✅ **URL State Sync** - Modal state syncs with URL for deep linking & back button
+- ✅ **Hover Prefetching** - Comments pre-loaded on card hover (150ms debounce)
 - ✅ **Stream Following** - Users can follow streams; posts appear in Following tab
 - ✅ **Stream Bookmarks** - Add external links (Jira, Figma, etc.) with favicons
 - ✅ **Stream Header Redesign** - Two-row layout, `#` prefix, contributor tooltip
@@ -55,6 +61,8 @@ assets/
     route.ts           - DELETE: Delete asset
     like/route.ts      - POST/DELETE: Toggle like
     comments/route.ts  - GET/POST: Comments
+    view/route.ts      - POST: Record view (2s threshold)
+    viewers/route.ts   - GET: List viewers for tooltip
 
 comments/[id]/
   route.ts             - PUT/DELETE: Update/delete comment
@@ -82,11 +90,12 @@ notifications/route.ts - GET/PUT: Notifications
 assets/
   element-card.tsx          - Asset card with hover (React.memo)
   masonry-grid.tsx          - Pinterest-style layout (React.memo)
-  asset-detail-desktop.tsx  - Desktop modal
-  asset-detail-mobile.tsx   - Mobile carousel
+  asset-detail-desktop.tsx  - Desktop modal with view tracking
+  asset-detail-mobile.tsx   - Mobile carousel with view tracking
   comment-input.tsx         - Comment form with @mentions
   comment-item.tsx          - Comment with like button
-  comment-list.tsx          - Threaded comments
+  comment-list.tsx          - Threaded comments (no nested replies)
+  viewers-tooltip.tsx       - Hover tooltip showing who viewed
 
 streams/
   stream-header.tsx         - Stream header (follow, bookmarks, contributors)
@@ -111,7 +120,9 @@ layout/
 use-assets-infinite.ts      - Infinite scroll for recent assets
 use-following-assets.ts     - Infinite scroll for following feed (users + streams)
 use-asset-like.ts           - Like/unlike with optimistic updates
-use-asset-comments.ts       - CRUD operations for comments
+use-asset-view.ts           - Record view after 2s threshold (fire-and-forget)
+use-asset-comments.ts       - CRUD operations (React Query + Supabase Realtime)
+use-asset-prefetch.ts       - Hover-based data prefetching for instant modal
 use-comment-like.ts         - Like/unlike comments
 use-user-follow.ts          - Follow/unfollow users
 use-stream-follow.ts        - Follow/unfollow streams with optimistic updates
@@ -121,12 +132,23 @@ use-stream-mentions.ts      - Parse and create streams from hashtags
 use-stream-dropdown-options.ts - Shared stream dropdown logic
 ```
 
+### Providers (`lib/providers/`)
+```
+query-provider.tsx          - React Query provider with DevTools (dev only)
+```
+
+### Queries (`lib/queries/`)
+```
+asset-queries.ts            - Query keys factory and fetch functions
+```
+
 ### Types (`lib/types/`)
 ```
 database.ts - TypeScript interfaces for all DB entities:
-  - Asset (includes likeCount, isLikedByCurrentUser, streams)
+  - Asset (includes likeCount, isLikedByCurrentUser, view_count, streams)
   - Stream, User, Comment, Notification
-  - StreamFollow, StreamBookmark (new)
+  - StreamFollow, StreamBookmark
+  - AssetViewer (for view tooltip)
   - All use snake_case (database convention)
 ```
 
@@ -144,16 +166,19 @@ streams
   └─ has → bookmarks (via stream_bookmarks)
 
 assets
-  ├─ title, url, uploader_id, width, height
+  ├─ title, url, uploader_id, width, height, view_count
   ├─ belongs to → streams (many-to-many)
-  ├─ has → likes, comments
-  └─ includes pre-fetched: likeCount, isLikedByCurrentUser, streams
+  ├─ has → likes, comments, views
+  └─ includes pre-fetched: likeCount, isLikedByCurrentUser, view_count, streams
 
 asset_likes
   └─ asset_id, user_id, created_at
 
+asset_views
+  └─ asset_id, user_id, viewed_at (unique per user, triggers view_count increment)
+
 asset_comments
-  ├─ asset_id, user_id, content, parent_id
+  ├─ asset_id, user_id, content, parent_id (no nested replies)
   └─ has → likes (via comment_likes)
 
 comment_likes
@@ -162,10 +187,10 @@ comment_likes
 user_follows
   └─ follower_id, following_id, created_at
 
-stream_follows (NEW)
+stream_follows
   └─ stream_id, user_id, created_at
 
-stream_bookmarks (NEW)
+stream_bookmarks
   └─ id, stream_id, url, title, created_by, position, created_at
 
 notifications
@@ -296,6 +321,38 @@ const [
 const { isFollowing, toggleFollow } = useStreamFollow(streamId, initialFollowData);
 ```
 
+### Modal Overlay Pattern (Asset Detail)
+```typescript
+// Feed opens assets as modal overlay (not page navigation)
+// components/dashboard/feed.tsx
+const [selectedAssetId, setSelectedAssetId] = useQueryState("asset"); // URL sync
+
+const handleAssetClick = (asset: Asset) => setSelectedAssetId(asset.id);
+const handleCloseModal = () => setSelectedAssetId("");
+
+// Render modal when selected
+{selectedAsset && (
+  <AssetDetail asset={selectedAsset} onClose={handleCloseModal} />
+)}
+```
+
+### React Query Prefetching
+```typescript
+// Hover prefetch for instant modal opening
+// lib/hooks/use-asset-prefetch.ts
+const { onMouseEnter, onMouseLeave } = useAssetPrefetch(assetId);
+
+// Prefetches comments after 150ms hover
+<ElementCard onMouseEnter={onMouseEnter} onMouseLeave={onMouseLeave} />
+
+// Query keys for cache consistency
+import { assetKeys } from "@/lib/queries/asset-queries";
+queryClient.prefetchQuery({
+  queryKey: assetKeys.comments(assetId),
+  queryFn: () => fetchAssetComments(assetId),
+});
+```
+
 ## Common Patterns
 
 ### Infinite Scroll
@@ -341,7 +398,9 @@ useEffect(() => {
 | Following | `app/home/page.tsx` | `api/assets/following/route.ts` | `use-following-assets.ts` | `feed.tsx` |
 | Asset detail | `app/e/[id]/page.tsx` | - | `use-asset-detail.ts` | `asset-detail-*.tsx` |
 | Likes | - | `api/assets/[id]/like/route.ts` | `use-asset-like.ts` | `element-card.tsx` |
+| Views | - | `api/assets/[id]/view/route.ts` | `use-asset-view.ts` | `viewers-tooltip.tsx` |
 | Comments | - | `api/assets/[id]/comments/route.ts` | `use-asset-comments.ts` | `comment-*.tsx` |
+| Comment Likes | - | `api/comments/[id]/like/route.ts` | `use-comment-like.ts` | `comment-item.tsx` |
 | Streams | `app/stream/[slug]/page.tsx` | `api/streams/route.ts` | `use-stream-mentions.ts` | `stream-*.tsx` |
 | Stream Follow | `app/stream/[slug]/page.tsx` | `api/streams/[id]/follow/route.ts` | `use-stream-follow.ts` | `stream-header.tsx` |
 | Stream Bookmarks | `app/stream/[slug]/page.tsx` | `api/streams/[id]/bookmarks/route.ts` | `use-stream-bookmarks.ts` | `stream-header.tsx` |
@@ -380,7 +439,7 @@ npm run dev
 
 When working on a feature, review:
 1. Database schema: `scripts/migrations/001_initial_schema.sql`
-2. New migrations: `scripts/migrations/003_stream_follows.sql`, `004_stream_bookmarks.sql`
+2. New migrations: `scripts/migrations/007_add_comment_likes.sql`, `009_add_asset_views.sql`
 3. Type definitions: `lib/types/database.ts`
 4. Related API route: `app/api/[feature]/route.ts`
 5. Related hook: `lib/hooks/use-[feature].ts`

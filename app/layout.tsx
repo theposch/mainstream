@@ -3,6 +3,8 @@ import "./globals.css";
 import { ConditionalNavbar } from "@/components/layout/conditional-navbar";
 import { ErrorBoundary } from "@/components/error-boundary";
 import { SearchProvider } from "@/lib/contexts/search-context";
+import { QueryProvider } from "@/lib/providers/query-provider";
+import { NuqsAdapter } from "nuqs/adapters/next/app";
 
 export const metadata: Metadata = {
   title: "Mainstream | Design Collaboration",
@@ -19,6 +21,8 @@ export default function RootLayout({
       <body
         className="antialiased bg-black text-white min-h-screen flex flex-col font-sans"
       >
+        <QueryProvider>
+        <NuqsAdapter>
         <SearchProvider>
           {/* Skip to main content link for accessibility */}
           <a
@@ -39,6 +43,8 @@ export default function RootLayout({
             </main>
           </ErrorBoundary>
         </SearchProvider>
+        </NuqsAdapter>
+        </QueryProvider>
       </body>
     </html>
   );
