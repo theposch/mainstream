@@ -1,13 +1,14 @@
 "use client";
 
 import React from "react";
-import { Heart, MessageCircle, MoreHorizontal } from "lucide-react";
+import { Heart, MessageCircle, MoreHorizontal, Eye } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface MobileActionBarProps {
   likes: number;
   hasLiked: boolean;
   commentCount: number;
+  viewCount?: number;
   onLike: () => void;
   onCommentsTap: () => void;
   onMoreTap?: () => void;
@@ -17,6 +18,7 @@ export const MobileActionBar = React.memo(function MobileActionBar({
   likes,
   hasLiked,
   commentCount,
+  viewCount,
   onLike,
   onCommentsTap,
   onMoreTap
@@ -26,7 +28,7 @@ export const MobileActionBar = React.memo(function MobileActionBar({
       {/* Like Button */}
       <button 
         onClick={onLike}
-        className="flex flex-col items-center gap-1 p-2 text-zinc-400 active:scale-95 transition-transform"
+        className="flex flex-col items-center gap-0.5 p-2 text-zinc-400 active:scale-95 transition-transform"
       >
         <Heart 
           className={cn(
@@ -37,6 +39,13 @@ export const MobileActionBar = React.memo(function MobileActionBar({
         <span className={cn("text-xs font-medium", hasLiked ? "text-red-500" : "text-zinc-400")}>
           {likes}
         </span>
+        {/* View count below likes */}
+        {viewCount !== undefined && (
+          <span className="text-[10px] text-zinc-600 flex items-center gap-0.5 mt-0.5">
+            <Eye className="h-2.5 w-2.5" />
+            {viewCount}
+          </span>
+        )}
       </button>
 
       {/* Comments Button (Primary Action) */}

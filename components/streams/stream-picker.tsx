@@ -34,6 +34,8 @@ interface StreamPickerProps {
   disabled?: boolean;
   className?: string;
   variant?: "default" | "compact";
+  /** Custom className for the popover (useful for z-index in dialogs) */
+  popoverClassName?: string;
 }
 
 export function StreamPicker({
@@ -47,6 +49,7 @@ export function StreamPicker({
   disabled = false,
   className,
   variant = "default",
+  popoverClassName,
 }: StreamPickerProps) {
   // Import streams internally instead of as prop
   const [allStreams, setAllStreams] = React.useState<Stream[]>([]);
@@ -378,7 +381,7 @@ export function StreamPicker({
               Add Streams
             </Button>
           </PopoverTrigger>
-          <PopoverContent className="w-[300px] p-3" align="start">
+          <PopoverContent className={cn("w-[300px] p-3", popoverClassName)} align="start">
             {renderSelectionContent()}
           </PopoverContent>
         </Popover>

@@ -3,9 +3,11 @@
 import * as React from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import useEmblaCarousel from "embla-carousel-react";
-import { X, Reply } from "lucide-react";
+import { X, Reply, Heart, MessageCircle, Loader2 } from "lucide-react";
+import { useAssetView } from "@/lib/hooks/use-asset-view";
+import { ViewersTooltip } from "./viewers-tooltip";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { IMAGE_SIZES } from "@/lib/constants";
@@ -15,6 +17,11 @@ import { CommentList } from "./comment-list";
 import { CommentInput } from "./comment-input";
 import { useAssetDetail } from "./use-asset-detail";
 import { MoreMenuSheet } from "./more-menu-sheet";
+import { EditAssetDialog } from "./edit-asset-dialog";
+import { StreamBadge } from "@/components/streams/stream-badge";
+import { useUserFollow } from "@/lib/hooks/use-user-follow";
+import { formatRelativeTime } from "@/lib/utils/time";
+import { createClient } from "@/lib/supabase/client";
 import type { Asset } from "@/lib/types/database";
 import {
   AlertDialog,
@@ -29,20 +36,33 @@ import {
 
 interface AssetDetailMobileProps {
   asset: any;  // Asset from database
+  /** Callback when modal should close (for overlay mode) */
+  onClose?: () => void;
 }
 
-export function AssetDetailMobile({ asset }: AssetDetailMobileProps) {
+export function AssetDetailMobile({ asset, onClose }: AssetDetailMobileProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const highlightedCommentId = searchParams.get('comment');
   const [sheetOpen, setSheetOpen] = React.useState(false);
   const [moreMenuOpen, setMoreMenuOpen] = React.useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = React.useState(false);
   const [isDeleting, setIsDeleting] = React.useState(false);
+  const [showEditDialog, setShowEditDialog] = React.useState(false);
+  
+  // Local asset state for optimistic updates after editing
+  const [localAsset, setLocalAsset] = React.useState(asset);
   
   // Track the currently visible asset in the carousel
   const [currentCarouselIndex, setCurrentCarouselIndex] = React.useState<number>(-1);
 
+  // Sync localAsset when asset prop changes
+  React.useEffect(() => {
+    setLocalAsset(asset);
+  }, [asset]);
+  
   // Simplified navigation (carousel removed for now)
-  const allAssets = React.useMemo(() => [asset], [asset]);
+  const allAssets = React.useMemo(() => [localAsset], [localAsset]);
 
   const initialIndex = 0;
 
@@ -59,8 +79,8 @@ export function AssetDetailMobile({ asset }: AssetDetailMobileProps) {
     if (currentCarouselIndex >= 0 && currentCarouselIndex < allAssets.length) {
       return allAssets[currentCarouselIndex];
     }
-    return asset; // Fallback to initial asset
-  }, [currentCarouselIndex, allAssets, asset]);
+    return localAsset; // Fallback to local asset
+  }, [currentCarouselIndex, allAssets, localAsset]);
 
   // Use the current asset for all data
   const {
@@ -83,6 +103,27 @@ export function AssetDetailMobile({ asset }: AssetDetailMobileProps) {
 
   // Get uploader from asset (already joined in server query)
   const uploader = currentAsset.uploader;
+  
+  // Use follow hook for the uploader
+  const { isFollowing, toggleFollow, loading: followLoading } = useUserFollow(uploader?.username || '');
+  
+  // Check if current user is viewing their own post
+  const isOwnPost = currentUser?.id === currentAsset.uploader_id;
+  
+  // Track view after 2 seconds (excludes owner views)
+  useAssetView(currentAsset.id, !isOwnPost);
+  
+  // Get view count from asset (denormalized for performance)
+  const viewCount = currentAsset.view_count || 0;
+  
+  // Get streams from asset (already joined in server query or passed from feed)
+  // Use local state to allow optimistic updates from edit dialog
+  const [assetStreams, setAssetStreams] = React.useState<any[]>(currentAsset.streams || []);
+  
+  // Sync streams when asset prop changes
+  React.useEffect(() => {
+    setAssetStreams(currentAsset.streams || []);
+  }, [currentAsset.streams]);
 
   // Initialize carousel index
   React.useEffect(() => {
@@ -173,8 +214,12 @@ export function AssetDetailMobile({ asset }: AssetDetailMobileProps) {
         throw new Error(data.message || 'Failed to delete asset');
       }
 
-      // Success - redirect to home
-      router.push('/home');
+      // Success - close modal or redirect to home
+      if (onClose) {
+        onClose();
+      } else {
+        router.push('/home');
+      }
     } catch (error) {
       console.error('Error deleting asset:', error);
       alert(error instanceof Error ? error.message : 'Failed to delete asset');
@@ -218,17 +263,45 @@ export function AssetDetailMobile({ asset }: AssetDetailMobileProps) {
     setShowDeleteDialog(true);
   };
 
+  const handleEditClick = () => {
+    setMoreMenuOpen(false);
+    setShowEditDialog(true);
+  };
+
+  // Handle edit success - update local state optimistically
+  const handleEditSuccess = React.useCallback((updatedAsset: Partial<Asset>) => {
+    setLocalAsset((prev) => ({
+      ...prev,
+      title: updatedAsset.title ?? prev.title,
+      description: updatedAsset.description ?? prev.description,
+    }));
+    // Also update streams if provided
+    if (updatedAsset.streams) {
+      setAssetStreams(updatedAsset.streams);
+    }
+  }, []);
+
   const canDelete = currentUser && currentUser.id === currentAsset.uploader_id;
+  const canEdit = canDelete; // Same permission as delete
 
   return (
     <div className="fixed inset-0 z-[100] bg-black flex flex-col">
       {/* Close button - floating */}
-      <Link 
-        href="/home" 
-        className="absolute top-4 left-4 z-50 p-2 bg-black/50 rounded-full text-white backdrop-blur-md"
-      >
-        <X className="h-6 w-6" />
-      </Link>
+      {onClose ? (
+        <button
+          onClick={onClose}
+          className="absolute top-4 left-4 z-50 p-2 bg-black/50 rounded-full text-white backdrop-blur-md"
+        >
+          <X className="h-6 w-6" />
+        </button>
+      ) : (
+        <Link 
+          href="/home" 
+          className="absolute top-4 left-4 z-50 p-2 bg-black/50 rounded-full text-white backdrop-blur-md"
+        >
+          <X className="h-6 w-6" />
+        </Link>
+      )}
       
       {/* Embla Carousel - Full-screen image slider */}
       <div className="flex-1 relative w-full h-full bg-black overflow-hidden" ref={emblaRef}>
@@ -259,38 +332,103 @@ export function AssetDetailMobile({ asset }: AssetDetailMobileProps) {
         likes={likeCount}
         hasLiked={isLiked}
         commentCount={comments.length}
+        viewCount={viewCount}
         onLike={handleAssetLike}
         onCommentsTap={() => setSheetOpen(true)}
         onMoreTap={() => setMoreMenuOpen(true)}
       />
       
       {/* Bottom sheet with details - synced with current carousel asset */}
-      <BottomSheet open={sheetOpen} onOpenChange={setSheetOpen} title="Comments">
+      <BottomSheet open={sheetOpen} onOpenChange={setSheetOpen} title="Details">
         <div className="flex flex-col h-full">
           {/* Scrollable content */}
           <div className="flex-1 overflow-y-auto pb-4">
             {/* Header Info */}
-            <div className="px-4 pt-2 pb-6 border-b border-zinc-900">
-              <h1 className="text-xl font-bold text-white mb-4">{currentAsset.title}</h1>
-              <div className="flex items-center justify-between">
+            <div className="px-4 pt-2 pb-4 border-b border-zinc-900 space-y-4">
+              {/* Title */}
+              <h1 className="text-xl font-bold text-white">{currentAsset.title}</h1>
+              
+              {/* Author Row */}
+              <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
-                  <Avatar className="h-10 w-10 border border-zinc-800">
-                    <AvatarImage src={uploader?.avatar_url} />
-                    <AvatarFallback>{uploader?.username?.charAt(0).toUpperCase() || 'U'}</AvatarFallback>
-                  </Avatar>
+                  <Link href={`/u/${uploader?.username}`}>
+                    <Avatar className="h-10 w-10 border border-zinc-800 hover:opacity-80 transition-opacity">
+                      <AvatarImage src={uploader?.avatar_url} />
+                      <AvatarFallback>{uploader?.username?.charAt(0).toUpperCase() || 'U'}</AvatarFallback>
+                    </Avatar>
+                  </Link>
                   <div className="flex flex-col">
-                    <span className="text-sm font-medium text-white">{uploader?.display_name || 'Unknown User'}</span>
-                    <span className="text-xs text-zinc-500">Added {new Date(currentAsset.created_at).toLocaleDateString()}</span>
+                    <Link 
+                      href={`/u/${uploader?.username}`}
+                      className="text-sm font-medium text-white hover:underline"
+                    >
+                      {uploader?.display_name || 'Unknown User'}
+                    </Link>
+                    <span className="text-xs text-zinc-500">
+                      {formatRelativeTime(currentAsset.created_at)}
+                    </span>
                   </div>
                 </div>
-                <Button variant="secondary" size="sm">
-                  Follow
-                </Button>
+                {!isOwnPost && (
+                  <Button 
+                    variant={isFollowing ? "secondary" : "default"} 
+                    size="sm"
+                    onClick={toggleFollow}
+                    disabled={followLoading}
+                  >
+                    {followLoading ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : isFollowing ? (
+                      'Following'
+                    ) : (
+                      'Follow'
+                    )}
+                  </Button>
+                )}
+              </div>
+
+              {/* Description */}
+              {currentAsset.description && (
+                <p className="text-sm text-zinc-400 leading-relaxed">
+                  {currentAsset.description}
+                </p>
+              )}
+
+              {/* Stream Badges */}
+              {assetStreams.length > 0 && (
+                <div className="flex items-center gap-2 flex-wrap">
+                  {assetStreams.map((stream) => (
+                    <StreamBadge key={stream.id} stream={stream} clickable={true} />
+                  ))}
+                </div>
+              )}
+
+              {/* Engagement Row */}
+              <div className="flex items-center gap-4 pt-2">
+                <button 
+                  onClick={handleAssetLike}
+                  className="flex items-center gap-1.5 text-zinc-400 hover:text-white transition-colors group"
+                >
+                  <Heart className={`h-5 w-5 ${isLiked ? "fill-red-500 text-red-500" : "group-hover:text-white"}`} />
+                  <span className={`text-sm font-medium ${isLiked ? "text-red-500" : ""}`}>{likeCount}</span>
+                </button>
+                <div className="flex items-center gap-1.5 text-zinc-400">
+                  <MessageCircle className="h-5 w-5" />
+                  <span className="text-sm font-medium">{comments.length}</span>
+                </div>
+                <ViewersTooltip 
+                  assetId={currentAsset.id} 
+                  viewCount={viewCount} 
+                  className="ml-auto"
+                />
               </div>
             </div>
 
             {/* Comments List */}
             <div className="p-4">
+              <h3 className="text-sm font-semibold text-white mb-4">
+                Comments ({comments.length})
+              </h3>
               <CommentList 
                 comments={comments}
                 currentUser={currentUser}
@@ -301,6 +439,7 @@ export function AssetDetailMobile({ asset }: AssetDetailMobileProps) {
                 onLike={handleLikeComment}
                 editingCommentId={editingCommentId}
                 onCancelEdit={() => setEditingCommentId(null)}
+                highlightedCommentId={highlightedCommentId}
               />
             </div>
           </div>
@@ -328,6 +467,7 @@ export function AssetDetailMobile({ asset }: AssetDetailMobileProps) {
                 placeholder={replyingToId ? "Write a reply..." : "Add a comment..."}
                 autoFocus={false}
                 onCancel={replyingToId ? () => setReplyingToId(null) : undefined}
+                assetId={currentAsset.id}
              />
           </div>
         </div>
@@ -340,8 +480,19 @@ export function AssetDetailMobile({ asset }: AssetDetailMobileProps) {
         onShare={handleShare}
         onDownload={handleDownload}
         onReport={handleReport}
+        onEdit={handleEditClick}
+        canEdit={canEdit}
         onDelete={handleDeleteClick}
         canDelete={canDelete}
+      />
+
+      {/* Edit Asset Dialog */}
+      <EditAssetDialog
+        open={showEditDialog}
+        onOpenChange={setShowEditDialog}
+        asset={currentAsset}
+        currentStreams={assetStreams}
+        onSuccess={handleEditSuccess}
       />
 
       {/* Delete Confirmation Dialog */}
@@ -368,4 +519,3 @@ export function AssetDetailMobile({ asset }: AssetDetailMobileProps) {
     </div>
   );
 }
-

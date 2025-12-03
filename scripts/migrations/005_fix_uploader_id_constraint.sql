@@ -15,3 +15,5 @@ ALTER COLUMN uploader_id DROP NOT NULL;
 -- Add comment explaining the behavior
 COMMENT ON COLUMN assets.uploader_id IS 'User who uploaded the asset. Set to NULL if user is deleted to preserve asset history.';
 
+
+

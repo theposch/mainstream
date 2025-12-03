@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/popover";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { useNotifications } from "@/lib/hooks/use-notifications";
+import { useNotifications, type Notification } from "@/lib/hooks/use-notifications";
 import { formatRelativeTime } from "@/lib/utils/time";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
@@ -27,38 +27,63 @@ export function NotificationsPopover() {
     await markAllAsRead();
   };
 
-  const getNotificationContent = (notification: any) => {
+  const getNotificationContent = (notification: Notification) => {
     const actor = notification.actor;
+    const asset = notification.asset;
     
     if (!actor) return null;
 
     let content = "";
     let link = "#";
+    let preview: string | null = null;
+
+    // Helper to build link with optional comment highlight
+    const buildAssetLink = (assetId: string | null, commentId?: string | null) => {
+      if (!assetId) return "#";
+      return commentId ? `/e/${assetId}?comment=${commentId}` : `/e/${assetId}`;
+    };
 
     switch (notification.type) {
       case 'like_asset':
-        content = `liked your asset`;
-        link = `/e/${notification.resource_id}`;
+        content = asset?.title 
+          ? `liked your post "${asset.title}"`
+          : "liked your post";
+        link = buildAssetLink(notification.resource_id);
+        break;
+      case 'comment':
+        content = asset?.title
+          ? `commented on "${asset.title}"`
+          : "commented on your post";
+        link = buildAssetLink(notification.resource_id, notification.comment_id);
+        preview = notification.content;
         break;
       case 'like_comment':
-        content = "liked your comment";
-        link = "#"; 
+        content = asset?.title
+          ? `liked your comment on "${asset.title}"`
+          : "liked your comment";
+        link = buildAssetLink(notification.resource_id, notification.comment_id);
         break;
       case 'reply_comment':
-        content = "replied to your comment";
-        link = "#";
+        content = asset?.title
+          ? `replied to your comment on "${asset.title}"`
+          : "replied to your comment";
+        link = buildAssetLink(notification.resource_id, notification.comment_id);
+        preview = notification.content;
         break;
       case 'follow':
         content = "started following you";
         link = `/u/${actor.username}`;
         break;
       case 'mention':
-        content = "mentioned you in a comment";
-        link = "#";
+        content = asset?.title
+          ? `mentioned you on "${asset.title}"`
+          : "mentioned you";
+        link = buildAssetLink(notification.resource_id, notification.comment_id);
+        preview = notification.content;
         break;
     }
 
-    return { actor, content, link };
+    return { actor, content, link, preview };
   };
 
   return (
@@ -121,6 +146,11 @@ export function NotificationsPopover() {
                         <span className="font-medium text-white">{data.actor.display_name}</span>{" "}
                         {data.content}
                       </p>
+                      {data.preview && (
+                        <p className="text-sm text-zinc-400 line-clamp-2 italic">
+                          "{data.preview}"
+                        </p>
+                      )}
                       <p className="text-xs text-zinc-500">
                         {formatRelativeTime(notification.created_at)}
                       </p>

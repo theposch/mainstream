@@ -40,7 +40,7 @@ interface User {
 interface CommentItemProps {
   comment: Comment;
   author?: User;
-  currentUser: User;
+  currentUser: User | null;
   onReply: (commentId: string) => void;
   onEdit: (commentId: string, newContent: string) => Promise<void>;
   onStartEdit: (commentId: string) => void;
@@ -48,6 +48,8 @@ interface CommentItemProps {
   onLike: (commentId: string) => void;
   isEditing: boolean;
   onCancelEdit: () => void;
+  /** Whether this comment should be highlighted (e.g., from notification click) */
+  isHighlighted?: boolean;
 }
 
 export const CommentItem = React.memo(function CommentItem({
@@ -60,10 +62,25 @@ export const CommentItem = React.memo(function CommentItem({
   onDelete,
   onLike,
   isEditing,
-  onCancelEdit
+  onCancelEdit,
+  isHighlighted = false
 }: CommentItemProps) {
-  const isOwner = currentUser.id === comment.user_id;
+  const isOwner = currentUser?.id === comment.user_id;
   const [isHovered, setIsHovered] = React.useState(false);
+  const [showHighlight, setShowHighlight] = React.useState(isHighlighted);
+  const commentRef = React.useRef<HTMLDivElement>(null);
+
+  // Handle highlight animation - auto-clear after animation
+  React.useEffect(() => {
+    if (isHighlighted) {
+      setShowHighlight(true);
+      // Scroll into view
+      commentRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      // Clear highlight after animation (2 seconds)
+      const timer = setTimeout(() => setShowHighlight(false), 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [isHighlighted]);
   
   // Use comment like hook for real-time like functionality
   const { isLiked, likeCount, toggleLike } = useCommentLike(
@@ -89,7 +106,12 @@ export const CommentItem = React.memo(function CommentItem({
 
   return (
     <div 
-      className="group flex gap-3 py-3"
+      ref={commentRef}
+      id={`comment-${comment.id}`}
+      className={cn(
+        "group flex gap-3 py-3 px-2 -mx-2 rounded-lg transition-colors duration-500",
+        showHighlight && "bg-amber-500/20 animate-pulse"
+      )}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
@@ -148,12 +170,15 @@ export const CommentItem = React.memo(function CommentItem({
         </p>
 
         <div className="flex items-center gap-4 mt-1.5">
-          <button 
-            onClick={() => onReply(comment.id)}
-            className="text-xs font-medium text-zinc-500 hover:text-white transition-colors flex items-center gap-1"
-          >
-            Reply
-          </button>
+          {/* Only show Reply on top-level comments (no nested replies) */}
+          {!comment.parent_id && (
+            <button 
+              onClick={() => onReply(comment.id)}
+              className="text-xs font-medium text-zinc-500 hover:text-white transition-colors flex items-center gap-1"
+            >
+              Reply
+            </button>
+          )}
           
           <button 
             onClick={toggleLike}

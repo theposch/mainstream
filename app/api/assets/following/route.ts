@@ -120,7 +120,7 @@ export async function GET(request: NextRequest) {
     // Then merge and deduplicate the results
     // Request limit + 1 to accurately detect if more data exists
     const fetchLimit = limit + 1;
-    const assetQueries: Promise<any>[] = [];
+    const assetQueries: PromiseLike<any>[] = [];
     
     // Query for assets from followed users
     if (followingUserIds.length > 0) {

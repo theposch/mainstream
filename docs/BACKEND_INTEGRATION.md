@@ -34,22 +34,25 @@ Current status of Mainstream backend integration with Supabase.
 All tables created with Row Level Security:
 - `users` - User profiles
 - `streams` - Organizational units
-- `assets` - Uploaded designs
+- `assets` - Uploaded designs (includes `view_count` denormalized counter)
 - `asset_streams` - Many-to-many asset-stream relationships
 - `asset_likes` - Like tracking
-- `asset_comments` - Comments with threading
+- `asset_views` - View tracking (unique per user, 2s threshold)
+- `asset_comments` - Comments with threading (no nested replies)
 - `comment_likes` - Comment likes
 - `user_follows` - User following relationships
-- `stream_follows` - Stream following relationships (NEW)
-- `stream_bookmarks` - External links for streams (NEW)
+- `stream_follows` - Stream following relationships
+- `stream_bookmarks` - External links for streams
 - `notifications` - Activity feed
 
 **Migration Files:**
 - `scripts/migrations/001_initial_schema.sql`
 - `scripts/migrations/002_seed_data.sql`
-- `scripts/migrations/003_stream_follows.sql` (NEW)
-- `scripts/migrations/004_stream_bookmarks.sql` (NEW)
+- `scripts/migrations/003_stream_follows.sql`
+- `scripts/migrations/004_stream_bookmarks.sql`
 - `scripts/migrations/007_add_comment_likes.sql`
+- `scripts/migrations/009_add_asset_views.sql`
+- `scripts/migrations/010_asset_views_rls.sql`
 
 ### ✅ Storage
 Configured buckets:
@@ -70,6 +73,8 @@ Storage policies allow:
 - `GET /api/assets/following` - Assets from followed users
 - `POST /api/assets/[id]/like` - Like asset
 - `DELETE /api/assets/[id]/like` - Unlike asset
+- `POST /api/assets/[id]/view` - Record view (after 2s threshold, excludes owner)
+- `GET /api/assets/[id]/viewers` - Get viewer list for tooltip
 - `GET /api/assets/[id]/comments` - Get comments
 - `POST /api/assets/[id]/comments` - Add comment
 
@@ -125,11 +130,12 @@ Implemented with Supabase Realtime:
 
 **Hooks:**
 - `lib/hooks/use-asset-like.ts`
+- `lib/hooks/use-asset-view.ts` - Fire-and-forget view tracking (2s delay)
 - `lib/hooks/use-comment-like.ts`
 - `lib/hooks/use-asset-comments.ts`
 - `lib/hooks/use-notifications.ts`
-- `lib/hooks/use-stream-follow.ts` (NEW)
-- `lib/hooks/use-stream-bookmarks.ts` (NEW)
+- `lib/hooks/use-stream-follow.ts`
+- `lib/hooks/use-stream-bookmarks.ts`
 
 ## Architecture Decisions
 
@@ -202,6 +208,7 @@ users (many) >----< (many) users     [via user_follows]
 users (many) >----< (many) streams   [via stream_follows]
 streams (1) ----< (many) stream_bookmarks
 assets (1) ----< (many) asset_likes
+assets (1) ----< (many) asset_views  [unique per user, increments view_count]
 assets (1) ----< (many) asset_comments
 comments (1) ----< (many) comment_likes
 ```
@@ -214,6 +221,8 @@ Indexes on:
 - `streams.name` (for slug lookups)
 - `assets.created_at` (for chronological feeds)
 - `asset_streams.stream_id` (for stream pages)
+- `asset_views.asset_id, viewed_at` (for viewer list queries)
+- `asset_views.user_id` (for user view history)
 - `stream_follows.stream_id` (for follower counts)
 - `stream_follows.user_id` (for user's followed streams)
 - `stream_bookmarks.stream_id` (for bookmark lists)
