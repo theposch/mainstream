@@ -7,9 +7,11 @@ import { AssetDetailMobile } from "./asset-detail-mobile";
 
 interface AssetDetailProps {
   asset: Asset;
+  /** Callback when modal should close (for overlay mode) */
+  onClose?: () => void;
 }
 
-export function AssetDetail({ asset }: AssetDetailProps) {
+export function AssetDetail({ asset, onClose }: AssetDetailProps) {
   const [isMobile, setIsMobile] = React.useState(false);
   const [mounted, setMounted] = React.useState(false);
 
@@ -25,8 +27,8 @@ export function AssetDetail({ asset }: AssetDetailProps) {
   if (!mounted) return null;
 
   if (isMobile) {
-    return <AssetDetailMobile asset={asset} />;
+    return <AssetDetailMobile asset={asset} onClose={onClose} />;
   }
 
-  return <AssetDetailDesktop asset={asset} />;
+  return <AssetDetailDesktop asset={asset} onClose={onClose} />;
 }

@@ -34,9 +34,11 @@ import {
 
 interface AssetDetailMobileProps {
   asset: any;  // Asset from database
+  /** Callback when modal should close (for overlay mode) */
+  onClose?: () => void;
 }
 
-export function AssetDetailMobile({ asset }: AssetDetailMobileProps) {
+export function AssetDetailMobile({ asset, onClose }: AssetDetailMobileProps) {
   const router = useRouter();
   const [sheetOpen, setSheetOpen] = React.useState(false);
   const [moreMenuOpen, setMoreMenuOpen] = React.useState(false);
@@ -107,23 +109,14 @@ export function AssetDetailMobile({ asset }: AssetDetailMobileProps) {
   // TODO: Implement view tracking - add asset_views table and API
   const viewCount = 11; // Placeholder until backend implemented
   
-  // Get streams for this asset
-  const [assetStreams, setAssetStreams] = React.useState<any[]>([]);
+  // Get streams from asset (already joined in server query or passed from feed)
+  // Use local state to allow optimistic updates from edit dialog
+  const [assetStreams, setAssetStreams] = React.useState<any[]>(currentAsset.streams || []);
   
+  // Sync streams when asset prop changes
   React.useEffect(() => {
-    const fetchStreams = async () => {
-      const supabase = createClient();
-      const { data } = await supabase
-        .from('asset_streams')
-        .select('streams(*)')
-        .eq('asset_id', currentAsset.id);
-      
-      if (data) {
-        setAssetStreams(data.map(rel => rel.streams).filter(Boolean));
-      }
-    };
-    fetchStreams();
-  }, [currentAsset.id]);
+    setAssetStreams(currentAsset.streams || []);
+  }, [currentAsset.streams]);
 
   // Initialize carousel index
   React.useEffect(() => {
@@ -214,8 +207,12 @@ export function AssetDetailMobile({ asset }: AssetDetailMobileProps) {
         throw new Error(data.message || 'Failed to delete asset');
       }
 
-      // Success - redirect to home
-      router.push('/home');
+      // Success - close modal or redirect to home
+      if (onClose) {
+        onClose();
+      } else {
+        router.push('/home');
+      }
     } catch (error) {
       console.error('Error deleting asset:', error);
       alert(error instanceof Error ? error.message : 'Failed to delete asset');
@@ -283,12 +280,21 @@ export function AssetDetailMobile({ asset }: AssetDetailMobileProps) {
   return (
     <div className="fixed inset-0 z-[100] bg-black flex flex-col">
       {/* Close button - floating */}
-      <Link 
-        href="/home" 
-        className="absolute top-4 left-4 z-50 p-2 bg-black/50 rounded-full text-white backdrop-blur-md"
-      >
-        <X className="h-6 w-6" />
-      </Link>
+      {onClose ? (
+        <button
+          onClick={onClose}
+          className="absolute top-4 left-4 z-50 p-2 bg-black/50 rounded-full text-white backdrop-blur-md"
+        >
+          <X className="h-6 w-6" />
+        </button>
+      ) : (
+        <Link 
+          href="/home" 
+          className="absolute top-4 left-4 z-50 p-2 bg-black/50 rounded-full text-white backdrop-blur-md"
+        >
+          <X className="h-6 w-6" />
+        </Link>
+      )}
       
       {/* Embla Carousel - Full-screen image slider */}
       <div className="flex-1 relative w-full h-full bg-black overflow-hidden" ref={emblaRef}>
