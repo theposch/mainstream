@@ -1,7 +1,8 @@
 /**
  * Asset Comments Hook
  * 
- * Manages comments for an asset with real-time updates via Supabase Realtime.
+ * Manages comments for an asset with React Query caching and real-time updates.
+ * Uses React Query for fetching/mutations and Supabase Realtime for live updates.
  * 
  * Usage:
  * ```tsx
@@ -11,29 +12,10 @@
 
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useEffect, useCallback } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
-
-interface Comment {
-  id: string;
-  asset_id: string;
-  user_id: string;
-  content: string;
-  parent_id: string | null;
-  created_at: string;
-  updated_at: string;
-  is_edited: boolean;
-  likes: number;
-  has_liked: boolean;
-  user?: {
-    id: string;
-    username: string;
-    display_name: string;
-    email: string;
-    avatar_url?: string;
-    job_title?: string;
-  };
-}
+import { assetKeys, fetchAssetComments, type Comment } from "@/lib/queries/asset-queries";
 
 interface UseAssetCommentsReturn {
   comments: Comment[];
@@ -45,28 +27,15 @@ interface UseAssetCommentsReturn {
 }
 
 export function useAssetComments(assetId: string): UseAssetCommentsReturn {
-  const [comments, setComments] = useState<Comment[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const queryClient = useQueryClient();
+  const queryKey = assetKeys.comments(assetId);
 
-  // Fetch comments on mount
-  useEffect(() => {
-    const fetchComments = async () => {
-      try {
-        const response = await fetch(`/api/assets/${assetId}/comments`);
-        if (!response.ok) {
-          throw new Error("Failed to fetch comments");
-        }
-        const data = await response.json();
-        setComments(data.comments || []);
-      } catch (err) {
-        console.error("[useAssetComments] Error fetching comments:", err);
-        setError(err instanceof Error ? err.message : "Unknown error");
-      }
-    };
-
-    fetchComments();
-  }, [assetId]);
+  // Fetch comments with React Query
+  const { data: comments = [], isLoading, error } = useQuery({
+    queryKey,
+    queryFn: () => fetchAssetComments(assetId),
+    staleTime: 5 * 60 * 1000, // 5 minutes
+  });
 
   // Subscribe to real-time comment updates
   useEffect(() => {
@@ -94,7 +63,12 @@ export function useAssetComments(assetId: string): UseAssetCommentsReturn {
             .single();
 
           if (data) {
-            setComments((prev) => [...prev, data]);
+            // Update cache with new comment
+            queryClient.setQueryData<Comment[]>(queryKey, (old = []) => {
+              // Avoid duplicates (in case mutation already added it)
+              if (old.some(c => c.id === data.id)) return old;
+              return [...old, { ...data, likes: 0, has_liked: false }];
+            });
           }
         }
       )
@@ -118,8 +92,9 @@ export function useAssetComments(assetId: string): UseAssetCommentsReturn {
             .single();
 
           if (data) {
-            setComments((prev) =>
-              prev.map((c) => (c.id === data.id ? data : c))
+            // Update cache with updated comment
+            queryClient.setQueryData<Comment[]>(queryKey, (old = []) =>
+              old.map((c) => (c.id === data.id ? { ...c, ...data } : c))
             );
           }
         }
@@ -133,7 +108,10 @@ export function useAssetComments(assetId: string): UseAssetCommentsReturn {
           filter: `asset_id=eq.${assetId}`,
         },
         (payload) => {
-          setComments((prev) => prev.filter((c) => c.id !== payload.old.id));
+          // Remove deleted comment from cache
+          queryClient.setQueryData<Comment[]>(queryKey, (old = []) =>
+            old.filter((c) => c.id !== payload.old.id)
+          );
         }
       )
       .subscribe();
@@ -141,109 +119,149 @@ export function useAssetComments(assetId: string): UseAssetCommentsReturn {
     return () => {
       channel.unsubscribe();
     };
-  }, [assetId]);
+  }, [assetId, queryClient, queryKey]);
 
-  const addComment = useCallback(
-    async (content: string, parentId?: string): Promise<Comment | null> => {
-      if (loading) return null;
+  // Add comment mutation
+  const addMutation = useMutation({
+    mutationFn: async ({ content, parentId }: { content: string; parentId?: string }) => {
+      const response = await fetch(`/api/assets/${assetId}/comments`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content, parent_id: parentId || null }),
+      });
 
-      setLoading(true);
-      setError(null);
-
-      try {
-        const response = await fetch(`/api/assets/${assetId}/comments`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            content,
-            parent_id: parentId || null,
-          }),
-        });
-
-        if (!response.ok) {
-          const data = await response.json();
-          throw new Error(data.error || "Failed to add comment");
-        }
-
+      if (!response.ok) {
         const data = await response.json();
-        // Real-time subscription will update the list
-        return data.comment;
-      } catch (err) {
-        console.error("[useAssetComments] Error adding comment:", err);
-        setError(err instanceof Error ? err.message : "Unknown error");
-        return null;
-      } finally {
-        setLoading(false);
+        throw new Error(data.error || "Failed to add comment");
+      }
+
+      const data = await response.json();
+      return data.comment as Comment;
+    },
+    onSuccess: (newComment) => {
+      // Optimistically add to cache (real-time will sync)
+      queryClient.setQueryData<Comment[]>(queryKey, (old = []) => {
+        if (old.some(c => c.id === newComment.id)) return old;
+        return [...old, newComment];
+      });
+    },
+  });
+
+  // Update comment mutation
+  const updateMutation = useMutation({
+    mutationFn: async ({ commentId, content }: { commentId: string; content: string }) => {
+      const response = await fetch(`/api/comments/${commentId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content }),
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || "Failed to update comment");
+      }
+
+      return { commentId, content };
+    },
+    onMutate: async ({ commentId, content }) => {
+      // Cancel any outgoing refetches
+      await queryClient.cancelQueries({ queryKey });
+
+      // Snapshot previous value
+      const previousComments = queryClient.getQueryData<Comment[]>(queryKey);
+
+      // Optimistically update cache
+      queryClient.setQueryData<Comment[]>(queryKey, (old = []) =>
+        old.map((c) =>
+          c.id === commentId
+            ? { ...c, content, is_edited: true, updated_at: new Date().toISOString() }
+            : c
+        )
+      );
+
+      return { previousComments };
+    },
+    onError: (_err, _vars, context) => {
+      // Rollback on error
+      if (context?.previousComments) {
+        queryClient.setQueryData(queryKey, context.previousComments);
       }
     },
-    [assetId, loading]
+  });
+
+  // Delete comment mutation
+  const deleteMutation = useMutation({
+    mutationFn: async (commentId: string) => {
+      const response = await fetch(`/api/comments/${commentId}`, {
+        method: "DELETE",
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || "Failed to delete comment");
+      }
+
+      return commentId;
+    },
+    onMutate: async (commentId) => {
+      // Cancel any outgoing refetches
+      await queryClient.cancelQueries({ queryKey });
+
+      // Snapshot previous value
+      const previousComments = queryClient.getQueryData<Comment[]>(queryKey);
+
+      // Optimistically remove from cache
+      queryClient.setQueryData<Comment[]>(queryKey, (old = []) =>
+        old.filter((c) => c.id !== commentId)
+      );
+
+      return { previousComments };
+    },
+    onError: (_err, _vars, context) => {
+      // Rollback on error
+      if (context?.previousComments) {
+        queryClient.setQueryData(queryKey, context.previousComments);
+      }
+    },
+  });
+
+  // Wrapper functions to match original API
+  const addComment = useCallback(
+    async (content: string, parentId?: string): Promise<Comment | null> => {
+      try {
+        return await addMutation.mutateAsync({ content, parentId });
+      } catch {
+        return null;
+      }
+    },
+    [addMutation]
   );
 
   const updateComment = useCallback(
     async (commentId: string, content: string): Promise<boolean> => {
-      if (loading) return false;
-
-      setLoading(true);
-      setError(null);
-
       try {
-        const response = await fetch(`/api/comments/${commentId}`, {
-          method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ content }),
-        });
-
-        if (!response.ok) {
-          const data = await response.json();
-          throw new Error(data.error || "Failed to update comment");
-        }
-
-        // Real-time subscription will update the list
+        await updateMutation.mutateAsync({ commentId, content });
         return true;
-      } catch (err) {
-        console.error("[useAssetComments] Error updating comment:", err);
-        setError(err instanceof Error ? err.message : "Unknown error");
+      } catch {
         return false;
-      } finally {
-        setLoading(false);
       }
     },
-    [loading]
+    [updateMutation]
   );
 
   const deleteComment = useCallback(
     async (commentId: string): Promise<boolean> => {
-      if (loading) return false;
-
-      setLoading(true);
-      setError(null);
-
       try {
-        const response = await fetch(`/api/comments/${commentId}`, {
-          method: "DELETE",
-        });
-
-        if (!response.ok) {
-          const data = await response.json();
-          throw new Error(data.error || "Failed to delete comment");
-        }
-
-        // Real-time subscription will update the list
+        await deleteMutation.mutateAsync(commentId);
         return true;
-      } catch (err) {
-        console.error("[useAssetComments] Error deleting comment:", err);
-        setError(err instanceof Error ? err.message : "Unknown error");
+      } catch {
         return false;
-      } finally {
-        setLoading(false);
       }
     },
-    [loading]
+    [deleteMutation]
   );
+
+  const loading = isLoading || addMutation.isPending || updateMutation.isPending || deleteMutation.isPending;
 
   return {
     comments,
@@ -251,9 +269,6 @@ export function useAssetComments(assetId: string): UseAssetCommentsReturn {
     updateComment,
     deleteComment,
     loading,
-    error,
+    error: error instanceof Error ? error.message : null,
   };
 }
-
-
-

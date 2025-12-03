@@ -38,9 +38,11 @@ import {
 
 interface AssetDetailDesktopProps {
   asset: any; // Asset from database (snake_case)
+  /** Callback when modal should close (for overlay mode) */
+  onClose?: () => void;
 }
 
-export function AssetDetailDesktop({ asset }: AssetDetailDesktopProps) {
+export function AssetDetailDesktop({ asset, onClose }: AssetDetailDesktopProps) {
   const router = useRouter();
   const modalRef = React.useRef<HTMLDivElement>(null);
   const commentsSectionRef = React.useRef<HTMLDivElement>(null);
@@ -110,23 +112,14 @@ export function AssetDetailDesktop({ asset }: AssetDetailDesktopProps) {
   // );
   const viewCount = 11; // Placeholder until backend implemented
   
-  // Get streams for this asset
-  const [assetStreams, setAssetStreams] = React.useState<any[]>([]);
+  // Get streams from asset (already joined in server query or passed from feed)
+  // Use local state to allow optimistic updates from edit dialog
+  const [assetStreams, setAssetStreams] = React.useState<any[]>(asset.streams || []);
   
+  // Sync streams when asset prop changes
   React.useEffect(() => {
-    const fetchStreams = async () => {
-      const supabase = createClient();
-      const { data } = await supabase
-        .from('asset_streams')
-        .select('streams(*)')
-        .eq('asset_id', asset.id);
-      
-      if (data) {
-        setAssetStreams(data.map(rel => rel.streams).filter(Boolean));
-      }
-    };
-    fetchStreams();
-  }, [asset.id]);
+    setAssetStreams(asset.streams || []);
+  }, [asset.streams]);
 
   // Navigation between assets (simplified for now - can be enhanced with context)
   const previousAsset: any = null;
@@ -173,7 +166,11 @@ export function AssetDetailDesktop({ asset }: AssetDetailDesktopProps) {
 
       switch(e.key) {
         case KEYS.escape:
-          router.push('/home');
+          if (onClose) {
+            onClose();
+          } else {
+            router.push('/home');
+          }
           break;
         case KEYS.arrowLeft:
           if (previousAsset) {
@@ -192,7 +189,7 @@ export function AssetDetailDesktop({ asset }: AssetDetailDesktopProps) {
 
     document.addEventListener('keydown', handleKeyPress);
     return () => document.removeEventListener('keydown', handleKeyPress);
-  }, [router, previousAsset, nextAsset]);
+  }, [router, previousAsset, nextAsset, onClose]);
 
   // Preload adjacent images
   React.useEffect(() => {
@@ -253,8 +250,12 @@ export function AssetDetailDesktop({ asset }: AssetDetailDesktopProps) {
         throw new Error(data.message || 'Failed to delete asset');
       }
 
-      // Success - redirect to home
-      router.push('/home');
+      // Success - close modal or redirect to home
+      if (onClose) {
+        onClose();
+      } else {
+        router.push('/home');
+      }
     } catch (error) {
       console.error('Error deleting asset:', error);
       alert(error instanceof Error ? error.message : 'Failed to delete asset');
@@ -312,14 +313,25 @@ export function AssetDetailDesktop({ asset }: AssetDetailDesktopProps) {
       tabIndex={-1}
     >
       {/* Close Button */}
-      <Link 
-        href="/home" 
-        className="absolute top-4 left-4 z-50 p-2 bg-background/50 hover:bg-accent rounded-full text-foreground transition-colors backdrop-blur-md"
-        aria-label="Close asset detail"
-        title="Close (ESC)"
-      >
-        <X className="h-6 w-6" aria-hidden="true" />
-      </Link>
+      {onClose ? (
+        <button
+          onClick={onClose}
+          className="absolute top-4 left-4 z-50 p-2 bg-background/50 hover:bg-accent rounded-full text-foreground transition-colors backdrop-blur-md"
+          aria-label="Close asset detail"
+          title="Close (ESC)"
+        >
+          <X className="h-6 w-6" aria-hidden="true" />
+        </button>
+      ) : (
+        <Link 
+          href="/home" 
+          className="absolute top-4 left-4 z-50 p-2 bg-background/50 hover:bg-accent rounded-full text-foreground transition-colors backdrop-blur-md"
+          aria-label="Close asset detail"
+          title="Close (ESC)"
+        >
+          <X className="h-6 w-6" aria-hidden="true" />
+        </Link>
+      )}
 
       {/* Left: Media View */}
       <div className="flex-1 relative bg-zinc-950 flex items-center justify-center p-4 md:p-10 overflow-y-auto">

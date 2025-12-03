@@ -2,8 +2,10 @@
 
 import * as React from "react";
 import { X, Upload, Loader2, Users } from "lucide-react";
+import { useQueryState } from "nuqs";
 import { FeedTabs } from "./feed-tabs";
 import { MasonryGrid } from "@/components/assets/masonry-grid";
+import { AssetDetail } from "@/components/assets/asset-detail";
 import { useSearch } from "@/lib/contexts/search-context";
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
@@ -21,6 +23,12 @@ export const DashboardFeed = React.memo(function DashboardFeed({ initialAssets }
   const { debouncedQuery, clearSearch } = useSearch();
   const [searchResults, setSearchResults] = React.useState<Asset[]>([]);
   const [searching, setSearching] = React.useState(false);
+  
+  // Modal state with URL sync via nuqs
+  const [selectedAssetId, setSelectedAssetId] = useQueryState("asset", {
+    defaultValue: "",
+    shallow: false, // Update URL
+  });
   
   // Memoized callbacks for stable references
   const handleUploadClick = React.useCallback(() => {
@@ -123,6 +131,30 @@ export const DashboardFeed = React.memo(function DashboardFeed({ initialAssets }
   const hasResults = displayedAssets.length > 0;
   const isEmpty = !isSearching && baseAssets.length === 0;
 
+  // Find selected asset from current assets for modal
+  const selectedAsset = React.useMemo(() => {
+    if (!selectedAssetId) return null;
+    // Search in all asset sources
+    return (
+      assets.find((a) => a.id === selectedAssetId) ||
+      followingAssets.find((a) => a.id === selectedAssetId) ||
+      searchResults.find((a) => a.id === selectedAssetId) ||
+      null
+    );
+  }, [selectedAssetId, assets, followingAssets, searchResults]);
+
+  // Modal handlers
+  const handleAssetClick = React.useCallback(
+    (asset: Asset) => {
+      setSelectedAssetId(asset.id);
+    },
+    [setSelectedAssetId]
+  );
+
+  const handleCloseModal = React.useCallback(() => {
+    setSelectedAssetId("");
+  }, [setSelectedAssetId]);
+
   return (
     <div className="w-full min-h-screen">
       <FeedTabs activeTab={activeTab} onTabChange={setActiveTab} />
@@ -196,7 +228,10 @@ export const DashboardFeed = React.memo(function DashboardFeed({ initialAssets }
           )
         ) : hasResults ? (
           <>
-          <MasonryGrid assets={displayedAssets} />
+          <MasonryGrid 
+            assets={displayedAssets} 
+            onAssetClick={handleAssetClick}
+          />
             
             {/* Infinite scroll sentinel - only show for non-search queries */}
             {!isSearching && (
@@ -228,6 +263,14 @@ export const DashboardFeed = React.memo(function DashboardFeed({ initialAssets }
           </div>
         ) : null}
       </div>
+
+      {/* Asset Detail Modal Overlay */}
+      {selectedAsset && (
+        <AssetDetail 
+          asset={selectedAsset} 
+          onClose={handleCloseModal}
+        />
+      )}
     </div>
   );
 });
