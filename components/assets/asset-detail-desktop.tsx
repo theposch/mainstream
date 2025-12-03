@@ -50,52 +50,39 @@ function ProgressiveImage({
   alt: string;
 }) {
   const [showFull, setShowFull] = React.useState(false);
-  const startTimeRef = React.useRef<number>(0);
+  const loadingRef = React.useRef(false);
 
   // Start loading full image immediately
   React.useEffect(() => {
     if (thumbnailSrc === fullSrc) {
-      // Same image, no need for progressive loading
-      console.log('[ProgressiveImage] Same image, skipping progressive load');
       setShowFull(true);
       return;
     }
 
-    console.log('[ProgressiveImage] Starting full image load:', fullSrc.substring(0, 60) + '...');
-    startTimeRef.current = performance.now();
+    // Prevent double-load from StrictMode
+    if (loadingRef.current) return;
+    loadingRef.current = true;
     
     const img = new window.Image();
     img.onload = () => {
-      const loadTime = performance.now() - startTimeRef.current;
-      console.log(`[ProgressiveImage] Full image loaded in ${loadTime.toFixed(0)}ms`);
-      // Use requestAnimationFrame for smooth transition
       requestAnimationFrame(() => setShowFull(true));
-    };
-    img.onerror = () => {
-      console.error('[ProgressiveImage] Failed to load full image');
     };
     img.src = fullSrc;
 
     return () => {
       img.onload = null;
-      img.onerror = null;
+      loadingRef.current = false;
     };
   }, [fullSrc, thumbnailSrc]);
 
-  const displaySrc = showFull ? fullSrc : thumbnailSrc;
-
   return (
     <Image
-      src={displaySrc}
+      src={showFull ? fullSrc : thumbnailSrc}
       alt={alt}
       fill
       className="object-contain"
       sizes={IMAGE_SIZES.full}
       priority
-      onLoad={() => {
-        const loadTime = performance.now() - startTimeRef.current;
-        console.log(`[ProgressiveImage] Next/Image rendered: ${showFull ? 'FULL' : 'THUMBNAIL'} (${loadTime.toFixed(0)}ms since mount)`);
-      }}
     />
   );
 }
