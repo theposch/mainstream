@@ -11,13 +11,9 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Loader2, Upload, X, AlertCircle, Type, Smile, AtSign, Image as ImageIcon, Link as LinkIcon, ChevronDown } from "lucide-react";
-import { StreamPicker } from "@/components/streams/stream-picker";
-import { RichTextArea } from "@/components/ui/rich-text-area";
-import { StreamMentionDropdown } from "@/components/streams/stream-mention-dropdown";
-import { useStreamMentions } from "@/lib/hooks/use-stream-mentions";
-import type { Stream } from "@/lib/types/database";
+import { PostMetadataForm } from "@/components/assets/post-metadata-form";
+import { useStreamSelection } from "@/lib/hooks/use-stream-selection";
 
 interface UploadDialogProps {
   open: boolean;
@@ -32,74 +28,36 @@ export function UploadDialog({ open, onOpenChange, initialStreamId }: UploadDial
   const [error, setError] = React.useState<string | null>(null);
   const [isDragging, setIsDragging] = React.useState(false);
   
-  // Form state
+  // File state
   const [file, setFile] = React.useState<File | null>(null);
   const [preview, setPreview] = React.useState<string | null>(null);
+  
+  // Metadata state
   const [title, setTitle] = React.useState("");
   const [description, setDescription] = React.useState("");
-  const [streamIds, setStreamIds] = React.useState<string[]>([]); // Real stream IDs
-  const [pendingStreamNames, setPendingStreamNames] = React.useState<string[]>([]); // Pending streams (not created yet)
-  const [excludedStreamNames, setExcludedStreamNames] = React.useState<string[]>([]); // Streams user removed (won't be re-added by auto-sync)
   
-  // Stream data
-  const [allStreams, setAllStreams] = React.useState<Stream[]>([]);
-  
-  // Stream mentions state
-  const [mentionQuery, setMentionQuery] = React.useState("");
-  const [mentionPosition, setMentionPosition] = React.useState<{ top: number; left: number } | null>(null);
-  const [showMentionDropdown, setShowMentionDropdown] = React.useState(false);
-  const replaceHashtagRef = React.useRef<((newText: string) => void) | null>(null);
+  // Stream selection (shared hook)
+  const streamSelection = useStreamSelection({
+    initialStreamIds: initialStreamId ? [initialStreamId] : [],
+  });
 
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   
   // Track if we've already initialized the stream for this dialog session
-  // This prevents overwriting user selections when initialStreamId changes while dialog is open
   const hasInitializedStreamRef = React.useRef(false);
-
-  // Fetch streams from API
-  React.useEffect(() => {
-    const fetchStreams = async () => {
-      try {
-        const res = await fetch('/api/streams');
-        if (res.ok) {
-          const data = await res.json();
-          setAllStreams(data.streams || []);
-        }
-      } catch (error) {
-        console.error('[UploadDialog] Failed to fetch streams:', error);
-      }
-    };
-    
-    if (open) {
-      fetchStreams();
-    }
-  }, [open]);
 
   // Pre-populate stream when initialStreamId is provided (only on initial open)
   React.useEffect(() => {
     if (open && initialStreamId && !hasInitializedStreamRef.current) {
-      // Only set on first open, not when initialStreamId changes while dialog is open
-      setStreamIds([initialStreamId]);
+      streamSelection.setStreamIds([initialStreamId]);
       hasInitializedStreamRef.current = true;
     }
-  }, [open, initialStreamId]);
-
-  // Sync hashtags in description with streams (now uses pending streams)
-  useStreamMentions(
-    description,
-    allStreams,
-    streamIds,
-    setStreamIds,
-    pendingStreamNames,
-    setPendingStreamNames,
-    excludedStreamNames
-  );
+  }, [open, initialStreamId, streamSelection]);
 
   // Reset form when dialog closes
   React.useEffect(() => {
     if (!open) {
       resetForm();
-      // Reset initialization flag so next open can pre-populate again
       hasInitializedStreamRef.current = false;
     }
   }, [open]);
@@ -109,14 +67,9 @@ export function UploadDialog({ open, onOpenChange, initialStreamId }: UploadDial
     setPreview(null);
     setTitle("");
     setDescription("");
-    setStreamIds([]);
-    setPendingStreamNames([]);
-    setExcludedStreamNames([]);
+    streamSelection.reset();
     setError(null);
     setIsLoading(false);
-    setShowMentionDropdown(false);
-    setMentionQuery("");
-    setMentionPosition(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
@@ -186,64 +139,12 @@ export function UploadDialog({ open, onOpenChange, initialStreamId }: UploadDial
     setPreview(null);
     setTitle("");
     setDescription("");
-    setStreamIds([]);
+    streamSelection.reset();
     setError(null);
-    setShowMentionDropdown(false);
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
   };
-
-  // Handle hashtag trigger in description
-  const handleHashtagTrigger = React.useCallback((
-    query: string, 
-    position: { top: number; left: number },
-    replaceHashtag: (newText: string) => void
-  ) => {
-    setMentionQuery(query);
-    setMentionPosition(position);
-    setShowMentionDropdown(true);
-    replaceHashtagRef.current = replaceHashtag;
-  }, []);
-
-  const handleHashtagComplete = React.useCallback(() => {
-    setShowMentionDropdown(false);
-    replaceHashtagRef.current = null;
-  }, []);
-
-  // Handle stream selection from dropdown
-  const handleStreamSelect = React.useCallback((streamName: string, isNew: boolean) => {
-    // Close dropdown FIRST to prevent re-triggering
-    setShowMentionDropdown(false);
-    setMentionQuery("");
-    setMentionPosition(null);
-
-    // Replace the hashtag text with the selected stream name
-    if (replaceHashtagRef.current) {
-      const fullHashtag = streamName.startsWith('#') ? streamName : `#${streamName}`;
-      replaceHashtagRef.current(fullHashtag);
-      replaceHashtagRef.current = null;
-    }
-
-    const cleanName = streamName.replace(/^#/, '');
-
-    if (isNew) {
-      // Add to pending streams (will be created on post)
-      if (!pendingStreamNames.includes(cleanName)) {
-        setPendingStreamNames(prev => [...prev, cleanName]);
-      }
-    } else {
-      // Find and add existing stream
-      const stream = allStreams.find(s => 
-        s.name.toLowerCase() === cleanName.toLowerCase() ||
-        s.name === cleanName
-      );
-      
-      if (stream && !streamIds.includes(stream.id)) {
-        setStreamIds(prev => [...prev, stream.id]);
-      }
-    }
-  }, [streamIds, pendingStreamNames, allStreams]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -263,49 +164,18 @@ export function UploadDialog({ open, onOpenChange, initialStreamId }: UploadDial
     setIsLoading(true);
 
     try {
-      // Create pending streams first
-      let createdStreamIds: string[] = [];
-      let failedStreamNames: string[] = [];
+      // Create pending streams first using shared hook
+      const { created: createdStreamIds, failed: failedStreamNames } = await streamSelection.createPendingStreams();
       
-      if (pendingStreamNames.length > 0) {
-        const createPromises = pendingStreamNames.map(async (name) => {
-          try {
-            const response = await fetch('/api/streams', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                name,
-                owner_type: 'user',
-                is_private: false,
-              }),
-            });
-
-            if (response.ok) {
-              const { stream } = await response.json();
-              return { success: true, id: stream.id, name };
-            } else {
-              return { success: false, name };
-            }
-          } catch {
-            return { success: false, name };
-          }
-        });
-
-        const results = await Promise.all(createPromises);
-        createdStreamIds = results.filter(r => r.success).map(r => r.id);
-        failedStreamNames = results.filter(r => !r.success).map(r => r.name);
-        
-        // Show warning if any failed (non-blocking)
-        if (failedStreamNames.length > 0) {
-          const failedList = failedStreamNames.map(n => `#${n}`).join(', ');
-          setError(`Warning: Could not create stream(s): ${failedList}. Continuing with upload...`);
-          // Brief delay to show the error, then continue
-          await new Promise(resolve => setTimeout(resolve, 2000));
-        }
+      // Show warning if any failed (non-blocking)
+      if (failedStreamNames.length > 0) {
+        const failedList = failedStreamNames.map(n => `#${n}`).join(', ');
+        setError(`Warning: Could not create stream(s): ${failedList}. Continuing with upload...`);
+        await new Promise(resolve => setTimeout(resolve, 2000));
       }
 
       // Combine real stream IDs with newly created stream IDs
-      const allStreamIds = [...streamIds, ...createdStreamIds];
+      const allStreamIds = [...streamSelection.streamIds, ...createdStreamIds];
 
       // Create FormData
       const formData = new FormData();
@@ -352,69 +222,69 @@ export function UploadDialog({ open, onOpenChange, initialStreamId }: UploadDial
         {!file && (
           <>
             <DialogHeader className="p-6 pb-2">
-          <DialogTitle>Upload Image</DialogTitle>
-          <DialogDescription>
-            Upload a single image file. Drag and drop or click to browse.
-          </DialogDescription>
-        </DialogHeader>
+              <DialogTitle>Upload Image</DialogTitle>
+              <DialogDescription>
+                Upload a single image file. Drag and drop or click to browse.
+              </DialogDescription>
+            </DialogHeader>
 
             <form onSubmit={handleSubmit} className="p-6 pt-2">
               <div className="space-y-4">
-            {/* Drag and Drop Zone */}
-              <div
-                onDragOver={handleDragOver}
-                onDragLeave={handleDragLeave}
-                onDrop={handleDrop}
-                onClick={() => fileInputRef.current?.click()}
-                className={`
-                  border-2 border-dashed rounded-lg p-8 text-center cursor-pointer
-                  transition-colors
-                  ${isDragging 
-                    ? 'border-primary bg-primary/5' 
-                    : 'border-border hover:border-primary/50 hover:bg-accent/50'
-                  }
-                `}
-              >
-                <Upload className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
-                <p className="text-sm text-muted-foreground mb-2">
-                  Drag and drop an image here, or click to browse
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  Max file size: 10MB • Supported: JPG, PNG, GIF, WebP
-                </p>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*"
-                  onChange={handleInputChange}
-                  className="hidden"
-                />
-              </div>
+                {/* Drag and Drop Zone */}
+                <div
+                  onDragOver={handleDragOver}
+                  onDragLeave={handleDragLeave}
+                  onDrop={handleDrop}
+                  onClick={() => fileInputRef.current?.click()}
+                  className={`
+                    border-2 border-dashed rounded-lg p-8 text-center cursor-pointer
+                    transition-colors
+                    ${isDragging 
+                      ? 'border-primary bg-primary/5' 
+                      : 'border-border hover:border-primary/50 hover:bg-accent/50'
+                    }
+                  `}
+                >
+                  <Upload className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
+                  <p className="text-sm text-muted-foreground mb-2">
+                    Drag and drop an image here, or click to browse
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    Max file size: 10MB • Supported: JPG, PNG, GIF, WebP
+                  </p>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handleInputChange}
+                    className="hidden"
+                  />
+                </div>
 
-            {/* Error Message */}
-            {error && (
-              <div className="flex items-start gap-2 p-3 bg-destructive/10 border border-destructive/20 rounded-md">
-                <AlertCircle className="h-4 w-4 text-destructive mt-0.5" />
-                <p className="text-sm text-destructive">{error}</p>
+                {/* Error Message */}
+                {error && (
+                  <div className="flex items-start gap-2 p-3 bg-destructive/10 border border-destructive/20 rounded-md">
+                    <AlertCircle className="h-4 w-4 text-destructive mt-0.5" />
+                    <p className="text-sm text-destructive">{error}</p>
+                  </div>
+                )}
               </div>
-            )}
-          </div>
 
               <DialogFooter className="mt-6">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-              disabled={isLoading}
-            >
-              Cancel
-            </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => onOpenChange(false)}
+                  disabled={isLoading}
+                >
+                  Cancel
+                </Button>
               </DialogFooter>
             </form>
           </>
         )}
 
-        {/* File Selected State - Pixel Perfect Match */}
+        {/* File Selected State */}
         {file && preview && (
           <form onSubmit={handleSubmit} className="flex flex-col">
             {/* Preview Area */}
@@ -448,52 +318,16 @@ export function UploadDialog({ open, onOpenChange, initialStreamId }: UploadDial
                 </div>
               )}
 
-              {/* Stream Mention Dropdown */}
-              {showMentionDropdown && mentionPosition && (
-                <StreamMentionDropdown
-                  query={mentionQuery}
-                  streams={allStreams}
-                  position={mentionPosition}
-                  onSelect={handleStreamSelect}
-                  onClose={handleHashtagComplete}
-                  selectedStreamIds={streamIds}
-                />
-              )}
-
-              <div className="space-y-3">
-                <Input
-                  id="title"
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  placeholder="Give it a title"
-                  className="border-none shadow-none bg-transparent !text-[19px] font-bold text-white px-0 h-auto focus-visible:ring-0 placeholder:text-zinc-600 leading-snug"
-                  required
-                  autoFocus
-                />
-                
-                <RichTextArea
-                  value={description}
-                  onChange={setDescription}
-                  placeholder="type something..."
-                  onHashtagTrigger={handleHashtagTrigger}
-                  onHashtagComplete={handleHashtagComplete}
-                  disabled={isLoading}
-                  className="border-none shadow-none bg-transparent px-0 min-h-[40px] !text-[15px] text-zinc-400"
-                />
-
-                <div className="pt-1">
-                  <StreamPicker
-                    selectedStreamIds={streamIds}
-                    onSelectStreams={setStreamIds}
-                    pendingStreamNames={pendingStreamNames}
-                    onPendingStreamsChange={setPendingStreamNames}
-                    excludedStreamNames={excludedStreamNames}
-                    onExcludedStreamsChange={setExcludedStreamNames}
-                    disabled={isLoading}
-                    variant="compact"
-                  />
-                </div>
-              </div>
+              {/* Post Metadata Form (shared component) */}
+              <PostMetadataForm
+                title={title}
+                onTitleChange={setTitle}
+                description={description}
+                onDescriptionChange={setDescription}
+                streamSelection={streamSelection}
+                disabled={isLoading}
+                variant="upload"
+              />
 
               {/* Footer */}
               <div className="pt-4 border-t border-zinc-800 flex items-center justify-between">
@@ -525,19 +359,18 @@ export function UploadDialog({ open, onOpenChange, initialStreamId }: UploadDial
                     disabled={isLoading}
                     className="bg-white text-black hover:bg-zinc-200 h-9 px-4 font-medium"
                   >
-              {isLoading ? (
+                    {isLoading ? (
                       <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
+                    ) : (
                       'Post'
-              )}
-            </Button>
+                    )}
+                  </Button>
                 </div>
               </div>
             </div>
-        </form>
+          </form>
         )}
       </DialogContent>
     </Dialog>
   );
 }
-
