@@ -49,3 +49,5 @@ SELECT 'auth.identities', COUNT(*) FROM auth.identities;
 \echo '✨ All authentication data cleared!'
 \echo ''
 
+
+

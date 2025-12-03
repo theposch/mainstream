@@ -3,9 +3,11 @@
 import * as React from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import useEmblaCarousel from "embla-carousel-react";
-import { X, Reply, Heart, MessageCircle, Eye, Loader2 } from "lucide-react";
+import { X, Reply, Heart, MessageCircle, Loader2 } from "lucide-react";
+import { useAssetView } from "@/lib/hooks/use-asset-view";
+import { ViewersTooltip } from "./viewers-tooltip";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { IMAGE_SIZES } from "@/lib/constants";
@@ -40,6 +42,8 @@ interface AssetDetailMobileProps {
 
 export function AssetDetailMobile({ asset, onClose }: AssetDetailMobileProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const highlightedCommentId = searchParams.get('comment');
   const [sheetOpen, setSheetOpen] = React.useState(false);
   const [moreMenuOpen, setMoreMenuOpen] = React.useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = React.useState(false);
@@ -106,8 +110,11 @@ export function AssetDetailMobile({ asset, onClose }: AssetDetailMobileProps) {
   // Check if current user is viewing their own post
   const isOwnPost = currentUser?.id === currentAsset.uploader_id;
   
-  // TODO: Implement view tracking - add asset_views table and API
-  const viewCount = 11; // Placeholder until backend implemented
+  // Track view after 2 seconds (excludes owner views)
+  useAssetView(currentAsset.id, !isOwnPost);
+  
+  // Get view count from asset (denormalized for performance)
+  const viewCount = currentAsset.view_count || 0;
   
   // Get streams from asset (already joined in server query or passed from feed)
   // Use local state to allow optimistic updates from edit dialog
@@ -262,11 +269,11 @@ export function AssetDetailMobile({ asset, onClose }: AssetDetailMobileProps) {
   };
 
   // Handle edit success - update local state optimistically
-  const handleEditSuccess = React.useCallback((updatedAsset: any) => {
-    setLocalAsset((prev: any) => ({
+  const handleEditSuccess = React.useCallback((updatedAsset: Partial<Asset>) => {
+    setLocalAsset((prev) => ({
       ...prev,
-      title: updatedAsset.title,
-      description: updatedAsset.description,
+      title: updatedAsset.title ?? prev.title,
+      description: updatedAsset.description ?? prev.description,
     }));
     // Also update streams if provided
     if (updatedAsset.streams) {
@@ -409,10 +416,11 @@ export function AssetDetailMobile({ asset, onClose }: AssetDetailMobileProps) {
                   <MessageCircle className="h-5 w-5" />
                   <span className="text-sm font-medium">{comments.length}</span>
                 </div>
-                <span className="ml-auto text-xs text-zinc-500 flex items-center gap-1.5">
-                  <Eye className="h-3.5 w-3.5" />
-                  Seen by {viewCount}
-                </span>
+                <ViewersTooltip 
+                  assetId={currentAsset.id} 
+                  viewCount={viewCount} 
+                  className="ml-auto"
+                />
               </div>
             </div>
 
@@ -431,6 +439,7 @@ export function AssetDetailMobile({ asset, onClose }: AssetDetailMobileProps) {
                 onLike={handleLikeComment}
                 editingCommentId={editingCommentId}
                 onCancelEdit={() => setEditingCommentId(null)}
+                highlightedCommentId={highlightedCommentId}
               />
             </div>
           </div>
@@ -458,6 +467,7 @@ export function AssetDetailMobile({ asset, onClose }: AssetDetailMobileProps) {
                 placeholder={replyingToId ? "Write a reply..." : "Add a comment..."}
                 autoFocus={false}
                 onCancel={replyingToId ? () => setReplyingToId(null) : undefined}
+                assetId={currentAsset.id}
              />
           </div>
         </div>

@@ -63,6 +63,30 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // Batch fetch asset data for notifications that reference assets
+    const assetIds = (notifications || [])
+      .filter(n => n.resource_type === 'asset' && n.resource_id)
+      .map(n => n.resource_id);
+
+    let assetsMap: Record<string, { id: string; title: string }> = {};
+    
+    if (assetIds.length > 0) {
+      const { data: assets } = await supabase
+        .from('assets')
+        .select('id, title')
+        .in('id', assetIds);
+      
+      if (assets) {
+        assetsMap = Object.fromEntries(assets.map(a => [a.id, a]));
+      }
+    }
+
+    // Enrich notifications with asset data
+    const enrichedNotifications = (notifications || []).map(n => ({
+      ...n,
+      asset: n.resource_type === 'asset' && n.resource_id ? assetsMap[n.resource_id] : null,
+    }));
+
     // Get unread count
     const { count: unreadCount } = await supabase
       .from('notifications')
@@ -71,7 +95,7 @@ export async function GET(request: NextRequest) {
       .eq('is_read', false);
 
     return NextResponse.json({
-      notifications: notifications || [],
+      notifications: enrichedNotifications,
       unreadCount: unreadCount || 0,
     });
   } catch (error) {

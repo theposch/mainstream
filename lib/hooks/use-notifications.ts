@@ -14,21 +14,27 @@
 import { useState, useEffect, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 
-interface Notification {
+export interface Notification {
   id: string;
-  type: 'like_asset' | 'like_comment' | 'reply_comment' | 'follow' | 'mention';
+  type: 'like_asset' | 'like_comment' | 'reply_comment' | 'follow' | 'mention' | 'comment';
   recipient_id: string;
   actor_id: string;
   resource_id: string | null;
   resource_type: 'asset' | 'comment' | 'user' | 'stream' | null;
   is_read: boolean;
   created_at: string;
+  comment_id?: string | null;
   actor?: {
     id: string;
     username: string;
     display_name: string;
     avatar_url?: string;
   };
+  asset?: {
+    id: string;
+    title: string;
+  } | null;
+  content?: string | null;
 }
 
 interface UseNotificationsReturn {
@@ -99,7 +105,18 @@ export function useNotifications(): UseNotificationsReturn {
               .single();
 
             if (data) {
-              setNotifications((prev) => [data, ...prev]);
+              // Fetch asset data if notification references an asset
+              let asset = null;
+              if (data.resource_type === 'asset' && data.resource_id) {
+                const { data: assetData } = await supabase
+                  .from('assets')
+                  .select('id, title')
+                  .eq('id', data.resource_id)
+                  .single();
+                asset = assetData;
+              }
+
+              setNotifications((prev) => [{ ...data, asset }, ...prev]);
               setUnreadCount((prev) => prev + 1);
             }
           }

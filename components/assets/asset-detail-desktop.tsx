@@ -3,17 +3,19 @@
 import * as React from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 // Removed framer-motion for instant modal opening - no animation delay
 import { createClient } from "@/lib/supabase/client";
 import { useAssetComments } from "@/lib/hooks/use-asset-comments";
 import { useAssetLike } from "@/lib/hooks/use-asset-like";
+import { useAssetView } from "@/lib/hooks/use-asset-view";
 import { useUserFollow } from "@/lib/hooks/use-user-follow";
+import { ViewersTooltip } from "./viewers-tooltip";
 import { StreamBadge } from "@/components/streams/stream-badge";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { KEYS } from "@/lib/constants";
-import { X, Heart, MessageCircle, Share2, Download, MoreHorizontal, Reply, Trash2, Eye, Loader2, Pencil } from "lucide-react";
+import { X, Heart, MessageCircle, Share2, Download, MoreHorizontal, Reply, Trash2, Loader2, Pencil } from "lucide-react";
 import { CommentList } from "./comment-list";
 import { CommentInput } from "./comment-input";
 import { EditAssetDialog } from "./edit-asset-dialog";
@@ -107,6 +109,8 @@ interface AssetDetailDesktopProps {
 
 export function AssetDetailDesktop({ asset, onClose }: AssetDetailDesktopProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const highlightedCommentId = searchParams.get('comment');
   const modalRef = React.useRef<HTMLDivElement>(null);
   const commentsSectionRef = React.useRef<HTMLDivElement>(null);
   
@@ -165,15 +169,11 @@ export function AssetDetailDesktop({ asset, onClose }: AssetDetailDesktopProps) 
   // Check if current user is viewing their own post
   const isOwnPost = currentUser?.id === currentAsset.uploader_id;
   
-  // TODO: Implement view tracking - add asset_views table and API
-  // Future migration: scripts/migrations/005_asset_views.sql
-  // CREATE TABLE asset_views (
-  //   asset_id UUID REFERENCES assets(id),
-  //   user_id UUID REFERENCES users(id),
-  //   viewed_at TIMESTAMP DEFAULT NOW(),
-  //   PRIMARY KEY (asset_id, user_id)
-  // );
-  const viewCount = 11; // Placeholder until backend implemented
+  // Track view after 2 seconds (excludes owner views)
+  useAssetView(currentAsset.id, !isOwnPost);
+  
+  // Get view count from asset (denormalized for performance)
+  const viewCount = currentAsset.view_count || 0;
   
   // Get streams from asset (already joined in server query or passed from feed)
   // Use local state to allow optimistic updates from edit dialog
@@ -528,10 +528,11 @@ export function AssetDetailDesktop({ asset, onClose }: AssetDetailDesktopProps) 
                 >
                   <MessageCircle className="h-5 w-5" />
                 </button>
-                <span className="ml-auto text-xs text-zinc-500 flex items-center gap-1.5">
-                  <Eye className="h-3.5 w-3.5" />
-                  Seen by {viewCount} people
-                </span>
+                <ViewersTooltip 
+                  assetId={currentAsset.id} 
+                  viewCount={viewCount} 
+                  className="ml-auto"
+                />
               </div>
 
               {/* 6. Comments Section */}
@@ -550,6 +551,7 @@ export function AssetDetailDesktop({ asset, onClose }: AssetDetailDesktopProps) 
                   onLike={handleLikeComment}
                   editingCommentId={editingCommentId}
                   onCancelEdit={() => setEditingCommentId(null)}
+                  highlightedCommentId={highlightedCommentId}
                 />
               </div>
             </div>
@@ -578,6 +580,7 @@ export function AssetDetailDesktop({ asset, onClose }: AssetDetailDesktopProps) 
               placeholder={replyingToId ? "Write a reply..." : "Add a comment..."}
               autoFocus={!!replyingToId}
               onCancel={replyingToId ? () => setReplyingToId(null) : undefined}
+              assetId={asset.id}
            />
         </div>
       </div>

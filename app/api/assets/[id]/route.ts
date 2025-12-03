@@ -3,6 +3,7 @@
  * 
  * Handles individual asset operations
  * 
+ * GET /api/assets/:id - Fetch a single asset with enriched data
  * PATCH /api/assets/:id - Update asset metadata (title, description, streams)
  * DELETE /api/assets/:id - Delete an asset
  */
@@ -17,6 +18,111 @@ interface RouteContext {
   params: Promise<{
     id: string;
   }>;
+}
+
+/**
+ * GET /api/assets/:id
+ * 
+ * Fetches a single asset with enriched data including:
+ * - Uploader info
+ * - Associated streams
+ * - Like count and current user's like status
+ * - View count
+ * 
+ * This endpoint supports deep linking for modal overlays.
+ */
+export async function GET(request: NextRequest, context: RouteContext) {
+  try {
+    const { id } = await context.params;
+    const supabase = await createClient();
+
+    // Validate UUID format to prevent invalid queries
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(id)) {
+      return NextResponse.json(
+        { error: 'Invalid asset ID format' },
+        { status: 400 }
+      );
+    }
+
+    // Get current user for like status check (optional - unauthenticated users can still view)
+    const { data: { user } } = await supabase.auth.getUser();
+
+    // Fetch asset with uploader info and like count
+    const { data: asset, error: fetchError } = await supabase
+      .from('assets')
+      .select(`
+        *,
+        uploader:users!uploader_id(
+          id,
+          username,
+          display_name,
+          avatar_url,
+          email,
+          job_title
+        ),
+        asset_likes(count)
+      `)
+      .eq('id', id)
+      .single();
+
+    if (fetchError || !asset) {
+      return NextResponse.json(
+        { error: 'Asset not found' },
+        { status: 404 }
+      );
+    }
+
+    // Fetch associated streams
+    const { data: assetStreams } = await supabase
+      .from('asset_streams')
+      .select('streams(*)')
+      .eq('asset_id', id);
+
+    const streams = assetStreams?.map(rel => rel.streams).filter(Boolean) || [];
+
+    // Check if current user has liked this asset
+    let isLikedByCurrentUser = false;
+    if (user) {
+      const { data: userLike } = await supabase
+        .from('asset_likes')
+        .select('asset_id')
+        .eq('asset_id', id)
+        .eq('user_id', user.id)
+        .maybeSingle();
+      
+      isLikedByCurrentUser = !!userLike;
+    }
+
+    // Get view count
+    const { count: viewCount } = await supabase
+      .from('asset_views')
+      .select('*', { count: 'exact', head: true })
+      .eq('asset_id', id);
+
+    // Transform asset with enriched data
+    const enrichedAsset = {
+      ...asset,
+      streams,
+      likeCount: asset.asset_likes?.[0]?.count || 0,
+      asset_likes: undefined, // Remove raw likes data
+      isLikedByCurrentUser,
+      view_count: viewCount || 0,
+    };
+
+    return NextResponse.json({
+      asset: enrichedAsset,
+    });
+  } catch (error) {
+    console.error('[GET /api/assets/:id] Error:', error);
+    return NextResponse.json(
+      { 
+        error: 'Failed to fetch asset',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      },
+      { status: 500 }
+    );
+  }
 }
 
 /**

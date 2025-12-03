@@ -36,6 +36,8 @@ interface CommentListProps {
   onLike: (commentId: string) => void;
   editingCommentId: string | null;
   onCancelEdit: () => void;
+  /** Comment ID to highlight (e.g., from notification click) */
+  highlightedCommentId?: string | null;
 }
 
 export const CommentList = React.memo(function CommentList({
@@ -47,7 +49,8 @@ export const CommentList = React.memo(function CommentList({
   onDelete,
   onLike,
   editingCommentId,
-  onCancelEdit
+  onCancelEdit,
+  highlightedCommentId
 }: CommentListProps) {
   // Group comments by parent_id
   const topLevelComments = React.useMemo(() => 
@@ -91,6 +94,7 @@ export const CommentList = React.memo(function CommentList({
               onLike={onLike}
               isEditing={editingCommentId === comment.id}
               onCancelEdit={onCancelEdit}
+              isHighlighted={highlightedCommentId === comment.id}
             />
 
             {/* Replies */}
@@ -109,6 +113,7 @@ export const CommentList = React.memo(function CommentList({
                     onLike={onLike}
                     isEditing={editingCommentId === reply.id}
                     onCancelEdit={onCancelEdit}
+                    isHighlighted={highlightedCommentId === reply.id}
                   />
                 ))}
               </div>

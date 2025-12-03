@@ -58,7 +58,9 @@ export async function updateSession(request: NextRequest) {
   if (!user && request.nextUrl.pathname.startsWith("/api/")) {
     // Allow public API routes
     const publicRoutes = ["/api/auth"];
-    const isPublicRoute = publicRoutes.some((route) =>
+    // Also allow viewers endpoint (public data)
+    const isViewersRoute = /^\/api\/assets\/[^/]+\/viewers/.test(request.nextUrl.pathname);
+    const isPublicRoute = isViewersRoute || publicRoutes.some((route) =>
       request.nextUrl.pathname.startsWith(route)
     );
 
