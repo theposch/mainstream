@@ -36,6 +36,70 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
+/**
+ * Progressive Image Component
+ * Shows thumbnail/medium immediately (cached from feed), then upgrades to full res
+ */
+function ProgressiveImage({ 
+  thumbnailSrc, 
+  fullSrc, 
+  alt 
+}: { 
+  thumbnailSrc: string; 
+  fullSrc: string; 
+  alt: string;
+}) {
+  const [showFull, setShowFull] = React.useState(false);
+  const startTimeRef = React.useRef<number>(0);
+
+  // Start loading full image immediately
+  React.useEffect(() => {
+    if (thumbnailSrc === fullSrc) {
+      // Same image, no need for progressive loading
+      console.log('[ProgressiveImage] Same image, skipping progressive load');
+      setShowFull(true);
+      return;
+    }
+
+    console.log('[ProgressiveImage] Starting full image load:', fullSrc.substring(0, 60) + '...');
+    startTimeRef.current = performance.now();
+    
+    const img = new window.Image();
+    img.onload = () => {
+      const loadTime = performance.now() - startTimeRef.current;
+      console.log(`[ProgressiveImage] Full image loaded in ${loadTime.toFixed(0)}ms`);
+      // Use requestAnimationFrame for smooth transition
+      requestAnimationFrame(() => setShowFull(true));
+    };
+    img.onerror = () => {
+      console.error('[ProgressiveImage] Failed to load full image');
+    };
+    img.src = fullSrc;
+
+    return () => {
+      img.onload = null;
+      img.onerror = null;
+    };
+  }, [fullSrc, thumbnailSrc]);
+
+  const displaySrc = showFull ? fullSrc : thumbnailSrc;
+
+  return (
+    <Image
+      src={displaySrc}
+      alt={alt}
+      fill
+      className="object-contain"
+      sizes={IMAGE_SIZES.full}
+      priority
+      onLoad={() => {
+        const loadTime = performance.now() - startTimeRef.current;
+        console.log(`[ProgressiveImage] Next/Image rendered: ${showFull ? 'FULL' : 'THUMBNAIL'} (${loadTime.toFixed(0)}ms since mount)`);
+      }}
+    />
+  );
+}
+
 interface AssetDetailDesktopProps {
   asset: any; // Asset from database (snake_case)
   /** Callback when modal should close (for overlay mode) */
@@ -337,13 +401,12 @@ export function AssetDetailDesktop({ asset, onClose }: AssetDetailDesktopProps) 
       <div className="flex-1 relative bg-zinc-950 flex items-center justify-center p-4 md:p-10 overflow-y-auto">
         <div className="relative w-full h-full max-h-[90vh] flex items-center justify-center">
           <div className="relative w-full h-full">
-            <Image
-              src={asset.url}
+            {/* Progressive loading: show medium_url immediately (already cached from feed), 
+                then upgrade to full url when it loads */}
+            <ProgressiveImage
+              thumbnailSrc={asset.medium_url || asset.thumbnail_url || asset.url}
+              fullSrc={asset.url}
               alt={asset.title}
-              fill
-              className="object-contain"
-              sizes={IMAGE_SIZES.full}
-              priority
             />
           </div>
         </div>
