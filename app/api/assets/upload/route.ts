@@ -28,6 +28,9 @@ import {
   generateThumbnail,
   generateMediumSize,
   isValidImage,
+  optimizeAnimatedGif,
+  generateAnimatedMedium,
+  generateGifThumbnail,
 } from '@/lib/utils/image-processing';
 import { createClient } from '@/lib/supabase/server';
 
@@ -168,24 +171,45 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Extract metadata
+    // Extract metadata (includes animation detection for GIFs)
     const metadata = await extractImageMetadata(buffer);
 
     // Generate unique filename
     const uniqueFilename = generateUniqueFilename(file.name);
 
-    // Process and save images in all three sizes
-    const [fullBuffer, mediumBuffer, thumbnailBuffer] = await Promise.all([
-      optimizeImage(buffer, 90),
-      generateMediumSize(buffer),
-      generateThumbnail(buffer),
-    ]);
+    // Process images differently based on whether it's an animated GIF
+    let fullBuffer: Buffer;
+    let mediumBuffer: Buffer;
+    let thumbnailBuffer: Buffer;
+
+    if (metadata.isAnimated) {
+      // Animated GIF: preserve animation for full and medium, static thumbnail
+      console.log(`[POST /api/assets/upload] Processing animated GIF (${metadata.pages} frames)`);
+      [fullBuffer, mediumBuffer, thumbnailBuffer] = await Promise.all([
+        optimizeAnimatedGif(buffer),      // Animated - all frames preserved
+        generateAnimatedMedium(buffer),   // Animated - smaller size
+        generateGifThumbnail(buffer),     // Static - first frame only (faster loading)
+      ]);
+    } else {
+      // Static image (JPEG, PNG, WebP, or static GIF): convert to optimized JPEG
+      [fullBuffer, mediumBuffer, thumbnailBuffer] = await Promise.all([
+        optimizeImage(buffer, 90),
+        generateMediumSize(buffer),
+        generateThumbnail(buffer),
+      ]);
+    }
 
     // Save to filesystem
+    // Note: For animated GIFs, thumbnails are JPEG (static first frame), so override extension
     const [fullUrl, mediumUrl, thumbnailUrl] = await Promise.all([
       saveImageToPublic(fullBuffer, uniqueFilename, 'full'),
       saveImageToPublic(mediumBuffer, uniqueFilename, 'medium'),
-      saveImageToPublic(thumbnailBuffer, uniqueFilename, 'thumbnails'),
+      saveImageToPublic(
+        thumbnailBuffer, 
+        uniqueFilename, 
+        'thumbnails',
+        metadata.isAnimated ? '.jpg' : undefined  // GIF thumbnails are JPEG
+      ),
     ]);
 
     // Ensure user profile exists in public.users
