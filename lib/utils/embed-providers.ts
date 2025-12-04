@@ -305,16 +305,73 @@ export async function fetchFigmaNodeImages(
 }
 
 /**
+ * Response type for frame thumbnail with dimensions
+ */
+export interface FigmaFrameThumbnailResult {
+  imageUrl: string;
+  width: number;
+  height: number;
+}
+
+/**
+ * Fetches node information including bounding box from Figma API
+ */
+export async function fetchFigmaNodeInfo(
+  fileKey: string,
+  nodeId: string,
+  accessToken: string
+): Promise<{ width: number; height: number } | null> {
+  try {
+    const apiUrl = `https://api.figma.com/v1/files/${fileKey}/nodes?ids=${encodeURIComponent(nodeId)}`;
+    
+    const response = await fetch(apiUrl, {
+      headers: {
+        'X-Figma-Token': accessToken,
+      },
+    });
+
+    if (!response.ok) {
+      console.log(`[fetchFigmaNodeInfo] API error: ${response.status}`);
+      return null;
+    }
+
+    const data = await response.json();
+    const node = data.nodes?.[nodeId]?.document;
+    
+    if (!node) {
+      console.log('[fetchFigmaNodeInfo] Node not found in response');
+      return null;
+    }
+
+    // Get absolute bounding box for the node
+    const bounds = node.absoluteBoundingBox || node.absoluteRenderBounds;
+    
+    if (!bounds) {
+      console.log('[fetchFigmaNodeInfo] No bounding box found');
+      return null;
+    }
+
+    return {
+      width: Math.round(bounds.width),
+      height: Math.round(bounds.height),
+    };
+  } catch (error) {
+    console.error('[fetchFigmaNodeInfo] Error:', error);
+    return null;
+  }
+}
+
+/**
  * High-level helper to get a frame-specific thumbnail from a Figma URL
  * 
  * @param figmaUrl - Full Figma URL (may include node-id)
  * @param accessToken - Figma Personal Access Token
- * @returns Image URL for the specific frame, or null if failed
+ * @returns Image URL and dimensions for the specific frame, or null if failed
  */
 export async function fetchFigmaFrameThumbnail(
   figmaUrl: string,
   accessToken: string
-): Promise<string | null> {
+): Promise<FigmaFrameThumbnailResult | null> {
   const fileKey = getFigmaFileKey(figmaUrl);
   const nodeId = getFigmaNodeId(figmaUrl);
 
@@ -331,23 +388,32 @@ export async function fetchFigmaFrameThumbnail(
   // Convert node-id format for API (4919-3452 -> 4919:3452)
   const apiNodeId = convertNodeIdToApiFormat(nodeId);
 
-  const result = await fetchFigmaNodeImages(fileKey, [apiNodeId], accessToken);
+  // Fetch both image and node info in parallel
+  const [imagesResult, nodeInfo] = await Promise.all([
+    fetchFigmaNodeImages(fileKey, [apiNodeId], accessToken),
+    fetchFigmaNodeInfo(fileKey, apiNodeId, accessToken),
+  ]);
 
-  if (!result || result.err || !result.images) {
+  if (!imagesResult || imagesResult.err || !imagesResult.images) {
     console.log('[fetchFigmaFrameThumbnail] Failed to fetch node image');
     return null;
   }
 
   // Get the image URL for the requested node
-  const imageUrl = result.images[apiNodeId];
+  const imageUrl = imagesResult.images[apiNodeId];
   
   if (!imageUrl) {
     console.log('[fetchFigmaFrameThumbnail] No image URL in response');
     return null;
   }
 
-  console.log('[fetchFigmaFrameThumbnail] Got frame thumbnail:', imageUrl);
-  return imageUrl;
+  // Use node dimensions if available, otherwise default to 16:9
+  const width = nodeInfo?.width || 1600;
+  const height = nodeInfo?.height || 900;
+
+  console.log('[fetchFigmaFrameThumbnail] Got frame thumbnail:', { imageUrl, width, height });
+  
+  return { imageUrl, width, height };
 }
 
 // ============================================================================

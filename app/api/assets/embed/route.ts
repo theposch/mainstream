@@ -83,16 +83,23 @@ export async function POST(request: NextRequest) {
     let thumbnailUrl: string | null = null;
     let oembedTitle: string | null = null;
     let usedFrameSpecificThumbnail = false;
+    let frameWidth: number | null = null;
+    let frameHeight: number | null = null;
     
     if (provider === 'figma') {
       // Strategy: If user has Figma token AND URL has node-id, try frame-specific thumbnail first
       if (userFigmaToken && hasNodeId) {
         console.log('[POST /api/assets/embed] User has Figma token and URL has node-id, trying frame-specific thumbnail...');
-        const frameThumbnail = await fetchFigmaFrameThumbnail(url, userFigmaToken);
+        const frameThumbnailResult = await fetchFigmaFrameThumbnail(url, userFigmaToken);
         
-        if (frameThumbnail) {
-          console.log('[POST /api/assets/embed] Got frame-specific thumbnail!');
-          thumbnailUrl = frameThumbnail;
+        if (frameThumbnailResult) {
+          console.log('[POST /api/assets/embed] Got frame-specific thumbnail!', {
+            width: frameThumbnailResult.width,
+            height: frameThumbnailResult.height,
+          });
+          thumbnailUrl = frameThumbnailResult.imageUrl;
+          frameWidth = frameThumbnailResult.width;
+          frameHeight = frameThumbnailResult.height;
           usedFrameSpecificThumbnail = true;
         } else {
           console.log('[POST /api/assets/embed] Frame-specific thumbnail failed, falling back to oEmbed');
@@ -165,12 +172,19 @@ export async function POST(request: NextRequest) {
       uploader_id: user.id,
     };
     
-    // Add thumbnail if we got one from oEmbed
+    // Add thumbnail and dimensions if we got them
     if (thumbnailUrl) {
       assetData.thumbnail_url = thumbnailUrl;
       // Use thumbnail as the main URL for feed display
       assetData.url = thumbnailUrl;
-      console.log('[POST /api/assets/embed] Using oEmbed thumbnail:', thumbnailUrl);
+      console.log('[POST /api/assets/embed] Using thumbnail:', thumbnailUrl);
+    }
+
+    // Add frame dimensions if available (for proper aspect ratio in feed)
+    if (frameWidth && frameHeight) {
+      assetData.width = frameWidth;
+      assetData.height = frameHeight;
+      console.log('[POST /api/assets/embed] Stored frame dimensions:', { frameWidth, frameHeight });
     }
 
     console.log('[POST /api/assets/embed] Creating asset with data:', assetData);
