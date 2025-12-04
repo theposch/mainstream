@@ -164,17 +164,6 @@ export const ElementCard = React.memo(
                   sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                   onLoad={handleImageLoad}
                 />
-                {/* "More content" gradient indicator for cropped tall frames */}
-                {embedNeedsCrop && (
-                  <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-zinc-900/90 via-zinc-900/50 to-transparent pointer-events-none flex items-end justify-center pb-2">
-                    <div className="flex items-center gap-1 text-xs text-zinc-400">
-                      <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                      </svg>
-                      <span>Scroll for more</span>
-                    </div>
-                  </div>
-                )}
               </>
             ) : isEmbed && providerInfo ? (
               // Embed placeholder (no thumbnail available)
