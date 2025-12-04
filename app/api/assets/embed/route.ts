@@ -110,8 +110,8 @@ export async function POST(request: NextRequest) {
     const assetData = {
       title: finalTitle,
       description: description?.trim() || null,
-      type: 'embed',  // Legacy type field
-      asset_type: 'embed',
+      type: 'link',  // Legacy type field (constraint: image|video|link)
+      asset_type: 'embed',  // New type field for embeds
       embed_url: url,
       embed_provider: provider,
       // For embeds, we don't have actual image URLs
