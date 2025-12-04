@@ -142,8 +142,10 @@ export default function UserProfile({ params }: UserProfileProps) {
         ] = await Promise.all([
           supabase.from('user_follows').select('*', { count: 'exact', head: true }).eq('following_id', userData.id),
           supabase.from('user_follows').select('*', { count: 'exact', head: true }).eq('follower_id', userData.id),
-          supabase.from('assets').select('*', { count: 'exact', head: true }).eq('uploader_id', userData.id),
-          supabase.from('assets').select(`*, uploader:users!uploader_id(*), asset_likes(count)`).eq('uploader_id', userData.id).order('created_at', { ascending: false }),
+          // Only count public assets (exclude unlisted drop-only images)
+          supabase.from('assets').select('*', { count: 'exact', head: true }).eq('uploader_id', userData.id).or('visibility.is.null,visibility.eq.public'),
+          // Only show public assets (exclude unlisted drop-only images)
+          supabase.from('assets').select(`*, uploader:users!uploader_id(*), asset_likes(count)`).eq('uploader_id', userData.id).or('visibility.is.null,visibility.eq.public').order('created_at', { ascending: false }),
           supabase.from('streams').select('*').eq('owner_id', userData.id).eq('owner_type', 'user').eq('status', 'active'),
           supabase.from('asset_likes')
             .select(`asset_id, assets(*, uploader:users!uploader_id(*), asset_likes(count))`)

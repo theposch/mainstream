@@ -90,6 +90,10 @@ export async function POST(request: NextRequest) {
     let title = formData.get('title') as string | null;
     const description = formData.get('description') as string | null;
     
+    // Parse visibility (public = appears in feed, unlisted = drop-only)
+    const visibilityRaw = formData.get('visibility') as string | null;
+    const visibility = visibilityRaw === 'unlisted' ? 'unlisted' : 'public';
+    
     // Parse streamIds from JSON string
     const streamIdsRaw = formData.get('streamIds');
     let streamIds: string[] = [];
@@ -251,6 +255,7 @@ export async function POST(request: NextRequest) {
         height: metadata.height,
         file_size: file.size,
         mime_type: file.type,
+        visibility, // 'public' or 'unlisted'
       })
       .select()
       .single();

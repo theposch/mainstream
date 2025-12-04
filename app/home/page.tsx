@@ -12,6 +12,7 @@ export default async function HomePage() {
   const { data: { user } } = await supabase.auth.getUser();
   
   // Fetch assets with uploader, streams, AND like counts
+  // Exclude unlisted assets (drop-only images that shouldn't appear in feed)
   const { data: assets, error } = await supabase
     .from('assets')
     .select(`
@@ -22,6 +23,7 @@ export default async function HomePage() {
       ),
       asset_likes(count)
     `)
+    .or('visibility.is.null,visibility.eq.public') // Include null (legacy) and public
     .order('created_at', { ascending: false })
     .limit(50);
   

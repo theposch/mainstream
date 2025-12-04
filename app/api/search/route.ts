@@ -51,6 +51,7 @@ export async function GET(request: NextRequest) {
     } = {};
 
     // Search assets (with like counts)
+    // Exclude unlisted assets (drop-only images)
     if (type === 'all' || type === 'assets') {
       // Get limited results for display
       const { data: assets } = await supabase
@@ -61,6 +62,7 @@ export async function GET(request: NextRequest) {
           asset_likes(count)
         `)
         .or(`title.ilike.%${searchTerm}%`)
+        .or('visibility.is.null,visibility.eq.public') // Exclude unlisted
         .order('created_at', { ascending: false })
         .limit(limit);
 
@@ -68,7 +70,8 @@ export async function GET(request: NextRequest) {
       const { count: totalAssets } = await supabase
         .from('assets')
         .select('*', { count: 'exact', head: true })
-        .or(`title.ilike.%${searchTerm}%`);
+        .or(`title.ilike.%${searchTerm}%`)
+        .or('visibility.is.null,visibility.eq.public');
 
       results.totalAssets = totalAssets || 0;
 

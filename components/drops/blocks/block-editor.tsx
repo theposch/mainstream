@@ -529,6 +529,7 @@ function AssetPickerModal({
       const formData = new FormData();
       formData.append("file", file);
       formData.append("title", uploadTitle.trim() || file.name.replace(/\.[^/.]+$/, ""));
+      formData.append("visibility", "unlisted"); // Drop-only, won't appear in feed
 
       const response = await fetch("/api/assets/upload", {
         method: "POST",
