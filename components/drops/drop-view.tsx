@@ -6,8 +6,6 @@ import {
   Text,
   Img,
   Hr,
-  Row,
-  Column,
   Link,
 } from "@react-email/components";
 import type { Asset, User, Stream } from "@/lib/types/database";
@@ -54,16 +52,16 @@ function groupPostsByStream(posts: DropPost[]): Map<string, DropPost[]> {
   return grouped;
 }
 
-// Format date range for display
-function formatDateRange(start: string, end: string): string {
-  const startDate = new Date(start);
-  const endDate = new Date(end);
-  const options: Intl.DateTimeFormatOptions = { month: "short", day: "numeric" };
+// Format date for post
+function formatPostDate(dateStr: string): string {
+  const date = new Date(dateStr);
+  const now = new Date();
+  const diffDays = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24));
   
-  const startFormatted = startDate.toLocaleDateString("en-US", options);
-  const endFormatted = endDate.toLocaleDateString("en-US", { ...options, year: "numeric" });
-  
-  return `${startFormatted} – ${endFormatted}`;
+  if (diffDays === 0) return "today";
+  if (diffDays === 1) return "yesterday";
+  if (diffDays < 7) return `${diffDays} days ago`;
+  return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
 // Format contributor names
@@ -80,7 +78,7 @@ function formatContributorNames(contributors: User[]): string {
 // Styles for email compatibility
 const styles = {
   container: {
-    maxWidth: "600px",
+    maxWidth: "700px",
     margin: "0 auto",
     backgroundColor: "#000000",
     color: "#ffffff",
@@ -90,11 +88,6 @@ const styles = {
     textAlign: "center" as const,
     padding: "40px 20px 20px",
   },
-  logo: {
-    width: "40px",
-    height: "40px",
-    marginBottom: "8px",
-  },
   brandName: {
     fontSize: "12px",
     color: "#888888",
@@ -103,112 +96,136 @@ const styles = {
     margin: "0",
   },
   title: {
-    fontSize: "28px",
+    fontSize: "32px",
     fontWeight: "700",
     color: "#ffffff",
     margin: "24px 0 8px",
     lineHeight: "1.2",
   },
-  dateRange: {
-    fontSize: "14px",
-    color: "#888888",
-    margin: "0 0 24px",
-  },
   description: {
     fontSize: "16px",
-    lineHeight: "1.6",
-    color: "#cccccc",
-    padding: "0 20px 24px",
+    lineHeight: "1.7",
+    color: "#a0a0a0",
+    padding: "0 20px 32px",
     margin: "0",
+    textAlign: "center" as const,
   },
   contributorsSection: {
     textAlign: "center" as const,
-    padding: "16px 20px",
-  },
-  contributorAvatars: {
-    display: "inline-block",
+    padding: "16px 20px 32px",
   },
   avatar: {
-    width: "36px",
-    height: "36px",
+    width: "40px",
+    height: "40px",
     borderRadius: "50%",
-    border: "2px solid #000000",
-    marginLeft: "-8px",
+    border: "3px solid #000000",
+    marginLeft: "-12px",
   },
   contributorText: {
     fontSize: "14px",
     color: "#888888",
-    margin: "12px 0 0",
+    margin: "16px 0 0",
   },
   divider: {
     borderColor: "#333333",
-    margin: "24px 0",
+    margin: "0 20px 32px",
   },
   streamSection: {
-    padding: "0 20px 32px",
+    padding: "0 20px 40px",
   },
   streamHeader: {
     display: "flex",
     alignItems: "center",
-    marginBottom: "16px",
+    justifyContent: "space-between",
+    marginBottom: "20px",
   },
   streamName: {
-    fontSize: "18px",
+    fontSize: "20px",
     fontWeight: "600",
     color: "#ffffff",
-    margin: "0",
+    margin: "0 0 24px 0",
   },
-  postsGrid: {
-    width: "100%",
-  },
+  // Post card - large vertical layout
   postCard: {
-    width: "180px",
-    padding: "0 8px 16px 0",
-    verticalAlign: "top",
+    marginBottom: "32px",
+    position: "relative" as const,
+  },
+  postImageWrapper: {
+    position: "relative" as const,
+    borderRadius: "12px",
+    overflow: "hidden",
+    backgroundColor: "#1a1a1a",
   },
   postImage: {
     width: "100%",
-    height: "120px",
-    objectFit: "cover" as const,
-    borderRadius: "8px",
-    backgroundColor: "#1a1a1a",
+    height: "auto",
+    display: "block",
+    borderRadius: "12px",
+  },
+  postContent: {
+    padding: "16px 0",
   },
   postTitle: {
-    fontSize: "13px",
+    fontSize: "18px",
+    fontWeight: "600",
     color: "#ffffff",
-    margin: "8px 0 0",
-    lineHeight: "1.3",
+    margin: "0 0 8px 0",
+    lineHeight: "1.4",
+  },
+  postDescription: {
+    fontSize: "15px",
+    color: "#a0a0a0",
+    margin: "0 0 12px 0",
+    lineHeight: "1.5",
+  },
+  postMeta: {
+    display: "flex",
+    alignItems: "center",
+    gap: "8px",
+  },
+  postAuthorAvatar: {
+    width: "24px",
+    height: "24px",
+    borderRadius: "50%",
+  },
+  postAuthorName: {
+    fontSize: "14px",
+    color: "#888888",
+    margin: "0",
+  },
+  postTags: {
+    fontSize: "14px",
+    color: "#666666",
+    margin: "0",
   },
   removeButton: {
     position: "absolute" as const,
-    top: "4px",
+    top: "12px",
     right: "12px",
-    width: "24px",
-    height: "24px",
+    width: "32px",
+    height: "32px",
     borderRadius: "50%",
     backgroundColor: "rgba(0,0,0,0.7)",
     color: "#ffffff",
     border: "none",
     cursor: "pointer",
-    fontSize: "14px",
+    fontSize: "18px",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
+    backdropFilter: "blur(4px)",
   },
 };
 
 export function DropView({
   title,
   description,
-  dateRangeStart,
-  dateRangeEnd,
   posts,
   contributors,
   isEditing = false,
   onRemovePost,
 }: DropViewProps) {
   const groupedPosts = groupPostsByStream(posts);
-  const dateRange = formatDateRange(dateRangeStart, dateRangeEnd);
   const contributorNames = formatContributorNames(contributors);
 
   return (
@@ -217,7 +234,6 @@ export function DropView({
       <Section style={styles.header}>
         <Text style={styles.brandName}>Mainstream</Text>
         <Heading style={styles.title}>{title}</Heading>
-        <Text style={styles.dateRange}>{dateRange}</Text>
       </Section>
 
       {/* Description */}
@@ -228,31 +244,33 @@ export function DropView({
       {/* Contributors */}
       {contributors.length > 0 && (
         <Section style={styles.contributorsSection}>
-          <div style={styles.contributorAvatars}>
-            {contributors.slice(0, 5).map((contributor, index) => (
+          <div style={{ display: "inline-block" }}>
+            {contributors.slice(0, 6).map((contributor, index) => (
               <Img
                 key={contributor.id}
                 src={contributor.avatar_url || "/default-avatar.png"}
                 alt={contributor.display_name}
                 style={{
                   ...styles.avatar,
-                  marginLeft: index === 0 ? "0" : "-8px",
-                  zIndex: 5 - index,
+                  marginLeft: index === 0 ? "0" : "-12px",
+                  position: "relative" as const,
+                  zIndex: 10 - index,
                 }}
               />
             ))}
-            {contributors.length > 5 && (
+            {contributors.length > 6 && (
               <span style={{
                 ...styles.avatar,
-                marginLeft: "-8px",
+                marginLeft: "-12px",
                 backgroundColor: "#333",
                 display: "inline-flex",
                 alignItems: "center",
                 justifyContent: "center",
                 fontSize: "12px",
                 color: "#fff",
+                fontWeight: "600",
               }}>
-                +{contributors.length - 5}
+                +{contributors.length - 6}
               </span>
             )}
           </div>
@@ -264,43 +282,78 @@ export function DropView({
 
       <Hr style={styles.divider} />
 
-      {/* Posts grouped by stream */}
+      {/* Posts grouped by stream - vertical list */}
       {Array.from(groupedPosts.entries()).map(([streamName, streamPosts]) => (
         <Section key={streamName} style={styles.streamSection}>
           <Heading as="h2" style={styles.streamName}>
             # {streamName}
           </Heading>
-          <Row>
-            {streamPosts.slice(0, 3).map((post) => (
-              <Column key={post.id} style={styles.postCard}>
-                <div style={{ position: "relative" }}>
-                  <Link href={`/e/${post.id}`}>
-                    <Img
-                      src={post.thumbnail_url || post.url}
-                      alt={post.title}
-                      style={styles.postImage}
-                    />
-                  </Link>
-                  {isEditing && onRemovePost && (
-                    <button
-                      type="button"
-                      onClick={() => onRemovePost(post.id)}
-                      style={styles.removeButton}
-                      title="Remove from drop"
-                    >
-                      ×
-                    </button>
+          
+          {/* Vertical list of posts */}
+          {streamPosts.map((post) => (
+            <div key={post.id} style={styles.postCard}>
+              {/* Image */}
+              <div style={styles.postImageWrapper}>
+                <Link href={`/e/${post.id}`}>
+                  <Img
+                    src={post.thumbnail_url || post.url}
+                    alt={post.title}
+                    style={styles.postImage}
+                  />
+                </Link>
+                {isEditing && onRemovePost && (
+                  <button
+                    type="button"
+                    onClick={() => onRemovePost(post.id)}
+                    style={styles.removeButton}
+                    title="Remove from drop"
+                  >
+                    ×
+                  </button>
+                )}
+              </div>
+              
+              {/* Content */}
+              <div style={styles.postContent}>
+                <Text style={styles.postTitle}>{post.title}</Text>
+                {post.description && (
+                  <Text style={styles.postDescription}>
+                    {post.description.length > 200 
+                      ? `${post.description.slice(0, 200)}...` 
+                      : post.description}
+                  </Text>
+                )}
+                
+                {/* Author & meta */}
+                <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" as const }}>
+                  {post.uploader && (
+                    <>
+                      <Img
+                        src={post.uploader.avatar_url || "/default-avatar.png"}
+                        alt={post.uploader.display_name}
+                        style={styles.postAuthorAvatar}
+                      />
+                      <Text style={styles.postAuthorName}>
+                        {post.uploader.display_name}
+                      </Text>
+                      <Text style={styles.postTags}>•</Text>
+                    </>
+                  )}
+                  <Text style={styles.postTags}>
+                    {formatPostDate(post.created_at)}
+                  </Text>
+                  {post.streams && post.streams.length > 0 && (
+                    <>
+                      <Text style={styles.postTags}>•</Text>
+                      <Text style={styles.postTags}>
+                        {post.streams.map(s => `#${s.name}`).join(" ")}
+                      </Text>
+                    </>
                   )}
                 </div>
-                <Text style={styles.postTitle}>{post.title}</Text>
-              </Column>
-            ))}
-          </Row>
-          {streamPosts.length > 3 && (
-            <Text style={{ fontSize: "13px", color: "#888", marginTop: "8px" }}>
-              +{streamPosts.length - 3} more in this stream
-            </Text>
-          )}
+              </div>
+            </div>
+          ))}
         </Section>
       ))}
     </Container>
