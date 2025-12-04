@@ -132,10 +132,12 @@ export interface Drop {
   filter_stream_ids: string[] | null;
   filter_user_ids: string[] | null;
   is_weekly: boolean;
+  use_blocks: boolean; // Whether this drop uses the block-based editor
   created_at: string;
   updated_at: string;
   // Joined data
   creator?: User;
+  blocks?: DropBlock[]; // Blocks when use_blocks is true
 }
 
 // Drop post junction (many-to-many between drops and assets)
@@ -158,4 +160,30 @@ export interface DropWithDetails extends Drop {
   posts: Array<Asset & { position: number }>;
   contributors: User[];
   post_count: number;
+}
+
+// Drop block types for Notion-like editor
+export type DropBlockType = 'text' | 'heading' | 'post' | 'featured_post' | 'divider' | 'quote';
+
+export interface DropBlock {
+  id: string;
+  drop_id: string;
+  type: DropBlockType;
+  position: number;
+  
+  // Content for text/heading/quote blocks
+  content?: string;
+  heading_level?: 1 | 2 | 3;
+  
+  // Asset reference for post/featured_post blocks
+  asset_id?: string;
+  asset?: Asset; // Joined data
+  
+  // Display settings for post blocks
+  display_mode?: DropPostDisplayMode;
+  crop_position_x?: number;
+  crop_position_y?: number;
+  
+  created_at: string;
+  updated_at: string;
 }
