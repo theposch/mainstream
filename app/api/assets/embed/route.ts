@@ -16,8 +16,46 @@ import {
   fetchFigmaFrameThumbnail,
   getFigmaNodeId,
 } from '@/lib/utils/embed-providers';
+import { decrypt } from '@/lib/utils/encryption';
+import { saveImageToPublic, generateUniqueFilename } from '@/lib/utils/file-storage';
+import sharp from 'sharp';
 
 export const dynamic = 'force-dynamic';
+
+/**
+ * Downloads an image from a URL and saves it locally
+ * Returns the local path or null if failed
+ */
+async function downloadAndSaveThumbnail(imageUrl: string): Promise<string | null> {
+  try {
+    console.log('[downloadAndSaveThumbnail] Downloading from:', imageUrl);
+    
+    const response = await fetch(imageUrl);
+    if (!response.ok) {
+      console.log('[downloadAndSaveThumbnail] Failed to fetch:', response.status);
+      return null;
+    }
+    
+    const arrayBuffer = await response.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+    
+    // Process with Sharp - optimize and convert to JPEG
+    const processed = await sharp(buffer)
+      .resize(1200, 1200, { fit: 'inside', withoutEnlargement: true })
+      .jpeg({ quality: 85 })
+      .toBuffer();
+    
+    // Generate unique filename and save
+    const filename = generateUniqueFilename('embed-thumb.jpg');
+    const localPath = await saveImageToPublic(processed, filename, 'thumbnails');
+    
+    console.log('[downloadAndSaveThumbnail] Saved to:', localPath);
+    return localPath;
+  } catch (error) {
+    console.error('[downloadAndSaveThumbnail] Error:', error);
+    return null;
+  }
+}
 
 export async function POST(request: NextRequest) {
   console.log('[POST /api/assets/embed] Starting embed creation...');
@@ -76,7 +114,9 @@ export async function POST(request: NextRequest) {
       .eq('id', user.id)
       .single();
 
-    const userFigmaToken = userData?.figma_access_token || null;
+    // Decrypt Figma token if present (stored encrypted in DB)
+    const encryptedToken = userData?.figma_access_token || null;
+    const userFigmaToken = encryptedToken ? decrypt(encryptedToken) : null;
     const hasNodeId = getFigmaNodeId(url) !== null;
 
     // Fetch thumbnail data
@@ -132,9 +172,18 @@ export async function POST(request: NextRequest) {
       finalTitle = oembedTitle || getFigmaTitle(url) || 'Figma Design';
     }
 
-    // Log thumbnail source for debugging
+    // Download and save thumbnail locally (never expires, fully under our control)
+    let localThumbnailPath: string | null = null;
     if (thumbnailUrl) {
-      console.log(`[POST /api/assets/embed] Using ${usedFrameSpecificThumbnail ? 'frame-specific' : 'oEmbed'} thumbnail`);
+      console.log(`[POST /api/assets/embed] Downloading ${usedFrameSpecificThumbnail ? 'frame-specific' : 'oEmbed'} thumbnail...`);
+      localThumbnailPath = await downloadAndSaveThumbnail(thumbnailUrl);
+      
+      if (localThumbnailPath) {
+        console.log('[POST /api/assets/embed] Thumbnail saved locally:', localThumbnailPath);
+        thumbnailUrl = localThumbnailPath; // Use local path instead of CDN URL
+      } else {
+        console.log('[POST /api/assets/embed] Failed to save thumbnail locally, will use CDN URL as fallback');
+      }
     }
 
     // Ensure user profile exists in public.users
