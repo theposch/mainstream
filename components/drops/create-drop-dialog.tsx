@@ -13,7 +13,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Loader2, Calendar, Hash, Users, LayoutTemplate, LayoutList } from "lucide-react";
+import { Loader2, Calendar, Hash, Users } from "lucide-react";
 
 interface CreateDropDialogProps {
   open: boolean;
@@ -52,7 +52,6 @@ export function CreateDropDialog({ open, onOpenChange }: CreateDropDialogProps) 
   const [title, setTitle] = React.useState(`Weekly Drop · ${formatDateForTitle(defaultDates.end)}`);
   const [dateStart, setDateStart] = React.useState(defaultDates.start);
   const [dateEnd, setDateEnd] = React.useState(defaultDates.end);
-  const [useBlocks, setUseBlocks] = React.useState(true); // Default to block editor
 
   // Reset form when dialog opens
   React.useEffect(() => {
@@ -61,7 +60,6 @@ export function CreateDropDialog({ open, onOpenChange }: CreateDropDialogProps) 
       setTitle(`Weekly Drop · ${formatDateForTitle(dates.end)}`);
       setDateStart(dates.start);
       setDateEnd(dates.end);
-      setUseBlocks(true);
       setError(null);
     }
   }, [open]);
@@ -95,7 +93,6 @@ export function CreateDropDialog({ open, onOpenChange }: CreateDropDialogProps) 
           title: title.trim(),
           date_range_start: new Date(dateStart).toISOString(),
           date_range_end: new Date(dateEnd + "T23:59:59").toISOString(),
-          use_blocks: useBlocks,
         }),
       });
 
@@ -106,11 +103,7 @@ export function CreateDropDialog({ open, onOpenChange }: CreateDropDialogProps) 
       }
 
       onOpenChange(false);
-      // Redirect to appropriate editor
-      const editUrl = useBlocks 
-        ? `/drops/${data.drop.id}/edit?mode=blocks`
-        : `/drops/${data.drop.id}/edit`;
-      router.push(editUrl);
+      router.push(`/drops/${data.drop.id}/edit`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to create drop");
     } finally {
@@ -201,47 +194,6 @@ export function CreateDropDialog({ open, onOpenChange }: CreateDropDialogProps) 
               >
                 All teammates
               </Button>
-            </div>
-          </div>
-
-          {/* Editor mode */}
-          <div className="space-y-3">
-            <Label className="text-zinc-400">Editor style</Label>
-            <div className="grid grid-cols-2 gap-3">
-              <button
-                type="button"
-                onClick={() => setUseBlocks(true)}
-                className={`p-4 rounded-lg border transition-colors text-left ${
-                  useBlocks
-                    ? "border-violet-500 bg-violet-500/10"
-                    : "border-zinc-800 hover:border-zinc-700"
-                }`}
-              >
-                <LayoutTemplate className={`h-5 w-5 mb-2 ${useBlocks ? "text-violet-400" : "text-zinc-500"}`} />
-                <div className={`text-sm font-medium ${useBlocks ? "text-white" : "text-zinc-400"}`}>
-                  Block Editor
-                </div>
-                <div className="text-xs text-zinc-500 mt-1">
-                  Notion-like, flexible layout
-                </div>
-              </button>
-              <button
-                type="button"
-                onClick={() => setUseBlocks(false)}
-                className={`p-4 rounded-lg border transition-colors text-left ${
-                  !useBlocks
-                    ? "border-violet-500 bg-violet-500/10"
-                    : "border-zinc-800 hover:border-zinc-700"
-                }`}
-              >
-                <LayoutList className={`h-5 w-5 mb-2 ${!useBlocks ? "text-violet-400" : "text-zinc-500"}`} />
-                <div className={`text-sm font-medium ${!useBlocks ? "text-white" : "text-zinc-400"}`}>
-                  Classic
-                </div>
-                <div className="text-xs text-zinc-500 mt-1">
-                  Simple post list
-                </div>
-              </button>
             </div>
           </div>
 

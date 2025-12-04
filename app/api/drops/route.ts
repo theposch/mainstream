@@ -98,7 +98,6 @@ export async function POST(request: NextRequest) {
       filter_stream_ids,
       filter_user_ids,
       is_weekly = false,
-      use_blocks = false,
     } = body;
 
     // Validation
@@ -118,8 +117,7 @@ export async function POST(request: NextRequest) {
 
     const supabase = await createClient();
 
-    // Create the drop
-    // Note: use_blocks column may not exist if migration hasn't been run
+    // Create the drop (always use blocks mode)
     const insertData: Record<string, unknown> = {
       title: title.trim(),
       status: "draft",
@@ -129,23 +127,25 @@ export async function POST(request: NextRequest) {
       filter_stream_ids: filter_stream_ids?.length ? filter_stream_ids : null,
       filter_user_ids: filter_user_ids?.length ? filter_user_ids : null,
       is_weekly,
+      use_blocks: true,
     };
     
-    // Try with use_blocks first, fall back without it
+    // Try with use_blocks first, fall back without it if column doesn't exist
     let drop;
     let dropError;
     
     const result1 = await supabase
       .from("drops")
-      .insert({ ...insertData, use_blocks })
+      .insert(insertData)
       .select()
       .single();
     
     if (result1.error?.message?.includes("use_blocks")) {
       // Column doesn't exist, try without it
+      const { use_blocks: _, ...insertDataWithoutBlocks } = insertData;
       const result2 = await supabase
         .from("drops")
-        .insert(insertData)
+        .insert(insertDataWithoutBlocks)
         .select()
         .single();
       drop = result2.data;
@@ -163,7 +163,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Query assets matching the criteria
+    // Query assets matching the criteria WITH their streams
     let assetsQuery = supabase
       .from("assets")
       .select("id")
@@ -191,47 +191,112 @@ export async function POST(request: NextRequest) {
       filteredAssetIds = [...new Set(streamAssets?.map((sa) => sa.asset_id) || [])];
     }
 
-    // Add matching assets to the drop
+    // Get stream associations for filtered assets to group them
+    let assetStreamMap: Record<string, { streamId: string; streamName: string }[]> = {};
+    let streamNames: Record<string, string> = {};
+    
     if (filteredAssetIds.length > 0) {
-      if (use_blocks && drop.use_blocks !== undefined) {
-        // For block-based drops, create post blocks (only if table exists)
-        const blocks = filteredAssetIds.map((asset_id, index) => ({
+      const { data: assetStreams } = await supabase
+        .from("asset_streams")
+        .select(`
+          asset_id,
+          stream:streams(id, name)
+        `)
+        .in("asset_id", filteredAssetIds);
+
+      assetStreams?.forEach((as: any) => {
+        if (!assetStreamMap[as.asset_id]) {
+          assetStreamMap[as.asset_id] = [];
+        }
+        if (as.stream) {
+          assetStreamMap[as.asset_id].push({
+            streamId: as.stream.id,
+            streamName: as.stream.name,
+          });
+          streamNames[as.stream.id] = as.stream.name;
+        }
+      });
+    }
+
+    // Group assets by their primary stream
+    const assetsByStream: Record<string, string[]> = {};
+    const uncategorized: string[] = [];
+    
+    filteredAssetIds.forEach((assetId) => {
+      const streams = assetStreamMap[assetId];
+      if (streams && streams.length > 0) {
+        const primaryStream = streams[0];
+        if (!assetsByStream[primaryStream.streamId]) {
+          assetsByStream[primaryStream.streamId] = [];
+        }
+        assetsByStream[primaryStream.streamId].push(assetId);
+      } else {
+        uncategorized.push(assetId);
+      }
+    });
+
+    // Create blocks: heading for each stream, then posts under it
+    const blocks: Array<{
+      drop_id: string;
+      type: string;
+      content?: string;
+      heading_level?: number;
+      asset_id?: string;
+      position: number;
+    }> = [];
+    
+    let position = 0;
+
+    // Add blocks for each stream group
+    for (const [streamId, assetIds] of Object.entries(assetsByStream)) {
+      // Add heading for the stream
+      blocks.push({
+        drop_id: drop.id,
+        type: "heading",
+        content: streamNames[streamId],
+        heading_level: 2,
+        position: position++,
+      });
+
+      // Add post blocks for assets in this stream
+      for (const assetId of assetIds) {
+        blocks.push({
           drop_id: drop.id,
           type: "post",
-          asset_id,
-          position: index,
-        }));
+          asset_id: assetId,
+          position: position++,
+        });
+      }
+    }
 
-        const { error: blocksError } = await supabase
-          .from("drop_blocks")
-          .insert(blocks);
+    // Add uncategorized assets at the end
+    if (uncategorized.length > 0) {
+      blocks.push({
+        drop_id: drop.id,
+        type: "heading",
+        content: "Other",
+        heading_level: 2,
+        position: position++,
+      });
 
-        if (blocksError) {
-          console.error("[Drops API] Error adding blocks to drop:", blocksError);
-          // Fall back to classic mode
-          const dropPosts = filteredAssetIds.map((asset_id, index) => ({
-            drop_id: drop.id,
-            asset_id,
-            position: index,
-          }));
-          await supabase.from("drop_posts").insert(dropPosts);
-        }
-      } else {
-        // For classic drops, create drop_posts entries
-        const dropPosts = filteredAssetIds.map((asset_id, index) => ({
+      for (const assetId of uncategorized) {
+        blocks.push({
           drop_id: drop.id,
-          asset_id,
-          position: index,
-        }));
+          type: "post",
+          asset_id: assetId,
+          position: position++,
+        });
+      }
+    }
 
-        const { error: postsError } = await supabase
-          .from("drop_posts")
-          .insert(dropPosts);
+    // Insert all blocks
+    if (blocks.length > 0) {
+      const { error: blocksError } = await supabase
+        .from("drop_blocks")
+        .insert(blocks);
 
-        if (postsError) {
-          console.error("[Drops API] Error adding posts to drop:", postsError);
-          // Don't fail the whole operation, drop is created
-        }
+      if (blocksError) {
+        console.error("[Drops API] Error adding blocks to drop:", blocksError);
       }
     }
 
