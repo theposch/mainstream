@@ -79,6 +79,9 @@ export const ElementCard = React.memo(
   const isEmbed = asset.asset_type === 'embed';
   const embedProvider = isEmbed ? (asset.embed_provider as EmbedProvider) : null;
   const providerInfo = embedProvider ? getProviderInfo(embedProvider) : null;
+  
+  // Check if embed has a thumbnail (from oEmbed)
+  const embedHasThumbnail = isEmbed && asset.thumbnail_url && !asset.thumbnail_url.includes('figma.com/file');
 
   // Progressive loading: use thumbnailUrl first, then upgrade to mediumUrl or full url
   // For GIFs: thumbnail is static JPEG, medium/full are animated
@@ -116,8 +119,18 @@ export const ElementCard = React.memo(
             className="relative w-full"
             style={{ paddingBottom: isEmbed ? '56.25%' : `${aspectRatio}%` }}
           >
-            {/* Embed placeholder (Figma, YouTube, etc.) */}
-            {isEmbed && providerInfo ? (
+            {/* Embed with thumbnail (from oEmbed) */}
+            {isEmbed && embedHasThumbnail ? (
+              <Image
+                src={asset.thumbnail_url!}
+                alt={asset.title}
+                fill
+                className="absolute inset-0 object-cover w-full h-full transition-transform duration-500 group-hover:scale-105"
+                sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                onLoad={handleImageLoad}
+              />
+            ) : isEmbed && providerInfo ? (
+              // Embed placeholder (no thumbnail available)
               <div className="absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-br from-zinc-900 via-zinc-800 to-zinc-900">
                 <div className={cn(
                   "flex items-center justify-center w-16 h-16 rounded-2xl mb-3 shadow-lg",

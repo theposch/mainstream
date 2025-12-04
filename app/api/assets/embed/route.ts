@@ -13,6 +13,7 @@ import {
   isSupportedUrl,
   getFigmaTitle,
   getProviderInfo,
+  fetchFigmaOEmbed,
 } from '@/lib/utils/embed-providers';
 
 export const dynamic = 'force-dynamic';
@@ -67,14 +68,30 @@ export async function POST(request: NextRequest) {
 
     console.log(`[POST /api/assets/embed] Detected provider: ${provider}`);
 
-    // Extract title from URL if not provided
+    // Fetch oEmbed data for thumbnail and metadata
+    let thumbnailUrl: string | null = null;
+    let oembedTitle: string | null = null;
+    
+    if (provider === 'figma') {
+      console.log('[POST /api/assets/embed] Fetching Figma oEmbed data...');
+      const oembedData = await fetchFigmaOEmbed(url);
+      
+      if (oembedData) {
+        console.log('[POST /api/assets/embed] oEmbed data received:', {
+          title: oembedData.title,
+          hasThumbnail: !!oembedData.thumbnail_url,
+        });
+        thumbnailUrl = oembedData.thumbnail_url || null;
+        oembedTitle = oembedData.title || null;
+      } else {
+        console.log('[POST /api/assets/embed] No oEmbed data available (file may be private)');
+      }
+    }
+
+    // Extract title: user-provided > oEmbed > URL extraction > fallback
     let finalTitle = title?.trim();
     if (!finalTitle) {
-      if (provider === 'figma') {
-        finalTitle = getFigmaTitle(url) || 'Figma Design';
-      } else {
-        finalTitle = 'Embedded Content';
-      }
+      finalTitle = oembedTitle || getFigmaTitle(url) || 'Figma Design';
     }
 
     // Get provider info for default display
@@ -107,18 +124,24 @@ export async function POST(request: NextRequest) {
     }
 
     // Create the asset record
-    const assetData = {
+    const assetData: Record<string, unknown> = {
       title: finalTitle,
       description: description?.trim() || null,
       type: 'link',  // Legacy type field (constraint: image|video|link)
       asset_type: 'embed',  // New type field for embeds
       embed_url: url,
       embed_provider: provider,
-      // For embeds, we don't have actual image URLs
-      // We'll use placeholder values that the UI will handle
       url: url,  // Store original URL as fallback
       uploader_id: user.id,
     };
+    
+    // Add thumbnail if we got one from oEmbed
+    if (thumbnailUrl) {
+      assetData.thumbnail_url = thumbnailUrl;
+      // Use thumbnail as the main URL for feed display
+      assetData.url = thumbnailUrl;
+      console.log('[POST /api/assets/embed] Using oEmbed thumbnail:', thumbnailUrl);
+    }
 
     console.log('[POST /api/assets/embed] Creating asset with data:', assetData);
 
