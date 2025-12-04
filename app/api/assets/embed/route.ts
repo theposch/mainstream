@@ -187,10 +187,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Ensure user profile exists in public.users
-    const existingUser = userData;
-    const userCheckError = userDataError;
-
-    if (userCheckError && userCheckError.code === 'PGRST116') {
+    if (userDataError && userDataError.code === 'PGRST116') {
       // User doesn't exist, create them
       const username = user.email?.split('@')[0] || `user_${user.id.slice(0, 8)}`;
       const displayName = user.user_metadata?.full_name || username;
