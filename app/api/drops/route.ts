@@ -98,6 +98,7 @@ export async function POST(request: NextRequest) {
       filter_stream_ids,
       filter_user_ids,
       is_weekly = false,
+      use_blocks = false,
     } = body;
 
     // Validation
@@ -129,6 +130,7 @@ export async function POST(request: NextRequest) {
         filter_stream_ids: filter_stream_ids?.length ? filter_stream_ids : null,
         filter_user_ids: filter_user_ids?.length ? filter_user_ids : null,
         is_weekly,
+        use_blocks,
       })
       .select()
       .single();
@@ -171,19 +173,39 @@ export async function POST(request: NextRequest) {
 
     // Add matching assets to the drop
     if (filteredAssetIds.length > 0) {
-      const dropPosts = filteredAssetIds.map((asset_id, index) => ({
-        drop_id: drop.id,
-        asset_id,
-        position: index,
-      }));
+      if (use_blocks) {
+        // For block-based drops, create post blocks
+        const blocks = filteredAssetIds.map((asset_id, index) => ({
+          drop_id: drop.id,
+          type: "post",
+          asset_id,
+          position: index,
+        }));
 
-      const { error: postsError } = await supabase
-        .from("drop_posts")
-        .insert(dropPosts);
+        const { error: blocksError } = await supabase
+          .from("drop_blocks")
+          .insert(blocks);
 
-      if (postsError) {
-        console.error("[Drops API] Error adding posts to drop:", postsError);
-        // Don't fail the whole operation, drop is created
+        if (blocksError) {
+          console.error("[Drops API] Error adding blocks to drop:", blocksError);
+          // Don't fail the whole operation, drop is created
+        }
+      } else {
+        // For classic drops, create drop_posts entries
+        const dropPosts = filteredAssetIds.map((asset_id, index) => ({
+          drop_id: drop.id,
+          asset_id,
+          position: index,
+        }));
+
+        const { error: postsError } = await supabase
+          .from("drop_posts")
+          .insert(dropPosts);
+
+        if (postsError) {
+          console.error("[Drops API] Error adding posts to drop:", postsError);
+          // Don't fail the whole operation, drop is created
+        }
       }
     }
 

@@ -2,13 +2,16 @@ import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import { DropEditorClient } from "./drop-editor-client";
+import { DropBlocksEditorClient } from "./drop-blocks-editor-client";
 
 interface EditDropPageProps {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ mode?: string }>;
 }
 
-export default async function EditDropPage({ params }: EditDropPageProps) {
+export default async function EditDropPage({ params, searchParams }: EditDropPageProps) {
   const { id } = await params;
+  const { mode } = await searchParams;
   const supabase = await createClient();
   const user = await getCurrentUser();
 
@@ -35,16 +38,85 @@ export default async function EditDropPage({ params }: EditDropPageProps) {
     notFound();
   }
 
-  // Fetch posts with asset details
+  // Determine if using blocks mode
+  // Use blocks mode if: explicitly requested via ?mode=blocks OR drop.use_blocks is true
+  const useBlocksMode = mode === "blocks" || drop.use_blocks;
+
+  if (useBlocksMode) {
+    // Fetch blocks
+    const { data: blocks } = await supabase
+      .from("drop_blocks")
+      .select(`
+        *,
+        asset:assets(
+          id,
+          title,
+          description,
+          url,
+          medium_url,
+          thumbnail_url,
+          asset_type,
+          embed_provider,
+          created_at,
+          uploader:users!uploader_id(id, username, display_name, avatar_url)
+        )
+      `)
+      .eq("drop_id", id)
+      .order("position", { ascending: true });
+
+    // Get contributors from blocks
+    const contributorMap = new Map();
+    blocks?.forEach((block: any) => {
+      if (block.asset?.uploader && !contributorMap.has(block.asset.uploader.id)) {
+        contributorMap.set(block.asset.uploader.id, block.asset.uploader);
+      }
+    });
+    const contributors = Array.from(contributorMap.values());
+
+    // Fetch available assets for the asset picker
+    const { data: availableAssets } = await supabase
+      .from("assets")
+      .select(`
+        id,
+        title,
+        description,
+        url,
+        medium_url,
+        thumbnail_url,
+        asset_type,
+        embed_provider,
+        created_at,
+        uploader:users!uploader_id(id, username, display_name, avatar_url)
+      `)
+      .gte("created_at", drop.date_range_start)
+      .lte("created_at", drop.date_range_end)
+      .order("created_at", { ascending: false })
+      .limit(100);
+
+    return (
+      <DropBlocksEditorClient
+        drop={drop}
+        initialBlocks={blocks || []}
+        initialContributors={contributors}
+        availableAssets={availableAssets || []}
+      />
+    );
+  }
+
+  // Legacy mode: fetch posts
   const { data: dropPosts } = await supabase
     .from("drop_posts")
     .select(`
       position,
+      display_mode,
+      crop_position_x,
+      crop_position_y,
       asset:assets(
         id,
         title,
         description,
         url,
+        medium_url,
         thumbnail_url,
         asset_type,
         embed_provider,
@@ -59,6 +131,9 @@ export default async function EditDropPage({ params }: EditDropPageProps) {
   const posts = dropPosts?.map((dp: any) => ({
     ...dp.asset,
     position: dp.position,
+    display_mode: dp.display_mode,
+    crop_position_x: dp.crop_position_x,
+    crop_position_y: dp.crop_position_y,
   })).filter(Boolean) || [];
 
   // Get streams for posts
