@@ -53,16 +53,17 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     const { id: dropId } = await params;
     const body = await request.json();
-    const { type, content, heading_level, asset_id, position } = body as {
+    const { type, content, heading_level, asset_id, position, gallery_layout } = body as {
       type: DropBlockType;
       content?: string;
       heading_level?: number;
       asset_id?: string;
       position?: number;
+      gallery_layout?: 'grid' | 'featured';
     };
 
     // Validate type
-    if (!['text', 'heading', 'post', 'featured_post', 'divider', 'quote'].includes(type)) {
+    if (!['text', 'heading', 'post', 'featured_post', 'divider', 'quote', 'image_gallery'].includes(type)) {
       return NextResponse.json({ error: "Invalid block type" }, { status: 400 });
     }
 
@@ -126,6 +127,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         heading_level,
         asset_id,
         position: blockPosition,
+        gallery_layout: type === 'image_gallery' ? (gallery_layout || 'grid') : undefined,
       })
       .select(`
         *,
