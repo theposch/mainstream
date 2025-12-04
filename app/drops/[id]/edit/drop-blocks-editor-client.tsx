@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { ArrowLeft, Sparkles, Loader2, Eye, Pencil } from "lucide-react";
+import { ArrowLeft, Sparkles, Loader2, Eye, Pencil, Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { BlockEditor, DropBlocksView } from "@/components/drops/blocks";
 import { DropPublishDialog } from "@/components/drops/drop-publish-dialog";
@@ -156,6 +156,14 @@ export function DropBlocksEditorClient({
                   Preview
                 </>
               )}
+            </button>
+            <button
+              onClick={() => window.open(`/api/drops/${drop.id}/email-preview`, '_blank')}
+              className="flex items-center gap-2 px-3 py-1.5 text-sm rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors"
+              title="Preview as email"
+            >
+              <Mail className="h-4 w-4" />
+              Email
             </button>
             <span className="px-2.5 py-1 text-xs font-medium bg-amber-500/20 text-amber-400 rounded">
               DRAFT
