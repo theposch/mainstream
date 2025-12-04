@@ -3,7 +3,7 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Sparkles, Loader2 } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DropView } from "@/components/drops/drop-view";
 import { DropPublishDialog } from "@/components/drops/drop-publish-dialog";
@@ -94,15 +94,31 @@ export function DropEditorClient({
     }
   };
 
-  const handleDescriptionChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setDescription(e.target.value);
-  };
-
-  const handleDescriptionBlur = () => {
-    if (description !== drop.description) {
-      saveDescription(description);
+  // Debounced save for inline editing
+  const saveTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
+  
+  const handleDescriptionChangeInline = (newDescription: string) => {
+    setDescription(newDescription);
+    
+    // Debounce save
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
     }
+    saveTimeoutRef.current = setTimeout(() => {
+      if (newDescription !== drop.description) {
+        saveDescription(newDescription);
+      }
+    }, 1000);
   };
+  
+  // Cleanup timeout on unmount
+  React.useEffect(() => {
+    return () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+      }
+    };
+  }, []);
 
   return (
     <div className="min-h-screen pb-20">
@@ -133,40 +149,7 @@ export function DropEditorClient({
 
       {/* Editor content */}
       <div className="max-w-3xl mx-auto py-10 px-4">
-        {/* Description editor */}
-        <div className="mb-8">
-          <div className="relative">
-            <textarea
-              value={description}
-              onChange={handleDescriptionChange}
-              onBlur={handleDescriptionBlur}
-              placeholder="Add a description..."
-              className="w-full min-h-[120px] bg-transparent border border-zinc-800 rounded-lg p-4 text-zinc-300 placeholder:text-zinc-600 resize-none focus:outline-none focus:border-zinc-700"
-            />
-            <button
-              onClick={handleGenerateDescription}
-              disabled={isGenerating || posts.length === 0}
-              className="absolute bottom-3 right-3 flex items-center gap-2 px-3 py-1.5 text-sm text-violet-400 hover:text-violet-300 hover:bg-violet-500/10 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isGenerating ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Generating...
-                </>
-              ) : (
-                <>
-                  <Sparkles className="h-4 w-4" />
-                  Generate with AI
-                </>
-              )}
-            </button>
-          </div>
-          {isSaving && (
-            <p className="text-xs text-zinc-500 mt-2">Saving...</p>
-          )}
-        </div>
-
-        {/* Drop preview */}
+        {/* Drop with inline description editor */}
         <DropView
           title={drop.title}
           description={description}
@@ -176,7 +159,13 @@ export function DropEditorClient({
           contributors={contributors}
           isEditing={true}
           onRemovePost={handleRemovePost}
+          onDescriptionChange={handleDescriptionChangeInline}
+          onGenerateDescription={handleGenerateDescription}
+          isGeneratingDescription={isGenerating}
         />
+        {isSaving && (
+          <p className="text-xs text-zinc-500 text-center mt-2">Saving...</p>
+        )}
 
         {/* Filter bar */}
         <div className="mt-8 p-4 bg-zinc-900/50 rounded-lg border border-zinc-800">
