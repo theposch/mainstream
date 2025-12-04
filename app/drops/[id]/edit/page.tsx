@@ -44,7 +44,7 @@ export default async function EditDropPage({ params, searchParams }: EditDropPag
 
   if (useBlocksMode) {
     // Fetch blocks
-    const { data: blocks } = await supabase
+    const { data: blocks, error: blocksError } = await supabase
       .from("drop_blocks")
       .select(`
         *,
@@ -63,6 +63,10 @@ export default async function EditDropPage({ params, searchParams }: EditDropPag
       `)
       .eq("drop_id", id)
       .order("position", { ascending: true });
+    
+    if (blocksError) {
+      console.error("Error fetching blocks:", blocksError);
+    }
 
     // Get contributors from blocks
     const contributorMap = new Map();

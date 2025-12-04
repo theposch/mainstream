@@ -54,8 +54,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         *,
         asset:assets (
           *,
-          uploader:users (*),
-          streams (*)
+          uploader:users!uploader_id (*)
         )
       `)
       .single();
@@ -119,11 +118,21 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
 
     // Shift remaining blocks up to fill the gap
     if (blockToDelete) {
-      await supabase
+      const { data: blocksToShift } = await supabase
         .from("drop_blocks")
-        .update({ position: supabase.sql`position - 1` })
+        .select("id, position")
         .eq("drop_id", dropId)
-        .gt("position", blockToDelete.position);
+        .gt("position", blockToDelete.position)
+        .order("position", { ascending: true });
+      
+      if (blocksToShift) {
+        for (const block of blocksToShift) {
+          await supabase
+            .from("drop_blocks")
+            .update({ position: block.position - 1 })
+            .eq("id", block.id);
+        }
+      }
     }
 
     return NextResponse.json({ success: true });
