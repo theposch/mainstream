@@ -6,17 +6,22 @@ Quick onboarding guide for AI assistants working on the Mainstream codebase.
 
 **What:** Design collaboration platform (Pinterest-style)  
 **Status:** ✅ Fully functional with Supabase backend  
-**Tech:** Next.js 15, TypeScript, Tailwind, shadcn/ui, Supabase  
+**Tech:** Next.js 15, TypeScript, Tailwind, shadcn/ui, Supabase, LiteLLM  
 **Last Updated:** December 2025
 
 ## Critical Context
 
 ### Recent Major Changes
-- ✅ **Figma Embeds** - Paste Figma URLs to embed designs with thumbnails (NEW)
-- ✅ **Animated GIFs** - Full GIF support with animation on hover and GIF badge (NEW)
-- ✅ **Real-time Notifications** - Live notification updates with typing indicators (NEW)
-- ✅ **Comment Deep Linking** - Click notification to jump to specific comment with highlight (NEW)
-- ✅ **Token Encryption** - AES-256-GCM encryption for API tokens (NEW)
+- ✅ **Drops (AI Newsletter)** - AI-powered weekly drops with block-based Notion-like editor (NEW)
+- ✅ **LiteLLM Integration** - AI description generation using Gemini 2.5 Flash (NEW)
+- ✅ **Unlisted Assets** - Images uploaded in drops don't appear in feed (NEW)
+- ✅ **Image Galleries** - Multi-image blocks with grid/featured layouts (NEW)
+- ✅ **Email Preview** - React Email components for email-compatible drops (NEW)
+- ✅ **Figma Embeds** - Paste Figma URLs to embed designs with thumbnails
+- ✅ **Animated GIFs** - Full GIF support with animation on hover and GIF badge
+- ✅ **Real-time Notifications** - Live notification updates with typing indicators
+- ✅ **Comment Deep Linking** - Click notification to jump to specific comment with highlight
+- ✅ **Token Encryption** - AES-256-GCM encryption for API tokens
 - ✅ **View Tracking** - "Seen by X people" with hover tooltip showing viewers (2s threshold)
 - ✅ **Comment Likes** - Like/unlike comments with real-time updates
 - ✅ **Modal Overlay for Assets** - Pinterest-style instant modal from feed (React Query + nuqs)
@@ -51,6 +56,9 @@ home/page.tsx           - Main feed (Recent + Following tabs)
 e/[id]/page.tsx        - Asset detail page
 stream/[slug]/page.tsx - Stream page
 streams/page.tsx       - All streams listing
+drops/page.tsx         - Drops listing (newsletters)
+drops/[id]/page.tsx    - Published drop view
+drops/[id]/edit/page.tsx - Drop block editor
 u/[username]/page.tsx  - User profile (Shots/Streams/Liked)
 auth/signup/page.tsx   - Signup
 auth/login/page.tsx    - Login
@@ -81,6 +89,21 @@ streams/
   [id]/bookmarks/route.ts - GET/POST: Stream bookmarks
   [id]/bookmarks/[bookmarkId]/route.ts - DELETE: Remove bookmark
 
+drops/
+  route.ts             - GET/POST: List/create drops
+  [id]/route.ts        - GET/PATCH/DELETE: Drop operations
+  [id]/generate/route.ts - POST: Generate AI description
+  [id]/publish/route.ts - POST: Publish drop (+ optional email)
+  [id]/email-preview/route.ts - GET: Email HTML preview
+  [id]/blocks/route.ts - POST/PUT: Create/reorder blocks
+  [id]/blocks/[blockId]/route.ts - PATCH/DELETE: Update/delete block
+  [id]/blocks/[blockId]/gallery/route.ts - POST/DELETE: Gallery images
+  [id]/posts/route.ts  - POST: Add posts (legacy)
+  [id]/posts/[postId]/route.ts - DELETE: Remove post (legacy)
+
+ai/
+  describe/route.ts    - POST: Generate AI asset description
+
 users/
   [username]/
     route.ts           - GET: User profile
@@ -110,6 +133,19 @@ streams/
   stream-grid.tsx           - Stream listing grid
   stream-picker.tsx         - Stream selector for uploads
   add-bookmark-dialog.tsx   - Dialog for adding bookmarks
+
+drops/
+  create-drop-dialog.tsx    - New drop creation form
+  drop-card.tsx             - Drop preview card for grid
+  drops-grid.tsx            - Grid layout for drops
+  drop-view.tsx             - Classic drop view (legacy)
+  drop-publish-dialog.tsx   - Publish confirmation dialog
+  blocks/
+    block-editor.tsx        - Notion-like interactive block editor
+    block-renderer.tsx      - Client-side block rendering
+    drop-blocks-view.tsx    - Preview/published drop view
+    email-block-renderer.tsx - Server-side email block rendering
+    email-drop-view.tsx     - Full email template
 
 users/
   user-profile-header.tsx   - Profile header with follow button
@@ -157,15 +193,18 @@ asset-queries.ts            - Query keys factory and fetch functions
 ### Types (`lib/types/`)
 ```
 database.ts - TypeScript interfaces for all DB entities:
-  - Asset (includes likeCount, isLikedByCurrentUser, view_count, streams, asset_type, embed_url, embed_provider, width, height)
+  - Asset (includes likeCount, isLikedByCurrentUser, view_count, streams, asset_type, embed_url, embed_provider, visibility)
   - Stream, User (includes figma_access_token), Comment, Notification (includes content, comment_id)
   - StreamFollow, StreamBookmark
   - AssetViewer (for view tooltip)
+  - Drop, DropPost, DropBlock, DropBlockGalleryImage (AI newsletter system)
+  - DropBlockType ('text' | 'heading' | 'post' | 'featured_post' | 'divider' | 'quote' | 'image_gallery')
   - All use snake_case (database convention)
 ```
 
 ### Utils (`lib/utils/`)
 ```
+ai.ts                 - LiteLLM integration (isAIConfigured, AIError)
 embed-providers.ts    - Figma URL detection, oEmbed/API integration
 encryption.ts         - AES-256-GCM token encryption utilities
 image-processing.ts   - Sharp-based image/GIF processing
@@ -189,6 +228,7 @@ streams
 assets
   ├─ title, url, thumbnail_url, uploader_id, width, height, view_count
   ├─ asset_type ('image' | 'embed'), embed_url, embed_provider
+  ├─ visibility ('public' | 'unlisted') - unlisted = drop-only, hidden from feed
   ├─ type ('image' | 'video' | 'link') - legacy field
   ├─ belongs to → streams (many-to-many)
   ├─ has → likes, comments, views
@@ -219,6 +259,26 @@ stream_bookmarks
 notifications
   └─ user_id, type (like_asset|like_comment|comment|reply_comment|follow|mention)
   └─ resource_id, resource_type, actor_id, content, comment_id, is_read
+
+drops
+  ├─ title, description, status ('draft' | 'published')
+  ├─ created_by, date_range_start, date_range_end
+  ├─ filter_stream_ids[], filter_user_ids[]
+  ├─ is_weekly, use_blocks
+  └─ has → drop_blocks, drop_posts (legacy)
+
+drop_blocks
+  ├─ drop_id, type, position, content, heading_level
+  ├─ asset_id (for post/featured_post)
+  ├─ display_mode, crop_position_x, crop_position_y
+  ├─ gallery_layout, gallery_featured_index
+  └─ has → gallery_images (for image_gallery)
+
+drop_block_gallery_images
+  └─ block_id, asset_id, position
+
+drop_posts (legacy)
+  └─ drop_id, asset_id, position, display_mode, crop_position_x, crop_position_y
 ```
 
 ## Authentication
@@ -414,6 +474,34 @@ useEffect(() => {
 }, []);
 ```
 
+## Drops (AI Newsletter)
+
+### Overview
+AI-powered newsletters that summarize your team's weekly design work. Uses a Notion-like block-based editor.
+
+### Key Features
+- **Block Types**: Text, Heading (H1-H3), Post, Featured Post, Divider, Quote, Image Gallery
+- **AI Generation**: Generate descriptions using LiteLLM (Gemini 2.5 Flash)
+- **Unlisted Assets**: Images uploaded in drops are hidden from feed/search/profiles
+- **Email Preview**: Renders using React Email components for cross-client compatibility
+- **Display Modes**: Fit/Cover with adjustable crop position for images
+
+### Environment Variables
+```env
+# Required for AI features
+LITELLM_BASE_URL=https://your-litellm-instance.com
+LITELLM_API_KEY=your-api-key
+LITELLM_MODEL=gemini/gemini-2.5-flash-preview-05-20
+
+# Optional for email delivery
+RESEND_API_KEY=re_your-resend-key
+```
+
+### Documentation
+See `docs/DROPS_FEATURE.md` for comprehensive documentation.
+
+---
+
 ## Where Things Are
 
 | Feature | Page | API | Hook | Component |
@@ -434,6 +522,9 @@ useEffect(() => {
 | Profiles | `app/u/[username]/page.tsx` | `api/users/[username]/route.ts` | `use-user-follow.ts` | `user-profile-*.tsx` |
 | Search | `app/search/page.tsx` | `api/search/route.ts` | - | `search-*.tsx` |
 | Notifications | - | `api/notifications/route.ts` | `use-notifications.ts` | `notifications-popover.tsx` |
+| Drops | `app/drops/page.tsx` | `api/drops/route.ts` | - | `drops/drop-*.tsx` |
+| Drop Editor | `app/drops/[id]/edit/page.tsx` | `api/drops/[id]/blocks/route.ts` | - | `drops/blocks/*.tsx` |
+| AI Describe | - | `api/ai/describe/route.ts` | `use-ai-description.ts` | `post-metadata-form.tsx` |
 
 ## Figma Embeds
 
@@ -553,11 +644,16 @@ When working on a feature, review:
    - `011_notifications_rls_policies.sql` - Real-time notifications
    - `016_add_embed_support.sql` - Figma embeds (asset_type, embed_url)
    - `017_add_figma_integration.sql` - Figma token storage
+   - `018_add_drops.sql` - Drops base tables
+   - `021_add_drop_blocks.sql` - Block-based editor
+   - `022_add_image_gallery_block.sql` - Gallery blocks
+   - `025_add_asset_visibility.sql` - Unlisted assets
 3. Type definitions: `lib/types/database.ts`
 4. Related API route: `app/api/[feature]/route.ts`
 5. Related hook: `lib/hooks/use-[feature].ts`
 6. Related component: `components/[feature]/`
-7. Utilities: `lib/utils/` (embed-providers, encryption, image-processing)
+7. Utilities: `lib/utils/` (ai, embed-providers, encryption, image-processing)
+8. Drops documentation: `docs/DROPS_FEATURE.md`
 
 ## Resources
 
