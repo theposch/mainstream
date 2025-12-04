@@ -139,10 +139,13 @@ export interface Drop {
 }
 
 // Drop post junction (many-to-many between drops and assets)
+export type DropPostDisplayMode = 'auto' | 'fit' | 'cover';
+
 export interface DropPost {
   drop_id: string;
   asset_id: string;
   position: number;
+  display_mode: DropPostDisplayMode;
   created_at: string;
   // Joined data
   asset?: Asset;

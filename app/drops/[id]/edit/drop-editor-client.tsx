@@ -7,11 +7,12 @@ import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DropView } from "@/components/drops/drop-view";
 import { DropPublishDialog } from "@/components/drops/drop-publish-dialog";
-import type { Drop, Asset, User, Stream } from "@/lib/types/database";
+import type { Drop, Asset, User, Stream, DropPostDisplayMode } from "@/lib/types/database";
 
 interface DropPost extends Asset {
   position: number;
   streams?: Stream[];
+  display_mode?: DropPostDisplayMode;
 }
 
 interface DropEditorClientProps {
@@ -92,6 +93,25 @@ export function DropEditorClient({
       console.error("Failed to remove post:", error);
       // Revert on error
       setPosts(initialPosts);
+    }
+  };
+
+  const handleDisplayModeChange = async (assetId: string, mode: DropPostDisplayMode) => {
+    // Optimistic update
+    setPosts((prev) => 
+      prev.map((p) => 
+        p.id === assetId ? { ...p, display_mode: mode } : p
+      )
+    );
+    
+    try {
+      await fetch(`/api/drops/${drop.id}/posts/${assetId}/display-mode`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ display_mode: mode }),
+      });
+    } catch (error) {
+      console.error("Failed to update display mode:", error);
     }
   };
 
@@ -182,6 +202,7 @@ export function DropEditorClient({
           onDescriptionChange={handleDescriptionChangeInline}
           onGenerateDescription={handleGenerateDescription}
           isGeneratingDescription={isGenerating}
+          onDisplayModeChange={handleDisplayModeChange}
         />
         {isSaving && (
           <p className="text-xs text-zinc-500 text-center mt-2">Saving...</p>

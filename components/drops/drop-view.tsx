@@ -8,11 +8,12 @@ import {
   Hr,
   Link,
 } from "@react-email/components";
-import type { Asset, User, Stream } from "@/lib/types/database";
+import type { Asset, User, Stream, DropPostDisplayMode } from "@/lib/types/database";
 
 interface DropPost extends Asset {
   position: number;
   streams?: Stream[];
+  display_mode?: DropPostDisplayMode;
 }
 
 interface DropViewProps {
@@ -28,6 +29,7 @@ interface DropViewProps {
   onDescriptionChange?: (description: string) => void;
   onGenerateDescription?: () => void;
   isGeneratingDescription?: boolean;
+  onDisplayModeChange?: (assetId: string, mode: DropPostDisplayMode) => void;
 }
 
 // Group posts by their primary stream
@@ -225,6 +227,91 @@ const styles = {
   },
 };
 
+// Helper to determine the effective display mode
+function getEffectiveDisplayMode(post: DropPost): 'fit' | 'cover' {
+  if (post.display_mode && post.display_mode !== 'auto') {
+    return post.display_mode;
+  }
+  // Auto mode: use fit for Figma embeds, cover for regular images
+  return post.embed_provider === 'figma' ? 'fit' : 'cover';
+}
+
+// Display mode control component
+function DisplayModeControls({ 
+  post, 
+  onModeChange 
+}: { 
+  post: DropPost; 
+  onModeChange: (mode: DropPostDisplayMode) => void;
+}) {
+  const currentMode = getEffectiveDisplayMode(post);
+  
+  return (
+    <div 
+      className="display-mode-controls"
+      style={{
+        position: 'absolute',
+        bottom: '12px',
+        right: '12px',
+        display: 'flex',
+        gap: '4px',
+        opacity: 0,
+        transition: 'opacity 0.2s ease',
+        zIndex: 10,
+      }}
+    >
+      <button
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          onModeChange('fit');
+        }}
+        title="Fit - Show entire image"
+        style={{
+          width: '32px',
+          height: '32px',
+          borderRadius: '6px',
+          border: 'none',
+          backgroundColor: currentMode === 'fit' ? 'rgba(167, 139, 250, 0.9)' : 'rgba(0, 0, 0, 0.7)',
+          color: currentMode === 'fit' ? '#fff' : '#a0a0a0',
+          cursor: 'pointer',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          backdropFilter: 'blur(4px)',
+          fontSize: '14px',
+        }}
+      >
+        ⊡
+      </button>
+      <button
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          onModeChange('cover');
+        }}
+        title="Fill - Crop to fill"
+        style={{
+          width: '32px',
+          height: '32px',
+          borderRadius: '6px',
+          border: 'none',
+          backgroundColor: currentMode === 'cover' ? 'rgba(167, 139, 250, 0.9)' : 'rgba(0, 0, 0, 0.7)',
+          color: currentMode === 'cover' ? '#fff' : '#a0a0a0',
+          cursor: 'pointer',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          backdropFilter: 'blur(4px)',
+          fontSize: '14px',
+        }}
+      >
+        ⬚
+      </button>
+    </div>
+  );
+}
+
 export function DropView({
   title,
   description,
@@ -236,6 +323,7 @@ export function DropView({
   onDescriptionChange,
   onGenerateDescription,
   isGeneratingDescription = false,
+  onDisplayModeChange,
 }: DropViewProps) {
   const groupedPosts = groupPostsByStream(posts);
   const contributorNames = formatContributorNames(contributors);
@@ -416,22 +504,28 @@ export function DropView({
           </Heading>
           
           {/* Vertical list of posts */}
-          {streamPosts.map((post) => (
+          {streamPosts.map((post) => {
+            const displayMode = getEffectiveDisplayMode(post);
+            const isFitMode = displayMode === 'fit';
+            
+            return (
             <div key={post.id} style={styles.postCard}>
               {/* Image - use medium or full size for quality */}
-              {/* Figma embeds use contain to show full frame, regular images use cover crop */}
-              <div style={{
-                ...styles.postImageWrapper,
-                ...(post.embed_provider === 'figma' ? { backgroundColor: '#18181b' } : {}),
-              }}>
+              <div 
+                className="post-image-container"
+                style={{
+                  ...styles.postImageWrapper,
+                  ...(isFitMode ? { backgroundColor: '#18181b' } : {}),
+                }}
+              >
                 <Link href={`/e/${post.id}`}>
                   <Img
                     src={post.medium_url || post.url || post.thumbnail_url}
                     alt={post.title}
                     style={{
                       ...styles.postImage,
-                      objectFit: post.embed_provider === 'figma' ? 'contain' as const : 'cover' as const,
-                      objectPosition: post.embed_provider === 'figma' ? 'center' : 'top center',
+                      objectFit: isFitMode ? 'contain' as const : 'cover' as const,
+                      objectPosition: isFitMode ? 'center' : 'top center',
                     }}
                   />
                 </Link>
@@ -444,6 +538,12 @@ export function DropView({
                   >
                     ×
                   </button>
+                )}
+                {isEditing && onDisplayModeChange && (
+                  <DisplayModeControls 
+                    post={post} 
+                    onModeChange={(mode) => onDisplayModeChange(post.id, mode)} 
+                  />
                 )}
               </div>
               
@@ -485,9 +585,17 @@ export function DropView({
                 </div>
               </div>
             </div>
-          ))}
+          );
+          })}
         </Section>
       ))}
+      
+      {/* CSS for hover effect - only works in web, not email */}
+      <style>{`
+        .post-image-container:hover .display-mode-controls {
+          opacity: 1 !important;
+        }
+      `}</style>
     </Container>
   );
 }
