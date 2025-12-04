@@ -24,6 +24,7 @@ interface DropViewProps {
   contributors: User[];
   isEditing?: boolean;
   onRemovePost?: (assetId: string) => void;
+  onTitleChange?: (title: string) => void;
   onDescriptionChange?: (description: string) => void;
   onGenerateDescription?: () => void;
   isGeneratingDescription?: boolean;
@@ -231,6 +232,7 @@ export function DropView({
   contributors,
   isEditing = false,
   onRemovePost,
+  onTitleChange,
   onDescriptionChange,
   onGenerateDescription,
   isGeneratingDescription = false,
@@ -243,7 +245,37 @@ export function DropView({
       {/* Header */}
       <Section style={styles.header}>
         <Text style={styles.brandName}>Mainstream</Text>
-        <Heading style={styles.title}>{title}</Heading>
+        {isEditing && onTitleChange ? (
+          <input
+            type="text"
+            value={title}
+            onChange={(e) => onTitleChange(e.target.value)}
+            placeholder="Enter title..."
+            style={{
+              fontSize: "32px",
+              fontWeight: "700",
+              color: "#ffffff",
+              backgroundColor: "transparent",
+              border: "none",
+              borderBottom: "2px solid transparent",
+              outline: "none",
+              textAlign: "center" as const,
+              width: "100%",
+              padding: "8px 0",
+              margin: "24px 0 8px",
+              fontFamily: "inherit",
+              lineHeight: "1.2",
+            }}
+            onFocus={(e) => {
+              e.target.style.borderBottomColor = "#333";
+            }}
+            onBlur={(e) => {
+              e.target.style.borderBottomColor = "transparent";
+            }}
+          />
+        ) : (
+          <Heading style={styles.title}>{title}</Heading>
+        )}
       </Section>
 
       {/* Description - inline editor when editing */}
