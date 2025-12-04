@@ -98,17 +98,23 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       blockPosition = (maxPosResult?.position ?? -1) + 1;
     } else {
       // Shift existing blocks down if inserting at a specific position
-      await supabase.rpc("shift_drop_blocks_down", {
-        p_drop_id: dropId,
-        p_from_position: blockPosition,
-      }).then(() => {}).catch(() => {
-        // RPC might not exist yet, try manual update
-        return supabase
-          .from("drop_blocks")
-          .update({ position: supabase.rpc("increment_position") })
-          .eq("drop_id", dropId)
-          .gte("position", blockPosition);
-      });
+      // Get all blocks at or after this position and increment their positions
+      const { data: blocksToShift } = await supabase
+        .from("drop_blocks")
+        .select("id, position")
+        .eq("drop_id", dropId)
+        .gte("position", blockPosition)
+        .order("position", { ascending: false });
+      
+      if (blocksToShift && blocksToShift.length > 0) {
+        // Update in reverse order to avoid conflicts
+        for (const block of blocksToShift) {
+          await supabase
+            .from("drop_blocks")
+            .update({ position: block.position + 1 })
+            .eq("id", block.id);
+        }
+      }
     }
 
     // Create the block
