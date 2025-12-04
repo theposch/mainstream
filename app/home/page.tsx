@@ -12,8 +12,9 @@ export default async function HomePage() {
   const { data: { user } } = await supabase.auth.getUser();
   
   // Fetch assets with uploader, streams, AND like counts
-  // Exclude unlisted assets (drop-only images that shouldn't appear in feed)
-  const { data: assets, error } = await supabase
+  // Try with visibility filter first (excludes unlisted drop-only images)
+  // Falls back to no filter if visibility column doesn't exist yet (migration 025)
+  let { data: assets, error } = await supabase
     .from('assets')
     .select(`
       *,
@@ -23,9 +24,28 @@ export default async function HomePage() {
       ),
       asset_likes(count)
     `)
-    .or('visibility.is.null,visibility.eq.public') // Include null (legacy) and public
+    .or('visibility.is.null,visibility.eq.public')
     .order('created_at', { ascending: false })
     .limit(50);
+  
+  // If query failed (likely visibility column doesn't exist), retry without filter
+  if (error) {
+    const fallbackResult = await supabase
+      .from('assets')
+      .select(`
+        *,
+        uploader:users!uploader_id(*),
+        asset_streams(
+          streams(*)
+        ),
+        asset_likes(count)
+      `)
+      .order('created_at', { ascending: false })
+      .limit(50);
+    
+    assets = fallbackResult.data;
+    error = fallbackResult.error;
+  }
   
   // If user is logged in, fetch their likes in a single batch query
   let userLikedAssetIds: Set<string> = new Set();

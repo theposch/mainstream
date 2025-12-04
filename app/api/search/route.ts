@@ -51,27 +51,41 @@ export async function GET(request: NextRequest) {
     } = {};
 
     // Search assets (with like counts)
-    // Exclude unlisted assets (drop-only images)
+    // Exclude unlisted assets (drop-only images) if visibility column exists
     if (type === 'all' || type === 'assets') {
-      // Get limited results for display
-      const { data: assets } = await supabase
+      // Get limited results for display - try with visibility filter first
+      let { data: assets, error: assetsError } = await supabase
         .from('assets')
         .select(`
           *,
           uploader:users!uploader_id(*),
           asset_likes(count)
         `)
-        .or(`title.ilike.%${searchTerm}%`)
-        .or('visibility.is.null,visibility.eq.public') // Exclude unlisted
+        .ilike('title', `%${searchTerm}%`)
+        .or('visibility.is.null,visibility.eq.public')
         .order('created_at', { ascending: false })
         .limit(limit);
+      
+      // Fallback if visibility column doesn't exist
+      if (assetsError) {
+        const fallback = await supabase
+          .from('assets')
+          .select(`
+            *,
+            uploader:users!uploader_id(*),
+            asset_likes(count)
+          `)
+          .ilike('title', `%${searchTerm}%`)
+          .order('created_at', { ascending: false })
+          .limit(limit);
+        assets = fallback.data;
+      }
 
       // Get total count (without limit)
       const { count: totalAssets } = await supabase
         .from('assets')
         .select('*', { count: 'exact', head: true })
-        .or(`title.ilike.%${searchTerm}%`)
-        .or('visibility.is.null,visibility.eq.public');
+        .ilike('title', `%${searchTerm}%`);
 
       results.totalAssets = totalAssets || 0;
 
