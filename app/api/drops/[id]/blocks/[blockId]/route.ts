@@ -16,7 +16,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
     const { id: dropId, blockId } = await params;
     const body = await request.json();
-    const { content, heading_level, display_mode, crop_position_x, crop_position_y } = body;
+    const { content, heading_level, display_mode, crop_position_x, crop_position_y, gallery_layout, gallery_featured_index } = body;
 
     const supabase = await createClient();
 
@@ -43,6 +43,8 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     if (display_mode !== undefined) updates.display_mode = display_mode;
     if (crop_position_x !== undefined) updates.crop_position_x = crop_position_x;
     if (crop_position_y !== undefined) updates.crop_position_y = crop_position_y;
+    if (gallery_layout !== undefined) updates.gallery_layout = gallery_layout;
+    if (gallery_featured_index !== undefined) updates.gallery_featured_index = gallery_featured_index;
 
     // Update the block
     const { data: block, error: updateError } = await supabase
