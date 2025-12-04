@@ -106,6 +106,25 @@ export function BlockEditor({ dropId, blocks, onBlocksChange, availableAssets = 
     }
   };
 
+  // Update display mode for a block
+  const handleDisplayModeChange = async (blockId: string, mode: "auto" | "fit" | "cover") => {
+    // Optimistic update
+    const newBlocks = blocks.map((b) =>
+      b.id === blockId ? { ...b, display_mode: mode } : b
+    );
+    onBlocksChange(newBlocks);
+
+    try {
+      await fetch(`/api/drops/${dropId}/blocks/${blockId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ display_mode: mode }),
+      });
+    } catch (error) {
+      console.error("Failed to update display mode:", error);
+    }
+  };
+
   // Drag and drop handlers
   const handleDragStart = (e: React.DragEvent, index: number) => {
     setDraggedIndex(index);
@@ -206,6 +225,7 @@ export function BlockEditor({ dropId, blocks, onBlocksChange, availableAssets = 
               isEditing={true}
               onContentChange={(content) => handleContentChange(block.id, content)}
               onDelete={() => handleDeleteBlock(block.id)}
+              onDisplayModeChange={(mode) => handleDisplayModeChange(block.id, mode)}
             />
           </div>
 
