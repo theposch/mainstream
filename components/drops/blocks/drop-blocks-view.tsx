@@ -10,6 +10,7 @@ import type { DropBlock, User } from "@/lib/types/database";
 
 interface DropBlocksViewProps {
   title: string;
+  description?: string | null;
   blocks: DropBlock[];
   contributors: User[];
   isEditing?: boolean;
@@ -76,6 +77,7 @@ function countPosts(blocks: DropBlock[]): number {
 
 export function DropBlocksView({
   title,
+  description,
   blocks,
   contributors,
   isEditing = false,
@@ -90,6 +92,20 @@ export function DropBlocksView({
         <Text style={styles.brandName}>Mainstream</Text>
         <Heading style={styles.title}>{title}</Heading>
       </Section>
+
+      {/* Description */}
+      {description && (
+        <Text style={{
+          fontSize: "16px",
+          lineHeight: "1.7",
+          color: "#a0a0a0",
+          padding: "0 20px 32px",
+          margin: "0",
+          textAlign: "center" as const,
+        }}>
+          {description}
+        </Text>
+      )}
 
       {/* Blocks */}
       <div style={styles.blocksContainer}>
