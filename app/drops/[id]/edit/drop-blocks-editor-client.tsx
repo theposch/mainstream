@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { ArrowLeft, Sparkles, Loader2, Eye, Pencil, Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { BlockEditor, DropBlocksView } from "@/components/drops/blocks";
@@ -207,7 +208,7 @@ export function DropBlocksEditorClient({
           </div>
 
           {/* Description field - always visible, can't be removed */}
-          <div className="mb-8">
+          <div className="mb-6">
             <div className="border border-zinc-800 rounded-xl overflow-hidden">
               <textarea
                 value={description}
@@ -246,6 +247,64 @@ export function DropBlocksEditorClient({
                 </button>
               </div>
             </div>
+          </div>
+
+          {/* Contributors section - fixed, can't be removed */}
+          <div className="flex flex-col items-center gap-3 mb-10">
+            {/* Overlapping avatars */}
+            {contributors.length > 0 && (
+              <div className="flex items-center -space-x-3">
+                {contributors.slice(0, 5).map((contributor, index) => (
+                  <div
+                    key={contributor.id}
+                    className="relative rounded-full border-2 border-black overflow-hidden"
+                    style={{ zIndex: contributors.length - index }}
+                  >
+                    {contributor.avatar_url ? (
+                      <Image
+                        src={contributor.avatar_url}
+                        alt={contributor.display_name}
+                        width={48}
+                        height={48}
+                        className="w-12 h-12 object-cover"
+                      />
+                    ) : (
+                      <div className="w-12 h-12 bg-zinc-700 flex items-center justify-center text-white text-sm font-medium">
+                        {contributor.display_name.charAt(0).toUpperCase()}
+                      </div>
+                    )}
+                  </div>
+                ))}
+                {contributors.length > 5 && (
+                  <div
+                    className="relative w-12 h-12 rounded-full border-2 border-black bg-zinc-800 flex items-center justify-center text-zinc-400 text-sm font-medium"
+                    style={{ zIndex: 0 }}
+                  >
+                    +{contributors.length - 5}
+                  </div>
+                )}
+              </div>
+            )}
+            
+            {/* Post count and contributor names */}
+            <p className="text-zinc-500 text-sm">
+              {postCount > 0 ? (
+                <>
+                  {postCount} post{postCount !== 1 ? "s" : ""} from{" "}
+                  {contributors.length === 0 ? (
+                    "no one yet"
+                  ) : contributors.length === 1 ? (
+                    contributors[0].display_name
+                  ) : contributors.length === 2 ? (
+                    `${contributors[0].display_name} and ${contributors[1].display_name}`
+                  ) : (
+                    `${contributors[0].display_name}, ${contributors[1].display_name}, and ${contributors.length - 2} other${contributors.length - 2 > 1 ? "s" : ""}`
+                  )}
+                </>
+              ) : (
+                "No posts added yet"
+              )}
+            </p>
           </div>
 
           {/* Block editor */}
