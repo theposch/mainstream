@@ -33,6 +33,11 @@ Design collaboration platform for internal teams to share work and organize into
 ✅ **Complete** - User profiles and settings  
 ✅ **Complete** - Performance optimizations (N+1 fixes, memoization, server prefetch)  
 ✅ **Complete** - Asset and stream deletion  
+✅ **Complete** - Animated GIF support (upload, preview, badge, hover animation)  
+✅ **Complete** - Figma embeds (paste URL, auto-thumbnails, frame-specific previews)  
+✅ **Complete** - Real-time notifications with typing indicators  
+✅ **Complete** - Comment deep linking (click notification → jump to comment)  
+✅ **Complete** - Token encryption (AES-256-GCM for API tokens)  
 
 ## Project Structure
 
@@ -66,7 +71,7 @@ mainstream/
 ### Streams
 Organizational units that support many-to-many relationships with assets. An asset can belong to multiple streams (e.g., #mobile-app, #onboarding, #design-system).
 
-**New in Dec 2025:**
+**Features:**
 - Follow streams to see their posts in your Following feed
 - Add bookmarks (external links to Jira, Figma, Notion) with favicons
 - Contributor tooltip showing who has posted to the stream
@@ -74,11 +79,28 @@ Organizational units that support many-to-many relationships with assets. An ass
 ### Assets
 Uploaded designs and images organized by streams. Supports likes, comments, view tracking ("Seen by X people" with hover tooltip), and deletion by owner.
 
+**New Asset Types:**
+- **Images** - Standard image upload with optimization
+- **Animated GIFs** - Animation preserved, GIF badge in feed, hover to play
+- **Figma Embeds** - Paste Figma URL, auto-thumbnails (frame-specific with token)
+
+### Figma Integration
+Paste a Figma URL to embed designs directly. Features:
+- Automatic thumbnails via oEmbed API
+- Frame-specific thumbnails (connect Figma in Settings)
+- Interactive embed viewer in detail page
+- Thumbnails stored locally (never expire)
+
 ### Search
 Real-time search across assets, users, and streams with auto-suggest and accurate total counts.
 
 ### Following Feed
 See assets from users and streams you follow.
+
+### Real-time Features
+- Live notification updates
+- Typing indicators in comments
+- Comment deep linking (click notification → jump to comment)
 
 ## Development
 

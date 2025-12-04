@@ -58,6 +58,10 @@ Create `.env.local` in project root:
 NEXT_PUBLIC_SUPABASE_URL=http://localhost:8000
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your_anon_key_here
 SUPABASE_SERVICE_ROLE_KEY=your_service_role_key_here
+
+# Optional: For encrypting API tokens (Figma, etc.)
+# Generate with: openssl rand -hex 32
+ENCRYPTION_KEY=your_64_char_hex_key_here
 ```
 
 **Get keys:** Studio → Settings → API
@@ -84,19 +88,41 @@ Open http://localhost:3000
 
 ### Tables Created
 
-- `users` - User profiles
+- `users` - User profiles (+ `figma_access_token`, `figma_token_updated_at`)
 - `streams` - Organizational units
-- `assets` - Uploaded designs
+- `assets` - Uploaded designs (+ `asset_type`, `embed_url`, `embed_provider`)
 - `asset_streams` - Many-to-many relationships
 - `asset_likes` - Like tracking
+- `asset_views` - View tracking
 - `asset_comments` - Comments with threading
 - `comment_likes` - Comment likes
 - `user_follows` - Following relationships
-- `notifications` - Activity feed
+- `stream_follows` - Stream following
+- `stream_bookmarks` - External links
+- `notifications` - Activity feed (+ `content`, `comment_id`)
 
 ### Verify in Studio
 
 Navigate to **Table Editor** and confirm all tables exist.
+
+### All Migrations
+
+Apply in order after `001_initial_schema.sql` and `002_seed_data.sql`:
+
+```bash
+003_stream_follows.sql
+004_stream_bookmarks.sql
+007_add_comment_likes.sql
+009_add_asset_views.sql
+010_asset_views_rls.sql
+011_notifications_rls_policies.sql   # Real-time notifications
+012_realtime_comments_likes.sql       # Real-time for comments
+013_add_comment_notification_type.sql
+014_add_notification_content.sql
+015_add_comment_id_to_notifications.sql
+016_add_embed_support.sql             # Figma embeds
+017_add_figma_integration.sql         # Figma tokens
+```
 
 ## Authentication
 
@@ -348,6 +374,8 @@ docker-compose exec -T db psql -U postgres < backup.sql
 - [ ] Enable audit logging
 - [ ] Configure rate limiting
 - [ ] Set up monitoring
+- [ ] Set `ENCRYPTION_KEY` for token encryption (`openssl rand -hex 32`)
+- [ ] Review Figma token storage (encrypted in `users.figma_access_token`)
 
 ## Next Steps
 
@@ -355,10 +383,13 @@ docker-compose exec -T db psql -U postgres < backup.sql
 
 Now you can:
 - Create users at `/auth/signup`
-- Upload assets with "Create" button
+- Upload images and animated GIFs with "Create" button
+- Add Figma designs via "Add via URL"
 - Follow users on their profiles
+- Follow streams to see posts in Following feed
 - Create streams with `#stream-name` hashtags
-- Test real-time likes and comments
+- Test real-time likes, comments, and notifications
+- Connect Figma account in Settings for frame-specific thumbnails
 
 ## Resources
 
