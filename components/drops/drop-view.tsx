@@ -251,16 +251,34 @@ export function DropView({
         <div style={{ padding: "0 20px 32px", position: "relative" }}>
           <textarea
             value={description || ""}
-            onChange={(e) => onDescriptionChange(e.target.value)}
+            onChange={(e) => {
+              onDescriptionChange(e.target.value);
+              // Auto-resize
+              e.target.style.height = "auto";
+              e.target.style.height = e.target.scrollHeight + "px";
+            }}
+            onFocus={(e) => {
+              // Ensure proper height on focus
+              e.target.style.height = "auto";
+              e.target.style.height = e.target.scrollHeight + "px";
+            }}
+            ref={(el) => {
+              // Set initial height
+              if (el) {
+                el.style.height = "auto";
+                el.style.height = el.scrollHeight + "px";
+              }
+            }}
             placeholder="Add a description..."
             style={{
               width: "100%",
-              minHeight: "100px",
+              minHeight: "60px",
               backgroundColor: "transparent",
               border: "1px solid #333",
               borderRadius: "8px",
               padding: "16px",
               paddingRight: "140px",
+              paddingBottom: "48px",
               fontSize: "16px",
               lineHeight: "1.7",
               color: "#a0a0a0",
@@ -268,6 +286,7 @@ export function DropView({
               outline: "none",
               fontFamily: "inherit",
               textAlign: "center" as const,
+              overflow: "hidden",
             }}
           />
           {onGenerateDescription && (
