@@ -119,21 +119,41 @@ export async function POST(request: NextRequest) {
     const supabase = await createClient();
 
     // Create the drop
-    const { data: drop, error: dropError } = await supabase
+    // Note: use_blocks column may not exist if migration hasn't been run
+    const insertData: Record<string, unknown> = {
+      title: title.trim(),
+      status: "draft",
+      created_by: user.id,
+      date_range_start,
+      date_range_end,
+      filter_stream_ids: filter_stream_ids?.length ? filter_stream_ids : null,
+      filter_user_ids: filter_user_ids?.length ? filter_user_ids : null,
+      is_weekly,
+    };
+    
+    // Try with use_blocks first, fall back without it
+    let drop;
+    let dropError;
+    
+    const result1 = await supabase
       .from("drops")
-      .insert({
-        title: title.trim(),
-        status: "draft",
-        created_by: user.id,
-        date_range_start,
-        date_range_end,
-        filter_stream_ids: filter_stream_ids?.length ? filter_stream_ids : null,
-        filter_user_ids: filter_user_ids?.length ? filter_user_ids : null,
-        is_weekly,
-        use_blocks,
-      })
+      .insert({ ...insertData, use_blocks })
       .select()
       .single();
+    
+    if (result1.error?.message?.includes("use_blocks")) {
+      // Column doesn't exist, try without it
+      const result2 = await supabase
+        .from("drops")
+        .insert(insertData)
+        .select()
+        .single();
+      drop = result2.data;
+      dropError = result2.error;
+    } else {
+      drop = result1.data;
+      dropError = result1.error;
+    }
 
     if (dropError) {
       console.error("[Drops API] Error creating drop:", dropError);
@@ -173,8 +193,8 @@ export async function POST(request: NextRequest) {
 
     // Add matching assets to the drop
     if (filteredAssetIds.length > 0) {
-      if (use_blocks) {
-        // For block-based drops, create post blocks
+      if (use_blocks && drop.use_blocks !== undefined) {
+        // For block-based drops, create post blocks (only if table exists)
         const blocks = filteredAssetIds.map((asset_id, index) => ({
           drop_id: drop.id,
           type: "post",
@@ -188,7 +208,13 @@ export async function POST(request: NextRequest) {
 
         if (blocksError) {
           console.error("[Drops API] Error adding blocks to drop:", blocksError);
-          // Don't fail the whole operation, drop is created
+          // Fall back to classic mode
+          const dropPosts = filteredAssetIds.map((asset_id, index) => ({
+            drop_id: drop.id,
+            asset_id,
+            position: index,
+          }));
+          await supabase.from("drop_posts").insert(dropPosts);
         }
       } else {
         // For classic drops, create drop_posts entries
