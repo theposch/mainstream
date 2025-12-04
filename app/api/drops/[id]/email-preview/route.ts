@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import { render } from "@react-email/render";
-import { DropBlocksView } from "@/components/drops/blocks/drop-blocks-view";
-import { DropView } from "@/components/drops/drop-view";
+import * as React from "react";
+import { EmailDropView } from "@/components/drops/blocks/email-drop-view";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -76,7 +76,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
       // Render blocks view
       emailHtml = await render(
-        DropBlocksView({
+        React.createElement(EmailDropView, {
           title: drop.title,
           description: drop.description,
           blocks: blocks || [],
@@ -84,7 +84,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         })
       );
     } else {
-      // Fetch posts for classic view
+      // For classic view, convert posts to blocks format
       const { data: dropPosts } = await supabase
         .from("drop_posts")
         .select(`
@@ -108,32 +108,36 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         .eq("drop_id", dropId)
         .order("position", { ascending: true });
 
-      const posts = dropPosts?.map((dp: any) => ({
-        ...dp.asset,
+      // Convert posts to block format for unified rendering
+      const blocks = dropPosts?.map((dp: any, index: number) => ({
+        id: `post-${index}`,
+        drop_id: dropId,
+        type: "post" as const,
         position: dp.position,
+        asset_id: dp.asset?.id,
+        asset: dp.asset,
         display_mode: dp.display_mode,
         crop_position_x: dp.crop_position_x,
         crop_position_y: dp.crop_position_y,
-        streams: [],
-      })).filter(Boolean) || [];
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })).filter((b: any) => b.asset) || [];
 
       // Get contributors
       const contributorMap = new Map();
-      posts.forEach((post: any) => {
-        if (post.uploader && !contributorMap.has(post.uploader.id)) {
-          contributorMap.set(post.uploader.id, post.uploader);
+      blocks.forEach((block: any) => {
+        if (block.asset?.uploader && !contributorMap.has(block.asset.uploader.id)) {
+          contributorMap.set(block.asset.uploader.id, block.asset.uploader);
         }
       });
       contributors = Array.from(contributorMap.values());
 
-      // Render classic view
+      // Render using EmailDropView
       emailHtml = await render(
-        DropView({
+        React.createElement(EmailDropView, {
           title: drop.title,
           description: drop.description,
-          dateRangeStart: drop.date_range_start,
-          dateRangeEnd: drop.date_range_end,
-          posts,
+          blocks,
           contributors,
         })
       );
