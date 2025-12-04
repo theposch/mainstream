@@ -54,10 +54,11 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    // Fetch posts with details
-    const { data: dropPosts } = await supabase
-      .from("drop_posts")
+    // Fetch posts from blocks (blocks-based drops)
+    const { data: blocks } = await supabase
+      .from("drop_blocks")
       .select(`
+        type,
         asset:assets(
           id,
           title,
@@ -67,9 +68,30 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         )
       `)
       .eq("drop_id", dropId)
+      .in("type", ["post", "featured_post"])
       .order("position", { ascending: true });
 
-    const posts = dropPosts?.map((dp: any) => dp.asset).filter(Boolean) || [];
+    // Extract posts from blocks
+    let posts = blocks?.map((b: any) => b.asset).filter(Boolean) || [];
+
+    // Fallback: check drop_posts for legacy drops
+    if (posts.length === 0) {
+      const { data: dropPosts } = await supabase
+        .from("drop_posts")
+        .select(`
+          asset:assets(
+            id,
+            title,
+            description,
+            thumbnail_url,
+            uploader:users!uploader_id(display_name)
+          )
+        `)
+        .eq("drop_id", dropId)
+        .order("position", { ascending: true });
+
+      posts = dropPosts?.map((dp: any) => dp.asset).filter(Boolean) || [];
+    }
 
     if (posts.length === 0) {
       return NextResponse.json(
