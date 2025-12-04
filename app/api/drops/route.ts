@@ -297,6 +297,12 @@ export async function POST(request: NextRequest) {
 
       if (blocksError) {
         console.error("[Drops API] Error adding blocks to drop:", blocksError);
+        // Delete the drop to avoid inconsistent state
+        await supabase.from("drops").delete().eq("id", drop.id);
+        return NextResponse.json(
+          { error: "Failed to create drop content blocks" },
+          { status: 500 }
+        );
       }
     }
 

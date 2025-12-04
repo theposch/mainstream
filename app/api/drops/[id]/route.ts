@@ -43,6 +43,9 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       .from("drop_posts")
       .select(`
         position,
+        display_mode,
+        crop_position_x,
+        crop_position_y,
         asset:assets(
           id,
           title,
@@ -59,9 +62,12 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       .order("position", { ascending: true });
 
     // Flatten posts and get streams for each
-    const posts = dropPosts?.map((dp) => ({
+    const posts = dropPosts?.map((dp: any) => ({
       ...dp.asset,
       position: dp.position,
+      display_mode: dp.display_mode,
+      crop_position_x: dp.crop_position_x,
+      crop_position_y: dp.crop_position_y,
     })).filter(Boolean) || [];
 
     // Get streams for all posts
