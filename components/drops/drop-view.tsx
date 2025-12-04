@@ -297,12 +297,20 @@ export function DropView({
           {streamPosts.map((post) => (
             <div key={post.id} style={styles.postCard}>
               {/* Image - use medium or full size for quality */}
-              <div style={styles.postImageWrapper}>
+              {/* Figma embeds use contain to show full frame, regular images use cover crop */}
+              <div style={{
+                ...styles.postImageWrapper,
+                ...(post.embed_provider === 'figma' ? { backgroundColor: '#18181b' } : {}),
+              }}>
                 <Link href={`/e/${post.id}`}>
                   <Img
                     src={post.medium_url || post.url || post.thumbnail_url}
                     alt={post.title}
-                    style={styles.postImage}
+                    style={{
+                      ...styles.postImage,
+                      objectFit: post.embed_provider === 'figma' ? 'contain' as const : 'cover' as const,
+                      objectPosition: post.embed_provider === 'figma' ? 'center' : 'top center',
+                    }}
                   />
                 </Link>
                 {isEditing && onRemovePost && (
