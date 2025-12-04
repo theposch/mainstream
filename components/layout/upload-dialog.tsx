@@ -327,6 +327,7 @@ export function UploadDialog({ open, onOpenChange, initialStreamId }: UploadDial
                 streamSelection={streamSelection}
                 disabled={isLoading}
                 variant="upload"
+                imageUrl={preview || undefined}
               />
 
               {/* Footer */}

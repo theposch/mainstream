@@ -7,6 +7,9 @@ import { RichTextArea } from "@/components/ui/rich-text-area";
 import { StreamMentionDropdown } from "@/components/streams/stream-mention-dropdown";
 import { StreamPicker } from "@/components/streams/stream-picker";
 import { useStreamMentions } from "@/lib/hooks/use-stream-mentions";
+import { useAIDescription } from "@/lib/hooks/use-ai-description";
+import { Sparkles, Loader2 } from "lucide-react";
+import { cn } from "@/lib/utils";
 import type { UseStreamSelectionReturn } from "@/lib/hooks/use-stream-selection";
 import type { Stream } from "@/lib/types/database";
 
@@ -26,6 +29,8 @@ interface PostMetadataFormProps {
   className?: string;
   /** Hide title and description fields (only show stream picker) */
   hideTextFields?: boolean;
+  /** Image URL for AI description generation (enables the sparkle button) */
+  imageUrl?: string;
 }
 
 /**
@@ -52,6 +57,7 @@ export function PostMetadataForm({
   showLabels = false,
   className,
   hideTextFields = false,
+  imageUrl,
 }: PostMetadataFormProps) {
   const {
     streamIds,
@@ -79,6 +85,19 @@ export function PostMetadataForm({
     setPendingStreamNames,
     excludedStreamNames
   );
+  
+  // AI description generation
+  const { generate: generateAIDescription, isGenerating: isGeneratingAI } = useAIDescription({
+    onSuccess: (generatedDescription) => {
+      onDescriptionChange(generatedDescription);
+    },
+  });
+
+  const handleGenerateDescription = React.useCallback(() => {
+    if (imageUrl && !isGeneratingAI && !disabled) {
+      generateAIDescription(imageUrl);
+    }
+  }, [imageUrl, isGeneratingAI, disabled, generateAIDescription]);
   
   // Handle hashtag trigger in description
   const handleHashtagTrigger = React.useCallback((
@@ -187,18 +206,46 @@ export function PostMetadataForm({
                 </p>
               </div>
             )}
-            <RichTextArea
-              value={description}
-              onChange={onDescriptionChange}
-              placeholder={descriptionPlaceholder}
-              onHashtagTrigger={handleHashtagTrigger}
-              onHashtagComplete={handleHashtagComplete}
-              disabled={disabled}
-              className={isUploadVariant
-                ? "border-none shadow-none bg-transparent px-0 min-h-[40px] !text-[15px] text-zinc-400"
-                : "bg-zinc-900 border-zinc-800 text-white placeholder:text-zinc-600 min-h-[100px] px-3 py-2 rounded-md"
-              }
-            />
+            <div className="relative group">
+              <RichTextArea
+                value={description}
+                onChange={onDescriptionChange}
+                placeholder={descriptionPlaceholder}
+                onHashtagTrigger={handleHashtagTrigger}
+                onHashtagComplete={handleHashtagComplete}
+                disabled={disabled || isGeneratingAI}
+                className={cn(
+                  isUploadVariant
+                    ? "border-none shadow-none bg-transparent px-0 min-h-[40px] !text-[15px] text-zinc-400 pr-10"
+                    : "bg-zinc-900 border-zinc-800 text-white placeholder:text-zinc-600 min-h-[100px] px-3 py-2 rounded-md pr-10",
+                  isGeneratingAI && "opacity-50"
+                )}
+              />
+              {/* AI Generate Button */}
+              {imageUrl && (
+                <button
+                  type="button"
+                  onClick={handleGenerateDescription}
+                  disabled={disabled || isGeneratingAI}
+                  className={cn(
+                    "absolute right-1 top-1 p-1.5 rounded-md transition-all duration-200",
+                    "text-zinc-500 hover:text-violet-400 hover:bg-violet-500/10",
+                    "disabled:opacity-50 disabled:cursor-not-allowed",
+                    "focus:outline-none focus:ring-2 focus:ring-violet-500/50",
+                    // Show on hover or when generating
+                    !isGeneratingAI && "opacity-0 group-hover:opacity-100",
+                    isGeneratingAI && "opacity-100 text-violet-400"
+                  )}
+                  title={isGeneratingAI ? "Generating description..." : "Generate description with AI"}
+                >
+                  {isGeneratingAI ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Sparkles className="h-4 w-4" />
+                  )}
+                </button>
+              )}
+            </div>
             {!showLabels && !isUploadVariant && (
               <p className="text-xs text-zinc-600">
                 {description.length}/2000 characters
