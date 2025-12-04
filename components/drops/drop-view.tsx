@@ -118,6 +118,7 @@ const styles = {
     padding: "0 20px 32px",
     margin: "0",
     textAlign: "center" as const,
+    whiteSpace: "pre-wrap" as const, // Preserve line breaks and paragraphs
   },
   contributorsSection: {
     textAlign: "center" as const,

@@ -93,6 +93,7 @@ export function DropBlocksView({
           padding: "0 20px 16px",
           margin: "0",
           textAlign: "center" as const,
+          whiteSpace: "pre-wrap" as const, // Preserve line breaks and paragraphs
         }}>
           {description}
         </Text>
