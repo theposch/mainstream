@@ -7,7 +7,13 @@ interface RouteParams {
   params: Promise<{ id: string; postId: string }>;
 }
 
-// PATCH /api/drops/[id]/posts/[postId]/display-mode - Update display mode for a post in a drop
+interface UpdateBody {
+  display_mode?: DropPostDisplayMode;
+  crop_position_x?: number;
+  crop_position_y?: number;
+}
+
+// PATCH /api/drops/[id]/posts/[postId]/display-mode - Update display mode and crop position
 export async function PATCH(request: NextRequest, { params }: RouteParams) {
   try {
     const user = await getCurrentUser();
@@ -16,13 +22,47 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     }
 
     const { id: dropId, postId: assetId } = await params;
-    const body = await request.json();
-    const { display_mode } = body as { display_mode: DropPostDisplayMode };
+    const body = await request.json() as UpdateBody;
+    const { display_mode, crop_position_x, crop_position_y } = body;
 
-    // Validate display_mode
-    if (!['auto', 'fit', 'cover'].includes(display_mode)) {
+    // Build update object
+    const updates: Record<string, unknown> = {};
+
+    // Validate and add display_mode if provided
+    if (display_mode !== undefined) {
+      if (!['auto', 'fit', 'cover'].includes(display_mode)) {
+        return NextResponse.json(
+          { error: "Invalid display_mode. Must be 'auto', 'fit', or 'cover'" },
+          { status: 400 }
+        );
+      }
+      updates.display_mode = display_mode;
+    }
+
+    // Validate and add crop positions if provided
+    if (crop_position_x !== undefined) {
+      if (crop_position_x < 0 || crop_position_x > 100) {
+        return NextResponse.json(
+          { error: "crop_position_x must be between 0 and 100" },
+          { status: 400 }
+        );
+      }
+      updates.crop_position_x = crop_position_x;
+    }
+
+    if (crop_position_y !== undefined) {
+      if (crop_position_y < 0 || crop_position_y > 100) {
+        return NextResponse.json(
+          { error: "crop_position_y must be between 0 and 100" },
+          { status: 400 }
+        );
+      }
+      updates.crop_position_y = crop_position_y;
+    }
+
+    if (Object.keys(updates).length === 0) {
       return NextResponse.json(
-        { error: "Invalid display_mode. Must be 'auto', 'fit', or 'cover'" },
+        { error: "No valid fields to update" },
         { status: 400 }
       );
     }
@@ -44,24 +84,24 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    // Update display_mode
+    // Update the post settings
     const { error: updateError } = await supabase
       .from("drop_posts")
-      .update({ display_mode })
+      .update(updates)
       .eq("drop_id", dropId)
       .eq("asset_id", assetId);
 
     if (updateError) {
-      console.error("Failed to update display mode:", updateError);
+      console.error("Failed to update post settings:", updateError);
       return NextResponse.json(
-        { error: "Failed to update display mode" },
+        { error: "Failed to update post settings" },
         { status: 500 }
       );
     }
 
-    return NextResponse.json({ success: true, display_mode });
+    return NextResponse.json({ success: true, ...updates });
   } catch (error) {
-    console.error("Error updating display mode:", error);
+    console.error("Error updating post settings:", error);
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }

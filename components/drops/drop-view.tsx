@@ -14,6 +14,8 @@ interface DropPost extends Asset {
   position: number;
   streams?: Stream[];
   display_mode?: DropPostDisplayMode;
+  crop_position_x?: number;
+  crop_position_y?: number;
 }
 
 interface DropViewProps {
@@ -30,6 +32,7 @@ interface DropViewProps {
   onGenerateDescription?: () => void;
   isGeneratingDescription?: boolean;
   onDisplayModeChange?: (assetId: string, mode: DropPostDisplayMode) => void;
+  onCropPositionChange?: (assetId: string, x: number, y: number) => void;
 }
 
 // Group posts by their primary stream
@@ -236,6 +239,107 @@ function getEffectiveDisplayMode(post: DropPost): 'fit' | 'cover' {
   return post.embed_provider === 'figma' ? 'fit' : 'cover';
 }
 
+// Draggable image component for adjusting crop position
+function DraggableImage({ 
+  post, 
+  styles: imgStyles,
+  onPositionChange,
+}: { 
+  post: DropPost; 
+  styles: React.CSSProperties;
+  onPositionChange: (x: number, y: number) => void;
+}) {
+  const containerRef = React.useRef<HTMLDivElement>(null);
+  const [isDragging, setIsDragging] = React.useState(false);
+  const [startPos, setStartPos] = React.useState({ x: 0, y: 0 });
+  const [cropPos, setCropPos] = React.useState({ 
+    x: post.crop_position_x ?? 50, 
+    y: post.crop_position_y ?? 0 
+  });
+
+  // Update local state when post prop changes
+  React.useEffect(() => {
+    setCropPos({
+      x: post.crop_position_x ?? 50,
+      y: post.crop_position_y ?? 0,
+    });
+  }, [post.crop_position_x, post.crop_position_y]);
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+    setStartPos({ x: e.clientX, y: e.clientY });
+  };
+
+  const handleMouseMove = React.useCallback((e: MouseEvent) => {
+    if (!isDragging || !containerRef.current) return;
+    
+    const rect = containerRef.current.getBoundingClientRect();
+    const deltaX = ((e.clientX - startPos.x) / rect.width) * 100;
+    const deltaY = ((e.clientY - startPos.y) / rect.height) * 100;
+    
+    // Invert direction: dragging right moves crop left (lower x value)
+    const newX = Math.max(0, Math.min(100, cropPos.x - deltaX));
+    const newY = Math.max(0, Math.min(100, cropPos.y - deltaY));
+    
+    setCropPos({ x: newX, y: newY });
+    setStartPos({ x: e.clientX, y: e.clientY });
+  }, [isDragging, startPos, cropPos]);
+
+  const handleMouseUp = React.useCallback(() => {
+    if (isDragging) {
+      setIsDragging(false);
+      onPositionChange(cropPos.x, cropPos.y);
+    }
+  }, [isDragging, cropPos, onPositionChange]);
+
+  React.useEffect(() => {
+    if (isDragging) {
+      window.addEventListener('mousemove', handleMouseMove);
+      window.addEventListener('mouseup', handleMouseUp);
+      return () => {
+        window.removeEventListener('mousemove', handleMouseMove);
+        window.removeEventListener('mouseup', handleMouseUp);
+      };
+    }
+  }, [isDragging, handleMouseMove, handleMouseUp]);
+
+  return (
+    <div 
+      ref={containerRef}
+      onMouseDown={handleMouseDown}
+      style={{ 
+        cursor: isDragging ? 'grabbing' : 'grab',
+        position: 'relative',
+        width: '100%',
+        height: '100%',
+      }}
+    >
+      <Img
+        src={post.medium_url || post.url || post.thumbnail_url}
+        alt={post.title}
+        style={{
+          ...imgStyles,
+          objectPosition: `${cropPos.x}% ${cropPos.y}%`,
+        }}
+      />
+      {isDragging && (
+        <div style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(167, 139, 250, 0.1)',
+          border: '2px solid rgba(167, 139, 250, 0.5)',
+          borderRadius: '12px',
+          pointerEvents: 'none',
+        }} />
+      )}
+    </div>
+  );
+}
+
 // Display mode control component
 function DisplayModeControls({ 
   post, 
@@ -324,6 +428,7 @@ export function DropView({
   onGenerateDescription,
   isGeneratingDescription = false,
   onDisplayModeChange,
+  onCropPositionChange,
 }: DropViewProps) {
   const groupedPosts = groupPostsByStream(posts);
   const contributorNames = formatContributorNames(contributors);
@@ -518,17 +623,31 @@ export function DropView({
                   ...(isFitMode ? { backgroundColor: '#18181b' } : {}),
                 }}
               >
-                <Link href={`/e/${post.id}`}>
-                  <Img
-                    src={post.medium_url || post.url || post.thumbnail_url}
-                    alt={post.title}
-                    style={{
+                {/* Draggable image in cover mode when editing, otherwise static */}
+                {isEditing && !isFitMode && onCropPositionChange ? (
+                  <DraggableImage
+                    post={post}
+                    styles={{
                       ...styles.postImage,
-                      objectFit: isFitMode ? 'contain' as const : 'cover' as const,
-                      objectPosition: isFitMode ? 'center' : 'top center',
+                      objectFit: 'cover' as const,
                     }}
+                    onPositionChange={(x, y) => onCropPositionChange(post.id, x, y)}
                   />
-                </Link>
+                ) : (
+                  <Link href={`/e/${post.id}`}>
+                    <Img
+                      src={post.medium_url || post.url || post.thumbnail_url}
+                      alt={post.title}
+                      style={{
+                        ...styles.postImage,
+                        objectFit: isFitMode ? 'contain' as const : 'cover' as const,
+                        objectPosition: isFitMode 
+                          ? 'center' 
+                          : `${post.crop_position_x ?? 50}% ${post.crop_position_y ?? 0}%`,
+                      }}
+                    />
+                  </Link>
+                )}
                 {isEditing && onRemovePost && (
                   <button
                     type="button"
@@ -544,6 +663,27 @@ export function DropView({
                     post={post} 
                     onModeChange={(mode) => onDisplayModeChange(post.id, mode)} 
                   />
+                )}
+                {/* Drag hint for cover mode */}
+                {isEditing && !isFitMode && onCropPositionChange && (
+                  <div 
+                    className="drag-hint"
+                    style={{
+                      position: 'absolute',
+                      top: '12px',
+                      left: '12px',
+                      padding: '4px 8px',
+                      backgroundColor: 'rgba(0,0,0,0.7)',
+                      color: '#888',
+                      fontSize: '12px',
+                      borderRadius: '4px',
+                      opacity: 0,
+                      transition: 'opacity 0.2s ease',
+                      pointerEvents: 'none',
+                    }}
+                  >
+                    Drag to adjust crop
+                  </div>
                 )}
               </div>
               
@@ -593,6 +733,9 @@ export function DropView({
       {/* CSS for hover effect - only works in web, not email */}
       <style>{`
         .post-image-container:hover .display-mode-controls {
+          opacity: 1 !important;
+        }
+        .post-image-container:hover .drag-hint {
           opacity: 1 !important;
         }
       `}</style>

@@ -13,6 +13,8 @@ interface DropPost extends Asset {
   position: number;
   streams?: Stream[];
   display_mode?: DropPostDisplayMode;
+  crop_position_x?: number;
+  crop_position_y?: number;
 }
 
 interface DropEditorClientProps {
@@ -115,6 +117,25 @@ export function DropEditorClient({
     }
   };
 
+  const handleCropPositionChange = async (assetId: string, x: number, y: number) => {
+    // Optimistic update
+    setPosts((prev) => 
+      prev.map((p) => 
+        p.id === assetId ? { ...p, crop_position_x: x, crop_position_y: y } : p
+      )
+    );
+    
+    try {
+      await fetch(`/api/drops/${drop.id}/posts/${assetId}/display-mode`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ crop_position_x: x, crop_position_y: y }),
+      });
+    } catch (error) {
+      console.error("Failed to update crop position:", error);
+    }
+  };
+
   // Debounced save for inline editing
   const titleSaveTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
   const descSaveTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
@@ -203,6 +224,7 @@ export function DropEditorClient({
           onGenerateDescription={handleGenerateDescription}
           isGeneratingDescription={isGenerating}
           onDisplayModeChange={handleDisplayModeChange}
+          onCropPositionChange={handleCropPositionChange}
         />
         {isSaving && (
           <p className="text-xs text-zinc-500 text-center mt-2">Saving...</p>
