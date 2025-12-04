@@ -24,6 +24,7 @@ export function DropBlocksEditorClient({
   const [blocks, setBlocks] = React.useState(initialBlocks);
   const [contributors, setContributors] = React.useState(initialContributors);
   const [title, setTitle] = React.useState(drop.title);
+  const [description, setDescription] = React.useState(drop.description || "");
   const [isSaving, setIsSaving] = React.useState(false);
   const [isGenerating, setIsGenerating] = React.useState(false);
   const [publishDialogOpen, setPublishDialogOpen] = React.useState(false);
@@ -40,8 +41,9 @@ export function DropBlocksEditorClient({
     setContributors(Array.from(contributorMap.values()));
   }, [blocks]);
 
-  // Save title
+  // Debounced saves
   const titleSaveTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
+  const descSaveTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
   
   const handleTitleChange = (newTitle: string) => {
     setTitle(newTitle);
@@ -49,26 +51,28 @@ export function DropBlocksEditorClient({
     if (titleSaveTimeoutRef.current) {
       clearTimeout(titleSaveTimeoutRef.current);
     }
-    titleSaveTimeoutRef.current = setTimeout(async () => {
+    titleSaveTimeoutRef.current = setTimeout(() => {
       if (newTitle !== drop.title && newTitle.trim()) {
-        setIsSaving(true);
-        try {
-          await fetch(`/api/drops/${drop.id}`, {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ title: newTitle }),
-          });
-        } catch (error) {
-          console.error("Failed to save title:", error);
-        } finally {
-          setIsSaving(false);
-        }
+        saveField("title", newTitle);
       }
     }, 1000);
   };
 
-  // Generate AI intro text block
-  const handleGenerateIntro = async () => {
+  const handleDescriptionChange = (newDescription: string) => {
+    setDescription(newDescription);
+    
+    if (descSaveTimeoutRef.current) {
+      clearTimeout(descSaveTimeoutRef.current);
+    }
+    descSaveTimeoutRef.current = setTimeout(() => {
+      if (newDescription !== drop.description) {
+        saveField("description", newDescription);
+      }
+    }, 1000);
+  };
+
+  // Generate AI description
+  const handleGenerateDescription = async () => {
     setIsGenerating(true);
     try {
       const response = await fetch(`/api/drops/${drop.id}/generate`, {
@@ -77,26 +81,30 @@ export function DropBlocksEditorClient({
       const data = await response.json();
       
       if (response.ok && data.description) {
-        // Add a text block with the generated content at the beginning
-        const addResponse = await fetch(`/api/drops/${drop.id}/blocks`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            type: "text",
-            content: data.description,
-            position: 0,
-          }),
-        });
-        
-        if (addResponse.ok) {
-          const { block } = await addResponse.json();
-          setBlocks([block, ...blocks.map((b) => ({ ...b, position: b.position + 1 }))]);
-        }
+        setDescription(data.description);
+        // Auto-save the description
+        await saveField("description", data.description);
       }
     } catch (error) {
-      console.error("Failed to generate intro:", error);
+      console.error("Failed to generate description:", error);
     } finally {
       setIsGenerating(false);
+    }
+  };
+
+  // Save a field to the drop
+  const saveField = async (field: string, value: string) => {
+    setIsSaving(true);
+    try {
+      await fetch(`/api/drops/${drop.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ [field]: value }),
+      });
+    } catch (error) {
+      console.error(`Failed to save ${field}:`, error);
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -108,6 +116,9 @@ export function DropBlocksEditorClient({
     return () => {
       if (titleSaveTimeoutRef.current) {
         clearTimeout(titleSaveTimeoutRef.current);
+      }
+      if (descSaveTimeoutRef.current) {
+        clearTimeout(descSaveTimeoutRef.current);
       }
     };
   }, []);
@@ -164,6 +175,7 @@ export function DropBlocksEditorClient({
         <div className="max-w-3xl mx-auto py-10 px-4">
           <DropBlocksView
             title={title}
+            description={description}
             blocks={blocks}
             contributors={contributors}
           />
@@ -186,25 +198,46 @@ export function DropBlocksEditorClient({
             )}
           </div>
 
-          {/* AI Generate intro button */}
-          <div className="flex justify-center mb-8">
-            <button
-              onClick={handleGenerateIntro}
-              disabled={isGenerating || postCount === 0}
-              className="flex items-center gap-2 px-4 py-2 text-sm text-violet-400 hover:text-violet-300 hover:bg-violet-500/10 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isGenerating ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Generating intro...
-                </>
-              ) : (
-                <>
-                  <Sparkles className="h-4 w-4" />
-                  Generate intro with AI
-                </>
-              )}
-            </button>
+          {/* Description field - always visible, can't be removed */}
+          <div className="mb-8">
+            <div className="border border-zinc-800 rounded-xl overflow-hidden">
+              <textarea
+                value={description}
+                onChange={(e) => {
+                  handleDescriptionChange(e.target.value);
+                  // Auto-resize
+                  e.target.style.height = "auto";
+                  e.target.style.height = e.target.scrollHeight + "px";
+                }}
+                ref={(el) => {
+                  if (el) {
+                    el.style.height = "auto";
+                    el.style.height = el.scrollHeight + "px";
+                  }
+                }}
+                placeholder="Add a description for your drop..."
+                className="w-full min-h-[80px] bg-transparent border-none p-5 text-base leading-relaxed text-zinc-300 placeholder:text-zinc-600 resize-none outline-none text-center"
+              />
+              <div className="flex justify-end px-4 py-2 border-t border-zinc-800/50">
+                <button
+                  onClick={handleGenerateDescription}
+                  disabled={isGenerating || postCount === 0}
+                  className="flex items-center gap-2 px-3 py-1.5 text-sm text-violet-400 hover:text-violet-300 hover:bg-violet-500/10 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isGenerating ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Generating...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="h-4 w-4" />
+                      Generate with AI
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
           </div>
 
           {/* Block editor */}
