@@ -250,7 +250,7 @@ export function DropBlocksEditorClient({
           </div>
 
           {/* Contributors section - fixed, can't be removed */}
-          <div className="flex flex-col items-center gap-3 mb-10">
+          <div className="flex flex-col items-center gap-3 mb-8">
             {/* Overlapping avatars */}
             {contributors.length > 0 && (
               <div className="flex items-center -space-x-3">
@@ -306,6 +306,9 @@ export function DropBlocksEditorClient({
               )}
             </p>
           </div>
+
+          {/* Fixed divider - can't be removed */}
+          <hr className="border-zinc-800 mb-8" />
 
           {/* Block editor */}
           <BlockEditor
