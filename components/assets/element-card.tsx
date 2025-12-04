@@ -83,23 +83,30 @@ export const ElementCard = React.memo(
   // Check if embed has a thumbnail (from oEmbed or frame-specific)
   const embedHasThumbnail = isEmbed && asset.thumbnail_url && !asset.thumbnail_url.includes('figma.com/file');
 
-  // Calculate embed aspect ratio - use actual dimensions if available
-  // Max height is ~150% of width (aspect ratio 66.67%), min is 16:9 (56.25%)
-  const getEmbedAspectRatio = () => {
-    if (!isEmbed) return aspectRatio;
+  // Calculate embed aspect ratio and determine if cropping is needed
+  // Max height is 120% (5:6 ratio) - taller frames will be cropped from top
+  const MAX_EMBED_RATIO = 120; // 5:6 aspect ratio max
+  const MIN_EMBED_RATIO = 50;  // 2:1 wide minimum
+  
+  const getEmbedDisplayInfo = () => {
+    if (!isEmbed) return { ratio: aspectRatio, needsCrop: false, actualRatio: aspectRatio };
     
     // If we have actual dimensions from Figma, use them
     if (asset.width && asset.height && asset.width > 0) {
       const actualRatio = (asset.height / asset.width) * 100;
-      // Clamp between 50% (2:1 wide) and 150% (2:3 tall) to prevent extreme dimensions
-      return Math.min(Math.max(actualRatio, 50), 150);
+      const clampedRatio = Math.min(Math.max(actualRatio, MIN_EMBED_RATIO), MAX_EMBED_RATIO);
+      const needsCrop = actualRatio > MAX_EMBED_RATIO;
+      
+      return { ratio: clampedRatio, needsCrop, actualRatio };
     }
     
     // Default to 16:9 for embeds without dimensions
-    return 56.25;
+    return { ratio: 56.25, needsCrop: false, actualRatio: 56.25 };
   };
   
-  const embedAspectRatio = getEmbedAspectRatio();
+  const embedDisplayInfo = getEmbedDisplayInfo();
+  const embedAspectRatio = embedDisplayInfo.ratio;
+  const embedNeedsCrop = embedDisplayInfo.needsCrop;
 
   // Progressive loading: use thumbnailUrl first, then upgrade to mediumUrl or full url
   // For GIFs: thumbnail is static JPEG, medium/full are animated
@@ -139,19 +146,36 @@ export const ElementCard = React.memo(
           >
             {/* Embed with thumbnail (from oEmbed or frame-specific) */}
             {isEmbed && embedHasThumbnail ? (
-              <Image
-                src={asset.thumbnail_url!}
-                alt={asset.title}
-                fill
-                className={cn(
-                  "absolute inset-0 w-full h-full transition-transform duration-500 group-hover:scale-105",
-                  // Use object-contain for frame-specific thumbnails to show full frame
-                  // Use object-cover for oEmbed thumbnails (file-level, always 16:9-ish)
-                  asset.width && asset.height ? "object-contain bg-zinc-900" : "object-cover"
+              <>
+                <Image
+                  src={asset.thumbnail_url!}
+                  alt={asset.title}
+                  fill
+                  className={cn(
+                    "absolute inset-0 w-full h-full transition-transform duration-500 group-hover:scale-105",
+                    // For tall frames that need cropping: show top portion (hero area)
+                    // For normal frames: contain the full image
+                    embedNeedsCrop 
+                      ? "object-cover object-top" 
+                      : asset.width && asset.height 
+                        ? "object-contain bg-zinc-900" 
+                        : "object-cover"
+                  )}
+                  sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                  onLoad={handleImageLoad}
+                />
+                {/* "More content" gradient indicator for cropped tall frames */}
+                {embedNeedsCrop && (
+                  <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-zinc-900/90 via-zinc-900/50 to-transparent pointer-events-none flex items-end justify-center pb-2">
+                    <div className="flex items-center gap-1 text-xs text-zinc-400">
+                      <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
+                      <span>Scroll for more</span>
+                    </div>
+                  </div>
                 )}
-                sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                onLoad={handleImageLoad}
-              />
+              </>
             ) : isEmbed && providerInfo ? (
               // Embed placeholder (no thumbnail available)
               <div className="absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-br from-zinc-900 via-zinc-800 to-zinc-900">
