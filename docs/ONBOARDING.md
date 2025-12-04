@@ -9,8 +9,12 @@ A Pinterest-style design sharing platform with:
 - **Stream Following** - Follow streams to see their posts in your feed
 - **Stream Bookmarks** - Add external links (Jira, Figma, Notion) to streams
 - **Assets** - Uploaded designs with likes and comments
+  - Images (JPG, PNG, WebP)
+  - Animated GIFs (with GIF badge and hover animation)
+  - Figma embeds (paste URL, auto-thumbnails)
 - **Following** - See work from people and streams you follow
 - **Search** - Find assets, users, and streams
+- **Real-time** - Live notifications, typing indicators, instant updates
 
 ## Tech Stack
 
@@ -143,7 +147,15 @@ Home page has two tabs:
 ### Real-time Updates
 - Like counts update instantly
 - Comment counts sync across tabs
+- Notification badges update live
+- Typing indicators ("X is typing...")
 - Supabase Realtime subscriptions
+
+### Figma Integration
+- Paste Figma URLs to embed designs
+- Automatic thumbnails via oEmbed
+- Frame-specific thumbnails (connect account in Settings)
+- Interactive embed viewer
 
 ### Mobile Support
 - Responsive masonry grid
@@ -161,13 +173,28 @@ Home page has two tabs:
 # Or use the signup page at /auth/signup
 ```
 
-### Upload an Asset
+### Upload an Image or GIF
 
 1. Log in
 2. Click "Create" button
-3. Select file
-4. Add to streams (type `#stream-name` or use picker)
-5. Upload
+3. Select "Upload Image"
+4. Select file (JPG, PNG, WebP, or animated GIF)
+5. Add to streams (type `#stream-name` or use picker)
+6. Upload
+
+**Note:** Animated GIFs show a "GIF" badge and animate on hover in the feed.
+
+### Add a Figma Design
+
+1. Log in
+2. Click "Create" button
+3. Select "Add via URL"
+4. Paste Figma URL (file, design, prototype, or specific frame)
+5. Preview loads automatically
+6. Add title, description, and streams
+7. Add
+
+**Pro Tip:** For frame-specific thumbnails, connect your Figma account in Settings → Connected Accounts.
 
 ### Create a Stream
 
@@ -192,21 +219,29 @@ Visit stream page (`/stream/stream-name`) → Click "Follow"
 
 Open asset detail → Click "..." menu → Delete (owner only)
 
+### Connect Figma Account (for frame-specific thumbnails)
+
+1. Go to Figma → Settings → Personal access tokens
+2. Create a new token with read access
+3. In Mainstream: Settings → Connected Accounts
+4. Paste your Figma token and click Connect
+5. Now when you add Figma URLs with specific frames, you'll get accurate thumbnails
+
 ## Database Schema
 
 ### Main Tables
 
-- `users` - User profiles
+- `users` - User profiles (+ Figma token fields)
 - `streams` - Organizational units
-- `assets` - Uploaded designs
+- `assets` - Uploaded designs (+ embed support fields)
 - `asset_streams` - Many-to-many relationships
 - `asset_likes` - Like tracking
 - `asset_comments` - Comments with threading
 - `comment_likes` - Comment like tracking
 - `user_follows` - User following relationships
-- `stream_follows` - Stream following relationships (NEW)
-- `stream_bookmarks` - External links for streams (NEW)
-- `notifications` - Activity feed
+- `stream_follows` - Stream following relationships
+- `stream_bookmarks` - External links for streams
+- `notifications` - Activity feed (+ comment deep linking)
 
 ### Row Level Security (RLS)
 
@@ -219,7 +254,8 @@ All tables have RLS policies:
 
 ### Assets
 - `GET /api/assets` - List assets (paginated)
-- `POST /api/assets/upload` - Upload new asset
+- `POST /api/assets/upload` - Upload new asset (images + GIFs)
+- `POST /api/assets/embed` - Create embed from URL (Figma)
 - `DELETE /api/assets/[id]` - Delete asset (owner only)
 - `GET /api/assets/following` - Assets from followed users
 - `POST /api/assets/[id]/like` - Toggle like
@@ -242,6 +278,8 @@ All tables have RLS policies:
 - `GET /api/users/[username]` - Get user profile
 - `POST /api/users/[username]/follow` - Toggle follow
 - `PUT /api/users/me` - Update current user settings
+- `GET /api/users/me/integrations` - Get integration status
+- `POST /api/users/me/integrations` - Connect/disconnect integrations (Figma)
 
 ### Search
 - `GET /api/search?q=query&type=assets` - Search with total counts
@@ -310,6 +348,9 @@ After schema changes:
 **Recent Migrations:**
 - `003_stream_follows.sql` - Stream following feature
 - `004_stream_bookmarks.sql` - Stream bookmarks feature
+- `011_notifications_rls_policies.sql` - Real-time notifications
+- `016_add_embed_support.sql` - Figma embeds
+- `017_add_figma_integration.sql` - Figma token storage
 
 ### Component Changes
 

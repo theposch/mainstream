@@ -32,9 +32,9 @@ Current status of Mainstream backend integration with Supabase.
 
 ### ✅ Database Schema
 All tables created with Row Level Security:
-- `users` - User profiles
+- `users` - User profiles (+ `figma_access_token`, `figma_token_updated_at`)
 - `streams` - Organizational units
-- `assets` - Uploaded designs (includes `view_count` denormalized counter)
+- `assets` - Uploaded designs (+ `asset_type`, `embed_url`, `embed_provider`, `width`, `height`)
 - `asset_streams` - Many-to-many asset-stream relationships
 - `asset_likes` - Like tracking
 - `asset_views` - View tracking (unique per user, 2s threshold)
@@ -43,7 +43,7 @@ All tables created with Row Level Security:
 - `user_follows` - User following relationships
 - `stream_follows` - Stream following relationships
 - `stream_bookmarks` - External links for streams
-- `notifications` - Activity feed
+- `notifications` - Activity feed (+ `content`, `comment_id` for deep linking)
 
 **Migration Files:**
 - `scripts/migrations/001_initial_schema.sql`
@@ -53,6 +53,13 @@ All tables created with Row Level Security:
 - `scripts/migrations/007_add_comment_likes.sql`
 - `scripts/migrations/009_add_asset_views.sql`
 - `scripts/migrations/010_asset_views_rls.sql`
+- `scripts/migrations/011_notifications_rls_policies.sql` - Real-time notifications
+- `scripts/migrations/012_realtime_comments_likes.sql` - Real-time for comments
+- `scripts/migrations/013_add_comment_notification_type.sql`
+- `scripts/migrations/014_add_notification_content.sql`
+- `scripts/migrations/015_add_comment_id_to_notifications.sql`
+- `scripts/migrations/016_add_embed_support.sql` - Figma embeds
+- `scripts/migrations/017_add_figma_integration.sql` - Figma token storage
 
 ### ✅ Storage
 Configured buckets:
@@ -68,20 +75,23 @@ Storage policies allow:
 
 #### Assets
 - `GET /api/assets` - List assets with pagination
-- `POST /api/assets/upload` - Upload new asset
+- `POST /api/assets/upload` - Upload new asset (images + animated GIFs)
+- `POST /api/assets/embed` - Create embed asset from URL (Figma)
+- `GET /api/assets/[id]` - Get single asset with enriched data
+- `PATCH /api/assets/[id]` - Update asset metadata
 - `DELETE /api/assets/[id]` - Delete asset (owner only)
 - `GET /api/assets/following` - Assets from followed users
-- `POST /api/assets/[id]/like` - Like asset
+- `POST /api/assets/[id]/like` - Like asset (creates notification)
 - `DELETE /api/assets/[id]/like` - Unlike asset
 - `POST /api/assets/[id]/view` - Record view (after 2s threshold, excludes owner)
 - `GET /api/assets/[id]/viewers` - Get viewer list for tooltip
-- `GET /api/assets/[id]/comments` - Get comments
-- `POST /api/assets/[id]/comments` - Add comment
+- `GET /api/assets/[id]/comments` - Get comments (batch fetched)
+- `POST /api/assets/[id]/comments` - Add comment (creates notification)
 
 #### Comments
 - `PUT /api/comments/[id]` - Update comment
 - `DELETE /api/comments/[id]` - Delete comment
-- `POST /api/comments/[id]/like` - Like comment
+- `POST /api/comments/[id]/like` - Like comment (creates notification)
 - `DELETE /api/comments/[id]/like` - Unlike comment
 
 #### Streams
@@ -102,10 +112,12 @@ Storage policies allow:
 - `POST /api/users/[username]/follow` - Follow user
 - `DELETE /api/users/[username]/follow` - Unfollow user
 - `PUT /api/users/me` - Update current user
+- `GET /api/users/me/integrations` - Get integration status (Figma)
+- `POST /api/users/me/integrations` - Connect/disconnect integrations
 
 #### Other
 - `GET /api/search` - Search with total counts
-- `GET /api/notifications` - Get notifications
+- `GET /api/notifications` - Get notifications (enriched with asset data)
 - `PUT /api/notifications` - Mark as read
 
 ### ✅ Performance Optimizations
@@ -122,20 +134,32 @@ Storage policies allow:
 ### ✅ Real-time Features
 Implemented with Supabase Realtime:
 - Asset likes update instantly
-- Comment likes sync across tabs
+- Comment likes sync across tabs (race-condition fixed)
 - New comments appear in real-time
 - Notification badges update live
 - Stream follow counts update (optimistic)
 - Bookmarks update across sessions
+- Typing indicators via Presence API
+- Comment deep linking with highlight
 
 **Hooks:**
 - `lib/hooks/use-asset-like.ts`
 - `lib/hooks/use-asset-view.ts` - Fire-and-forget view tracking (2s delay)
-- `lib/hooks/use-comment-like.ts`
+- `lib/hooks/use-comment-like.ts` - With race-condition prevention
 - `lib/hooks/use-asset-comments.ts`
-- `lib/hooks/use-notifications.ts`
+- `lib/hooks/use-notifications.ts` - Enriches with asset data
 - `lib/hooks/use-stream-follow.ts`
 - `lib/hooks/use-stream-bookmarks.ts`
+- `lib/hooks/use-typing-indicator.ts` - Supabase Presence for typing
+- `lib/hooks/use-figma-integration.ts` - Figma token management
+
+**Real-time Requirements:**
+```sql
+-- Required for real-time filtering on notifications, comments, likes
+ALTER TABLE notifications REPLICA IDENTITY FULL;
+ALTER TABLE asset_comments REPLICA IDENTITY FULL;
+ALTER TABLE comment_likes REPLICA IDENTITY FULL;
+```
 
 ## Architecture Decisions
 
@@ -293,7 +317,30 @@ Never commit `.env.local`:
 NEXT_PUBLIC_SUPABASE_URL=http://localhost:8000
 NEXT_PUBLIC_SUPABASE_ANON_KEY=safe_in_browser
 SUPABASE_SERVICE_ROLE_KEY=NEVER_expose_to_browser
+
+# Optional: For encrypting API tokens (Figma, etc.)
+ENCRYPTION_KEY=your_64_char_hex_key  # openssl rand -hex 32
 ```
+
+### Token Encryption
+API tokens (e.g., Figma Personal Access Token) are encrypted at rest:
+
+```typescript
+// lib/utils/encryption.ts
+import { encrypt, decrypt, isEncrypted } from '@/lib/utils/encryption';
+
+// Encrypt before saving to DB
+const encryptedToken = encrypt(rawToken);
+
+// Decrypt when using
+const rawToken = decrypt(encryptedToken);
+
+// Auto-detection - handles both encrypted and plaintext
+const token = decrypt(storedValue); // Works either way
+```
+
+**Algorithm:** AES-256-GCM (authenticated encryption)
+**Graceful fallback:** Works without key (plaintext mode for dev)
 
 ### RLS Best Practices
 - Always enable RLS on public tables
@@ -337,6 +384,27 @@ WHERE schemaname = 'public'
 ORDER BY pg_total_relation_size(schemaname||'.'||tablename) DESC;
 ```
 
+### Figma Integration
+Users can connect their Figma account for frame-specific thumbnails:
+
+**Setup:**
+1. User goes to Settings → Connected Accounts
+2. Enters Figma Personal Access Token (from Figma → Settings → Personal access tokens)
+3. Token validated against Figma `/v1/me` endpoint
+4. Encrypted and stored in `users.figma_access_token`
+
+**Thumbnail Flow:**
+1. User pastes Figma URL with `node-id` parameter
+2. System checks for user's Figma token
+3. **With token:** Calls Figma REST API to render specific frame
+4. **Without token:** Falls back to oEmbed API (file-level thumbnail)
+5. Thumbnail downloaded and stored locally (never expires)
+
+**Files:**
+- `lib/utils/embed-providers.ts` - `fetchFigmaFrameThumbnail()`
+- `app/api/users/me/integrations/route.ts` - Token CRUD
+- `components/layout/settings-dialog.tsx` - UI for token management
+
 ## Future Enhancements
 
 ### Optional Additions
@@ -350,6 +418,8 @@ ORDER BY pg_total_relation_size(schemaname||'.'||tablename) DESC;
 - [ ] Activity analytics
 - [ ] Bookmark reordering (drag and drop)
 - [ ] Bookmark metadata auto-fetch (page titles)
+- [ ] YouTube/Vimeo embeds (provider detection ready)
+- [ ] Video uploads (WebM conversion)
 
 ### Scalability Considerations
 - Add read replicas for high traffic

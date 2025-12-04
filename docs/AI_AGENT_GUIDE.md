@@ -12,6 +12,11 @@ Quick onboarding guide for AI assistants working on the Mainstream codebase.
 ## Critical Context
 
 ### Recent Major Changes
+- ✅ **Figma Embeds** - Paste Figma URLs to embed designs with thumbnails (NEW)
+- ✅ **Animated GIFs** - Full GIF support with animation on hover and GIF badge (NEW)
+- ✅ **Real-time Notifications** - Live notification updates with typing indicators (NEW)
+- ✅ **Comment Deep Linking** - Click notification to jump to specific comment with highlight (NEW)
+- ✅ **Token Encryption** - AES-256-GCM encryption for API tokens (NEW)
 - ✅ **View Tracking** - "Seen by X people" with hover tooltip showing viewers (2s threshold)
 - ✅ **Comment Likes** - Like/unlike comments with real-time updates
 - ✅ **Modal Overlay for Assets** - Pinterest-style instant modal from feed (React Query + nuqs)
@@ -55,10 +60,11 @@ auth/login/page.tsx    - Login
 ```
 assets/
   route.ts             - GET: List assets
-  upload/route.ts      - POST: Upload asset
+  upload/route.ts      - POST: Upload asset (images + animated GIFs)
+  embed/route.ts       - POST: Create embed asset from URL (Figma)
   following/route.ts   - GET: Assets from followed users
   [id]/
-    route.ts           - DELETE: Delete asset
+    route.ts           - GET/PATCH/DELETE: Asset operations
     like/route.ts      - POST/DELETE: Toggle like
     comments/route.ts  - GET/POST: Comments
     view/route.ts      - POST: Record view (2s threshold)
@@ -80,6 +86,7 @@ users/
     route.ts           - GET: User profile
     follow/route.ts    - POST/DELETE: Toggle follow
   me/route.ts          - PUT: Update current user
+  me/integrations/route.ts - GET/POST: Manage integrations (Figma token)
 
 search/route.ts        - GET: Search assets/users/streams (with total counts)
 notifications/route.ts - GET/PUT: Notifications
@@ -88,14 +95,15 @@ notifications/route.ts - GET/PUT: Notifications
 ### Key Components
 ```
 assets/
-  element-card.tsx          - Asset card with hover (React.memo)
+  element-card.tsx          - Asset card with hover, GIF badge, embed support (React.memo)
   masonry-grid.tsx          - Pinterest-style layout (React.memo)
-  asset-detail-desktop.tsx  - Desktop modal with view tracking
-  asset-detail-mobile.tsx   - Mobile carousel with view tracking
-  comment-input.tsx         - Comment form with @mentions
-  comment-item.tsx          - Comment with like button
+  asset-detail-desktop.tsx  - Desktop modal with view tracking, Figma embeds
+  asset-detail-mobile.tsx   - Mobile carousel with view tracking, Figma embeds
+  comment-input.tsx         - Comment form with @mentions, typing indicator
+  comment-item.tsx          - Comment with like button, highlight animation
   comment-list.tsx          - Threaded comments (no nested replies)
   viewers-tooltip.tsx       - Hover tooltip showing who viewed
+  typing-indicator.tsx      - "X is typing..." indicator
 
 streams/
   stream-header.tsx         - Stream header (follow, bookmarks, contributors)
@@ -110,9 +118,11 @@ users/
 layout/
   navbar-content.tsx        - Main navigation
   search-bar.tsx            - Global search with auto-suggest
-  notifications-popover.tsx - Activity feed
-  settings-dialog.tsx       - User settings modal
+  notifications-popover.tsx - Activity feed with comment deep linking
+  settings-dialog.tsx       - User settings modal with Figma integration
   upload-dialog.tsx         - Asset upload flow
+  create-dialog.tsx         - Create options (stream, upload, URL)
+  embed-url-dialog.tsx      - Dialog for adding embeds via URL
 ```
 
 ### Hooks (`lib/hooks/`)
@@ -123,13 +133,15 @@ use-asset-like.ts           - Like/unlike with optimistic updates
 use-asset-view.ts           - Record view after 2s threshold (fire-and-forget)
 use-asset-comments.ts       - CRUD operations (React Query + Supabase Realtime)
 use-asset-prefetch.ts       - Hover-based data prefetching for instant modal
-use-comment-like.ts         - Like/unlike comments
+use-comment-like.ts         - Like/unlike comments (race-condition fixed)
 use-user-follow.ts          - Follow/unfollow users
 use-stream-follow.ts        - Follow/unfollow streams with optimistic updates
 use-stream-bookmarks.ts     - CRUD for stream bookmarks
-use-notifications.ts        - Real-time notifications
+use-notifications.ts        - Real-time notifications with asset enrichment
 use-stream-mentions.ts      - Parse and create streams from hashtags
 use-stream-dropdown-options.ts - Shared stream dropdown logic
+use-typing-indicator.ts     - Real-time typing status (Supabase Presence)
+use-figma-integration.ts    - Manage Figma token connection status
 ```
 
 ### Providers (`lib/providers/`)
@@ -145,11 +157,19 @@ asset-queries.ts            - Query keys factory and fetch functions
 ### Types (`lib/types/`)
 ```
 database.ts - TypeScript interfaces for all DB entities:
-  - Asset (includes likeCount, isLikedByCurrentUser, view_count, streams)
-  - Stream, User, Comment, Notification
+  - Asset (includes likeCount, isLikedByCurrentUser, view_count, streams, asset_type, embed_url, embed_provider, width, height)
+  - Stream, User (includes figma_access_token), Comment, Notification (includes content, comment_id)
   - StreamFollow, StreamBookmark
   - AssetViewer (for view tooltip)
   - All use snake_case (database convention)
+```
+
+### Utils (`lib/utils/`)
+```
+embed-providers.ts    - Figma URL detection, oEmbed/API integration
+encryption.ts         - AES-256-GCM token encryption utilities
+image-processing.ts   - Sharp-based image/GIF processing
+file-storage.ts       - Local file storage helpers
 ```
 
 ## Data Model
@@ -157,6 +177,7 @@ database.ts - TypeScript interfaces for all DB entities:
 ```
 users
   ├─ username, display_name, email, avatar_url, bio
+  ├─ figma_access_token (encrypted), figma_token_updated_at
   └─ owns → streams
 
 streams
@@ -166,7 +187,9 @@ streams
   └─ has → bookmarks (via stream_bookmarks)
 
 assets
-  ├─ title, url, uploader_id, width, height, view_count
+  ├─ title, url, thumbnail_url, uploader_id, width, height, view_count
+  ├─ asset_type ('image' | 'embed'), embed_url, embed_provider
+  ├─ type ('image' | 'video' | 'link') - legacy field
   ├─ belongs to → streams (many-to-many)
   ├─ has → likes, comments, views
   └─ includes pre-fetched: likeCount, isLikedByCurrentUser, view_count, streams
@@ -194,7 +217,8 @@ stream_bookmarks
   └─ id, stream_id, url, title, created_by, position, created_at
 
 notifications
-  └─ user_id, type, content, is_read
+  └─ user_id, type (like_asset|like_comment|comment|reply_comment|follow|mention)
+  └─ resource_id, resource_type, actor_id, content, comment_id, is_read
 ```
 
 ## Authentication
@@ -396,16 +420,100 @@ useEffect(() => {
 |---------|------|-----|------|-----------|
 | Asset feed | `app/home/page.tsx` | `api/assets/route.ts` | `use-assets-infinite.ts` | `masonry-grid.tsx` |
 | Following | `app/home/page.tsx` | `api/assets/following/route.ts` | `use-following-assets.ts` | `feed.tsx` |
-| Asset detail | `app/e/[id]/page.tsx` | - | `use-asset-detail.ts` | `asset-detail-*.tsx` |
+| Asset detail | `app/e/[id]/page.tsx` | `api/assets/[id]/route.ts` | `use-asset-detail.ts` | `asset-detail-*.tsx` |
 | Likes | - | `api/assets/[id]/like/route.ts` | `use-asset-like.ts` | `element-card.tsx` |
 | Views | - | `api/assets/[id]/view/route.ts` | `use-asset-view.ts` | `viewers-tooltip.tsx` |
 | Comments | - | `api/assets/[id]/comments/route.ts` | `use-asset-comments.ts` | `comment-*.tsx` |
 | Comment Likes | - | `api/comments/[id]/like/route.ts` | `use-comment-like.ts` | `comment-item.tsx` |
+| Typing indicator | - | - | `use-typing-indicator.ts` | `typing-indicator.tsx` |
+| Figma embeds | - | `api/assets/embed/route.ts` | - | `embed-url-dialog.tsx` |
+| Figma integration | - | `api/users/me/integrations/route.ts` | `use-figma-integration.ts` | `settings-dialog.tsx` |
 | Streams | `app/stream/[slug]/page.tsx` | `api/streams/route.ts` | `use-stream-mentions.ts` | `stream-*.tsx` |
 | Stream Follow | `app/stream/[slug]/page.tsx` | `api/streams/[id]/follow/route.ts` | `use-stream-follow.ts` | `stream-header.tsx` |
 | Stream Bookmarks | `app/stream/[slug]/page.tsx` | `api/streams/[id]/bookmarks/route.ts` | `use-stream-bookmarks.ts` | `stream-header.tsx` |
 | Profiles | `app/u/[username]/page.tsx` | `api/users/[username]/route.ts` | `use-user-follow.ts` | `user-profile-*.tsx` |
 | Search | `app/search/page.tsx` | `api/search/route.ts` | - | `search-*.tsx` |
+| Notifications | - | `api/notifications/route.ts` | `use-notifications.ts` | `notifications-popover.tsx` |
+
+## Figma Embeds
+
+### Overview
+Paste a Figma URL → automatically creates an embed asset with thumbnail preview.
+
+### How It Works
+1. User clicks "Add via URL" in create dialog
+2. Pastes Figma URL (file/design/prototype)
+3. System detects provider and fetches thumbnail:
+   - **With Figma token**: Frame-specific thumbnails via Figma REST API
+   - **Without token**: File-level thumbnails via oEmbed API
+4. Thumbnail is downloaded and stored locally (never expires)
+5. Asset created with `asset_type: 'embed'`, `embed_provider: 'figma'`
+
+### Thumbnail Handling
+- **Tall frames** (>120% aspect ratio): Hero crop from top with `object-cover`
+- **Normal frames**: Full display with `object-contain`
+- **oEmbed thumbnails**: 16:9 `object-cover`
+
+### Environment Variables
+```env
+# Optional: For frame-specific thumbnails
+# Users can also add tokens in Settings → Connected Accounts
+ENCRYPTION_KEY=your_64_char_hex_key  # openssl rand -hex 32
+```
+
+### Key Files
+- `lib/utils/embed-providers.ts` - Provider detection, Figma API calls
+- `app/api/assets/embed/route.ts` - Create embed assets
+- `app/api/users/me/integrations/route.ts` - Manage Figma tokens
+- `components/layout/embed-url-dialog.tsx` - URL input dialog
+
+## Animated GIF Support
+
+### Overview
+Upload animated GIFs → preserved animation with GIF badge in feed.
+
+### Processing Pipeline
+1. **Detection**: Sharp detects if GIF is animated (`pages > 1`)
+2. **Full size**: Animation preserved (optimized)
+3. **Medium size**: Animation preserved (800px max)
+4. **Thumbnail**: Static JPEG for performance
+
+### Feed Display
+- Shows static thumbnail by default
+- **GIF badge** appears on card
+- **Hover**: Plays full animation
+- Uses native `<img>` for animated playback (bypasses Next.js Image optimization)
+
+### Key Files
+- `lib/utils/image-processing.ts` - `isAnimatedGif()`, `optimizeAnimatedGif()`, `generateGifThumbnail()`
+- `app/api/assets/upload/route.ts` - Conditional GIF processing
+- `components/assets/element-card.tsx` - GIF badge and hover animation
+
+## Real-time Features
+
+### Notifications
+- WebSocket subscription to `notifications` table
+- Filters by `recipient_id` (requires `REPLICA IDENTITY FULL`)
+- Enriches with asset data on arrival
+
+### Typing Indicators
+- Uses Supabase Realtime Presence
+- Channel per asset: `typing:${assetId}`
+- Auto-clears after 3 seconds of inactivity
+- Shows "X is typing..." with animated dots
+
+### Comment Deep Linking
+- Click notification → navigate to `/e/{assetId}?comment={commentId}`
+- Scrolls to comment and highlights briefly
+- Uses Framer Motion for highlight animation
+
+### Key Migrations for Real-time
+```sql
+-- Required for real-time filtering
+ALTER TABLE notifications REPLICA IDENTITY FULL;
+ALTER TABLE asset_comments REPLICA IDENTITY FULL;
+ALTER TABLE comment_likes REPLICA IDENTITY FULL;
+```
 
 ## Git Workflow
 
@@ -439,11 +547,17 @@ npm run dev
 
 When working on a feature, review:
 1. Database schema: `scripts/migrations/001_initial_schema.sql`
-2. New migrations: `scripts/migrations/007_add_comment_likes.sql`, `009_add_asset_views.sql`
+2. Key migrations:
+   - `007_add_comment_likes.sql` - Comment likes
+   - `009_add_asset_views.sql` - View tracking
+   - `011_notifications_rls_policies.sql` - Real-time notifications
+   - `016_add_embed_support.sql` - Figma embeds (asset_type, embed_url)
+   - `017_add_figma_integration.sql` - Figma token storage
 3. Type definitions: `lib/types/database.ts`
 4. Related API route: `app/api/[feature]/route.ts`
 5. Related hook: `lib/hooks/use-[feature].ts`
 6. Related component: `components/[feature]/`
+7. Utilities: `lib/utils/` (embed-providers, encryption, image-processing)
 
 ## Resources
 

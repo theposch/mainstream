@@ -7,11 +7,12 @@
 
 **Streams** are the primary organizational unit in Mainstream. They're a hybrid between projects and tags, supporting many-to-many relationships with assets.
 
-### New Features (Dec 2025)
+### Features
 - ✅ **Stream Following** - Follow streams to see their posts in your Following feed
 - ✅ **Stream Bookmarks** - Add external links (Jira, Figma, Notion) with favicons
 - ✅ **Contributor Tooltip** - Hover to see who has posted to the stream
 - ✅ **Two-Row Header** - Clean layout with title, metadata, and bookmarks
+- ✅ **Multiple Asset Types** - Images, animated GIFs, and Figma embeds all belong to streams
 
 ### Core Concept
 
