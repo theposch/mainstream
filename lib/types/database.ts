@@ -15,6 +15,9 @@ export interface User {
   email?: string;
   created_at: string;
   updated_at?: string;
+  // Integrations
+  figma_access_token?: string;
+  figma_token_updated_at?: string;
 }
 
 export interface Team {

@@ -227,6 +227,129 @@ export async function fetchFigmaOEmbed(figmaUrl: string): Promise<FigmaOEmbedRes
   }
 }
 
+/**
+ * Extracts the node-id from a Figma URL if present
+ * Node IDs in URLs use hyphens (4919-3452) but the API uses colons (4919:3452)
+ */
+export function getFigmaNodeId(url: string): string | null {
+  try {
+    const urlObj = new URL(url);
+    const nodeId = urlObj.searchParams.get('node-id');
+    return nodeId || null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Converts node-id from URL format (4919-3452) to API format (4919:3452)
+ */
+export function convertNodeIdToApiFormat(nodeId: string): string {
+  return nodeId.replace('-', ':');
+}
+
+/**
+ * Figma REST API Images response type
+ */
+export interface FigmaImagesResponse {
+  err: string | null;
+  images: Record<string, string>; // nodeId -> imageUrl
+}
+
+/**
+ * Fetches a rendered image of specific Figma node(s) using the REST API
+ * 
+ * Requires a valid Figma Personal Access Token.
+ * Returns frame-specific thumbnails, unlike oEmbed which only returns file-level.
+ * 
+ * @param fileKey - Figma file key (extracted from URL)
+ * @param nodeIds - Array of node IDs to render (use API format with colons)
+ * @param accessToken - Figma Personal Access Token
+ * @param options - Rendering options (format, scale)
+ * @returns Map of nodeId -> image URL, or null if failed
+ */
+export async function fetchFigmaNodeImages(
+  fileKey: string,
+  nodeIds: string[],
+  accessToken: string,
+  options: {
+    format?: 'jpg' | 'png' | 'svg' | 'pdf';
+    scale?: number; // 0.01 to 4
+  } = {}
+): Promise<FigmaImagesResponse | null> {
+  const { format = 'png', scale = 2 } = options;
+
+  try {
+    const idsParam = nodeIds.join(',');
+    const apiUrl = `https://api.figma.com/v1/images/${fileKey}?ids=${encodeURIComponent(idsParam)}&format=${format}&scale=${scale}`;
+
+    console.log(`[fetchFigmaNodeImages] Fetching from: ${apiUrl}`);
+
+    const response = await fetch(apiUrl, {
+      headers: {
+        'X-Figma-Token': accessToken,
+      },
+    });
+
+    if (!response.ok) {
+      console.log(`[fetchFigmaNodeImages] API error: ${response.status}`);
+      return null;
+    }
+
+    const data = await response.json();
+    return data as FigmaImagesResponse;
+  } catch (error) {
+    console.error('[fetchFigmaNodeImages] Error:', error);
+    return null;
+  }
+}
+
+/**
+ * High-level helper to get a frame-specific thumbnail from a Figma URL
+ * 
+ * @param figmaUrl - Full Figma URL (may include node-id)
+ * @param accessToken - Figma Personal Access Token
+ * @returns Image URL for the specific frame, or null if failed
+ */
+export async function fetchFigmaFrameThumbnail(
+  figmaUrl: string,
+  accessToken: string
+): Promise<string | null> {
+  const fileKey = getFigmaFileKey(figmaUrl);
+  const nodeId = getFigmaNodeId(figmaUrl);
+
+  if (!fileKey) {
+    console.log('[fetchFigmaFrameThumbnail] Could not extract file key');
+    return null;
+  }
+
+  if (!nodeId) {
+    console.log('[fetchFigmaFrameThumbnail] No node-id in URL, falling back to oEmbed');
+    return null;
+  }
+
+  // Convert node-id format for API (4919-3452 -> 4919:3452)
+  const apiNodeId = convertNodeIdToApiFormat(nodeId);
+
+  const result = await fetchFigmaNodeImages(fileKey, [apiNodeId], accessToken);
+
+  if (!result || result.err || !result.images) {
+    console.log('[fetchFigmaFrameThumbnail] Failed to fetch node image');
+    return null;
+  }
+
+  // Get the image URL for the requested node
+  const imageUrl = result.images[apiNodeId];
+  
+  if (!imageUrl) {
+    console.log('[fetchFigmaFrameThumbnail] No image URL in response');
+    return null;
+  }
+
+  console.log('[fetchFigmaFrameThumbnail] Got frame thumbnail:', imageUrl);
+  return imageUrl;
+}
+
 // ============================================================================
 // YouTube Specific (for future implementation)
 // ============================================================================

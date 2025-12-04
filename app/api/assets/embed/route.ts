@@ -12,8 +12,9 @@ import {
   detectProvider,
   isSupportedUrl,
   getFigmaTitle,
-  getProviderInfo,
   fetchFigmaOEmbed,
+  fetchFigmaFrameThumbnail,
+  getFigmaNodeId,
 } from '@/lib/utils/embed-providers';
 
 export const dynamic = 'force-dynamic';
@@ -68,23 +69,53 @@ export async function POST(request: NextRequest) {
 
     console.log(`[POST /api/assets/embed] Detected provider: ${provider}`);
 
-    // Fetch oEmbed data for thumbnail and metadata
+    // Fetch user profile to check for Figma token
+    const { data: userData, error: userDataError } = await supabase
+      .from('users')
+      .select('id, figma_access_token')
+      .eq('id', user.id)
+      .single();
+
+    const userFigmaToken = userData?.figma_access_token || null;
+    const hasNodeId = getFigmaNodeId(url) !== null;
+
+    // Fetch thumbnail data
     let thumbnailUrl: string | null = null;
     let oembedTitle: string | null = null;
+    let usedFrameSpecificThumbnail = false;
     
     if (provider === 'figma') {
-      console.log('[POST /api/assets/embed] Fetching Figma oEmbed data...');
-      const oembedData = await fetchFigmaOEmbed(url);
-      
-      if (oembedData) {
-        console.log('[POST /api/assets/embed] oEmbed data received:', {
-          title: oembedData.title,
-          hasThumbnail: !!oembedData.thumbnail_url,
-        });
-        thumbnailUrl = oembedData.thumbnail_url || null;
-        oembedTitle = oembedData.title || null;
-      } else {
-        console.log('[POST /api/assets/embed] No oEmbed data available (file may be private)');
+      // Strategy: If user has Figma token AND URL has node-id, try frame-specific thumbnail first
+      if (userFigmaToken && hasNodeId) {
+        console.log('[POST /api/assets/embed] User has Figma token and URL has node-id, trying frame-specific thumbnail...');
+        const frameThumbnail = await fetchFigmaFrameThumbnail(url, userFigmaToken);
+        
+        if (frameThumbnail) {
+          console.log('[POST /api/assets/embed] Got frame-specific thumbnail!');
+          thumbnailUrl = frameThumbnail;
+          usedFrameSpecificThumbnail = true;
+        } else {
+          console.log('[POST /api/assets/embed] Frame-specific thumbnail failed, falling back to oEmbed');
+        }
+      }
+
+      // Fall back to oEmbed if we don't have a thumbnail yet
+      if (!thumbnailUrl) {
+        console.log('[POST /api/assets/embed] Fetching Figma oEmbed data...');
+        const oembedData = await fetchFigmaOEmbed(url);
+        
+        if (oembedData) {
+          console.log('[POST /api/assets/embed] oEmbed data received:', {
+            title: oembedData.title,
+            hasThumbnail: !!oembedData.thumbnail_url,
+          });
+          if (!thumbnailUrl) {
+            thumbnailUrl = oembedData.thumbnail_url || null;
+          }
+          oembedTitle = oembedData.title || null;
+        } else {
+          console.log('[POST /api/assets/embed] No oEmbed data available (file may be private)');
+        }
       }
     }
 
@@ -94,15 +125,14 @@ export async function POST(request: NextRequest) {
       finalTitle = oembedTitle || getFigmaTitle(url) || 'Figma Design';
     }
 
-    // Get provider info for default display
-    const providerInfo = getProviderInfo(provider);
+    // Log thumbnail source for debugging
+    if (thumbnailUrl) {
+      console.log(`[POST /api/assets/embed] Using ${usedFrameSpecificThumbnail ? 'frame-specific' : 'oEmbed'} thumbnail`);
+    }
 
     // Ensure user profile exists in public.users
-    const { data: existingUser, error: userCheckError } = await supabase
-      .from('users')
-      .select('id')
-      .eq('id', user.id)
-      .single();
+    const existingUser = userData;
+    const userCheckError = userDataError;
 
     if (userCheckError && userCheckError.code === 'PGRST116') {
       // User doesn't exist, create them
