@@ -54,6 +54,7 @@ const styles = {
     color: "#a0a0a0",
     padding: "0 20px 16px",
     margin: "0",
+    whiteSpace: "pre-wrap" as const, // Preserve line breaks and paragraphs
     textAlign: "center" as const,
   },
   blocksContainer: {
