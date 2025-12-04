@@ -118,6 +118,11 @@ Standard post display with image, title, description, and uploader info.
 - `fit` - Show entire image (object-fit: contain)
 - `cover` - Crop to fill (object-fit: cover)
 
+**Asset Selection**:
+When adding a post or gallery block, users can:
+- **Browse Posts**: Select from existing posts in the platform
+- **Upload New**: Upload a new image directly (drag & drop supported, 10MB limit)
+
 ### Featured Post Block
 Larger display for highlighted posts. Same properties as Post Block.
 
@@ -164,6 +169,11 @@ Group multiple images with two layout options.
 **Gallery Layouts**:
 - `grid` - 2x2 equal-sized grid
 - `featured` - One large image with smaller thumbnails below
+
+**Adding Images**:
+- Multi-select from existing posts
+- Upload new images directly with drag & drop
+- Toggle layout mode on hover (like Fit/Cover controls)
 
 ---
 
