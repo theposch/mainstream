@@ -123,6 +123,16 @@ When adding a post or gallery block, users can:
 - **Browse Posts**: Select from existing posts in the platform
 - **Upload New**: Upload a new image directly (drag & drop supported, 10MB limit)
 
+**Unlisted Assets**:
+Images uploaded directly through the drop editor are marked as "unlisted". This means:
+- ✅ They can be used in drops and sent in emails
+- ✅ They are accessible via direct link
+- ❌ They do NOT appear in the main feed
+- ❌ They do NOT appear in search results
+- ❌ They do NOT appear on the uploader's profile
+
+This is useful for including images in newsletters that shouldn't be shared as regular posts (e.g., charts, diagrams, or supplementary visuals).
+
 ### Featured Post Block
 Larger display for highlighted posts. Same properties as Post Block.
 

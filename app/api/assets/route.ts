@@ -40,12 +40,14 @@ export async function GET() {
     const supabase = await createClient();
     
     // Query assets from Supabase with uploader information
+    // Exclude unlisted assets (drop-only images that shouldn't appear in feed)
     const { data: assets, error } = await supabase
       .from('assets')
       .select(`
         *,
         uploader:users!uploader_id(*)
       `)
+      .or('visibility.is.null,visibility.eq.public') // Include null (legacy) and public
       .order('created_at', { ascending: false })
       .limit(100);
 

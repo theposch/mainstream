@@ -65,6 +65,8 @@ export interface Asset {
   asset_type?: 'image' | 'embed';
   embed_url?: string;  // Original URL (e.g., figma.com/file/...)
   embed_provider?: string;  // Provider identifier (e.g., 'figma', 'youtube')
+  // Visibility: 'public' = appears in feed, 'unlisted' = only via direct link/drops
+  visibility?: 'public' | 'unlisted';
   // Joined data (pre-fetched to prevent N+1 queries)
   uploader?: User;
   streams?: Stream[];
