@@ -25,6 +25,12 @@ export function Navbar() {
               >
                 Streams
               </Link>
+              <Link 
+                href="/drops" 
+                className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Drops
+              </Link>
             </div>
           </div>
 
