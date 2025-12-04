@@ -146,6 +146,8 @@ export interface DropPost {
   asset_id: string;
   position: number;
   display_mode: DropPostDisplayMode;
+  crop_position_x: number; // 0-100, default 50 (center)
+  crop_position_y: number; // 0-100, default 0 (top)
   created_at: string;
   // Joined data
   asset?: Asset;
