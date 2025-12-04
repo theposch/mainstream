@@ -80,8 +80,26 @@ export const ElementCard = React.memo(
   const embedProvider = isEmbed ? (asset.embed_provider as EmbedProvider) : null;
   const providerInfo = embedProvider ? getProviderInfo(embedProvider) : null;
   
-  // Check if embed has a thumbnail (from oEmbed)
+  // Check if embed has a thumbnail (from oEmbed or frame-specific)
   const embedHasThumbnail = isEmbed && asset.thumbnail_url && !asset.thumbnail_url.includes('figma.com/file');
+
+  // Calculate embed aspect ratio - use actual dimensions if available
+  // Max height is ~150% of width (aspect ratio 66.67%), min is 16:9 (56.25%)
+  const getEmbedAspectRatio = () => {
+    if (!isEmbed) return aspectRatio;
+    
+    // If we have actual dimensions from Figma, use them
+    if (asset.width && asset.height && asset.width > 0) {
+      const actualRatio = (asset.height / asset.width) * 100;
+      // Clamp between 50% (2:1 wide) and 150% (2:3 tall) to prevent extreme dimensions
+      return Math.min(Math.max(actualRatio, 50), 150);
+    }
+    
+    // Default to 16:9 for embeds without dimensions
+    return 56.25;
+  };
+  
+  const embedAspectRatio = getEmbedAspectRatio();
 
   // Progressive loading: use thumbnailUrl first, then upgrade to mediumUrl or full url
   // For GIFs: thumbnail is static JPEG, medium/full are animated
@@ -117,15 +135,20 @@ export const ElementCard = React.memo(
           {/* Aspect Ratio Container */}
           <div 
             className="relative w-full"
-            style={{ paddingBottom: isEmbed ? '56.25%' : `${aspectRatio}%` }}
+            style={{ paddingBottom: isEmbed ? `${embedAspectRatio}%` : `${aspectRatio}%` }}
           >
-            {/* Embed with thumbnail (from oEmbed) */}
+            {/* Embed with thumbnail (from oEmbed or frame-specific) */}
             {isEmbed && embedHasThumbnail ? (
               <Image
                 src={asset.thumbnail_url!}
                 alt={asset.title}
                 fill
-                className="absolute inset-0 object-cover w-full h-full transition-transform duration-500 group-hover:scale-105"
+                className={cn(
+                  "absolute inset-0 w-full h-full transition-transform duration-500 group-hover:scale-105",
+                  // Use object-contain for frame-specific thumbnails to show full frame
+                  // Use object-cover for oEmbed thumbnails (file-level, always 16:9-ish)
+                  asset.width && asset.height ? "object-contain bg-zinc-900" : "object-cover"
+                )}
                 sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                 onLoad={handleImageLoad}
               />
