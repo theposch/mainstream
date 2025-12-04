@@ -33,3 +33,51 @@ COMMENT ON TABLE drop_blocks IS 'Notion-like blocks for drop content (text, head
 COMMENT ON COLUMN drop_blocks.type IS 'Block type: text, heading, post, featured_post, divider, quote';
 COMMENT ON COLUMN drop_blocks.heading_level IS 'For heading blocks: 1=H1, 2=H2, 3=H3';
 COMMENT ON COLUMN drops.use_blocks IS 'Whether this drop uses the new block-based editor';
+
+-- RLS Policies for drop_blocks
+ALTER TABLE drop_blocks ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Anyone can view blocks for published drops" ON drop_blocks
+FOR SELECT USING (
+  EXISTS (
+    SELECT 1 FROM drops 
+    WHERE drops.id = drop_blocks.drop_id 
+    AND drops.status = 'published'
+  )
+);
+
+CREATE POLICY "Users can view blocks for own drafts" ON drop_blocks
+FOR SELECT USING (
+  EXISTS (
+    SELECT 1 FROM drops 
+    WHERE drops.id = drop_blocks.drop_id 
+    AND drops.created_by = auth.uid()
+  )
+);
+
+CREATE POLICY "Users can insert blocks for own drops" ON drop_blocks
+FOR INSERT WITH CHECK (
+  EXISTS (
+    SELECT 1 FROM drops 
+    WHERE drops.id = drop_blocks.drop_id 
+    AND drops.created_by = auth.uid()
+  )
+);
+
+CREATE POLICY "Users can update blocks for own drops" ON drop_blocks
+FOR UPDATE USING (
+  EXISTS (
+    SELECT 1 FROM drops 
+    WHERE drops.id = drop_blocks.drop_id 
+    AND drops.created_by = auth.uid()
+  )
+);
+
+CREATE POLICY "Users can delete blocks for own drops" ON drop_blocks
+FOR DELETE USING (
+  EXISTS (
+    SELECT 1 FROM drops 
+    WHERE drops.id = drop_blocks.drop_id 
+    AND drops.created_by = auth.uid()
+  )
+);
