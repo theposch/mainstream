@@ -248,7 +248,7 @@ export function DropView({
 
       {/* Description - inline editor when editing */}
       {isEditing && onDescriptionChange ? (
-        <div style={{ padding: "0 20px 32px" }}>
+        <div style={{ padding: "0 20px 32px", marginTop: "16px" }}>
           <div style={{ 
             border: "1px solid #333",
             borderRadius: "12px",
