@@ -28,6 +28,7 @@ export function DropEditorClient({
   const router = useRouter();
   const [posts, setPosts] = React.useState(initialPosts);
   const [contributors, setContributors] = React.useState(initialContributors);
+  const [title, setTitle] = React.useState(drop.title);
   const [description, setDescription] = React.useState(drop.description || "");
   const [isGenerating, setIsGenerating] = React.useState(false);
   const [isSaving, setIsSaving] = React.useState(false);
@@ -55,7 +56,7 @@ export function DropEditorClient({
       if (response.ok && data.description) {
         setDescription(data.description);
         // Auto-save
-        await saveDescription(data.description);
+        await saveDrop({ description: data.description });
       }
     } catch (error) {
       console.error("Failed to generate description:", error);
@@ -64,16 +65,16 @@ export function DropEditorClient({
     }
   };
 
-  const saveDescription = async (newDescription: string) => {
+  const saveDrop = async (updates: { title?: string; description?: string }) => {
     setIsSaving(true);
     try {
       await fetch(`/api/drops/${drop.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ description: newDescription }),
+        body: JSON.stringify(updates),
       });
     } catch (error) {
-      console.error("Failed to save description:", error);
+      console.error("Failed to save drop:", error);
     } finally {
       setIsSaving(false);
     }
@@ -95,18 +96,33 @@ export function DropEditorClient({
   };
 
   // Debounced save for inline editing
-  const saveTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
+  const titleSaveTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
+  const descSaveTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
+  
+  const handleTitleChangeInline = (newTitle: string) => {
+    setTitle(newTitle);
+    
+    // Debounce save
+    if (titleSaveTimeoutRef.current) {
+      clearTimeout(titleSaveTimeoutRef.current);
+    }
+    titleSaveTimeoutRef.current = setTimeout(() => {
+      if (newTitle !== drop.title && newTitle.trim()) {
+        saveDrop({ title: newTitle });
+      }
+    }, 1000);
+  };
   
   const handleDescriptionChangeInline = (newDescription: string) => {
     setDescription(newDescription);
     
     // Debounce save
-    if (saveTimeoutRef.current) {
-      clearTimeout(saveTimeoutRef.current);
+    if (descSaveTimeoutRef.current) {
+      clearTimeout(descSaveTimeoutRef.current);
     }
-    saveTimeoutRef.current = setTimeout(() => {
+    descSaveTimeoutRef.current = setTimeout(() => {
       if (newDescription !== drop.description) {
-        saveDescription(newDescription);
+        saveDrop({ description: newDescription });
       }
     }, 1000);
   };
@@ -114,8 +130,11 @@ export function DropEditorClient({
   // Cleanup timeout on unmount
   React.useEffect(() => {
     return () => {
-      if (saveTimeoutRef.current) {
-        clearTimeout(saveTimeoutRef.current);
+      if (titleSaveTimeoutRef.current) {
+        clearTimeout(titleSaveTimeoutRef.current);
+      }
+      if (descSaveTimeoutRef.current) {
+        clearTimeout(descSaveTimeoutRef.current);
       }
     };
   }, []);
@@ -149,9 +168,9 @@ export function DropEditorClient({
 
       {/* Editor content */}
       <div className="max-w-3xl mx-auto py-10 px-4">
-        {/* Drop with inline description editor */}
+        {/* Drop with inline title and description editor */}
         <DropView
-          title={drop.title}
+          title={title}
           description={description}
           dateRangeStart={drop.date_range_start}
           dateRangeEnd={drop.date_range_end}
@@ -159,6 +178,7 @@ export function DropEditorClient({
           contributors={contributors}
           isEditing={true}
           onRemovePost={handleRemovePost}
+          onTitleChange={handleTitleChangeInline}
           onDescriptionChange={handleDescriptionChangeInline}
           onGenerateDescription={handleGenerateDescription}
           isGeneratingDescription={isGenerating}
@@ -189,7 +209,7 @@ export function DropEditorClient({
         open={publishDialogOpen}
         onOpenChange={setPublishDialogOpen}
         dropId={drop.id}
-        dropTitle={drop.title}
+        dropTitle={title}
       />
     </div>
   );
