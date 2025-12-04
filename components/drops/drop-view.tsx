@@ -292,11 +292,11 @@ export function DropView({
           {/* Vertical list of posts */}
           {streamPosts.map((post) => (
             <div key={post.id} style={styles.postCard}>
-              {/* Image */}
+              {/* Image - use medium or full size for quality */}
               <div style={styles.postImageWrapper}>
                 <Link href={`/e/${post.id}`}>
                   <Img
-                    src={post.thumbnail_url || post.url}
+                    src={post.medium_url || post.url || post.thumbnail_url}
                     alt={post.title}
                     style={styles.postImage}
                   />
