@@ -260,8 +260,84 @@ function QuoteBlockView({ block, isEditing, onContentChange }: BlockRendererProp
   );
 }
 
+// Display mode control buttons
+function DisplayModeControls({ 
+  block, 
+  onModeChange 
+}: { 
+  block: DropBlock; 
+  onModeChange: (mode: "auto" | "fit" | "cover") => void;
+}) {
+  const currentMode = getEffectiveDisplayMode(block);
+  
+  return (
+    <div 
+      className="display-mode-controls"
+      style={{
+        position: 'absolute',
+        bottom: '12px',
+        right: '12px',
+        display: 'flex',
+        gap: '4px',
+        opacity: 0,
+        transition: 'opacity 0.2s ease',
+        zIndex: 10,
+      }}
+    >
+      <button
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          onModeChange('fit');
+        }}
+        title="Fit - Show entire image"
+        style={{
+          width: '32px',
+          height: '32px',
+          borderRadius: '6px',
+          border: 'none',
+          backgroundColor: currentMode === 'fit' ? 'rgba(167, 139, 250, 0.9)' : 'rgba(0, 0, 0, 0.7)',
+          color: currentMode === 'fit' ? '#fff' : '#a0a0a0',
+          cursor: 'pointer',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          backdropFilter: 'blur(4px)',
+          fontSize: '14px',
+        }}
+      >
+        ⊡
+      </button>
+      <button
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          onModeChange('cover');
+        }}
+        title="Fill - Crop to fill"
+        style={{
+          width: '32px',
+          height: '32px',
+          borderRadius: '6px',
+          border: 'none',
+          backgroundColor: currentMode === 'cover' ? 'rgba(167, 139, 250, 0.9)' : 'rgba(0, 0, 0, 0.7)',
+          color: currentMode === 'cover' ? '#fff' : '#a0a0a0',
+          cursor: 'pointer',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          backdropFilter: 'blur(4px)',
+          fontSize: '14px',
+        }}
+      >
+        ⬚
+      </button>
+    </div>
+  );
+}
+
 // Post Block Component
-function PostBlockView({ block, isEditing }: BlockRendererProps) {
+function PostBlockView({ block, isEditing, onDisplayModeChange }: BlockRendererProps) {
   const asset = block.asset;
   if (!asset) return null;
 
@@ -270,10 +346,14 @@ function PostBlockView({ block, isEditing }: BlockRendererProps) {
 
   return (
     <div style={styles.postCard}>
-      <div style={{
-        ...styles.postImageWrapper,
-        ...(isFitMode ? { backgroundColor: "#18181b" } : {}),
-      }}>
+      <div 
+        className="post-image-container"
+        style={{
+          ...styles.postImageWrapper,
+          ...(isFitMode ? { backgroundColor: "#18181b" } : {}),
+          position: "relative" as const,
+        }}
+      >
         <Link href={`/e/${asset.id}`}>
           <Img
             src={asset.medium_url || asset.url || asset.thumbnail_url}
@@ -287,6 +367,12 @@ function PostBlockView({ block, isEditing }: BlockRendererProps) {
             }}
           />
         </Link>
+        {isEditing && onDisplayModeChange && (
+          <DisplayModeControls 
+            block={block} 
+            onModeChange={onDisplayModeChange} 
+          />
+        )}
       </div>
       <div style={styles.postContent}>
         <Text style={styles.postTitle}>{asset.title}</Text>
@@ -308,12 +394,19 @@ function PostBlockView({ block, isEditing }: BlockRendererProps) {
           <Text style={styles.postMeta}>{formatPostDate(asset.created_at)}</Text>
         </div>
       </div>
+      
+      {/* CSS for hover effect */}
+      <style>{`
+        .post-image-container:hover .display-mode-controls {
+          opacity: 1 !important;
+        }
+      `}</style>
     </div>
   );
 }
 
 // Featured Post Block Component
-function FeaturedPostBlockView({ block, isEditing }: BlockRendererProps) {
+function FeaturedPostBlockView({ block, isEditing, onDisplayModeChange }: BlockRendererProps) {
   const asset = block.asset;
   if (!asset) return null;
 
@@ -322,10 +415,14 @@ function FeaturedPostBlockView({ block, isEditing }: BlockRendererProps) {
 
   return (
     <div style={styles.featuredPostCard}>
-      <div style={{
-        ...styles.featuredImageWrapper,
-        ...(isFitMode ? { backgroundColor: "#18181b" } : {}),
-      }}>
+      <div 
+        className="featured-image-container"
+        style={{
+          ...styles.featuredImageWrapper,
+          ...(isFitMode ? { backgroundColor: "#18181b" } : {}),
+          position: "relative" as const,
+        }}
+      >
         <Link href={`/e/${asset.id}`}>
           <Img
             src={asset.medium_url || asset.url || asset.thumbnail_url}
@@ -339,6 +436,12 @@ function FeaturedPostBlockView({ block, isEditing }: BlockRendererProps) {
             }}
           />
         </Link>
+        {isEditing && onDisplayModeChange && (
+          <DisplayModeControls 
+            block={block} 
+            onModeChange={onDisplayModeChange} 
+          />
+        )}
       </div>
       <div style={{ ...styles.postContent, padding: "20px 0" }}>
         <Text style={styles.featuredPostTitle}>{asset.title}</Text>
@@ -360,6 +463,13 @@ function FeaturedPostBlockView({ block, isEditing }: BlockRendererProps) {
           <Text style={{ ...styles.postMeta, fontSize: "15px" }}>{formatPostDate(asset.created_at)}</Text>
         </div>
       </div>
+      
+      {/* CSS for hover effect */}
+      <style>{`
+        .featured-image-container:hover .display-mode-controls {
+          opacity: 1 !important;
+        }
+      `}</style>
     </div>
   );
 }
