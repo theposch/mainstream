@@ -24,6 +24,9 @@ interface DropViewProps {
   contributors: User[];
   isEditing?: boolean;
   onRemovePost?: (assetId: string) => void;
+  onDescriptionChange?: (description: string) => void;
+  onGenerateDescription?: () => void;
+  isGeneratingDescription?: boolean;
 }
 
 // Group posts by their primary stream
@@ -228,6 +231,9 @@ export function DropView({
   contributors,
   isEditing = false,
   onRemovePost,
+  onDescriptionChange,
+  onGenerateDescription,
+  isGeneratingDescription = false,
 }: DropViewProps) {
   const groupedPosts = groupPostsByStream(posts);
   const contributorNames = formatContributorNames(contributors);
@@ -240,10 +246,67 @@ export function DropView({
         <Heading style={styles.title}>{title}</Heading>
       </Section>
 
-      {/* Description */}
-      {description && (
+      {/* Description - inline editor when editing */}
+      {isEditing && onDescriptionChange ? (
+        <div style={{ padding: "0 20px 32px", position: "relative" }}>
+          <textarea
+            value={description || ""}
+            onChange={(e) => onDescriptionChange(e.target.value)}
+            placeholder="Add a description..."
+            style={{
+              width: "100%",
+              minHeight: "100px",
+              backgroundColor: "transparent",
+              border: "1px solid #333",
+              borderRadius: "8px",
+              padding: "16px",
+              paddingRight: "140px",
+              fontSize: "16px",
+              lineHeight: "1.7",
+              color: "#a0a0a0",
+              resize: "none" as const,
+              outline: "none",
+              fontFamily: "inherit",
+              textAlign: "center" as const,
+            }}
+          />
+          {onGenerateDescription && (
+            <button
+              onClick={onGenerateDescription}
+              disabled={isGeneratingDescription || posts.length === 0}
+              style={{
+                position: "absolute" as const,
+                bottom: "44px",
+                right: "32px",
+                display: "flex",
+                alignItems: "center",
+                gap: "6px",
+                padding: "6px 12px",
+                fontSize: "14px",
+                color: "#a78bfa",
+                backgroundColor: "transparent",
+                border: "none",
+                borderRadius: "6px",
+                cursor: isGeneratingDescription || posts.length === 0 ? "not-allowed" : "pointer",
+                opacity: isGeneratingDescription || posts.length === 0 ? 0.5 : 1,
+              }}
+            >
+              {isGeneratingDescription ? (
+                <>
+                  <span style={{ animation: "spin 1s linear infinite" }}>⟳</span>
+                  Generating...
+                </>
+              ) : (
+                <>
+                  ✦ Generate with AI
+                </>
+              )}
+            </button>
+          )}
+        </div>
+      ) : description ? (
         <Text style={styles.description}>{description}</Text>
-      )}
+      ) : null}
 
       {/* Contributors */}
       {contributors.length > 0 && (
