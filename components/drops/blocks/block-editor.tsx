@@ -1,9 +1,9 @@
 "use client";
 
 import * as React from "react";
-import { Plus, GripVertical, Trash2, Type, Heading1, Minus, Quote, Image, Star } from "lucide-react";
+import { Plus, GripVertical, Trash2, Type, Heading1, Minus, Quote, Image, Star, Images, Check } from "lucide-react";
 import { BlockRenderer } from "./block-renderer";
-import type { DropBlock, DropBlockType, Asset } from "@/lib/types/database";
+import type { DropBlock, DropBlockType, Asset, GalleryLayout } from "@/lib/types/database";
 
 interface BlockEditorProps {
   dropId: string;
@@ -25,17 +25,18 @@ const BLOCK_TYPES: Array<{
   { type: "quote", label: "Quote", icon: <Quote className="h-4 w-4" />, description: "Callout or quote" },
   { type: "post", label: "Post", icon: <Image className="h-4 w-4" />, description: "Embed a post" },
   { type: "featured_post", label: "Featured Post", icon: <Star className="h-4 w-4" />, description: "Larger post display" },
+  { type: "image_gallery", label: "Image Gallery", icon: <Images className="h-4 w-4" />, description: "Grid or featured layout" },
 ];
 
 export function BlockEditor({ dropId, blocks, onBlocksChange, availableAssets = [] }: BlockEditorProps) {
   const [showAddMenu, setShowAddMenu] = React.useState<number | null>(null);
-  const [showAssetPicker, setShowAssetPicker] = React.useState<{ position: number; type: DropBlockType } | null>(null);
+  const [showAssetPicker, setShowAssetPicker] = React.useState<{ position: number; type: DropBlockType; multiSelect?: boolean } | null>(null);
   const [draggedIndex, setDraggedIndex] = React.useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = React.useState<number | null>(null);
   const saveTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
 
   // Add a new block
-  const handleAddBlock = async (type: DropBlockType, position: number, assetId?: string) => {
+  const handleAddBlock = async (type: DropBlockType, position: number, assetId?: string, assetIds?: string[]) => {
     try {
       const response = await fetch(`/api/drops/${dropId}/blocks`, {
         method: "POST",
@@ -46,11 +47,27 @@ export function BlockEditor({ dropId, blocks, onBlocksChange, availableAssets = 
           asset_id: assetId,
           content: type === "heading" ? "" : type === "text" ? "" : undefined,
           heading_level: type === "heading" ? 2 : undefined,
+          gallery_layout: type === "image_gallery" ? "grid" : undefined,
         }),
       });
 
       if (response.ok) {
         const { block } = await response.json();
+        
+        // If it's a gallery block, add the images
+        if (type === "image_gallery" && assetIds && assetIds.length > 0) {
+          const galleryResponse = await fetch(`/api/drops/${dropId}/blocks/${block.id}/gallery`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ asset_ids: assetIds }),
+          });
+          
+          if (galleryResponse.ok) {
+            const { images } = await galleryResponse.json();
+            block.gallery_images = images;
+          }
+        }
+        
         const newBlocks = [...blocks];
         newBlocks.splice(position, 0, block);
         // Update positions
@@ -144,6 +161,85 @@ export function BlockEditor({ dropId, blocks, onBlocksChange, availableAssets = 
     }
   };
 
+  // Update gallery layout for a block
+  const handleGalleryLayoutChange = async (blockId: string, layout: GalleryLayout) => {
+    // Optimistic update
+    const newBlocks = blocks.map((b) =>
+      b.id === blockId ? { ...b, gallery_layout: layout } : b
+    );
+    onBlocksChange(newBlocks);
+
+    try {
+      await fetch(`/api/drops/${dropId}/blocks/${blockId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ gallery_layout: layout }),
+      });
+    } catch (error) {
+      console.error("Failed to update gallery layout:", error);
+    }
+  };
+
+  // Update gallery featured index
+  const handleGalleryFeaturedIndexChange = async (blockId: string, index: number) => {
+    // Optimistic update
+    const newBlocks = blocks.map((b) =>
+      b.id === blockId ? { ...b, gallery_featured_index: index } : b
+    );
+    onBlocksChange(newBlocks);
+
+    try {
+      await fetch(`/api/drops/${dropId}/blocks/${blockId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ gallery_featured_index: index }),
+      });
+    } catch (error) {
+      console.error("Failed to update featured index:", error);
+    }
+  };
+
+  // Add images to gallery
+  const handleGalleryAddImages = async (blockId: string, assetIds: string[]) => {
+    try {
+      const response = await fetch(`/api/drops/${dropId}/blocks/${blockId}/gallery`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ asset_ids: assetIds }),
+      });
+
+      if (response.ok) {
+        const { images } = await response.json();
+        // Update block with new images
+        const newBlocks = blocks.map((b) =>
+          b.id === blockId ? { ...b, gallery_images: [...(b.gallery_images || []), ...images] } : b
+        );
+        onBlocksChange(newBlocks);
+      }
+    } catch (error) {
+      console.error("Failed to add images to gallery:", error);
+    }
+  };
+
+  // Remove image from gallery
+  const handleGalleryRemoveImage = async (blockId: string, assetId: string) => {
+    // Optimistic update
+    const newBlocks = blocks.map((b) =>
+      b.id === blockId
+        ? { ...b, gallery_images: b.gallery_images?.filter((img) => img.asset_id !== assetId) }
+        : b
+    );
+    onBlocksChange(newBlocks);
+
+    try {
+      await fetch(`/api/drops/${dropId}/blocks/${blockId}/gallery?asset_id=${assetId}`, {
+        method: "DELETE",
+      });
+    } catch (error) {
+      console.error("Failed to remove image from gallery:", error);
+    }
+  };
+
   // Drag and drop handlers
   const handleDragStart = (e: React.DragEvent, index: number) => {
     setDraggedIndex(index);
@@ -183,7 +279,10 @@ export function BlockEditor({ dropId, blocks, onBlocksChange, availableAssets = 
   // Handle block type selection
   const handleBlockTypeSelect = (type: DropBlockType, position: number) => {
     if (type === "post" || type === "featured_post") {
-      setShowAssetPicker({ position, type });
+      setShowAssetPicker({ position, type, multiSelect: false });
+      setShowAddMenu(null);
+    } else if (type === "image_gallery") {
+      setShowAssetPicker({ position, type, multiSelect: true });
       setShowAddMenu(null);
     } else {
       handleAddBlock(type, position);
@@ -246,6 +345,11 @@ export function BlockEditor({ dropId, blocks, onBlocksChange, availableAssets = 
               onDelete={() => handleDeleteBlock(block.id)}
               onDisplayModeChange={(mode) => handleDisplayModeChange(block.id, mode)}
               onCropPositionChange={(x, y) => handleCropPositionChange(block.id, x, y)}
+              onGalleryLayoutChange={(layout) => handleGalleryLayoutChange(block.id, layout)}
+              onGalleryFeaturedIndexChange={(index) => handleGalleryFeaturedIndexChange(block.id, index)}
+              onGalleryAddImages={(assetIds) => handleGalleryAddImages(block.id, assetIds)}
+              onGalleryRemoveImage={(assetId) => handleGalleryRemoveImage(block.id, assetId)}
+              availableAssets={availableAssets}
             />
           </div>
 
@@ -263,7 +367,9 @@ export function BlockEditor({ dropId, blocks, onBlocksChange, availableAssets = 
       {showAssetPicker && (
         <AssetPickerModal
           assets={availableAssets}
+          multiSelect={showAssetPicker.multiSelect}
           onSelect={(assetId) => handleAddBlock(showAssetPicker.type, showAssetPicker.position, assetId)}
+          onMultiSelect={(assetIds) => handleAddBlock(showAssetPicker.type, showAssetPicker.position, undefined, assetIds)}
           onClose={() => setShowAssetPicker(null)}
         />
       )}
@@ -324,26 +430,48 @@ function AddBlockButton({
 // Asset Picker Modal
 function AssetPickerModal({
   assets,
+  multiSelect = false,
   onSelect,
+  onMultiSelect,
   onClose,
 }: {
   assets: Asset[];
+  multiSelect?: boolean;
   onSelect: (assetId: string) => void;
+  onMultiSelect?: (assetIds: string[]) => void;
   onClose: () => void;
 }) {
   const [search, setSearch] = React.useState("");
+  const [selectedIds, setSelectedIds] = React.useState<string[]>([]);
 
   const filteredAssets = assets.filter((asset) =>
     asset.title.toLowerCase().includes(search.toLowerCase())
   );
 
+  const toggleSelection = (assetId: string) => {
+    if (selectedIds.includes(assetId)) {
+      setSelectedIds(selectedIds.filter((id) => id !== assetId));
+    } else {
+      setSelectedIds([...selectedIds, assetId]);
+    }
+  };
+
+  const handleConfirm = () => {
+    if (multiSelect && onMultiSelect) {
+      onMultiSelect(selectedIds);
+    }
+    onClose();
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80">
-      <div className="w-full max-w-2xl max-h-[80vh] bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden">
+      <div className="w-full max-w-2xl max-h-[80vh] bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden flex flex-col">
         {/* Header */}
         <div className="p-4 border-b border-zinc-800">
           <div className="flex items-center justify-between mb-3">
-            <h3 className="text-lg font-semibold text-white">Select a post</h3>
+            <h3 className="text-lg font-semibold text-white">
+              {multiSelect ? "Select images for gallery" : "Select a post"}
+            </h3>
             <button onClick={onClose} className="text-zinc-500 hover:text-white">
               ✕
             </button>
@@ -355,38 +483,76 @@ function AssetPickerModal({
             placeholder="Search posts..."
             className="w-full px-4 py-2 bg-zinc-800 border border-zinc-700 rounded-lg text-white placeholder:text-zinc-500 focus:outline-none focus:border-zinc-600"
           />
+          {multiSelect && selectedIds.length > 0 && (
+            <p className="text-sm text-violet-400 mt-2">{selectedIds.length} images selected</p>
+          )}
         </div>
 
         {/* Asset list */}
-        <div className="p-4 overflow-y-auto max-h-[60vh]">
+        <div className="p-4 overflow-y-auto flex-1">
           {filteredAssets.length === 0 ? (
             <p className="text-center text-zinc-500 py-8">No posts found</p>
           ) : (
             <div className="grid grid-cols-3 gap-3">
-              {filteredAssets.map((asset) => (
-                <button
-                  key={asset.id}
-                  onClick={() => {
-                    onSelect(asset.id);
-                    onClose();
-                  }}
-                  className="group relative aspect-square rounded-lg overflow-hidden bg-zinc-800 hover:ring-2 hover:ring-violet-500 transition-all"
-                >
-                  <img
-                    src={asset.thumbnail_url || asset.url}
-                    alt={asset.title}
-                    className="w-full h-full object-cover"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent opacity-0 group-hover:opacity-100 transition-opacity">
-                    <div className="absolute bottom-2 left-2 right-2">
-                      <p className="text-xs text-white font-medium truncate">{asset.title}</p>
+              {filteredAssets.map((asset) => {
+                const isSelected = selectedIds.includes(asset.id);
+                return (
+                  <button
+                    key={asset.id}
+                    onClick={() => {
+                      if (multiSelect) {
+                        toggleSelection(asset.id);
+                      } else {
+                        onSelect(asset.id);
+                        onClose();
+                      }
+                    }}
+                    className={`group relative aspect-square rounded-lg overflow-hidden bg-zinc-800 transition-all ${
+                      isSelected ? "ring-2 ring-violet-500" : "hover:ring-2 hover:ring-violet-500/50"
+                    }`}
+                  >
+                    <img
+                      src={asset.thumbnail_url || asset.url}
+                      alt={asset.title}
+                      className="w-full h-full object-cover"
+                    />
+                    {isSelected && (
+                      <div className="absolute top-2 right-2 w-6 h-6 bg-violet-500 rounded-full flex items-center justify-center">
+                        <Check className="h-4 w-4 text-white" />
+                      </div>
+                    )}
+                    <div className={`absolute inset-0 bg-gradient-to-t from-black/80 to-transparent ${
+                      isSelected ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+                    } transition-opacity`}>
+                      <div className="absolute bottom-2 left-2 right-2">
+                        <p className="text-xs text-white font-medium truncate">{asset.title}</p>
+                      </div>
                     </div>
-                  </div>
-                </button>
-              ))}
+                  </button>
+                );
+              })}
             </div>
           )}
         </div>
+
+        {/* Footer for multi-select */}
+        {multiSelect && (
+          <div className="p-4 border-t border-zinc-800 flex justify-end gap-3">
+            <button
+              onClick={onClose}
+              className="px-4 py-2 text-sm text-zinc-400 hover:text-white transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleConfirm}
+              disabled={selectedIds.length === 0}
+              className="px-4 py-2 text-sm bg-violet-600 text-white rounded-lg hover:bg-violet-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              Add {selectedIds.length} image{selectedIds.length !== 1 ? "s" : ""}
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

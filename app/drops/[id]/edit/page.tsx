@@ -60,12 +60,58 @@ export default async function EditDropPage({ params }: EditDropPageProps) {
     console.error("Error fetching blocks:", blocksError);
   }
 
-  // Get contributors from blocks
+  // Fetch gallery images for gallery blocks
+  const galleryBlockIds = blocks?.filter((b: any) => b.type === "image_gallery").map((b: any) => b.id) || [];
+  let galleryImagesMap: Record<string, any[]> = {};
+  
+  if (galleryBlockIds.length > 0) {
+    const { data: galleryImages } = await supabase
+      .from("drop_block_gallery_images")
+      .select(`
+        id,
+        block_id,
+        asset_id,
+        position,
+        asset:assets(
+          id,
+          title,
+          url,
+          medium_url,
+          thumbnail_url,
+          asset_type,
+          uploader:users!uploader_id(id, username, display_name, avatar_url)
+        )
+      `)
+      .in("block_id", galleryBlockIds)
+      .order("position", { ascending: true });
+
+    // Group by block_id
+    galleryImages?.forEach((img: any) => {
+      if (!galleryImagesMap[img.block_id]) {
+        galleryImagesMap[img.block_id] = [];
+      }
+      galleryImagesMap[img.block_id].push(img);
+    });
+  }
+
+  // Enrich blocks with gallery images
+  const enrichedBlocks = blocks?.map((block: any) => ({
+    ...block,
+    gallery_images: block.type === "image_gallery" ? galleryImagesMap[block.id] || [] : undefined,
+  })) || [];
+
+  // Get contributors from blocks (including gallery images)
   const contributorMap = new Map();
-  blocks?.forEach((block: any) => {
+  enrichedBlocks.forEach((block: any) => {
     if (block.asset?.uploader && !contributorMap.has(block.asset.uploader.id)) {
       contributorMap.set(block.asset.uploader.id, block.asset.uploader);
     }
+    // Also add contributors from gallery images
+    block.gallery_images?.forEach((img: any) => {
+      if (img.asset?.uploader && !contributorMap.has(img.asset.uploader.id)) {
+        contributorMap.set(img.asset.uploader.id, img.asset.uploader);
+      }
+    });
   });
   const contributors = Array.from(contributorMap.values());
 
@@ -92,7 +138,7 @@ export default async function EditDropPage({ params }: EditDropPageProps) {
   return (
     <DropBlocksEditorClient
       drop={drop}
-      initialBlocks={blocks || []}
+      initialBlocks={enrichedBlocks}
       initialContributors={contributors}
       availableAssets={availableAssets || []}
     />

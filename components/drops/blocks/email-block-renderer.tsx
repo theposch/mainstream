@@ -201,6 +201,123 @@ export function EmailBlockRenderer({ block }: EmailBlockRendererProps) {
       );
     }
 
+    case "image_gallery": {
+      const images = block.gallery_images || [];
+      const layout = block.gallery_layout || 'grid';
+      const featuredIndex = block.gallery_featured_index || 0;
+
+      if (images.length === 0) return null;
+
+      if (layout === 'featured') {
+        // Featured layout: One large image + row of thumbnails
+        const featuredImage = images[featuredIndex] || images[0];
+        const thumbnailImages = images.filter((_, i) => i !== featuredIndex).slice(0, 4);
+
+        return (
+          <Section style={{ marginBottom: "32px" }}>
+            {/* Featured image */}
+            {featuredImage && featuredImage.asset && (
+              <Img
+                src={featuredImage.asset.medium_url || featuredImage.asset.url || featuredImage.asset.thumbnail_url}
+                alt={featuredImage.asset.title || "Gallery image"}
+                style={{
+                  width: "100%",
+                  height: "auto",
+                  borderRadius: "12px",
+                  marginBottom: "8px",
+                }}
+              />
+            )}
+            {/* Thumbnail row using table for email compatibility */}
+            {thumbnailImages.length > 0 && (
+              <table cellPadding="0" cellSpacing="0" style={{ width: "100%" }}>
+                <tbody>
+                  <tr>
+                    {thumbnailImages.map((img, index) => (
+                      <td
+                        key={img.id}
+                        style={{
+                          width: `${100 / Math.min(thumbnailImages.length, 4)}%`,
+                          paddingRight: index < thumbnailImages.length - 1 ? "8px" : "0",
+                        }}
+                      >
+                        {img.asset && (
+                          <Img
+                            src={img.asset.thumbnail_url || img.asset.url}
+                            alt={img.asset.title || "Gallery thumbnail"}
+                            style={{
+                              width: "100%",
+                              height: "auto",
+                              aspectRatio: "1",
+                              objectFit: "cover" as const,
+                              borderRadius: "8px",
+                            }}
+                          />
+                        )}
+                      </td>
+                    ))}
+                  </tr>
+                </tbody>
+              </table>
+            )}
+          </Section>
+        );
+      } else {
+        // Grid layout: 2x2 using tables for email compatibility
+        const gridImages = images.slice(0, 4);
+        const rows = [];
+        for (let i = 0; i < gridImages.length; i += 2) {
+          rows.push(gridImages.slice(i, i + 2));
+        }
+
+        return (
+          <Section style={{ marginBottom: "32px" }}>
+            <table cellPadding="0" cellSpacing="0" style={{ width: "100%" }}>
+              <tbody>
+                {rows.map((row, rowIndex) => (
+                  <tr key={rowIndex}>
+                    {row.map((img, colIndex) => (
+                      <td
+                        key={img.id}
+                        style={{
+                          width: "50%",
+                          paddingRight: colIndex === 0 ? "4px" : "0",
+                          paddingLeft: colIndex === 1 ? "4px" : "0",
+                          paddingBottom: rowIndex < rows.length - 1 ? "8px" : "0",
+                        }}
+                      >
+                        {img.asset && (
+                          <Img
+                            src={img.asset.medium_url || img.asset.url || img.asset.thumbnail_url}
+                            alt={img.asset.title || "Gallery image"}
+                            style={{
+                              width: "100%",
+                              height: "auto",
+                              aspectRatio: "1",
+                              objectFit: "cover" as const,
+                              borderRadius: "8px",
+                            }}
+                          />
+                        )}
+                      </td>
+                    ))}
+                    {row.length === 1 && (
+                      <td style={{ width: "50%", paddingLeft: "4px" }} />
+                    )}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {images.length > 4 && (
+              <Text style={{ fontSize: "14px", color: "#666", margin: "8px 0 0", textAlign: "center" as const }}>
+                +{images.length - 4} more images
+              </Text>
+            )}
+          </Section>
+        );
+      }
+    }
+
     default:
       return null;
   }

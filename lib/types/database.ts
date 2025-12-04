@@ -163,7 +163,21 @@ export interface DropWithDetails extends Drop {
 }
 
 // Drop block types for Notion-like editor
-export type DropBlockType = 'text' | 'heading' | 'post' | 'featured_post' | 'divider' | 'quote';
+export type DropBlockType = 'text' | 'heading' | 'post' | 'featured_post' | 'divider' | 'quote' | 'image_gallery';
+
+// Gallery layout modes
+export type GalleryLayout = 'grid' | 'featured';
+
+// Gallery image (many-to-many between blocks and assets)
+export interface DropBlockGalleryImage {
+  id: string;
+  block_id: string;
+  asset_id: string;
+  position: number;
+  created_at: string;
+  // Joined data
+  asset?: Asset;
+}
 
 export interface DropBlock {
   id: string;
@@ -183,6 +197,11 @@ export interface DropBlock {
   display_mode?: DropPostDisplayMode;
   crop_position_x?: number;
   crop_position_y?: number;
+  
+  // Gallery settings for image_gallery blocks
+  gallery_layout?: GalleryLayout;
+  gallery_featured_index?: number;
+  gallery_images?: DropBlockGalleryImage[]; // Joined data
   
   created_at: string;
   updated_at: string;
