@@ -260,6 +260,110 @@ function QuoteBlockView({ block, isEditing, onContentChange }: BlockRendererProp
   );
 }
 
+// Draggable image for adjusting crop position in cover mode
+function DraggableImage({ 
+  block, 
+  imgStyle,
+  onPositionChange,
+}: { 
+  block: DropBlock; 
+  imgStyle: React.CSSProperties;
+  onPositionChange: (x: number, y: number) => void;
+}) {
+  const containerRef = React.useRef<HTMLDivElement>(null);
+  const [isDragging, setIsDragging] = React.useState(false);
+  const [startPos, setStartPos] = React.useState({ x: 0, y: 0 });
+  const [cropPos, setCropPos] = React.useState({ 
+    x: block.crop_position_x ?? 50, 
+    y: block.crop_position_y ?? 0 
+  });
+
+  // Update local state when block prop changes
+  React.useEffect(() => {
+    setCropPos({
+      x: block.crop_position_x ?? 50,
+      y: block.crop_position_y ?? 0,
+    });
+  }, [block.crop_position_x, block.crop_position_y]);
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+    setStartPos({ x: e.clientX, y: e.clientY });
+  };
+
+  const handleMouseMove = React.useCallback((e: MouseEvent) => {
+    if (!isDragging || !containerRef.current) return;
+    
+    const rect = containerRef.current.getBoundingClientRect();
+    const deltaX = ((e.clientX - startPos.x) / rect.width) * 100;
+    const deltaY = ((e.clientY - startPos.y) / rect.height) * 100;
+    
+    // Invert direction: dragging right moves crop left (lower x value)
+    const newX = Math.max(0, Math.min(100, cropPos.x - deltaX));
+    const newY = Math.max(0, Math.min(100, cropPos.y - deltaY));
+    
+    setCropPos({ x: newX, y: newY });
+    setStartPos({ x: e.clientX, y: e.clientY });
+  }, [isDragging, startPos, cropPos]);
+
+  const handleMouseUp = React.useCallback(() => {
+    if (isDragging) {
+      setIsDragging(false);
+      onPositionChange(cropPos.x, cropPos.y);
+    }
+  }, [isDragging, cropPos, onPositionChange]);
+
+  React.useEffect(() => {
+    if (isDragging) {
+      window.addEventListener('mousemove', handleMouseMove);
+      window.addEventListener('mouseup', handleMouseUp);
+      return () => {
+        window.removeEventListener('mousemove', handleMouseMove);
+        window.removeEventListener('mouseup', handleMouseUp);
+      };
+    }
+  }, [isDragging, handleMouseMove, handleMouseUp]);
+
+  const asset = block.asset;
+  if (!asset) return null;
+
+  return (
+    <div 
+      ref={containerRef}
+      onMouseDown={handleMouseDown}
+      style={{ 
+        cursor: isDragging ? 'grabbing' : 'grab',
+        position: 'relative',
+        width: '100%',
+        height: '100%',
+      }}
+    >
+      <Img
+        src={asset.medium_url || asset.url || asset.thumbnail_url}
+        alt={asset.title}
+        style={{
+          ...imgStyle,
+          objectPosition: `${cropPos.x}% ${cropPos.y}%`,
+        }}
+      />
+      {isDragging && (
+        <div style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(167, 139, 250, 0.1)',
+          border: '2px solid rgba(167, 139, 250, 0.5)',
+          borderRadius: '12px',
+          pointerEvents: 'none',
+        }} />
+      )}
+    </div>
+  );
+}
+
 // Display mode control buttons
 function DisplayModeControls({ 
   block, 
@@ -337,7 +441,7 @@ function DisplayModeControls({
 }
 
 // Post Block Component
-function PostBlockView({ block, isEditing, onDisplayModeChange }: BlockRendererProps) {
+function PostBlockView({ block, isEditing, onDisplayModeChange, onCropPositionChange }: BlockRendererProps) {
   const asset = block.asset;
   if (!asset) return null;
 
@@ -354,24 +458,57 @@ function PostBlockView({ block, isEditing, onDisplayModeChange }: BlockRendererP
           position: "relative" as const,
         }}
       >
-        <Link href={`/e/${asset.id}`}>
-          <Img
-            src={asset.medium_url || asset.url || asset.thumbnail_url}
-            alt={asset.title}
-            style={{
+        {/* Draggable image in cover mode when editing */}
+        {isEditing && !isFitMode && onCropPositionChange ? (
+          <DraggableImage
+            block={block}
+            imgStyle={{
               ...styles.postImage,
-              objectFit: isFitMode ? "contain" as const : "cover" as const,
-              objectPosition: isFitMode 
-                ? "center" 
-                : `${block.crop_position_x ?? 50}% ${block.crop_position_y ?? 0}%`,
+              objectFit: 'cover' as const,
             }}
+            onPositionChange={onCropPositionChange}
           />
-        </Link>
+        ) : (
+          <Link href={`/e/${asset.id}`}>
+            <Img
+              src={asset.medium_url || asset.url || asset.thumbnail_url}
+              alt={asset.title}
+              style={{
+                ...styles.postImage,
+                objectFit: isFitMode ? "contain" as const : "cover" as const,
+                objectPosition: isFitMode 
+                  ? "center" 
+                  : `${block.crop_position_x ?? 50}% ${block.crop_position_y ?? 0}%`,
+              }}
+            />
+          </Link>
+        )}
         {isEditing && onDisplayModeChange && (
           <DisplayModeControls 
             block={block} 
             onModeChange={onDisplayModeChange} 
           />
+        )}
+        {/* Drag hint */}
+        {isEditing && !isFitMode && onCropPositionChange && (
+          <div 
+            className="drag-hint"
+            style={{
+              position: 'absolute',
+              top: '12px',
+              left: '12px',
+              padding: '4px 8px',
+              backgroundColor: 'rgba(0,0,0,0.7)',
+              color: '#888',
+              fontSize: '12px',
+              borderRadius: '4px',
+              opacity: 0,
+              transition: 'opacity 0.2s ease',
+              pointerEvents: 'none',
+            }}
+          >
+            Drag to adjust crop
+          </div>
         )}
       </div>
       <div style={styles.postContent}>
@@ -400,13 +537,16 @@ function PostBlockView({ block, isEditing, onDisplayModeChange }: BlockRendererP
         .post-image-container:hover .display-mode-controls {
           opacity: 1 !important;
         }
+        .post-image-container:hover .drag-hint {
+          opacity: 1 !important;
+        }
       `}</style>
     </div>
   );
 }
 
 // Featured Post Block Component
-function FeaturedPostBlockView({ block, isEditing, onDisplayModeChange }: BlockRendererProps) {
+function FeaturedPostBlockView({ block, isEditing, onDisplayModeChange, onCropPositionChange }: BlockRendererProps) {
   const asset = block.asset;
   if (!asset) return null;
 
@@ -423,24 +563,57 @@ function FeaturedPostBlockView({ block, isEditing, onDisplayModeChange }: BlockR
           position: "relative" as const,
         }}
       >
-        <Link href={`/e/${asset.id}`}>
-          <Img
-            src={asset.medium_url || asset.url || asset.thumbnail_url}
-            alt={asset.title}
-            style={{
+        {/* Draggable image in cover mode when editing */}
+        {isEditing && !isFitMode && onCropPositionChange ? (
+          <DraggableImage
+            block={block}
+            imgStyle={{
               ...styles.featuredImage,
-              objectFit: isFitMode ? "contain" as const : "cover" as const,
-              objectPosition: isFitMode 
-                ? "center" 
-                : `${block.crop_position_x ?? 50}% ${block.crop_position_y ?? 0}%`,
+              objectFit: 'cover' as const,
             }}
+            onPositionChange={onCropPositionChange}
           />
-        </Link>
+        ) : (
+          <Link href={`/e/${asset.id}`}>
+            <Img
+              src={asset.medium_url || asset.url || asset.thumbnail_url}
+              alt={asset.title}
+              style={{
+                ...styles.featuredImage,
+                objectFit: isFitMode ? "contain" as const : "cover" as const,
+                objectPosition: isFitMode 
+                  ? "center" 
+                  : `${block.crop_position_x ?? 50}% ${block.crop_position_y ?? 0}%`,
+              }}
+            />
+          </Link>
+        )}
         {isEditing && onDisplayModeChange && (
           <DisplayModeControls 
             block={block} 
             onModeChange={onDisplayModeChange} 
           />
+        )}
+        {/* Drag hint */}
+        {isEditing && !isFitMode && onCropPositionChange && (
+          <div 
+            className="drag-hint"
+            style={{
+              position: 'absolute',
+              top: '12px',
+              left: '12px',
+              padding: '4px 8px',
+              backgroundColor: 'rgba(0,0,0,0.7)',
+              color: '#888',
+              fontSize: '12px',
+              borderRadius: '4px',
+              opacity: 0,
+              transition: 'opacity 0.2s ease',
+              pointerEvents: 'none',
+            }}
+          >
+            Drag to adjust crop
+          </div>
         )}
       </div>
       <div style={{ ...styles.postContent, padding: "20px 0" }}>
@@ -467,6 +640,9 @@ function FeaturedPostBlockView({ block, isEditing, onDisplayModeChange }: BlockR
       {/* CSS for hover effect */}
       <style>{`
         .featured-image-container:hover .display-mode-controls {
+          opacity: 1 !important;
+        }
+        .featured-image-container:hover .drag-hint {
           opacity: 1 !important;
         }
       `}</style>
