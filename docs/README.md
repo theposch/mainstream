@@ -7,6 +7,7 @@ Design collaboration platform for internal teams to share work and organize into
 - **[Getting Started](./ONBOARDING.md)** - Project overview and setup
 - **[Supabase Setup](./SUPABASE_SETUP.md)** - Database configuration
 - **[Streams Feature](./STREAMS_FEATURE.md)** - Core organizational system
+- **[Drops Feature](./DROPS_FEATURE.md)** - AI-powered newsletters
 - **[Backend Integration](./BACKEND_INTEGRATION.md)** - API and database details
 - **[AI Agent Guide](./AI_AGENT_GUIDE.md)** - For AI assistants working on this codebase
 
@@ -18,6 +19,9 @@ Design collaboration platform for internal teams to share work and organize into
 - **shadcn/ui** - Component library
 - **Supabase** - PostgreSQL database + Auth + Storage
 - **Framer Motion** - Animations
+- **LiteLLM** - AI integration (Gemini 2.5 Flash)
+- **React Email** - Email-compatible components
+- **Resend** - Email delivery
 
 ## Current Status
 
@@ -38,6 +42,10 @@ Design collaboration platform for internal teams to share work and organize into
 ✅ **Complete** - Real-time notifications with typing indicators  
 ✅ **Complete** - Comment deep linking (click notification → jump to comment)  
 ✅ **Complete** - Token encryption (AES-256-GCM for API tokens)  
+✅ **Complete** - Drops (AI-powered newsletters with block-based editor)  
+✅ **Complete** - AI description generation (LiteLLM + Gemini 2.5 Flash)  
+✅ **Complete** - Image galleries in drops (grid and featured layouts)  
+✅ **Complete** - Unlisted assets (drop-only images hidden from feed)  
 
 ## Project Structure
 
@@ -48,12 +56,16 @@ mainstream/
 │   ├── e/[id]/            # Asset detail pages
 │   ├── stream/[slug]/     # Stream pages
 │   ├── streams/           # All streams listing
+│   ├── drops/             # Drops (AI newsletters)
+│   │   └── [id]/edit/     # Block-based drop editor
 │   ├── u/[username]/      # User profiles
 │   ├── auth/              # Auth pages (signup/login)
 │   └── api/               # API routes
 ├── components/            # React components
 │   ├── assets/           # Asset cards and detail views
 │   ├── streams/          # Stream components
+│   ├── drops/            # Drop components and block editor
+│   │   └── blocks/       # Notion-like block components
 │   ├── users/            # User profile components
 │   ├── layout/           # Navigation, search, etc.
 │   └── ui/               # Base UI components (shadcn)
@@ -62,6 +74,7 @@ mainstream/
 │   ├── auth/            # Auth utilities
 │   ├── hooks/           # Custom React hooks
 │   ├── contexts/        # React contexts
+│   ├── utils/           # Utilities (AI, encryption, etc.)
 │   └── types/           # TypeScript types
 └── docs/                # Documentation
 ```
@@ -101,6 +114,15 @@ See assets from users and streams you follow.
 - Live notification updates
 - Typing indicators in comments
 - Comment deep linking (click notification → jump to comment)
+
+### Drops (AI Newsletter)
+AI-powered newsletters that summarize your team's weekly design work. Features:
+- **Block-based Editor** - Notion-like interface with text, headings, posts, galleries
+- **AI Generation** - Generate summaries using LiteLLM (Gemini 2.5 Flash)
+- **Image Galleries** - Multi-image blocks with grid/featured layouts
+- **Email Preview** - React Email components for cross-client compatibility
+- **Unlisted Assets** - Upload images that only appear in drops (not in feed)
+- **Display Controls** - Fit/Cover modes with adjustable crop position
 
 ## Development
 
