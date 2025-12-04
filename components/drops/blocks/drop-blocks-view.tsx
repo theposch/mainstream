@@ -4,6 +4,8 @@ import {
   Section,
   Heading,
   Text,
+  Img,
+  Hr,
 } from "@react-email/components";
 import { BlockRenderer } from "./block-renderer";
 import type { DropBlock, User } from "@/lib/types/database";
@@ -45,17 +47,6 @@ const styles = {
   },
   blocksContainer: {
     padding: "0 20px 40px",
-  },
-  contributorsSection: {
-    textAlign: "center" as const,
-    padding: "24px 20px",
-    borderTop: "1px solid #333",
-    marginTop: "32px",
-  },
-  contributorText: {
-    fontSize: "14px",
-    color: "#888888",
-    margin: "0",
   },
 };
 
@@ -99,13 +90,97 @@ export function DropBlocksView({
           fontSize: "16px",
           lineHeight: "1.7",
           color: "#a0a0a0",
-          padding: "0 20px 32px",
+          padding: "0 20px 16px",
           margin: "0",
           textAlign: "center" as const,
         }}>
           {description}
         </Text>
       )}
+
+      {/* Contributors avatars */}
+      {contributors.length > 0 && (
+        <Section style={{ textAlign: "center" as const, padding: "16px 20px" }}>
+          {/* Overlapping avatars using table for email compatibility */}
+          <div style={{ display: "inline-block" }}>
+            {contributors.slice(0, 5).map((contributor, index) => (
+              <div
+                key={contributor.id}
+                style={{
+                  display: "inline-block",
+                  marginLeft: index === 0 ? "0" : "-12px",
+                  position: "relative" as const,
+                  zIndex: contributors.length - index,
+                }}
+              >
+                {contributor.avatar_url ? (
+                  <Img
+                    src={contributor.avatar_url}
+                    alt={contributor.display_name}
+                    width={48}
+                    height={48}
+                    style={{
+                      borderRadius: "50%",
+                      border: "2px solid #000000",
+                      objectFit: "cover" as const,
+                    }}
+                  />
+                ) : (
+                  <div
+                    style={{
+                      width: "48px",
+                      height: "48px",
+                      borderRadius: "50%",
+                      border: "2px solid #000000",
+                      backgroundColor: "#3f3f46",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      color: "#ffffff",
+                      fontSize: "14px",
+                      fontWeight: "500",
+                    }}
+                  >
+                    {contributor.display_name.charAt(0).toUpperCase()}
+                  </div>
+                )}
+              </div>
+            ))}
+            {contributors.length > 5 && (
+              <div
+                style={{
+                  display: "inline-block",
+                  marginLeft: "-12px",
+                  width: "48px",
+                  height: "48px",
+                  borderRadius: "50%",
+                  border: "2px solid #000000",
+                  backgroundColor: "#27272a",
+                  color: "#a1a1aa",
+                  fontSize: "14px",
+                  fontWeight: "500",
+                  lineHeight: "44px",
+                  textAlign: "center" as const,
+                }}
+              >
+                +{contributors.length - 5}
+              </div>
+            )}
+          </div>
+          
+          {/* Post count text */}
+          <Text style={{
+            fontSize: "14px",
+            color: "#71717a",
+            margin: "12px 0 0 0",
+          }}>
+            {postCount} post{postCount !== 1 ? "s" : ""} from {contributorNames}
+          </Text>
+        </Section>
+      )}
+
+      {/* Divider */}
+      <Hr style={{ borderColor: "#27272a", margin: "16px 20px 32px" }} />
 
       {/* Blocks */}
       <div style={styles.blocksContainer}>
@@ -117,15 +192,6 @@ export function DropBlocksView({
           />
         ))}
       </div>
-
-      {/* Footer with contributors */}
-      {contributors.length > 0 && (
-        <Section style={styles.contributorsSection}>
-          <Text style={styles.contributorText}>
-            {postCount} post{postCount !== 1 ? "s" : ""} from {contributorNames}
-          </Text>
-        </Section>
-      )}
     </Container>
   );
 }
