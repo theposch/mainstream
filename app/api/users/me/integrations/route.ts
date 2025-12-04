@@ -9,6 +9,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { encrypt, decrypt, isEncryptionEnabled } from '@/lib/utils/encryption';
 
 export const dynamic = 'force-dynamic';
 
@@ -44,16 +45,21 @@ export async function GET() {
       );
     }
 
+    // Decrypt token to show preview (last 4 chars of actual token)
+    let tokenPreview: string | null = null;
+    if (userData?.figma_access_token) {
+      const decryptedToken = decrypt(userData.figma_access_token);
+      tokenPreview = `•••${decryptedToken.slice(-4)}`;
+    }
+
     // Return connection status, not the actual tokens
     return NextResponse.json({
       integrations: {
         figma: {
           connected: !!userData?.figma_access_token,
           connectedAt: userData?.figma_token_updated_at || null,
-          // Mask the token for display (show last 4 chars)
-          tokenPreview: userData?.figma_access_token 
-            ? `•••${userData.figma_access_token.slice(-4)}`
-            : null,
+          tokenPreview,
+          encrypted: isEncryptionEnabled(),
         },
       },
     });
@@ -125,9 +131,10 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Update the token
+    // Encrypt and update the token
+    const encryptedToken = token ? encrypt(token) : null;
     const updateData: Record<string, unknown> = {
-      figma_access_token: token || null, // null to disconnect
+      figma_access_token: encryptedToken, // null to disconnect
       figma_token_updated_at: token ? new Date().toISOString() : null,
     };
 
