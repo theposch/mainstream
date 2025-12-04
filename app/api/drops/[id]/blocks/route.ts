@@ -25,8 +25,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         *,
         asset:assets (
           *,
-          uploader:users (*),
-          streams (*)
+          uploader:users!uploader_id (*)
         )
       `)
       .eq("drop_id", dropId)
@@ -132,15 +131,14 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         *,
         asset:assets (
           *,
-          uploader:users (*),
-          streams (*)
+          uploader:users!uploader_id (*)
         )
       `)
       .single();
 
     if (createError) {
       console.error("Failed to create block:", createError);
-      return NextResponse.json({ error: "Failed to create block" }, { status: 500 });
+      return NextResponse.json({ error: "Failed to create block", details: createError.message }, { status: 500 });
     }
 
     // Mark drop as using blocks
