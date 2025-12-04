@@ -57,11 +57,20 @@ export async function GET(
       .eq('follower_id', user.id);
 
     // Get assets count (only public assets, not unlisted drop-only images)
-    const { count: assetsCount } = await supabase
+    // Try with visibility filter, fallback if column doesn't exist
+    let { count: assetsCount, error: countError } = await supabase
       .from('assets')
       .select('*', { count: 'exact', head: true })
       .eq('uploader_id', user.id)
       .or('visibility.is.null,visibility.eq.public');
+    
+    if (countError) {
+      const fallback = await supabase
+        .from('assets')
+        .select('*', { count: 'exact', head: true })
+        .eq('uploader_id', user.id);
+      assetsCount = fallback.count;
+    }
 
     // Check if current user follows this profile
     const { data: { user: currentUser } } = await supabase.auth.getUser();

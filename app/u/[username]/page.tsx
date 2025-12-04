@@ -132,25 +132,39 @@ export default function UserProfile({ params }: UserProfileProps) {
 
         // Fetch all data in parallel (include like counts)
         // Note: Like status is verified client-side for reliability
+        // Fetch user data in parallel
+        // Note: visibility filter may fail if migration 025 hasn't run yet
         const [
           { count: followersCount },
           { count: followingCount },
-          { count: assetsCount },
-          { data: assetsData },
+          assetsCountResult,
+          assetsDataResult,
           { data: streamsData },
           { data: likedData },
         ] = await Promise.all([
           supabase.from('user_follows').select('*', { count: 'exact', head: true }).eq('following_id', userData.id),
           supabase.from('user_follows').select('*', { count: 'exact', head: true }).eq('follower_id', userData.id),
-          // Only count public assets (exclude unlisted drop-only images)
+          // Try with visibility filter, will fallback below if needed
           supabase.from('assets').select('*', { count: 'exact', head: true }).eq('uploader_id', userData.id).or('visibility.is.null,visibility.eq.public'),
-          // Only show public assets (exclude unlisted drop-only images)
           supabase.from('assets').select(`*, uploader:users!uploader_id(*), asset_likes(count)`).eq('uploader_id', userData.id).or('visibility.is.null,visibility.eq.public').order('created_at', { ascending: false }),
           supabase.from('streams').select('*').eq('owner_id', userData.id).eq('owner_type', 'user').eq('status', 'active'),
           supabase.from('asset_likes')
             .select(`asset_id, assets(*, uploader:users!uploader_id(*), asset_likes(count))`)
             .eq('user_id', userData.id)
         ]);
+        
+        // Fallback if visibility column doesn't exist yet
+        let assetsCount = assetsCountResult.count;
+        let assetsData = assetsDataResult.data;
+        
+        if (assetsCountResult.error || assetsDataResult.error) {
+          const [countFallback, dataFallback] = await Promise.all([
+            supabase.from('assets').select('*', { count: 'exact', head: true }).eq('uploader_id', userData.id),
+            supabase.from('assets').select(`*, uploader:users!uploader_id(*), asset_likes(count)`).eq('uploader_id', userData.id).order('created_at', { ascending: false }),
+          ]);
+          assetsCount = countFallback.count;
+          assetsData = dataFallback.data;
+        }
 
         setStats({
           followers: followersCount || 0,

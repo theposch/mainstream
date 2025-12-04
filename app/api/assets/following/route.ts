@@ -123,13 +123,12 @@ export async function GET(request: NextRequest) {
     const assetQueries: PromiseLike<any>[] = [];
     
     // Query for assets from followed users
-    // Exclude unlisted assets (drop-only images that shouldn't appear in feed)
+    // Note: visibility filter may fail if migration 025 hasn't run yet
     if (followingUserIds.length > 0) {
       let userAssetsQuery = supabase
         .from('assets')
         .select(baseSelect)
-        .in('uploader_id', followingUserIds)
-        .or('visibility.is.null,visibility.eq.public');
+        .in('uploader_id', followingUserIds);
       
       // Apply cursor filter BEFORE limit for correct pagination semantics
       if (cursor) {
@@ -144,13 +143,11 @@ export async function GET(request: NextRequest) {
     }
     
     // Query for assets from followed streams
-    // Exclude unlisted assets (drop-only images that shouldn't appear in feed)
     if (streamAssetIds.length > 0) {
       let streamAssetsQuery = supabase
         .from('assets')
         .select(baseSelect)
-        .in('id', streamAssetIds)
-        .or('visibility.is.null,visibility.eq.public');
+        .in('id', streamAssetIds);
 
       // Apply cursor filter BEFORE limit for correct pagination semantics
     if (cursor) {

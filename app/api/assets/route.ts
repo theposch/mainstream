@@ -40,16 +40,31 @@ export async function GET() {
     const supabase = await createClient();
     
     // Query assets from Supabase with uploader information
-    // Exclude unlisted assets (drop-only images that shouldn't appear in feed)
-    const { data: assets, error } = await supabase
+    // Try with visibility filter (excludes unlisted drop-only images)
+    // Falls back to no filter if visibility column doesn't exist yet
+    let { data: assets, error } = await supabase
       .from('assets')
       .select(`
         *,
         uploader:users!uploader_id(*)
       `)
-      .or('visibility.is.null,visibility.eq.public') // Include null (legacy) and public
+      .or('visibility.is.null,visibility.eq.public')
       .order('created_at', { ascending: false })
       .limit(100);
+    
+    // Fallback if visibility column doesn't exist yet (migration 025)
+    if (error) {
+      const fallback = await supabase
+        .from('assets')
+        .select(`
+          *,
+          uploader:users!uploader_id(*)
+        `)
+        .order('created_at', { ascending: false })
+        .limit(100);
+      assets = fallback.data;
+      error = fallback.error;
+    }
 
     if (error) {
       console.error('[GET /api/assets] Database error:', error);
