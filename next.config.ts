@@ -15,6 +15,20 @@ const nextConfig: NextConfig = {
         protocol: 'https',
         hostname: 'avatar.vercel.sh',
       },
+      // Figma oEmbed thumbnails
+      {
+        protocol: 'https',
+        hostname: 'api-cdn.figma.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 's3-alpha.figma.com',
+      },
+      // Figma REST API rendered images (frame-specific thumbnails)
+      {
+        protocol: 'https',
+        hostname: 'figma-alpha-api.s3.us-west-2.amazonaws.com',
+      },
     ],
     // Allow data URLs for uploaded images (local development)
     dangerouslyAllowSVG: true,

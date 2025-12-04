@@ -19,11 +19,13 @@ interface PostMetadataFormProps {
   disabled?: boolean;
   titlePlaceholder?: string;
   descriptionPlaceholder?: string;
-  variant?: "upload" | "edit";
+  variant?: "upload" | "edit" | "embed";
   /** Whether to show labels for form fields */
   showLabels?: boolean;
   /** Custom className for the container */
   className?: string;
+  /** Hide title and description fields (only show stream picker) */
+  hideTextFields?: boolean;
 }
 
 /**
@@ -49,6 +51,7 @@ export function PostMetadataForm({
   variant = "upload",
   showLabels = false,
   className,
+  hideTextFields = false,
 }: PostMetadataFormProps) {
   const {
     streamIds,
@@ -147,53 +150,61 @@ export function PostMetadataForm({
       
       <div className="space-y-3">
         {/* Title */}
-        {showLabels && (
-          <Label htmlFor="title" className="text-zinc-300">
-            Title <span className="text-red-500">*</span>
-          </Label>
+        {!hideTextFields && (
+          <>
+            {showLabels && (
+              <Label htmlFor="title" className="text-zinc-300">
+                Title <span className="text-red-500">*</span>
+              </Label>
+            )}
+            <Input
+              id="title"
+              value={title}
+              onChange={(e) => onTitleChange(e.target.value)}
+              placeholder={titlePlaceholder}
+              className={isUploadVariant 
+                ? "border-none shadow-none bg-transparent !text-[19px] font-bold text-white px-0 h-auto focus-visible:ring-0 placeholder:text-zinc-600 leading-snug"
+                : "bg-zinc-900 border-zinc-800 text-white placeholder:text-zinc-600"
+              }
+              required
+              autoFocus={isUploadVariant}
+              maxLength={200}
+              disabled={disabled}
+            />
+          </>
         )}
-        <Input
-          id="title"
-          value={title}
-          onChange={(e) => onTitleChange(e.target.value)}
-          placeholder={titlePlaceholder}
-          className={isUploadVariant 
-            ? "border-none shadow-none bg-transparent !text-[19px] font-bold text-white px-0 h-auto focus-visible:ring-0 placeholder:text-zinc-600 leading-snug"
-            : "bg-zinc-900 border-zinc-800 text-white placeholder:text-zinc-600"
-          }
-          required
-          autoFocus={isUploadVariant}
-          maxLength={200}
-          disabled={disabled}
-        />
         
         {/* Description */}
-        {showLabels && (
-          <div className="flex items-center justify-between">
-            <Label htmlFor="description" className="text-zinc-300">
-              Description
-            </Label>
-            <p className="text-xs text-zinc-600">
-              {description.length}/2000 characters
-            </p>
-          </div>
-        )}
-        <RichTextArea
-          value={description}
-          onChange={onDescriptionChange}
-          placeholder={descriptionPlaceholder}
-          onHashtagTrigger={handleHashtagTrigger}
-          onHashtagComplete={handleHashtagComplete}
-          disabled={disabled}
-          className={isUploadVariant
-            ? "border-none shadow-none bg-transparent px-0 min-h-[40px] !text-[15px] text-zinc-400"
-            : "bg-zinc-900 border-zinc-800 text-white placeholder:text-zinc-600 min-h-[100px] px-3 py-2 rounded-md"
-          }
-        />
-        {!showLabels && !isUploadVariant && (
-          <p className="text-xs text-zinc-600">
-            {description.length}/2000 characters
-          </p>
+        {!hideTextFields && (
+          <>
+            {showLabels && (
+              <div className="flex items-center justify-between">
+                <Label htmlFor="description" className="text-zinc-300">
+                  Description
+                </Label>
+                <p className="text-xs text-zinc-600">
+                  {description.length}/2000 characters
+                </p>
+              </div>
+            )}
+            <RichTextArea
+              value={description}
+              onChange={onDescriptionChange}
+              placeholder={descriptionPlaceholder}
+              onHashtagTrigger={handleHashtagTrigger}
+              onHashtagComplete={handleHashtagComplete}
+              disabled={disabled}
+              className={isUploadVariant
+                ? "border-none shadow-none bg-transparent px-0 min-h-[40px] !text-[15px] text-zinc-400"
+                : "bg-zinc-900 border-zinc-800 text-white placeholder:text-zinc-600 min-h-[100px] px-3 py-2 rounded-md"
+              }
+            />
+            {!showLabels && !isUploadVariant && (
+              <p className="text-xs text-zinc-600">
+                {description.length}/2000 characters
+              </p>
+            )}
+          </>
         )}
 
         {/* Stream Picker */}
