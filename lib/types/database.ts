@@ -118,3 +118,39 @@ export interface StreamBookmark {
   created_at: string;
   position: number;
 }
+
+// Drop (AI-powered newsletter)
+export interface Drop {
+  id: string;
+  title: string;
+  description: string | null;
+  status: 'draft' | 'published';
+  created_by: string;
+  published_at: string | null;
+  date_range_start: string;
+  date_range_end: string;
+  filter_stream_ids: string[] | null;
+  filter_user_ids: string[] | null;
+  is_weekly: boolean;
+  created_at: string;
+  updated_at: string;
+  // Joined data
+  creator?: User;
+}
+
+// Drop post junction (many-to-many between drops and assets)
+export interface DropPost {
+  drop_id: string;
+  asset_id: string;
+  position: number;
+  created_at: string;
+  // Joined data
+  asset?: Asset;
+}
+
+// Drop with enriched data for display
+export interface DropWithDetails extends Drop {
+  posts: Array<Asset & { position: number }>;
+  contributors: User[];
+  post_count: number;
+}
