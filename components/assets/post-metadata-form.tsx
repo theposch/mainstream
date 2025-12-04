@@ -95,9 +95,10 @@ export function PostMetadataForm({
 
   const handleGenerateDescription = React.useCallback(() => {
     if (imageUrl && !isGeneratingAI && !disabled) {
-      generateAIDescription(imageUrl);
+      // Pass existing description so AI can enhance it rather than overwrite
+      generateAIDescription(imageUrl, description);
     }
-  }, [imageUrl, isGeneratingAI, disabled, generateAIDescription]);
+  }, [imageUrl, isGeneratingAI, disabled, generateAIDescription, description]);
   
   // Handle hashtag trigger in description
   const handleHashtagTrigger = React.useCallback((
@@ -236,7 +237,13 @@ export function PostMetadataForm({
                     !isGeneratingAI && "opacity-0 group-hover:opacity-100",
                     isGeneratingAI && "opacity-100 text-violet-400"
                   )}
-                  title={isGeneratingAI ? "Generating description..." : "Generate description with AI"}
+                  title={
+                    isGeneratingAI 
+                      ? "Generating description..." 
+                      : description.trim() 
+                        ? "Enhance description with AI" 
+                        : "Generate description with AI"
+                  }
                 >
                   {isGeneratingAI ? (
                     <Loader2 className="h-4 w-4 animate-spin" />

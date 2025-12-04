@@ -8,7 +8,8 @@ interface UseAIDescriptionOptions {
 }
 
 interface UseAIDescriptionReturn {
-  generate: (imageUrl: string) => Promise<void>;
+  /** Generate a description. Pass existingDescription to enhance rather than replace. */
+  generate: (imageUrl: string, existingDescription?: string) => Promise<void>;
   isGenerating: boolean;
   error: string | null;
   clearError: () => void;
@@ -22,8 +23,11 @@ interface UseAIDescriptionReturn {
  *   onSuccess: (description) => setDescription(description),
  * });
  * 
- * // Call when user clicks generate button
+ * // Generate fresh description
  * await generate(imageUrl);
+ * 
+ * // Enhance existing description
+ * await generate(imageUrl, currentDescription);
  */
 export function useAIDescription(
   options: UseAIDescriptionOptions = {}
@@ -37,7 +41,7 @@ export function useAIDescription(
   }, []);
 
   const generate = useCallback(
-    async (imageUrl: string) => {
+    async (imageUrl: string, existingDescription?: string) => {
       if (!imageUrl) {
         const errorMsg = "No image URL provided";
         setError(errorMsg);
@@ -54,7 +58,10 @@ export function useAIDescription(
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({ imageUrl }),
+          body: JSON.stringify({ 
+            imageUrl,
+            existingDescription: existingDescription?.trim() || undefined,
+          }),
         });
 
         const data = await response.json();

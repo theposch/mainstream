@@ -39,11 +39,13 @@ export function isAIConfigured(): boolean {
  * Generates a description for an image using AI vision capabilities
  * 
  * @param imageUrl - URL of the image to analyze (can be local path or remote URL)
+ * @param existingDescription - Optional existing description to enhance/refine
  * @returns AI-generated description
  * @throws AIError if the request fails
  */
 export async function generateImageDescription(
-  imageUrl: string
+  imageUrl: string,
+  existingDescription?: string
 ): Promise<AIDescriptionResult> {
   if (!isAIConfigured()) {
     throw new AIError(
@@ -52,7 +54,23 @@ export async function generateImageDescription(
     );
   }
 
-  const prompt = `You are helping describe design assets for a creative collaboration platform called Mainstream.
+  // Different prompts based on whether there's existing text
+  const hasExistingText = existingDescription && existingDescription.trim().length > 0;
+  
+  const prompt = hasExistingText
+    ? `You are helping enhance a description for a design asset on a creative collaboration platform called Mainstream.
+
+The user has already written this description:
+"${existingDescription.trim()}"
+
+Now, looking at the image, enhance and expand their description to be more complete and engaging (2-3 sentences total). 
+- Keep the user's intent and key points
+- Add visual details they may have missed
+- Improve clarity and flow
+- Maintain their tone if they established one
+
+Respond with ONLY the enhanced description text, no JSON formatting or additional commentary.`
+    : `You are helping describe design assets for a creative collaboration platform called Mainstream.
 
 Analyze this image and provide a concise, engaging description (2-3 sentences) that describes:
 - What the design/image shows

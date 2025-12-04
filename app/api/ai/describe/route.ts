@@ -23,7 +23,7 @@ export async function POST(request: NextRequest) {
 
     // Parse request body
     const body = await request.json();
-    const { imageUrl } = body;
+    const { imageUrl, existingDescription } = body;
 
     if (!imageUrl) {
       return NextResponse.json(
@@ -32,18 +32,20 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validate URL format
-    try {
-      new URL(imageUrl);
-    } catch {
-      return NextResponse.json(
-        { error: "Invalid imageUrl format" },
-        { status: 400 }
-      );
+    // Validate URL format (skip for data URLs)
+    if (!imageUrl.startsWith("data:")) {
+      try {
+        new URL(imageUrl);
+      } catch {
+        return NextResponse.json(
+          { error: "Invalid imageUrl format" },
+          { status: 400 }
+        );
+      }
     }
 
-    // Generate description using AI
-    const result = await generateImageDescription(imageUrl);
+    // Generate description using AI (pass existing description if provided)
+    const result = await generateImageDescription(imageUrl, existingDescription);
 
     return NextResponse.json(result);
   } catch (error) {
