@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Plus, GripVertical, Trash2, Type, Heading1, Minus, Quote, Image, Star, Images, Check } from "lucide-react";
+import { Plus, GripVertical, Trash2, Type, Heading1, Minus, Quote, Image, Star, Images, Check, Upload, Loader2, X } from "lucide-react";
 import { BlockRenderer } from "./block-renderer";
 import type { DropBlock, DropBlockType, Asset, GalleryLayout } from "@/lib/types/database";
 
@@ -34,6 +34,13 @@ export function BlockEditor({ dropId, blocks, onBlocksChange, availableAssets = 
   const [draggedIndex, setDraggedIndex] = React.useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = React.useState<number | null>(null);
   const saveTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
+  // Local state for assets (to include newly uploaded ones)
+  const [localAssets, setLocalAssets] = React.useState<Asset[]>(availableAssets);
+  
+  // Update local assets when prop changes
+  React.useEffect(() => {
+    setLocalAssets(availableAssets);
+  }, [availableAssets]);
 
   // Add a new block
   const handleAddBlock = async (type: DropBlockType, position: number, assetId?: string, assetIds?: string[]) => {
@@ -349,7 +356,8 @@ export function BlockEditor({ dropId, blocks, onBlocksChange, availableAssets = 
               onGalleryFeaturedIndexChange={(index) => handleGalleryFeaturedIndexChange(block.id, index)}
               onGalleryAddImages={(assetIds) => handleGalleryAddImages(block.id, assetIds)}
               onGalleryRemoveImage={(assetId) => handleGalleryRemoveImage(block.id, assetId)}
-              availableAssets={availableAssets}
+              availableAssets={localAssets}
+              onAssetUploaded={(newAsset) => setLocalAssets((prev) => [newAsset, ...prev])}
             />
           </div>
 
@@ -366,11 +374,15 @@ export function BlockEditor({ dropId, blocks, onBlocksChange, availableAssets = 
       {/* Asset picker modal */}
       {showAssetPicker && (
         <AssetPickerModal
-          assets={availableAssets}
+          assets={localAssets}
           multiSelect={showAssetPicker.multiSelect}
           onSelect={(assetId) => handleAddBlock(showAssetPicker.type, showAssetPicker.position, assetId)}
           onMultiSelect={(assetIds) => handleAddBlock(showAssetPicker.type, showAssetPicker.position, undefined, assetIds)}
           onClose={() => setShowAssetPicker(null)}
+          onAssetUploaded={(newAsset) => {
+            // Add new asset to local list so it appears in the picker
+            setLocalAssets((prev) => [newAsset, ...prev]);
+          }}
         />
       )}
 
@@ -427,22 +439,34 @@ function AddBlockButton({
   );
 }
 
-// Asset Picker Modal
+// Asset Picker Modal with Upload support
 function AssetPickerModal({
   assets,
   multiSelect = false,
   onSelect,
   onMultiSelect,
   onClose,
+  onAssetUploaded,
 }: {
   assets: Asset[];
   multiSelect?: boolean;
   onSelect: (assetId: string) => void;
   onMultiSelect?: (assetIds: string[]) => void;
   onClose: () => void;
+  onAssetUploaded?: (asset: Asset) => void;
 }) {
+  const [activeTab, setActiveTab] = React.useState<"browse" | "upload">("browse");
   const [search, setSearch] = React.useState("");
   const [selectedIds, setSelectedIds] = React.useState<string[]>([]);
+  
+  // Upload state
+  const [file, setFile] = React.useState<File | null>(null);
+  const [preview, setPreview] = React.useState<string | null>(null);
+  const [uploadTitle, setUploadTitle] = React.useState("");
+  const [isUploading, setIsUploading] = React.useState(false);
+  const [uploadError, setUploadError] = React.useState<string | null>(null);
+  const [isDragging, setIsDragging] = React.useState(false);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   const filteredAssets = assets.filter((asset) =>
     asset.title.toLowerCase().includes(search.toLowerCase())
@@ -463,6 +487,95 @@ function AssetPickerModal({
     onClose();
   };
 
+  // File handling
+  const handleFileSelect = (selectedFile: File) => {
+    if (!selectedFile.type.startsWith("image/")) {
+      setUploadError("Please select an image file");
+      return;
+    }
+    if (selectedFile.size > 10 * 1024 * 1024) {
+      setUploadError("File size must be less than 10MB");
+      return;
+    }
+    setFile(selectedFile);
+    setUploadError(null);
+    // Generate preview
+    const reader = new FileReader();
+    reader.onload = (e) => setPreview(e.target?.result as string);
+    reader.readAsDataURL(selectedFile);
+    // Set default title from filename
+    if (!uploadTitle) {
+      const nameWithoutExt = selectedFile.name.replace(/\.[^/.]+$/, "");
+      setUploadTitle(nameWithoutExt);
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    const droppedFile = e.dataTransfer.files[0];
+    if (droppedFile) {
+      handleFileSelect(droppedFile);
+    }
+  };
+
+  const handleUpload = async () => {
+    if (!file) return;
+    
+    setIsUploading(true);
+    setUploadError(null);
+
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("title", uploadTitle.trim() || file.name.replace(/\.[^/.]+$/, ""));
+
+      const response = await fetch("/api/assets/upload", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || "Failed to upload image");
+      }
+
+      const { asset } = await response.json();
+      
+      // Notify parent of new asset
+      onAssetUploaded?.(asset);
+      
+      if (multiSelect) {
+        // Add to selection and stay in modal
+        setSelectedIds([...selectedIds, asset.id]);
+        // Reset upload form
+        setFile(null);
+        setPreview(null);
+        setUploadTitle("");
+        // Switch to browse tab to show the new asset
+        setActiveTab("browse");
+      } else {
+        // Single select - use the asset and close
+        onSelect(asset.id);
+        onClose();
+      }
+    } catch (err) {
+      setUploadError(err instanceof Error ? err.message : "Failed to upload");
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const clearUpload = () => {
+    setFile(null);
+    setPreview(null);
+    setUploadTitle("");
+    setUploadError(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80">
       <div className="w-full max-w-2xl max-h-[80vh] bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden flex flex-col">
@@ -473,70 +586,202 @@ function AssetPickerModal({
               {multiSelect ? "Select images for gallery" : "Select a post"}
             </h3>
             <button onClick={onClose} className="text-zinc-500 hover:text-white">
-              ✕
+              <X className="h-5 w-5" />
             </button>
           </div>
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search posts..."
-            className="w-full px-4 py-2 bg-zinc-800 border border-zinc-700 rounded-lg text-white placeholder:text-zinc-500 focus:outline-none focus:border-zinc-600"
-          />
-          {multiSelect && selectedIds.length > 0 && (
-            <p className="text-sm text-violet-400 mt-2">{selectedIds.length} images selected</p>
+          
+          {/* Tabs */}
+          <div className="flex gap-1 mb-3">
+            <button
+              onClick={() => setActiveTab("browse")}
+              className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
+                activeTab === "browse"
+                  ? "bg-zinc-800 text-white"
+                  : "text-zinc-400 hover:text-white hover:bg-zinc-800/50"
+              }`}
+            >
+              Browse Posts
+            </button>
+            <button
+              onClick={() => setActiveTab("upload")}
+              className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors flex items-center gap-2 ${
+                activeTab === "upload"
+                  ? "bg-zinc-800 text-white"
+                  : "text-zinc-400 hover:text-white hover:bg-zinc-800/50"
+              }`}
+            >
+              <Upload className="h-4 w-4" />
+              Upload New
+            </button>
+          </div>
+
+          {activeTab === "browse" && (
+            <>
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search posts..."
+                className="w-full px-4 py-2 bg-zinc-800 border border-zinc-700 rounded-lg text-white placeholder:text-zinc-500 focus:outline-none focus:border-zinc-600"
+              />
+              {multiSelect && selectedIds.length > 0 && (
+                <p className="text-sm text-violet-400 mt-2">{selectedIds.length} images selected</p>
+              )}
+            </>
           )}
         </div>
 
-        {/* Asset list */}
+        {/* Content */}
         <div className="p-4 overflow-y-auto flex-1">
-          {filteredAssets.length === 0 ? (
-            <p className="text-center text-zinc-500 py-8">No posts found</p>
+          {activeTab === "browse" ? (
+            // Browse existing posts
+            filteredAssets.length === 0 ? (
+              <div className="text-center py-8">
+                <p className="text-zinc-500">No posts found</p>
+                <button
+                  onClick={() => setActiveTab("upload")}
+                  className="mt-3 text-sm text-violet-400 hover:text-violet-300"
+                >
+                  Upload a new image instead
+                </button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-3 gap-3">
+                {filteredAssets.map((asset) => {
+                  const isSelected = selectedIds.includes(asset.id);
+                  return (
+                    <button
+                      key={asset.id}
+                      onClick={() => {
+                        if (multiSelect) {
+                          toggleSelection(asset.id);
+                        } else {
+                          onSelect(asset.id);
+                          onClose();
+                        }
+                      }}
+                      className={`group relative aspect-square rounded-lg overflow-hidden bg-zinc-800 transition-all ${
+                        isSelected ? "ring-2 ring-violet-500" : "hover:ring-2 hover:ring-violet-500/50"
+                      }`}
+                    >
+                      <img
+                        src={asset.thumbnail_url || asset.url}
+                        alt={asset.title}
+                        className="w-full h-full object-cover"
+                      />
+                      {isSelected && (
+                        <div className="absolute top-2 right-2 w-6 h-6 bg-violet-500 rounded-full flex items-center justify-center">
+                          <Check className="h-4 w-4 text-white" />
+                        </div>
+                      )}
+                      <div className={`absolute inset-0 bg-gradient-to-t from-black/80 to-transparent ${
+                        isSelected ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+                      } transition-opacity`}>
+                        <div className="absolute bottom-2 left-2 right-2">
+                          <p className="text-xs text-white font-medium truncate">{asset.title}</p>
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )
           ) : (
-            <div className="grid grid-cols-3 gap-3">
-              {filteredAssets.map((asset) => {
-                const isSelected = selectedIds.includes(asset.id);
-                return (
-                  <button
-                    key={asset.id}
-                    onClick={() => {
-                      if (multiSelect) {
-                        toggleSelection(asset.id);
-                      } else {
-                        onSelect(asset.id);
-                        onClose();
-                      }
+            // Upload new image
+            <div className="space-y-4">
+              {!file ? (
+                // Drop zone
+                <div
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    setIsDragging(true);
+                  }}
+                  onDragLeave={() => setIsDragging(false)}
+                  onDrop={handleDrop}
+                  onClick={() => fileInputRef.current?.click()}
+                  className={`border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-colors ${
+                    isDragging
+                      ? "border-violet-500 bg-violet-500/10"
+                      : "border-zinc-700 hover:border-zinc-600 hover:bg-zinc-800/50"
+                  }`}
+                >
+                  <Upload className="h-10 w-10 mx-auto text-zinc-500 mb-3" />
+                  <p className="text-white font-medium mb-1">
+                    Drop an image here or click to browse
+                  </p>
+                  <p className="text-sm text-zinc-500">
+                    PNG, JPG, GIF, WebP up to 10MB
+                  </p>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => {
+                      const selectedFile = e.target.files?.[0];
+                      if (selectedFile) handleFileSelect(selectedFile);
                     }}
-                    className={`group relative aspect-square rounded-lg overflow-hidden bg-zinc-800 transition-all ${
-                      isSelected ? "ring-2 ring-violet-500" : "hover:ring-2 hover:ring-violet-500/50"
-                    }`}
-                  >
+                    className="hidden"
+                  />
+                </div>
+              ) : (
+                // Preview
+                <div className="space-y-4">
+                  <div className="relative aspect-video rounded-lg overflow-hidden bg-zinc-800">
                     <img
-                      src={asset.thumbnail_url || asset.url}
-                      alt={asset.title}
-                      className="w-full h-full object-cover"
+                      src={preview!}
+                      alt="Preview"
+                      className="w-full h-full object-contain"
                     />
-                    {isSelected && (
-                      <div className="absolute top-2 right-2 w-6 h-6 bg-violet-500 rounded-full flex items-center justify-center">
-                        <Check className="h-4 w-4 text-white" />
-                      </div>
+                    <button
+                      onClick={clearUpload}
+                      className="absolute top-2 right-2 p-1.5 bg-black/60 rounded-full hover:bg-black/80 transition-colors"
+                    >
+                      <X className="h-4 w-4 text-white" />
+                    </button>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-zinc-400 mb-1.5">
+                      Title (optional)
+                    </label>
+                    <input
+                      type="text"
+                      value={uploadTitle}
+                      onChange={(e) => setUploadTitle(e.target.value)}
+                      placeholder="Enter a title..."
+                      className="w-full px-4 py-2 bg-zinc-800 border border-zinc-700 rounded-lg text-white placeholder:text-zinc-500 focus:outline-none focus:border-zinc-600"
+                    />
+                  </div>
+
+                  {uploadError && (
+                    <p className="text-sm text-red-400">{uploadError}</p>
+                  )}
+
+                  <button
+                    onClick={handleUpload}
+                    disabled={isUploading}
+                    className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-violet-600 text-white rounded-lg hover:bg-violet-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    {isUploading ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Uploading...
+                      </>
+                    ) : (
+                      <>
+                        <Upload className="h-4 w-4" />
+                        {multiSelect ? "Upload & Add to Selection" : "Upload & Use"}
+                      </>
                     )}
-                    <div className={`absolute inset-0 bg-gradient-to-t from-black/80 to-transparent ${
-                      isSelected ? "opacity-100" : "opacity-0 group-hover:opacity-100"
-                    } transition-opacity`}>
-                      <div className="absolute bottom-2 left-2 right-2">
-                        <p className="text-xs text-white font-medium truncate">{asset.title}</p>
-                      </div>
-                    </div>
                   </button>
-                );
-              })}
+                </div>
+              )}
             </div>
           )}
         </div>
 
         {/* Footer for multi-select */}
-        {multiSelect && (
+        {multiSelect && activeTab === "browse" && (
           <div className="p-4 border-t border-zinc-800 flex justify-end gap-3">
             <button
               onClick={onClose}
