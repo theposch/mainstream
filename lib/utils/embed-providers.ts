@@ -56,10 +56,11 @@ export function detectProvider(url: string): EmbedProvider {
 
 /**
  * Checks if a URL is from a supported embed provider
+ * Only returns true for providers that are fully implemented
  */
 export function isSupportedUrl(url: string): boolean {
   const provider = detectProvider(url);
-  return provider !== 'unknown';
+  return isProviderSupported(provider);
 }
 
 /**
@@ -243,9 +244,10 @@ export function getFigmaNodeId(url: string): string | null {
 
 /**
  * Converts node-id from URL format (4919-3452) to API format (4919:3452)
+ * Uses global replace to handle multi-segment node IDs (e.g., 4919-3452-1234 -> 4919:3452:1234)
  */
 export function convertNodeIdToApiFormat(nodeId: string): string {
-  return nodeId.replace('-', ':');
+  return nodeId.replace(/-/g, ':');
 }
 
 /**
