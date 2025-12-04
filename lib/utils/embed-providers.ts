@@ -177,6 +177,56 @@ export function getFigmaTitle(url: string): string | null {
   }
 }
 
+/**
+ * Figma oEmbed response type
+ */
+export interface FigmaOEmbedResponse {
+  title: string;
+  thumbnail_url?: string;
+  author_name?: string;
+  author_url?: string;
+  provider_name: string;
+  provider_url: string;
+  type: string;
+  version: string;
+  width?: number;
+  height?: number;
+}
+
+/**
+ * Fetches Figma file metadata via oEmbed API
+ * 
+ * This endpoint is public and doesn't require authentication.
+ * However, it may not return thumbnails for private files.
+ * 
+ * @param figmaUrl - The Figma file URL
+ * @returns oEmbed data including thumbnail_url, or null if failed
+ */
+export async function fetchFigmaOEmbed(figmaUrl: string): Promise<FigmaOEmbedResponse | null> {
+  try {
+    const oembedUrl = `https://www.figma.com/api/oembed?url=${encodeURIComponent(figmaUrl)}`;
+    
+    const response = await fetch(oembedUrl, {
+      headers: {
+        'Accept': 'application/json',
+      },
+      // Don't cache for too long since thumbnails can change
+      next: { revalidate: 3600 }, // 1 hour
+    });
+    
+    if (!response.ok) {
+      console.log(`[fetchFigmaOEmbed] Failed to fetch oEmbed: ${response.status}`);
+      return null;
+    }
+    
+    const data = await response.json();
+    return data as FigmaOEmbedResponse;
+  } catch (error) {
+    console.error('[fetchFigmaOEmbed] Error:', error);
+    return null;
+  }
+}
+
 // ============================================================================
 // YouTube Specific (for future implementation)
 // ============================================================================
