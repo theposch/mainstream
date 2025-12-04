@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { ArrowLeft, Sparkles, Loader2 } from "lucide-react";
+import { ArrowLeft, Sparkles, Loader2, Eye, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { BlockEditor, DropBlocksView } from "@/components/drops/blocks";
 import { DropPublishDialog } from "@/components/drops/drop-publish-dialog";
@@ -128,9 +128,23 @@ export function DropBlocksEditorClient({
           <div className="flex items-center gap-3">
             <button
               onClick={() => setShowPreview(!showPreview)}
-              className="px-3 py-1.5 text-sm text-zinc-400 hover:text-white transition-colors"
+              className={`flex items-center gap-2 px-3 py-1.5 text-sm rounded-lg transition-colors ${
+                showPreview 
+                  ? "bg-violet-500/20 text-violet-400" 
+                  : "text-zinc-400 hover:text-white hover:bg-zinc-800"
+              }`}
             >
-              {showPreview ? "Edit" : "Preview"}
+              {showPreview ? (
+                <>
+                  <Pencil className="h-4 w-4" />
+                  Edit
+                </>
+              ) : (
+                <>
+                  <Eye className="h-4 w-4" />
+                  Preview
+                </>
+              )}
             </button>
             <span className="px-2.5 py-1 text-xs font-medium bg-amber-500/20 text-amber-400 rounded">
               DRAFT
