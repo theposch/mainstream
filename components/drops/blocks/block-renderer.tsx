@@ -24,6 +24,7 @@ interface BlockRendererProps {
   onGalleryAddImages?: (assetIds: string[]) => void;
   onGalleryRemoveImage?: (assetId: string) => void;
   availableAssets?: Asset[];
+  onAssetUploaded?: (asset: Asset) => void;
 }
 
 // Shared styles
@@ -803,8 +804,16 @@ function ImageGalleryBlockView({
   onGalleryRemoveImage,
   onGalleryAddImages,
   availableAssets,
+  onAssetUploaded,
 }: BlockRendererProps) {
   const [showAddModal, setShowAddModal] = React.useState(false);
+  // Local assets state to include newly uploaded ones
+  const [localAssets, setLocalAssets] = React.useState<Asset[]>(availableAssets || []);
+  
+  // Update local assets when prop changes
+  React.useEffect(() => {
+    setLocalAssets(availableAssets || []);
+  }, [availableAssets]);
   const images = block.gallery_images || [];
   const layout = block.gallery_layout || 'grid';
   const featuredIndex = block.gallery_featured_index || 0;
@@ -838,15 +847,19 @@ function ImageGalleryBlockView({
         >
           Add Images
         </button>
-        {showAddModal && availableAssets && onGalleryAddImages && (
+        {showAddModal && localAssets && onGalleryAddImages && (
           <GalleryAddModal
-            assets={availableAssets}
+            assets={localAssets}
             existingImageIds={images.map((img) => img.asset_id)}
             onAdd={(assetIds) => {
               onGalleryAddImages(assetIds);
               setShowAddModal(false);
             }}
             onClose={() => setShowAddModal(false)}
+            onAssetUploaded={(newAsset) => {
+              setLocalAssets((prev) => [newAsset, ...prev]);
+              onAssetUploaded?.(newAsset);
+            }}
           />
         )}
       </div>
@@ -1042,15 +1055,19 @@ function ImageGalleryBlockView({
       </div>
 
       {/* Add modal */}
-      {showAddModal && availableAssets && onGalleryAddImages && (
+      {showAddModal && localAssets && onGalleryAddImages && (
         <GalleryAddModal
-          assets={availableAssets}
+          assets={localAssets}
           existingImageIds={images.map((img) => img.asset_id)}
           onAdd={(assetIds) => {
             onGalleryAddImages(assetIds);
             setShowAddModal(false);
           }}
           onClose={() => setShowAddModal(false)}
+          onAssetUploaded={(newAsset) => {
+            setLocalAssets((prev) => [newAsset, ...prev]);
+            onAssetUploaded?.(newAsset);
+          }}
         />
       )}
 
@@ -1073,20 +1090,32 @@ function ImageGalleryBlockView({
   );
 }
 
-// Gallery Add Modal (simplified asset picker for adding to existing gallery)
+// Gallery Add Modal (with upload support)
 function GalleryAddModal({
   assets,
   existingImageIds,
   onAdd,
   onClose,
+  onAssetUploaded,
 }: {
   assets: Asset[];
   existingImageIds: string[];
   onAdd: (assetIds: string[]) => void;
   onClose: () => void;
+  onAssetUploaded?: (asset: Asset) => void;
 }) {
+  const [activeTab, setActiveTab] = React.useState<"browse" | "upload">("browse");
   const [selectedIds, setSelectedIds] = React.useState<string[]>([]);
   const [search, setSearch] = React.useState("");
+  
+  // Upload state
+  const [file, setFile] = React.useState<File | null>(null);
+  const [preview, setPreview] = React.useState<string | null>(null);
+  const [uploadTitle, setUploadTitle] = React.useState("");
+  const [isUploading, setIsUploading] = React.useState(false);
+  const [uploadError, setUploadError] = React.useState<string | null>(null);
+  const [isDragging, setIsDragging] = React.useState(false);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   const filteredAssets = assets.filter(
     (asset) =>
@@ -1099,6 +1128,89 @@ function GalleryAddModal({
       setSelectedIds(selectedIds.filter((id) => id !== assetId));
     } else {
       setSelectedIds([...selectedIds, assetId]);
+    }
+  };
+
+  // File handling
+  const handleFileSelect = (selectedFile: File) => {
+    if (!selectedFile.type.startsWith("image/")) {
+      setUploadError("Please select an image file");
+      return;
+    }
+    if (selectedFile.size > 10 * 1024 * 1024) {
+      setUploadError("File size must be less than 10MB");
+      return;
+    }
+    setFile(selectedFile);
+    setUploadError(null);
+    const reader = new FileReader();
+    reader.onload = (e) => setPreview(e.target?.result as string);
+    reader.readAsDataURL(selectedFile);
+    if (!uploadTitle) {
+      const nameWithoutExt = selectedFile.name.replace(/\.[^/.]+$/, "");
+      setUploadTitle(nameWithoutExt);
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    const droppedFile = e.dataTransfer.files[0];
+    if (droppedFile) {
+      handleFileSelect(droppedFile);
+    }
+  };
+
+  const handleUpload = async () => {
+    if (!file) return;
+    
+    setIsUploading(true);
+    setUploadError(null);
+
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("title", uploadTitle.trim() || file.name.replace(/\.[^/.]+$/, ""));
+
+      const response = await fetch("/api/assets/upload", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || "Failed to upload image");
+      }
+
+      const { asset } = await response.json();
+      
+      // Notify parent of new asset
+      onAssetUploaded?.(asset);
+      
+      // Add to selection
+      setSelectedIds([...selectedIds, asset.id]);
+      
+      // Reset upload form
+      setFile(null);
+      setPreview(null);
+      setUploadTitle("");
+      
+      // Switch to browse tab
+      setActiveTab("browse");
+    } catch (err) {
+      setUploadError(err instanceof Error ? err.message : "Failed to upload");
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const clearUpload = () => {
+    setFile(null);
+    setPreview(null);
+    setUploadTitle("");
+    setUploadError(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
     }
   };
 
@@ -1137,101 +1249,294 @@ function GalleryAddModal({
               ×
             </button>
           </div>
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search..."
-            style={{
-              width: "100%",
-              padding: "8px 12px",
-              backgroundColor: "#27272a",
-              border: "1px solid #333",
-              borderRadius: "6px",
-              color: "#fff",
-              outline: "none",
-            }}
-          />
-          {selectedIds.length > 0 && (
-            <p style={{ margin: "8px 0 0", color: "#a78bfa", fontSize: "14px" }}>
-              {selectedIds.length} selected
-            </p>
+          
+          {/* Tabs */}
+          <div style={{ display: "flex", gap: "4px", marginBottom: "12px" }}>
+            <button
+              onClick={() => setActiveTab("browse")}
+              style={{
+                padding: "8px 16px",
+                fontSize: "14px",
+                fontWeight: 500,
+                borderRadius: "6px",
+                border: "none",
+                cursor: "pointer",
+                backgroundColor: activeTab === "browse" ? "#27272a" : "transparent",
+                color: activeTab === "browse" ? "#fff" : "#666",
+              }}
+            >
+              Browse Posts
+            </button>
+            <button
+              onClick={() => setActiveTab("upload")}
+              style={{
+                padding: "8px 16px",
+                fontSize: "14px",
+                fontWeight: 500,
+                borderRadius: "6px",
+                border: "none",
+                cursor: "pointer",
+                backgroundColor: activeTab === "upload" ? "#27272a" : "transparent",
+                color: activeTab === "upload" ? "#fff" : "#666",
+                display: "flex",
+                alignItems: "center",
+                gap: "6px",
+              }}
+            >
+              ⬆ Upload New
+            </button>
+          </div>
+
+          {activeTab === "browse" && (
+            <>
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search..."
+                style={{
+                  width: "100%",
+                  padding: "8px 12px",
+                  backgroundColor: "#27272a",
+                  border: "1px solid #333",
+                  borderRadius: "6px",
+                  color: "#fff",
+                  outline: "none",
+                }}
+              />
+              {selectedIds.length > 0 && (
+                <p style={{ margin: "8px 0 0", color: "#a78bfa", fontSize: "14px" }}>
+                  {selectedIds.length} selected
+                </p>
+              )}
+            </>
           )}
         </div>
+        
         <div style={{ flex: 1, overflow: "auto", padding: "16px" }}>
-          {filteredAssets.length === 0 ? (
-            <p style={{ color: "#666", textAlign: "center" }}>No images available</p>
+          {activeTab === "browse" ? (
+            filteredAssets.length === 0 ? (
+              <div style={{ textAlign: "center", padding: "32px 0" }}>
+                <p style={{ color: "#666" }}>No images available</p>
+                <button
+                  onClick={() => setActiveTab("upload")}
+                  style={{
+                    marginTop: "12px",
+                    background: "none",
+                    border: "none",
+                    color: "#a78bfa",
+                    cursor: "pointer",
+                    fontSize: "14px",
+                  }}
+                >
+                  Upload a new image instead
+                </button>
+              </div>
+            ) : (
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "8px" }}>
+                {filteredAssets.map((asset) => {
+                  const isSelected = selectedIds.includes(asset.id);
+                  return (
+                    <button
+                      key={asset.id}
+                      onClick={() => toggleSelection(asset.id)}
+                      style={{
+                        aspectRatio: "1",
+                        borderRadius: "8px",
+                        overflow: "hidden",
+                        border: isSelected ? "2px solid #a78bfa" : "2px solid transparent",
+                        padding: 0,
+                        cursor: "pointer",
+                        position: "relative",
+                      }}
+                    >
+                      <img
+                        src={asset.thumbnail_url || asset.url}
+                        alt={asset.title}
+                        style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                      />
+                      {isSelected && (
+                        <div
+                          style={{
+                            position: "absolute",
+                            top: "4px",
+                            right: "4px",
+                            width: "20px",
+                            height: "20px",
+                            borderRadius: "50%",
+                            backgroundColor: "#a78bfa",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            color: "#fff",
+                            fontSize: "12px",
+                          }}
+                        >
+                          ✓
+                        </div>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            )
           ) : (
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "8px" }}>
-              {filteredAssets.map((asset) => {
-                const isSelected = selectedIds.includes(asset.id);
-                return (
-                  <button
-                    key={asset.id}
-                    onClick={() => toggleSelection(asset.id)}
+            // Upload tab
+            <div>
+              {!file ? (
+                <div
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    setIsDragging(true);
+                  }}
+                  onDragLeave={() => setIsDragging(false)}
+                  onDrop={handleDrop}
+                  onClick={() => fileInputRef.current?.click()}
+                  style={{
+                    border: `2px dashed ${isDragging ? "#a78bfa" : "#333"}`,
+                    borderRadius: "12px",
+                    padding: "40px",
+                    textAlign: "center",
+                    cursor: "pointer",
+                    backgroundColor: isDragging ? "rgba(167, 139, 250, 0.1)" : "transparent",
+                  }}
+                >
+                  <div style={{ fontSize: "32px", marginBottom: "12px" }}>⬆</div>
+                  <p style={{ color: "#fff", fontWeight: 500, marginBottom: "4px" }}>
+                    Drop an image here or click to browse
+                  </p>
+                  <p style={{ color: "#666", fontSize: "14px" }}>
+                    PNG, JPG, GIF, WebP up to 10MB
+                  </p>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => {
+                      const selectedFile = e.target.files?.[0];
+                      if (selectedFile) handleFileSelect(selectedFile);
+                    }}
+                    style={{ display: "none" }}
+                  />
+                </div>
+              ) : (
+                <div>
+                  <div
                     style={{
-                      aspectRatio: "1",
-                      borderRadius: "8px",
-                      overflow: "hidden",
-                      border: isSelected ? "2px solid #a78bfa" : "2px solid transparent",
-                      padding: 0,
-                      cursor: "pointer",
                       position: "relative",
+                      aspectRatio: "16/9",
+                      borderRadius: "12px",
+                      overflow: "hidden",
+                      backgroundColor: "#27272a",
+                      marginBottom: "16px",
                     }}
                   >
                     <img
-                      src={asset.thumbnail_url || asset.url}
-                      alt={asset.title}
-                      style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                      src={preview!}
+                      alt="Preview"
+                      style={{
+                        width: "100%",
+                        height: "100%",
+                        objectFit: "contain",
+                      }}
                     />
-                    {isSelected && (
-                      <div
-                        style={{
-                          position: "absolute",
-                          top: "4px",
-                          right: "4px",
-                          width: "20px",
-                          height: "20px",
-                          borderRadius: "50%",
-                          backgroundColor: "#a78bfa",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          color: "#fff",
-                          fontSize: "12px",
-                        }}
-                      >
-                        ✓
-                      </div>
-                    )}
+                    <button
+                      onClick={clearUpload}
+                      style={{
+                        position: "absolute",
+                        top: "8px",
+                        right: "8px",
+                        width: "28px",
+                        height: "28px",
+                        borderRadius: "50%",
+                        backgroundColor: "rgba(0,0,0,0.6)",
+                        border: "none",
+                        color: "#fff",
+                        cursor: "pointer",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                      }}
+                    >
+                      ×
+                    </button>
+                  </div>
+                  
+                  <div style={{ marginBottom: "16px" }}>
+                    <label style={{ display: "block", fontSize: "14px", color: "#888", marginBottom: "6px" }}>
+                      Title (optional)
+                    </label>
+                    <input
+                      type="text"
+                      value={uploadTitle}
+                      onChange={(e) => setUploadTitle(e.target.value)}
+                      placeholder="Enter a title..."
+                      style={{
+                        width: "100%",
+                        padding: "8px 12px",
+                        backgroundColor: "#27272a",
+                        border: "1px solid #333",
+                        borderRadius: "6px",
+                        color: "#fff",
+                        outline: "none",
+                      }}
+                    />
+                  </div>
+
+                  {uploadError && (
+                    <p style={{ color: "#ef4444", fontSize: "14px", marginBottom: "16px" }}>{uploadError}</p>
+                  )}
+
+                  <button
+                    onClick={handleUpload}
+                    disabled={isUploading}
+                    style={{
+                      width: "100%",
+                      padding: "10px 16px",
+                      backgroundColor: isUploading ? "#333" : "#a78bfa",
+                      color: "#fff",
+                      border: "none",
+                      borderRadius: "8px",
+                      cursor: isUploading ? "not-allowed" : "pointer",
+                      fontWeight: 500,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: "8px",
+                    }}
+                  >
+                    {isUploading ? "Uploading..." : "⬆ Upload & Add to Selection"}
                   </button>
-                );
-              })}
+                </div>
+              )}
             </div>
           )}
         </div>
-        <div style={{ padding: "16px", borderTop: "1px solid #333", display: "flex", justifyContent: "flex-end", gap: "12px" }}>
-          <button
-            onClick={onClose}
-            style={{ padding: "8px 16px", background: "none", border: "none", color: "#666", cursor: "pointer" }}
-          >
-            Cancel
-          </button>
-          <button
-            onClick={() => onAdd(selectedIds)}
-            disabled={selectedIds.length === 0}
-            style={{
-              padding: "8px 16px",
-              backgroundColor: selectedIds.length > 0 ? "#a78bfa" : "#333",
-              color: selectedIds.length > 0 ? "#fff" : "#666",
-              border: "none",
-              borderRadius: "6px",
-              cursor: selectedIds.length > 0 ? "pointer" : "not-allowed",
-            }}
-          >
-            Add {selectedIds.length} image{selectedIds.length !== 1 ? "s" : ""}
-          </button>
-        </div>
+        
+        {activeTab === "browse" && (
+          <div style={{ padding: "16px", borderTop: "1px solid #333", display: "flex", justifyContent: "flex-end", gap: "12px" }}>
+            <button
+              onClick={onClose}
+              style={{ padding: "8px 16px", background: "none", border: "none", color: "#666", cursor: "pointer" }}
+            >
+              Cancel
+            </button>
+            <button
+              onClick={() => onAdd(selectedIds)}
+              disabled={selectedIds.length === 0}
+              style={{
+                padding: "8px 16px",
+                backgroundColor: selectedIds.length > 0 ? "#a78bfa" : "#333",
+                color: selectedIds.length > 0 ? "#fff" : "#666",
+                border: "none",
+                borderRadius: "6px",
+                cursor: selectedIds.length > 0 ? "pointer" : "not-allowed",
+              }}
+            >
+              Add {selectedIds.length} image{selectedIds.length !== 1 ? "s" : ""}
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
