@@ -8,6 +8,8 @@ import {
   Section,
   Heading,
   Text,
+  Img,
+  Hr,
 } from "@react-email/components";
 import { EmailBlockRenderer } from "./email-block-renderer";
 import type { DropBlock, User } from "@/lib/types/database";
@@ -50,23 +52,12 @@ const styles = {
     fontSize: "16px",
     lineHeight: "1.7",
     color: "#a0a0a0",
-    padding: "0 20px 32px",
+    padding: "0 20px 16px",
     margin: "0",
     textAlign: "center" as const,
   },
   blocksContainer: {
     padding: "0 20px 40px",
-  },
-  contributorsSection: {
-    textAlign: "center" as const,
-    padding: "24px 20px",
-    borderTop: "1px solid #333",
-    marginTop: "32px",
-  },
-  contributorText: {
-    fontSize: "14px",
-    color: "#888888",
-    margin: "0",
   },
 };
 
@@ -110,21 +101,100 @@ export function EmailDropView({
         </Text>
       )}
 
+      {/* Contributors avatars */}
+      {contributors.length > 0 && (
+        <Section style={{ textAlign: "center" as const, padding: "16px 20px" }}>
+          {/* Overlapping avatars - using tables for email compatibility */}
+          <table cellPadding="0" cellSpacing="0" style={{ margin: "0 auto" }}>
+            <tbody>
+              <tr>
+                {contributors.slice(0, 5).map((contributor, index) => (
+                  <td
+                    key={contributor.id}
+                    style={{
+                      paddingLeft: index === 0 ? "0" : "0",
+                      marginLeft: index === 0 ? "0" : "-12px",
+                    }}
+                  >
+                    {contributor.avatar_url ? (
+                      <Img
+                        src={contributor.avatar_url}
+                        alt={contributor.display_name}
+                        width={48}
+                        height={48}
+                        style={{
+                          borderRadius: "50%",
+                          border: "2px solid #000000",
+                          display: "block",
+                          marginLeft: index === 0 ? "0" : "-12px",
+                        }}
+                      />
+                    ) : (
+                      <div
+                        style={{
+                          width: "48px",
+                          height: "48px",
+                          borderRadius: "50%",
+                          border: "2px solid #000000",
+                          backgroundColor: "#3f3f46",
+                          textAlign: "center" as const,
+                          lineHeight: "44px",
+                          color: "#ffffff",
+                          fontSize: "14px",
+                          fontWeight: "500" as const,
+                          marginLeft: index === 0 ? "0" : "-12px",
+                        }}
+                      >
+                        {contributor.display_name.charAt(0).toUpperCase()}
+                      </div>
+                    )}
+                  </td>
+                ))}
+                {contributors.length > 5 && (
+                  <td>
+                    <div
+                      style={{
+                        width: "48px",
+                        height: "48px",
+                        borderRadius: "50%",
+                        border: "2px solid #000000",
+                        backgroundColor: "#27272a",
+                        textAlign: "center" as const,
+                        lineHeight: "44px",
+                        color: "#a1a1aa",
+                        fontSize: "14px",
+                        fontWeight: "500" as const,
+                        marginLeft: "-12px",
+                      }}
+                    >
+                      +{contributors.length - 5}
+                    </div>
+                  </td>
+                )}
+              </tr>
+            </tbody>
+          </table>
+          
+          {/* Post count text */}
+          <Text style={{
+            fontSize: "14px",
+            color: "#71717a",
+            margin: "12px 0 0 0",
+          }}>
+            {postCount} post{postCount !== 1 ? "s" : ""} from {contributorNames}
+          </Text>
+        </Section>
+      )}
+
+      {/* Divider */}
+      <Hr style={{ borderColor: "#27272a", margin: "16px 20px 32px" }} />
+
       {/* Blocks */}
       <Section style={styles.blocksContainer}>
         {blocks.map((block) => (
           <EmailBlockRenderer key={block.id} block={block} />
         ))}
       </Section>
-
-      {/* Footer with contributors */}
-      {contributors.length > 0 && (
-        <Section style={styles.contributorsSection}>
-          <Text style={styles.contributorText}>
-            {postCount} post{postCount !== 1 ? "s" : ""} from {contributorNames}
-          </Text>
-        </Section>
-      )}
     </Container>
   );
 }
