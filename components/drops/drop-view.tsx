@@ -318,9 +318,7 @@ export function DropView({
                 <Text style={styles.postTitle}>{post.title}</Text>
                 {post.description && (
                   <Text style={styles.postDescription}>
-                    {post.description.length > 200 
-                      ? `${post.description.slice(0, 200)}...` 
-                      : post.description}
+                    {post.description}
                   </Text>
                 )}
                 
