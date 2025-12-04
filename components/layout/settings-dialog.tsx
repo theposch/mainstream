@@ -19,7 +19,10 @@ import {
   Github,
   Twitter,
   Mail,
-  Globe
+  Globe,
+  Check,
+  AlertCircle,
+  ExternalLink
 } from "lucide-react";
 import { useUser } from "@/lib/auth/use-user";
 
@@ -71,6 +74,103 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
   const [showEmail, setShowEmail] = React.useState(false);
   const [showLikes, setShowLikes] = React.useState(true);
   const [allowIndexing, setAllowIndexing] = React.useState(true);
+
+  // Figma integration state
+  const [figmaToken, setFigmaToken] = React.useState("");
+  const [figmaConnected, setFigmaConnected] = React.useState(false);
+  const [figmaTokenPreview, setFigmaTokenPreview] = React.useState<string | null>(null);
+  const [figmaConnectedAt, setFigmaConnectedAt] = React.useState<string | null>(null);
+  const [figmaLoading, setFigmaLoading] = React.useState(false);
+  const [figmaError, setFigmaError] = React.useState<string | null>(null);
+  const [figmaSuccess, setFigmaSuccess] = React.useState<string | null>(null);
+  const [showFigmaInput, setShowFigmaInput] = React.useState(false);
+
+  // Fetch Figma integration status
+  React.useEffect(() => {
+    if (open && user) {
+      fetchFigmaStatus();
+    }
+  }, [open, user]);
+
+  const fetchFigmaStatus = async () => {
+    try {
+      const response = await fetch('/api/users/me/integrations');
+      if (response.ok) {
+        const data = await response.json();
+        setFigmaConnected(data.integrations?.figma?.connected || false);
+        setFigmaTokenPreview(data.integrations?.figma?.tokenPreview || null);
+        setFigmaConnectedAt(data.integrations?.figma?.connectedAt || null);
+      }
+    } catch (error) {
+      console.error('Failed to fetch Figma status:', error);
+    }
+  };
+
+  const handleFigmaConnect = async () => {
+    if (!figmaToken.trim()) {
+      setFigmaError('Please enter your Figma token');
+      return;
+    }
+
+    setFigmaLoading(true);
+    setFigmaError(null);
+    setFigmaSuccess(null);
+
+    try {
+      const response = await fetch('/api/users/me/integrations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ provider: 'figma', token: figmaToken }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setFigmaError(data.error || 'Failed to connect Figma');
+        return;
+      }
+
+      setFigmaConnected(true);
+      setFigmaTokenPreview(data.integration?.tokenPreview || null);
+      setFigmaConnectedAt(data.integration?.connectedAt || null);
+      setFigmaSuccess('Figma connected successfully!');
+      setFigmaToken('');
+      setShowFigmaInput(false);
+    } catch (error) {
+      setFigmaError('Failed to connect Figma');
+    } finally {
+      setFigmaLoading(false);
+    }
+  };
+
+  const handleFigmaDisconnect = async () => {
+    setFigmaLoading(true);
+    setFigmaError(null);
+    setFigmaSuccess(null);
+
+    try {
+      const response = await fetch('/api/users/me/integrations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ provider: 'figma', token: null }),
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        setFigmaError(data.error || 'Failed to disconnect Figma');
+        return;
+      }
+
+      setFigmaConnected(false);
+      setFigmaTokenPreview(null);
+      setFigmaConnectedAt(null);
+      setFigmaSuccess('Figma disconnected');
+    } catch (error) {
+      setFigmaError('Failed to disconnect Figma');
+    } finally {
+      setFigmaLoading(false);
+    }
+  };
 
   const tabs: TabConfig[] = [
     { id: "account", label: "Account", icon: User },
@@ -350,37 +450,159 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
         return (
           <div className="space-y-4">
             <p className="text-sm text-muted-foreground mb-6">
-              Connect your accounts to easily share your work across platforms
+              Connect your accounts to enable additional features
             </p>
 
-            <ConnectedAccountItem
-              icon={Github}
-              name="GitHub"
-              description="Connect your GitHub account"
-              connected={false}
-            />
+            {/* Figma Integration - Special Treatment */}
+            <div className="rounded-lg border border-border bg-background p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-purple-500/10">
+                    <span className="text-lg">🎨</span>
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-medium text-foreground">Figma</p>
+                      {figmaConnected && (
+                        <span className="flex items-center gap-1 text-xs text-green-500">
+                          <Check className="h-3 w-3" />
+                          Connected
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      {figmaConnected && figmaTokenPreview
+                        ? `Token: ${figmaTokenPreview}`
+                        : "Enable frame-specific thumbnails for Figma embeds"}
+                    </p>
+                  </div>
+                </div>
+                {figmaConnected ? (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleFigmaDisconnect}
+                    disabled={figmaLoading}
+                    className="text-destructive hover:bg-destructive/10"
+                  >
+                    {figmaLoading ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      "Disconnect"
+                    )}
+                  </Button>
+                ) : (
+                  <Button
+                    variant="default"
+                    size="sm"
+                    onClick={() => setShowFigmaInput(!showFigmaInput)}
+                    disabled={figmaLoading}
+                  >
+                    Connect
+                  </Button>
+                )}
+              </div>
 
-            <ConnectedAccountItem
-              icon={Twitter}
-              name="Twitter"
-              description="Connect your Twitter account"
-              connected={false}
-            />
+              {/* Figma Token Input */}
+              {showFigmaInput && !figmaConnected && (
+                <div className="mt-4 pt-4 border-t border-border space-y-3">
+                  <div className="space-y-2">
+                    <Label htmlFor="figma-token" className="text-xs font-medium">
+                      Personal Access Token
+                    </Label>
+                    <Input
+                      id="figma-token"
+                      type="password"
+                      value={figmaToken}
+                      onChange={(e) => setFigmaToken(e.target.value)}
+                      placeholder="figd_xxxxxxxxxxxxx"
+                      className="bg-background border-border font-mono text-sm"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Generate a token from{" "}
+                      <a
+                        href="https://www.figma.com/developers/api#access-tokens"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-primary hover:underline inline-flex items-center gap-1"
+                      >
+                        Figma Settings
+                        <ExternalLink className="h-3 w-3" />
+                      </a>
+                    </p>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      onClick={handleFigmaConnect}
+                      disabled={figmaLoading || !figmaToken.trim()}
+                    >
+                      {figmaLoading ? (
+                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                      ) : (
+                        <Check className="h-4 w-4 mr-2" />
+                      )}
+                      Save Token
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setShowFigmaInput(false);
+                        setFigmaToken('');
+                        setFigmaError(null);
+                      }}
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              )}
 
-            <ConnectedAccountItem
-              icon={Mail}
-              name="Google"
-              description="Connect your Google account"
-              connected={true}
-              accountInfo={user?.email}
-            />
+              {/* Success/Error Messages */}
+              {figmaSuccess && (
+                <div className="mt-3 p-2 rounded bg-green-500/10 border border-green-500/20 text-xs text-green-500 flex items-center gap-2">
+                  <Check className="h-3 w-3" />
+                  {figmaSuccess}
+                </div>
+              )}
+              {figmaError && (
+                <div className="mt-3 p-2 rounded bg-destructive/10 border border-destructive/20 text-xs text-destructive flex items-center gap-2">
+                  <AlertCircle className="h-3 w-3" />
+                  {figmaError}
+                </div>
+              )}
+            </div>
 
-            <ConnectedAccountItem
-              icon={Globe}
-              name="Figma"
-              description="Connect your Figma account"
-              connected={false}
-            />
+            {/* Info Box */}
+            <div className="rounded-lg bg-muted/50 p-4 text-xs text-muted-foreground">
+              <p className="font-medium text-foreground mb-1">Why connect Figma?</p>
+              <p>
+                When you share a Figma link with a specific frame selected, we can render
+                a thumbnail of that exact frame instead of the entire file. Your token
+                is stored securely and only used server-side.
+              </p>
+            </div>
+
+            <div className="border-t border-border pt-4 mt-4">
+              <p className="text-xs text-muted-foreground mb-4">Other accounts (coming soon)</p>
+              
+              <ConnectedAccountItem
+                icon={Github}
+                name="GitHub"
+                description="Connect your GitHub account"
+                connected={false}
+              />
+
+              <div className="mt-3">
+                <ConnectedAccountItem
+                  icon={Twitter}
+                  name="Twitter"
+                  description="Connect your Twitter account"
+                  connected={false}
+                />
+              </div>
+            </div>
           </div>
         );
 

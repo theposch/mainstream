@@ -15,7 +15,8 @@ import { StreamBadge } from "@/components/streams/stream-badge";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { KEYS } from "@/lib/constants";
-import { X, Heart, MessageCircle, Share2, Download, MoreHorizontal, Reply, Trash2, Loader2, Pencil } from "lucide-react";
+import { X, Heart, MessageCircle, Share2, Download, MoreHorizontal, Reply, Trash2, Loader2, Pencil, ExternalLink } from "lucide-react";
+import { getFigmaEmbedUrl, getProviderInfo, type EmbedProvider } from "@/lib/utils/embed-providers";
 import { CommentList } from "./comment-list";
 import { CommentInput } from "./comment-input";
 import { EditAssetDialog } from "./edit-asset-dialog";
@@ -399,15 +400,65 @@ export function AssetDetailDesktop({ asset, onClose }: AssetDetailDesktopProps) 
       {/* Left: Media View */}
       <div className="flex-1 relative bg-zinc-950 flex items-center justify-center p-4 md:p-10 overflow-y-auto">
         <div className="relative w-full h-full max-h-[90vh] flex items-center justify-center">
-          <div className="relative w-full h-full">
-            {/* Progressive loading: show medium_url immediately (already cached from feed), 
-                then upgrade to full url when it loads */}
-            <ProgressiveImage
-              thumbnailSrc={asset.medium_url || asset.thumbnail_url || asset.url}
-              fullSrc={asset.url}
-              alt={asset.title}
-            />
-          </div>
+          {/* Embed View (Figma, etc.) */}
+          {currentAsset.asset_type === 'embed' && currentAsset.embed_url ? (
+            <div className="relative w-full h-full">
+              {currentAsset.embed_provider === 'figma' ? (
+                <>
+                  <iframe
+                    src={getFigmaEmbedUrl(currentAsset.embed_url)}
+                    className="w-full h-full rounded-lg"
+                    allowFullScreen
+                  />
+                  {/* Open in Figma button */}
+                  <a
+                    href={currentAsset.embed_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="absolute top-4 right-4 flex items-center gap-2 px-3 py-2 rounded-lg bg-black/70 hover:bg-black/90 text-white text-sm font-medium backdrop-blur-sm transition-colors"
+                  >
+                    <ExternalLink className="h-4 w-4" />
+                    Open in Figma
+                  </a>
+                </>
+              ) : (
+                // Generic embed fallback
+                <div className="flex flex-col items-center justify-center w-full h-full">
+                  {(() => {
+                    const providerInfo = getProviderInfo(currentAsset.embed_provider as EmbedProvider);
+                    return (
+                      <>
+                        <div className={`flex items-center justify-center w-24 h-24 rounded-2xl mb-4 ${providerInfo.bgColor}`}>
+                          <span className="text-5xl">{providerInfo.icon}</span>
+                        </div>
+                        <p className="text-lg font-medium text-zinc-400 mb-4">{providerInfo.name} Embed</p>
+                        <a
+                          href={currentAsset.embed_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white text-black font-medium hover:bg-zinc-200 transition-colors"
+                        >
+                          <ExternalLink className="h-4 w-4" />
+                          Open Link
+                        </a>
+                      </>
+                    );
+                  })()}
+                </div>
+              )}
+            </div>
+          ) : (
+            // Image View
+            <div className="relative w-full h-full">
+              {/* Progressive loading: show medium_url immediately (already cached from feed), 
+                  then upgrade to full url when it loads */}
+              <ProgressiveImage
+                thumbnailSrc={asset.medium_url || asset.thumbnail_url || asset.url}
+                fullSrc={asset.url}
+                alt={asset.title}
+              />
+            </div>
+          )}
         </div>
       </div>
 
