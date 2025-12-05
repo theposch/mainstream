@@ -13,6 +13,8 @@ export interface User {
   avatar_url: string;
   bio?: string;
   email?: string;
+  job_title?: string;
+  location?: string;
   created_at: string;
   updated_at?: string;
   // Integrations

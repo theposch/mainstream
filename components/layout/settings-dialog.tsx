@@ -5,20 +5,15 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { 
-  User, 
   Bell, 
   Lock, 
   Link2, 
-  Camera, 
-  Save,
   Loader2,
   Github,
   Twitter,
-  Mail,
   Globe,
   Check,
   AlertCircle,
@@ -31,7 +26,7 @@ interface SettingsDialogProps {
   onOpenChange: (open: boolean) => void;
 }
 
-type SettingsTab = "account" | "notifications" | "privacy" | "connected";
+type SettingsTab = "notifications" | "privacy" | "connected";
 
 interface TabConfig {
   id: SettingsTab;
@@ -40,27 +35,8 @@ interface TabConfig {
 }
 
 export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
-  const { user, loading } = useUser();
-  const [activeTab, setActiveTab] = React.useState<SettingsTab>("account");
-  const [isLoading, setIsLoading] = React.useState(false);
-  const [successMessage, setSuccessMessage] = React.useState<string | null>(null);
-
-  // Account settings state
-  const [displayName, setDisplayName] = React.useState("");
-  const [username, setUsername] = React.useState("");
-  const [email, setEmail] = React.useState("");
-  const [bio, setBio] = React.useState("");
-  const [location, setLocation] = React.useState("");
-
-  // Initialize form with user data
-  React.useEffect(() => {
-    if (user) {
-      setDisplayName(user.displayName || "");
-      setUsername(user.username || "");
-      setEmail(user.email || "");
-      setBio(user.bio || "");
-    }
-  }, [user]);
+  const { user } = useUser();
+  const [activeTab, setActiveTab] = React.useState<SettingsTab>("notifications");
 
   // Notification settings state
   const [emailNotifications, setEmailNotifications] = React.useState(true);
@@ -173,157 +149,13 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
   };
 
   const tabs: TabConfig[] = [
-    { id: "account", label: "Account", icon: User },
     { id: "notifications", label: "Notifications", icon: Bell },
     { id: "privacy", label: "Privacy", icon: Lock },
     { id: "connected", label: "Connected Accounts", icon: Link2 },
   ];
 
-  const handleSave = async () => {
-    setIsLoading(true);
-    setSuccessMessage(null);
-
-    try {
-      const response = await fetch('/api/users/me', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          displayName,
-          username,
-          email,
-          bio
-        })
-      });
-
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || 'Failed to save settings');
-      }
-      
-      setSuccessMessage("Settings saved successfully!");
-      setTimeout(() => {
-        setSuccessMessage(null);
-        // Refresh the page to update user data throughout the app
-        window.location.reload();
-      }, 1500);
-    } catch (error) {
-      console.error("Failed to save settings:", error);
-      setSuccessMessage(error instanceof Error ? error.message : "Failed to save settings");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   const renderTabContent = () => {
     switch (activeTab) {
-      case "account":
-        return (
-          <div className="space-y-6">
-            {/* Avatar Section */}
-            <div className="flex items-center gap-6">
-              <div className="relative group">
-                <Avatar className="h-24 w-24">
-                  <AvatarImage src={user?.avatarUrl} alt={user?.username} />
-                  <AvatarFallback className="text-2xl">
-                    {user?.username?.substring(0, 2).toUpperCase() || "US"}
-                  </AvatarFallback>
-                </Avatar>
-                <button
-                  type="button"
-                  className="absolute inset-0 flex items-center justify-center bg-black/60 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-                  aria-label="Change avatar"
-                >
-                  <Camera className="h-6 w-6 text-white" />
-                </button>
-              </div>
-              <div className="flex-1">
-                <h3 className="text-sm font-semibold text-foreground mb-1">Profile Photo</h3>
-                <p className="text-xs text-muted-foreground mb-3">
-                  Click to upload a new avatar. JPG, PNG or GIF. Max size 2MB.
-                </p>
-                <Button variant="outline" size="sm" className="text-xs">
-                  Upload New Photo
-                </Button>
-              </div>
-            </div>
-
-            {/* Account Fields */}
-            <div className="grid gap-4">
-              <div className="grid gap-2">
-                <Label htmlFor="displayName">Display Name</Label>
-                <Input
-                  id="displayName"
-                  value={displayName}
-                  onChange={(e) => setDisplayName(e.target.value)}
-                  placeholder="Your display name"
-                  className="bg-background border-border"
-                />
-              </div>
-
-              <div className="grid gap-2">
-                <Label htmlFor="username">Username</Label>
-                <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
-                    @
-                  </span>
-                  <Input
-                    id="username"
-                    value={username}
-                    onChange={(e) => setUsername(e.target.value.replace(/[^a-zA-Z0-9_]/g, ''))}
-                    placeholder="username"
-                    className="bg-background border-border pl-7"
-                  />
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Your profile URL: mainstream.so/u/{username}
-                </p>
-              </div>
-
-              <div className="grid gap-2">
-                <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="your.email@example.com"
-                  className="bg-background border-border"
-                />
-              </div>
-
-              <div className="grid gap-2">
-                <Label htmlFor="bio">Bio</Label>
-                <textarea
-                  id="bio"
-                  value={bio}
-                  onChange={(e) => setBio(e.target.value)}
-                  placeholder="Tell us about yourself..."
-                  maxLength={160}
-                  rows={3}
-                  className="flex w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50 resize-none"
-                />
-                <p className="text-xs text-muted-foreground">
-                  {bio.length}/160 characters
-                </p>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="grid gap-2">
-                  <Label htmlFor="location">Location</Label>
-                  <Input
-                    id="location"
-                    value={location}
-                    onChange={(e) => setLocation(e.target.value)}
-                    placeholder="City, Country"
-                    className="bg-background border-border"
-                  />
-                </div>
-
-              </div>
-            </div>
-          </div>
-        );
-
       case "notifications":
         return (
           <div className="space-y-4">
@@ -619,7 +451,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
             Settings
           </DialogTitle>
           <DialogDescription className="text-muted-foreground">
-            Manage your account settings and preferences
+            Manage your notification and privacy preferences
           </DialogDescription>
         </DialogHeader>
 
@@ -671,45 +503,15 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
           {renderTabContent()}
         </div>
 
-        {/* Success Message */}
-        {successMessage && (
-          <div 
-            className="mx-6 mb-4 p-3 rounded-md bg-green-500/10 border border-green-500/20 text-sm text-green-500"
-            role="alert"
-            aria-live="polite"
-          >
-            {successMessage}
-          </div>
-        )}
-
         {/* Footer */}
         <div className="flex justify-end gap-3 p-6 pt-0 border-t border-border">
           <Button
             type="button"
             variant="outline"
             onClick={() => onOpenChange(false)}
-            disabled={isLoading}
             className="border-border"
           >
-            Cancel
-          </Button>
-          <Button
-            type="button"
-            onClick={handleSave}
-            disabled={isLoading}
-            className="bg-primary text-primary-foreground hover:bg-primary/90"
-          >
-            {isLoading ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Saving...
-              </>
-            ) : (
-              <>
-                <Save className="mr-2 h-4 w-4" />
-                Save Changes
-              </>
-            )}
+            Close
           </Button>
         </div>
       </DialogContent>
@@ -795,4 +597,3 @@ function ConnectedAccountItem({
     </div>
   );
 }
-

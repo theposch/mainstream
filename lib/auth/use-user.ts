@@ -85,6 +85,7 @@ export function useUser(): UseUserReturn {
           avatarUrl: userProfile.avatar_url,
           bio: userProfile.bio,
           jobTitle: userProfile.job_title,
+          location: userProfile.location,
           teamId: userProfile.team_id,
           createdAt: userProfile.created_at,
         })
