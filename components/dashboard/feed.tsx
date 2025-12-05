@@ -289,6 +289,7 @@ export const DashboardFeed = React.memo(function DashboardFeed({ initialAssets }
           asset={selectedAsset} 
           allAssets={displayedAssets}
           onClose={handleCloseModal}
+          onNavigate={setSelectedAssetId}
         />
       )}
 

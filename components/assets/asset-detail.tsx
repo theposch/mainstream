@@ -11,9 +11,11 @@ interface AssetDetailProps {
   allAssets?: Asset[];
   /** Callback when modal should close (for overlay mode) */
   onClose?: () => void;
+  /** Callback when navigating to another asset (for modal mode) */
+  onNavigate?: (assetId: string) => void;
 }
 
-export function AssetDetail({ asset, allAssets = [], onClose }: AssetDetailProps) {
+export function AssetDetail({ asset, allAssets = [], onClose, onNavigate }: AssetDetailProps) {
   // Check mobile on initial render (safe since this is only rendered client-side from feed.tsx)
   const [isMobile, setIsMobile] = React.useState(() => {
     if (typeof window === 'undefined') return false;
@@ -37,7 +39,8 @@ export function AssetDetail({ asset, allAssets = [], onClose }: AssetDetailProps
       <AssetDetailMobile 
         asset={asset} 
         allAssets={allAssets}
-        onClose={onClose} 
+        onClose={onClose}
+        onNavigate={onNavigate}
       />
     );
   }
@@ -47,7 +50,8 @@ export function AssetDetail({ asset, allAssets = [], onClose }: AssetDetailProps
       asset={asset} 
       previousAsset={previousAsset}
       nextAsset={nextAsset}
-      onClose={onClose} 
+      onClose={onClose}
+      onNavigate={onNavigate}
     />
   );
 }

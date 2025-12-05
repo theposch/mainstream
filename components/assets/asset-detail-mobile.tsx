@@ -42,9 +42,11 @@ interface AssetDetailMobileProps {
   allAssets?: any[];
   /** Callback when modal should close (for overlay mode) */
   onClose?: () => void;
+  /** Callback when navigating to another asset (for modal mode) */
+  onNavigate?: (assetId: string) => void;
 }
 
-export function AssetDetailMobile({ asset, allAssets: allAssetsProp, onClose }: AssetDetailMobileProps) {
+export function AssetDetailMobile({ asset, allAssets: allAssetsProp, onClose, onNavigate }: AssetDetailMobileProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const highlightedCommentId = searchParams.get('comment');
@@ -188,9 +190,14 @@ export function AssetDetailMobile({ asset, allAssets: allAssetsProp, onClose }: 
     
     // Update URL to reflect current asset
     if (newAsset && newAsset.id !== currentAsset.id) {
-      router.push(`/e/${newAsset.id}`);
+      // Use onNavigate callback for modal mode, router.push for standalone mode
+      if (onNavigate) {
+        onNavigate(newAsset.id);
+      } else {
+        router.push(`/e/${newAsset.id}`);
+      }
     }
-  }, [emblaApi, allAssets, currentAsset.id, router]);
+  }, [emblaApi, allAssets, currentAsset.id, router, onNavigate]);
 
   // Handle carousel slide change
   React.useEffect(() => {

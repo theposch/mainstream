@@ -111,9 +111,11 @@ interface AssetDetailDesktopProps {
   nextAsset?: Asset | null;
   /** Callback when modal should close (for overlay mode) */
   onClose?: () => void;
+  /** Callback when navigating to another asset (for modal mode) */
+  onNavigate?: (assetId: string) => void;
 }
 
-export function AssetDetailDesktop({ asset, previousAsset = null, nextAsset = null, onClose }: AssetDetailDesktopProps) {
+export function AssetDetailDesktop({ asset, previousAsset = null, nextAsset = null, onClose, onNavigate }: AssetDetailDesktopProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const highlightedCommentId = searchParams.get('comment');
@@ -242,13 +244,23 @@ export function AssetDetailDesktop({ asset, previousAsset = null, nextAsset = nu
         case KEYS.arrowLeft:
           if (previousAsset) {
             e.preventDefault();
-            router.push(`/e/${previousAsset.id}`);
+            // Use onNavigate callback for modal mode, router.push for standalone mode
+            if (onNavigate) {
+              onNavigate(previousAsset.id);
+            } else {
+              router.push(`/e/${previousAsset.id}`);
+            }
           }
           break;
         case KEYS.arrowRight:
           if (nextAsset) {
             e.preventDefault();
-            router.push(`/e/${nextAsset.id}`);
+            // Use onNavigate callback for modal mode, router.push for standalone mode
+            if (onNavigate) {
+              onNavigate(nextAsset.id);
+            } else {
+              router.push(`/e/${nextAsset.id}`);
+            }
           }
           break;
       }
@@ -256,7 +268,7 @@ export function AssetDetailDesktop({ asset, previousAsset = null, nextAsset = nu
 
     document.addEventListener('keydown', handleKeyPress);
     return () => document.removeEventListener('keydown', handleKeyPress);
-  }, [router, previousAsset, nextAsset, onClose]);
+  }, [router, previousAsset, nextAsset, onClose, onNavigate]);
 
   // Preload adjacent images
   React.useEffect(() => {
