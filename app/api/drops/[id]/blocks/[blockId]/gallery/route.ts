@@ -198,7 +198,19 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: "asset_ids array is required" }, { status: 400 });
     }
 
-    // Delete all existing images - check for errors to prevent inconsistent state
+    // Fetch existing images first so we can restore them if insert fails
+    const { data: existingImages, error: fetchError } = await supabase
+      .from("drop_block_gallery_images")
+      .select("asset_id, position")
+      .eq("block_id", blockId)
+      .order("position", { ascending: true });
+
+    if (fetchError) {
+      console.error("[Gallery API] Error fetching existing images:", fetchError);
+      return NextResponse.json({ error: "Failed to read existing gallery images" }, { status: 500 });
+    }
+
+    // Delete all existing images
     const { error: deleteError } = await supabase
       .from("drop_block_gallery_images")
       .delete()
@@ -223,6 +235,29 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 
       if (insertError) {
         console.error("[Gallery API] Error inserting new images:", insertError);
+        
+        // Attempt to restore the old images to prevent data loss
+        if (existingImages && existingImages.length > 0) {
+          const restoreImages = existingImages.map((img) => ({
+            block_id: blockId,
+            asset_id: img.asset_id,
+            position: img.position,
+          }));
+          
+          const { error: restoreError } = await supabase
+            .from("drop_block_gallery_images")
+            .insert(restoreImages);
+          
+          if (restoreError) {
+            console.error("[Gallery API] Failed to restore images after insert failure:", restoreError);
+            return NextResponse.json({ 
+              error: "Failed to update gallery and could not restore original images" 
+            }, { status: 500 });
+          }
+          
+          console.log("[Gallery API] Successfully restored original images after insert failure");
+        }
+        
         return NextResponse.json({ error: "Failed to update gallery" }, { status: 500 });
       }
     }

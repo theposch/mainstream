@@ -28,8 +28,10 @@ export default async function HomePage() {
     .order('created_at', { ascending: false })
     .limit(50);
   
-  // If query failed (likely visibility column doesn't exist), retry without filter
-  if (error) {
+  // Only fallback if error is specifically "column not found" (code 42703)
+  // Other errors (network, permissions) should not expose unlisted assets
+  const isColumnNotFoundError = error?.code === '42703' || error?.message?.includes('visibility');
+  if (error && isColumnNotFoundError) {
     const fallbackResult = await supabase
       .from('assets')
       .select(`
