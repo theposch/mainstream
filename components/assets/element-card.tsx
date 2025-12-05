@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils";
 import { useAssetLike } from "@/lib/hooks/use-asset-like";
 import { useAssetPrefetch } from "@/lib/hooks/use-asset-prefetch";
 import { getProviderInfo, type EmbedProvider } from "@/lib/utils/embed-providers";
+import { Badge } from "@/components/ui/badge";
 import type { Asset } from "@/lib/types/database";
 
 interface ElementCardProps {
@@ -224,15 +225,13 @@ export const ElementCard = React.memo(
 
           {/* Embed Badge - Always visible for embeds */}
           {isEmbed && providerInfo && (
-            <div className={cn(
-              "absolute top-3 left-3 z-10 flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-bold transition-all duration-200",
-              providerInfo.bgColor,
-              "text-white"
-            )}>
-              <span>{providerInfo.icon}</span>
-              <span>{providerInfo.name.toUpperCase()}</span>
-              <ExternalLink className="w-3 h-3 ml-0.5 opacity-70" />
-            </div>
+            <Badge 
+              variant="secondary" 
+              className="absolute top-2 left-2 z-10 bg-black/60 backdrop-blur-sm text-white border-white/10 text-[10px] font-medium"
+            >
+              <ExternalLink className="h-3 w-3" />
+              {providerInfo.name}
+            </Badge>
           )}
 
           {/* Hover Overlay */}
