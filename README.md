@@ -372,6 +372,64 @@ services:
 | `LITELLM_MODEL` | No | LLM model (default: gemini/gemini-2.5-flash) |
 | `RESEND_API_KEY` | No | Resend API key for email delivery |
 | `FIGMA_ACCESS_TOKEN` | No | Figma Personal Access Token (for frame thumbnails) |
+| `ENCRYPTION_KEY` | No | AES-256 key for encrypting sensitive tokens |
+
+### .env.example
+
+Copy this to `.env.local` for development or `.env.production` for production:
+
+```env
+# ===========================================
+# Mainstream Environment Variables
+# ===========================================
+
+# ===========================================
+# Supabase (Required)
+# ===========================================
+# For local development with supabase-docker:
+# NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321
+# 
+# For self-hosted production:
+# NEXT_PUBLIC_SUPABASE_URL=https://api.your-domain.com
+
+NEXT_PUBLIC_SUPABASE_URL=
+NEXT_PUBLIC_SUPABASE_ANON_KEY=
+SUPABASE_SERVICE_ROLE_KEY=
+
+# ===========================================
+# AI Integration (Optional)
+# ===========================================
+# Used for AI-generated descriptions and Drop summaries
+# Requires a LiteLLM instance or compatible OpenAI API
+
+LITELLM_BASE_URL=
+LITELLM_API_KEY=
+LITELLM_MODEL=gemini/gemini-2.5-flash-preview-05-20
+
+# ===========================================
+# Email (Optional)
+# ===========================================
+# Used for sending Drops as email newsletters
+# Sign up at https://resend.com
+
+RESEND_API_KEY=
+
+# ===========================================
+# Figma Integration (Optional)
+# ===========================================
+# Used for generating frame-specific thumbnails
+# Get from: Figma > Settings > Personal Access Tokens
+
+FIGMA_ACCESS_TOKEN=
+
+# ===========================================
+# Security (Optional)
+# ===========================================
+# Used for encrypting sensitive tokens in database
+# Generate with: openssl rand -base64 32
+
+ENCRYPTION_KEY=
+```
 
 ---
 
