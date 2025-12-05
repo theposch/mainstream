@@ -1,13 +1,11 @@
 "use client";
 
 import * as React from "react";
-import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
+import { useInfiniteQuery } from "@tanstack/react-query";
 import { UserCard } from "@/components/users/user-card";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Search, Loader2, Users } from "lucide-react";
+import { Loader2, Users } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
-import { useDebounce } from "@/lib/hooks/use-debounce";
 
 const PAGE_SIZE = 12;
 
@@ -34,17 +32,12 @@ interface UserWithDetails {
 }
 
 async function fetchUsers(
-  pageParam: number,
-  search: string
+  pageParam: number
 ): Promise<{ users: UserWithDetails[]; hasMore: boolean; total: number }> {
   const params = new URLSearchParams({
     limit: String(PAGE_SIZE),
     offset: String(pageParam * PAGE_SIZE),
   });
-  
-  if (search) {
-    params.set("search", search);
-  }
 
   const response = await fetch(`/api/users?${params}`);
   if (!response.ok) {
@@ -54,8 +47,6 @@ async function fetchUsers(
 }
 
 export default function PeoplePage() {
-  const [searchQuery, setSearchQuery] = React.useState("");
-  const debouncedSearch = useDebounce(searchQuery, 300);
   const [currentUserId, setCurrentUserId] = React.useState<string | null>(null);
   const [followingMap, setFollowingMap] = React.useState<Map<string, boolean>>(new Map());
   const loadMoreRef = React.useRef<HTMLDivElement>(null);
@@ -94,8 +85,8 @@ export default function PeoplePage() {
     isError,
     error,
   } = useInfiniteQuery({
-    queryKey: ["people", debouncedSearch],
-    queryFn: ({ pageParam = 0 }) => fetchUsers(pageParam, debouncedSearch),
+    queryKey: ["people"],
+    queryFn: ({ pageParam = 0 }) => fetchUsers(pageParam),
     getNextPageParam: (lastPage, pages) => {
       return lastPage.hasMore ? pages.length : undefined;
     },
@@ -147,37 +138,15 @@ export default function PeoplePage() {
   };
 
   const allUsers = data?.pages.flatMap((page) => page.users) || [];
-  const totalCount = data?.pages[0]?.total || 0;
 
   return (
     <div className="w-full min-h-screen pb-20">
       {/* Page Header */}
-      <div className="pt-10 pb-8 space-y-6">
-        <div className="space-y-3">
-          <h1 className="text-4xl font-bold text-foreground">People</h1>
-          <p className="text-lg text-muted-foreground max-w-2xl">
-            Discover designers, creators, and teams. Follow their work and get inspired.
-          </p>
-        </div>
-
-        {/* Search */}
-        <div className="relative max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            type="text"
-            placeholder="Search by name or username..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10 bg-background border-border"
-          />
-        </div>
-
-        {/* Results count */}
-        {!isLoading && (
-          <p className="text-sm text-muted-foreground">
-            {totalCount} {totalCount === 1 ? "person" : "people"} found
-          </p>
-        )}
+      <div className="pt-10 pb-8 space-y-3">
+        <h1 className="text-4xl font-bold text-foreground">People</h1>
+        <p className="text-lg text-muted-foreground max-w-2xl">
+          Discover designers, creators, and teams. Follow their work and get inspired.
+        </p>
       </div>
 
       {/* Loading State */}
@@ -209,13 +178,9 @@ export default function PeoplePage() {
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-muted mb-4">
             <Users className="h-8 w-8 text-muted-foreground" />
           </div>
-          <p className="text-lg font-medium text-foreground">
-            {debouncedSearch ? "No people found" : "No people yet"}
-          </p>
+          <p className="text-lg font-medium text-foreground">No people yet</p>
           <p className="text-sm text-muted-foreground mt-2">
-            {debouncedSearch
-              ? `Try a different search term`
-              : "Be the first to join!"}
+            Be the first to join!
           </p>
         </div>
       )}
