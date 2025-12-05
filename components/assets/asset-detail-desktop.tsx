@@ -17,6 +17,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { KEYS } from "@/lib/constants";
 import { X, Heart, MessageCircle, Share2, Download, MoreHorizontal, Reply, Trash2, Loader2, Pencil, ExternalLink } from "lucide-react";
 import { getFigmaEmbedUrl, getLoomEmbedUrl, getProviderInfo, type EmbedProvider } from "@/lib/utils/embed-providers";
+import { Badge } from "@/components/ui/badge";
 import { CommentList } from "./comment-list";
 import { CommentInput } from "./comment-input";
 import { EditAssetDialog } from "./edit-asset-dialog";
@@ -410,16 +411,17 @@ export function AssetDetailDesktop({ asset, onClose }: AssetDetailDesktopProps) 
                     className="w-full h-full rounded-lg"
                     allowFullScreen
                   />
-                  {/* Open in Figma button */}
-                  <a
-                    href={currentAsset.embed_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="absolute top-4 right-4 flex items-center gap-2 px-3 py-2 rounded-lg bg-black/70 hover:bg-black/90 text-white text-sm font-medium backdrop-blur-sm transition-colors"
+                  {/* Figma badge */}
+                  <Badge 
+                    asChild 
+                    variant="secondary" 
+                    className="absolute top-3 right-3 bg-black/60 backdrop-blur-sm text-white border-white/10 text-[10px] font-medium hover:bg-black/80 cursor-pointer"
                   >
-                    <ExternalLink className="h-4 w-4" />
-                    Open in Figma
-                  </a>
+                    <a href={currentAsset.embed_url} target="_blank" rel="noopener noreferrer">
+                      <ExternalLink className="h-3 w-3" />
+                      Figma
+                    </a>
+                  </Badge>
                 </>
               ) : currentAsset.embed_provider === 'loom' ? (
                 <>
@@ -429,16 +431,17 @@ export function AssetDetailDesktop({ asset, onClose }: AssetDetailDesktopProps) 
                     allowFullScreen
                     allow="autoplay; fullscreen"
                   />
-                  {/* Open in Loom button */}
-                  <a
-                    href={currentAsset.embed_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="absolute top-4 right-4 flex items-center gap-2 px-3 py-2 rounded-lg bg-black/70 hover:bg-black/90 text-white text-sm font-medium backdrop-blur-sm transition-colors"
+                  {/* Loom badge */}
+                  <Badge 
+                    asChild 
+                    variant="secondary" 
+                    className="absolute top-3 right-3 bg-black/60 backdrop-blur-sm text-white border-white/10 text-[10px] font-medium hover:bg-black/80 cursor-pointer"
                   >
-                    <ExternalLink className="h-4 w-4" />
-                    Open in Loom
-                  </a>
+                    <a href={currentAsset.embed_url} target="_blank" rel="noopener noreferrer">
+                      <ExternalLink className="h-3 w-3" />
+                      Loom
+                    </a>
+                  </Badge>
                 </>
               ) : (
                 // Generic embed fallback

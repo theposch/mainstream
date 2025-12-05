@@ -7,6 +7,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import useEmblaCarousel from "embla-carousel-react";
 import { X, Reply, Heart, MessageCircle, Loader2, ExternalLink } from "lucide-react";
 import { getFigmaEmbedUrl, getLoomEmbedUrl, getProviderInfo, type EmbedProvider } from "@/lib/utils/embed-providers";
+import { Badge } from "@/components/ui/badge";
 import { useAssetView } from "@/lib/hooks/use-asset-view";
 import { ViewersTooltip } from "./viewers-tooltip";
 import { Button } from "@/components/ui/button";
@@ -322,16 +323,17 @@ export function AssetDetailMobile({ asset, onClose }: AssetDetailMobileProps) {
                         className="w-full h-full rounded-lg"
                         allowFullScreen
                       />
-                      {/* Open in Figma button */}
-                      <a
-                        href={carouselAsset.embed_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="absolute bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-2 px-4 py-2 rounded-full bg-black/70 hover:bg-black/90 text-white text-sm font-medium backdrop-blur-sm transition-colors"
+                      {/* Figma badge */}
+                      <Badge 
+                        asChild 
+                        variant="secondary" 
+                        className="absolute top-6 right-6 bg-black/60 backdrop-blur-sm text-white border-white/10 text-[10px] font-medium hover:bg-black/80"
                       >
-                        <ExternalLink className="h-4 w-4" />
-                        Open in Figma
-                      </a>
+                        <a href={carouselAsset.embed_url} target="_blank" rel="noopener noreferrer">
+                          <ExternalLink className="h-3 w-3" />
+                          Figma
+                        </a>
+                      </Badge>
                     </>
                   ) : carouselAsset.embed_provider === 'loom' ? (
                     <>
@@ -341,16 +343,17 @@ export function AssetDetailMobile({ asset, onClose }: AssetDetailMobileProps) {
                         allowFullScreen
                         allow="autoplay; fullscreen"
                       />
-                      {/* Open in Loom button */}
-                      <a
-                        href={carouselAsset.embed_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="absolute bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-2 px-4 py-2 rounded-full bg-black/70 hover:bg-black/90 text-white text-sm font-medium backdrop-blur-sm transition-colors"
+                      {/* Loom badge */}
+                      <Badge 
+                        asChild 
+                        variant="secondary" 
+                        className="absolute top-6 right-6 bg-black/60 backdrop-blur-sm text-white border-white/10 text-[10px] font-medium hover:bg-black/80"
                       >
-                        <ExternalLink className="h-4 w-4" />
-                        Open in Loom
-                      </a>
+                        <a href={carouselAsset.embed_url} target="_blank" rel="noopener noreferrer">
+                          <ExternalLink className="h-3 w-3" />
+                          Loom
+                        </a>
+                      </Badge>
                     </>
                   ) : (
                     // Generic embed fallback
