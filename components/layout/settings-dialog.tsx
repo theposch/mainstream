@@ -876,7 +876,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
         </div>
 
         {/* Footer */}
-        <div className="flex justify-end gap-3 p-6 pt-0 border-t border-border">
+        <div className="flex justify-end gap-3 p-6 border-t border-border">
           <Button
             type="button"
             variant="outline"
