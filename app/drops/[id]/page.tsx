@@ -2,6 +2,7 @@ import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import { DropView } from "@/components/drops/drop-view";
+import { DropBlocksView } from "@/components/drops/blocks/drop-blocks-view";
 
 interface DropPageProps {
   params: Promise<{ id: string }>;
@@ -34,7 +35,55 @@ export default async function DropPage({ params }: DropPageProps) {
     notFound();
   }
 
-  // Fetch posts with asset details
+  // Check if drop uses blocks or legacy posts
+  if (drop.use_blocks) {
+    // Fetch blocks with assets and gallery images for blocks-based drops
+    const { data: blocks } = await supabase
+      .from("drop_blocks")
+      .select(`
+        *,
+        asset:assets(
+          id, title, description, url, medium_url, thumbnail_url, asset_type, embed_provider, created_at,
+          uploader:users!uploader_id(id, username, display_name, avatar_url)
+        ),
+        gallery_images:drop_block_gallery_images(
+          id, position,
+          asset:assets(
+            id, title, url, medium_url, thumbnail_url, asset_type, embed_provider,
+            uploader:users!uploader_id(id, username, display_name, avatar_url)
+          )
+        )
+      `)
+      .eq("drop_id", id)
+      .order("position", { ascending: true });
+
+    // Get contributors from blocks and gallery images
+    const contributorMap = new Map();
+    blocks?.forEach((block: any) => {
+      if (block.asset?.uploader && !contributorMap.has(block.asset.uploader.id)) {
+        contributorMap.set(block.asset.uploader.id, block.asset.uploader);
+      }
+      block.gallery_images?.forEach((galleryImage: any) => {
+        if (galleryImage.asset?.uploader && !contributorMap.has(galleryImage.asset.uploader.id)) {
+          contributorMap.set(galleryImage.asset.uploader.id, galleryImage.asset.uploader);
+        }
+      });
+    });
+    const contributors = Array.from(contributorMap.values());
+
+    return (
+      <div className="max-w-3xl mx-auto py-10">
+        <DropBlocksView
+          title={drop.title}
+          description={drop.description}
+          blocks={blocks || []}
+          contributors={contributors}
+        />
+      </div>
+    );
+  }
+
+  // Legacy: Fetch posts with asset details for non-blocks drops
   const { data: dropPosts } = await supabase
     .from("drop_posts")
     .select(`

@@ -1,9 +1,11 @@
+import React from "react";
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import { render } from "@react-email/render";
 import { Resend } from "resend";
 import { DropView } from "@/components/drops/drop-view";
+import { EmailDropView } from "@/components/drops/blocks/email-drop-view";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -84,49 +86,99 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         const emails = users?.map((u) => u.email).filter(Boolean) || [];
 
         if (emails.length > 0) {
-          // Fetch posts for email
-          const { data: dropPosts } = await supabase
-            .from("drop_posts")
-            .select(`
-              position,
-              asset:assets(
-                id,
-                title,
-                description,
-                url,
-                thumbnail_url,
-                uploader:users!uploader_id(id, username, display_name, avatar_url)
-              )
-            `)
-            .eq("drop_id", dropId)
-            .order("position", { ascending: true });
+          let emailHtml: string;
+          let contributors: any[] = [];
 
-          const posts = dropPosts?.map((dp: any) => ({
-            ...dp.asset,
-            position: dp.position,
-            streams: [],
-          })).filter(Boolean) || [];
+          // Check if drop uses blocks or legacy posts
+          if (drop.use_blocks) {
+            // Fetch blocks with assets and gallery images for blocks-based drops
+            const { data: blocks } = await supabase
+              .from("drop_blocks")
+              .select(`
+                *,
+                asset:assets(
+                  id, title, description, url, medium_url, thumbnail_url, asset_type, embed_provider, created_at,
+                  uploader:users!uploader_id(id, username, display_name, avatar_url)
+                ),
+                gallery_images:drop_block_gallery_images(
+                  id, position,
+                  asset:assets(
+                    id, title, url, medium_url, thumbnail_url, asset_type, embed_provider,
+                    uploader:users!uploader_id(id, username, display_name, avatar_url)
+                  )
+                )
+              `)
+              .eq("drop_id", dropId)
+              .order("position", { ascending: true });
 
-          // Get contributors
-          const contributorMap = new Map();
-          posts.forEach((post: any) => {
-            if (post.uploader && !contributorMap.has(post.uploader.id)) {
-              contributorMap.set(post.uploader.id, post.uploader);
-            }
-          });
-          const contributors = Array.from(contributorMap.values());
+            // Get contributors from blocks and gallery images
+            const contributorMap = new Map();
+            blocks?.forEach((block: any) => {
+              if (block.asset?.uploader && !contributorMap.has(block.asset.uploader.id)) {
+                contributorMap.set(block.asset.uploader.id, block.asset.uploader);
+              }
+              block.gallery_images?.forEach((galleryImage: any) => {
+                if (galleryImage.asset?.uploader && !contributorMap.has(galleryImage.asset.uploader.id)) {
+                  contributorMap.set(galleryImage.asset.uploader.id, galleryImage.asset.uploader);
+                }
+              });
+            });
+            contributors = Array.from(contributorMap.values());
 
-          // Render email HTML
-          const emailHtml = await render(
-            DropView({
-              title: drop.title,
-              description: drop.description,
-              dateRangeStart: drop.date_range_start,
-              dateRangeEnd: drop.date_range_end,
-              posts,
-              contributors,
-            })
-          );
+            // Render blocks view for email
+            emailHtml = await render(
+              React.createElement(EmailDropView, {
+                title: drop.title,
+                description: drop.description,
+                blocks: blocks || [],
+                contributors,
+              })
+            );
+          } else {
+            // Fetch posts for legacy drops
+            const { data: dropPosts } = await supabase
+              .from("drop_posts")
+              .select(`
+                position,
+                asset:assets(
+                  id,
+                  title,
+                  description,
+                  url,
+                  thumbnail_url,
+                  uploader:users!uploader_id(id, username, display_name, avatar_url)
+                )
+              `)
+              .eq("drop_id", dropId)
+              .order("position", { ascending: true });
+
+            const posts = dropPosts?.map((dp: any) => ({
+              ...dp.asset,
+              position: dp.position,
+              streams: [],
+            })).filter(Boolean) || [];
+
+            // Get contributors
+            const contributorMap = new Map();
+            posts.forEach((post: any) => {
+              if (post.uploader && !contributorMap.has(post.uploader.id)) {
+                contributorMap.set(post.uploader.id, post.uploader);
+              }
+            });
+            contributors = Array.from(contributorMap.values());
+
+            // Render classic view for email
+            emailHtml = await render(
+              DropView({
+                title: drop.title,
+                description: drop.description,
+                dateRangeStart: drop.date_range_start,
+                dateRangeEnd: drop.date_range_end,
+                posts,
+                contributors,
+              })
+            );
+          }
 
           // Wrap in email boilerplate
           const fullHtml = `
