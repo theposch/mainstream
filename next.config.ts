@@ -6,9 +6,10 @@ const nextConfig: NextConfig = {
     serverActions: {
       bodySizeLimit: '50mb',
     },
-    // Increase body size limit for proxy/middleware (default is 10MB)
-    proxyBodySize: 50 * 1024 * 1024, // 50MB in bytes
   },
+  // Increase body size limit for proxy/middleware (default is 10MB)
+  // Try multiple config names as Next.js 16 is in development
+  middlewareClientMaxBodySize: '50mb',
   images: {
     remotePatterns: [
       {
