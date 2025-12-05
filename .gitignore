@@ -47,3 +47,6 @@ next-env.d.ts
 
 # supabase docker (contains sensitive env files)
 /supabase-docker/
+
+# Database backups
+backups/
