@@ -145,8 +145,9 @@ export default function UserProfile({ params }: UserProfileProps) {
           supabase.from('user_follows').select('*', { count: 'exact', head: true }).eq('following_id', userData.id),
           supabase.from('user_follows').select('*', { count: 'exact', head: true }).eq('follower_id', userData.id),
           // Try with visibility filter, will fallback below if needed
-          supabase.from('assets').select('*', { count: 'exact', head: true }).eq('uploader_id', userData.id).or('visibility.is.null,visibility.eq.public'),
-          supabase.from('assets').select(`*, uploader:users!uploader_id(*), asset_likes(count)`).eq('uploader_id', userData.id).or('visibility.is.null,visibility.eq.public').order('created_at', { ascending: false }),
+          // Use compound OR to ensure AND semantics: (uploader_id = X AND visibility IS NULL) OR (uploader_id = X AND visibility = public)
+          supabase.from('assets').select('*', { count: 'exact', head: true }).or(`and(uploader_id.eq.${userData.id},visibility.is.null),and(uploader_id.eq.${userData.id},visibility.eq.public)`),
+          supabase.from('assets').select(`*, uploader:users!uploader_id(*), asset_likes(count)`).or(`and(uploader_id.eq.${userData.id},visibility.is.null),and(uploader_id.eq.${userData.id},visibility.eq.public)`).order('created_at', { ascending: false }),
           supabase.from('streams').select('*').eq('owner_id', userData.id).eq('owner_type', 'user').eq('status', 'active'),
           supabase.from('asset_likes')
             .select(`asset_id, assets(*, uploader:users!uploader_id(*), asset_likes(count))`)

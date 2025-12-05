@@ -54,6 +54,7 @@ export async function GET(request: NextRequest) {
     // Exclude unlisted assets (drop-only images) if visibility column exists
     if (type === 'all' || type === 'assets') {
       // Get limited results for display - try with visibility filter first
+      // Use compound OR to ensure AND semantics with visibility filter
       let { data: assets, error: assetsError } = await supabase
         .from('assets')
         .select(`
@@ -61,8 +62,7 @@ export async function GET(request: NextRequest) {
           uploader:users!uploader_id(*),
           asset_likes(count)
         `)
-        .ilike('title', `%${searchTerm}%`)
-        .or('visibility.is.null,visibility.eq.public')
+        .or(`and(title.ilike.%${searchTerm}%,visibility.is.null),and(title.ilike.%${searchTerm}%,visibility.eq.public)`)
         .order('created_at', { ascending: false })
         .limit(limit);
       
@@ -81,13 +81,25 @@ export async function GET(request: NextRequest) {
         assets = fallback.data;
       }
 
-      // Get total count (without limit)
-      const { count: totalAssets } = await supabase
+      // Get total count (without limit) - must include same visibility filter as results query
+      let totalAssets = 0;
+      const { count: filteredCount, error: countError } = await supabase
         .from('assets')
         .select('*', { count: 'exact', head: true })
-        .ilike('title', `%${searchTerm}%`);
+        .or(`and(title.ilike.%${searchTerm}%,visibility.is.null),and(title.ilike.%${searchTerm}%,visibility.eq.public)`);
+      
+      // Fallback count if visibility column doesn't exist
+      if (countError) {
+        const { count: fallbackCount } = await supabase
+          .from('assets')
+          .select('*', { count: 'exact', head: true })
+          .ilike('title', `%${searchTerm}%`);
+        totalAssets = fallbackCount || 0;
+      } else {
+        totalAssets = filteredCount || 0;
+      }
 
-      results.totalAssets = totalAssets || 0;
+      results.totalAssets = totalAssets;
 
       // Batch fetch which assets the user has liked
       let userLikedAssetIds: Set<string> = new Set();
