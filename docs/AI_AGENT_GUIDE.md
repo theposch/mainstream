@@ -12,11 +12,15 @@ Quick onboarding guide for AI assistants working on the Mainstream codebase.
 ## Critical Context
 
 ### Recent Major Changes
-- ✅ **Drops (AI Newsletter)** - AI-powered weekly drops with block-based Notion-like editor (NEW)
-- ✅ **LiteLLM Integration** - AI description generation using Gemini 2.5 Flash (NEW)
-- ✅ **Unlisted Assets** - Images uploaded in drops don't appear in feed (NEW)
-- ✅ **Image Galleries** - Multi-image blocks with grid/featured layouts (NEW)
-- ✅ **Email Preview** - React Email components for email-compatible drops (NEW)
+- ✅ **WebM Video Support** - Upload WebM videos up to 50MB with autoplay in feed (NEW)
+- ✅ **Loom Embeds** - Paste Loom URLs to embed videos with thumbnails (NEW)
+- ✅ **Route Protection** - Middleware redirects unauthenticated users to login (NEW)
+- ✅ **Arrow Key Navigation** - Navigate between assets in modal with keyboard (NEW)
+- ✅ **Drops (AI Newsletter)** - AI-powered weekly drops with block-based Notion-like editor
+- ✅ **LiteLLM Integration** - AI description generation using Gemini 2.5 Flash
+- ✅ **Unlisted Assets** - Images uploaded in drops don't appear in feed
+- ✅ **Image Galleries** - Multi-image blocks with grid/featured layouts
+- ✅ **Email Preview** - React Email components for email-compatible drops
 - ✅ **Figma Embeds** - Paste Figma URLs to embed designs with thumbnails
 - ✅ **Animated GIFs** - Full GIF support with animation on hover and GIF badge
 - ✅ **Real-time Notifications** - Live notification updates with typing indicators
@@ -68,8 +72,8 @@ auth/login/page.tsx    - Login
 ```
 assets/
   route.ts             - GET: List assets
-  upload/route.ts      - POST: Upload asset (images + animated GIFs)
-  embed/route.ts       - POST: Create embed asset from URL (Figma)
+  upload/route.ts      - POST: Upload asset (images, GIFs, WebM videos up to 50MB)
+  embed/route.ts       - POST: Create embed asset from URL (Figma, Loom)
   following/route.ts   - GET: Assets from followed users
   [id]/
     route.ts           - GET/PATCH/DELETE: Asset operations
@@ -227,9 +231,9 @@ streams
 
 assets
   ├─ title, url, thumbnail_url, uploader_id, width, height, view_count
-  ├─ asset_type ('image' | 'embed'), embed_url, embed_provider
+  ├─ asset_type ('image' | 'video' | 'embed'), embed_url, embed_provider ('figma' | 'loom')
   ├─ visibility ('public' | 'unlisted') - unlisted = drop-only, hidden from feed
-  ├─ type ('image' | 'video' | 'link') - legacy field
+  ├─ type ('image' | 'video' | 'link') - content type field
   ├─ belongs to → streams (many-to-many)
   ├─ has → likes, comments, views
   └─ includes pre-fetched: likeCount, isLikedByCurrentUser, view_count, streams
@@ -526,34 +530,39 @@ See `docs/DROPS_FEATURE.md` for comprehensive documentation.
 | Drop Editor | `app/drops/[id]/edit/page.tsx` | `api/drops/[id]/blocks/route.ts` | - | `drops/blocks/*.tsx` |
 | AI Describe | - | `api/ai/describe/route.ts` | `use-ai-description.ts` | `post-metadata-form.tsx` |
 
-## Figma Embeds
+## Embeds (Figma & Loom)
 
 ### Overview
-Paste a Figma URL → automatically creates an embed asset with thumbnail preview.
+Paste a Figma or Loom URL → automatically creates an embed asset with thumbnail preview.
+
+### Supported Providers
+- **Figma**: Design files, frames, prototypes
+- **Loom**: Video recordings
 
 ### How It Works
 1. User clicks "Add via URL" in create dialog
-2. Pastes Figma URL (file/design/prototype)
+2. Pastes URL from supported provider
 3. System detects provider and fetches thumbnail:
-   - **With Figma token**: Frame-specific thumbnails via Figma REST API
-   - **Without token**: File-level thumbnails via oEmbed API
+   - **Figma with token**: Frame-specific thumbnails via Figma REST API
+   - **Figma without token**: File-level thumbnails via oEmbed API
+   - **Loom**: Thumbnails via oEmbed API
 4. Thumbnail is downloaded and stored locally (never expires)
-5. Asset created with `asset_type: 'embed'`, `embed_provider: 'figma'`
+5. Asset created with `asset_type: 'embed'`, `embed_provider: 'figma'` or `'loom'`
 
-### Thumbnail Handling
-- **Tall frames** (>120% aspect ratio): Hero crop from top with `object-cover`
-- **Normal frames**: Full display with `object-contain`
-- **oEmbed thumbnails**: 16:9 `object-cover`
+### Display
+- **Figma**: Shows thumbnail in feed, interactive embed in detail view
+- **Loom**: Shows thumbnail with VIDEO badge, plays in iframe in detail view
+- Provider badges shown on cards (subtle, top-right corner)
 
 ### Environment Variables
 ```env
-# Optional: For frame-specific thumbnails
+# Optional: For frame-specific Figma thumbnails
 # Users can also add tokens in Settings → Connected Accounts
 ENCRYPTION_KEY=your_64_char_hex_key  # openssl rand -hex 32
 ```
 
 ### Key Files
-- `lib/utils/embed-providers.ts` - Provider detection, Figma API calls
+- `lib/utils/embed-providers.ts` - Provider detection, oEmbed/API integration (Figma, Loom)
 - `app/api/assets/embed/route.ts` - Create embed assets
 - `app/api/users/me/integrations/route.ts` - Manage Figma tokens
 - `components/layout/embed-url-dialog.tsx` - URL input dialog
@@ -579,6 +588,39 @@ Upload animated GIFs → preserved animation with GIF badge in feed.
 - `lib/utils/image-processing.ts` - `isAnimatedGif()`, `optimizeAnimatedGif()`, `generateGifThumbnail()`
 - `app/api/assets/upload/route.ts` - Conditional GIF processing
 - `components/assets/element-card.tsx` - GIF badge and hover animation
+
+## WebM Video Support
+
+### Overview
+Upload WebM videos (up to 50MB) → autoplay in feed, controls in detail view.
+
+### Upload Processing
+1. **Validation**: File type must be `video/webm`, max 50MB
+2. **Storage**: Video saved directly (no transcoding)
+3. **Database**: `asset_type: 'video'`, `type: 'video'`
+
+### Feed Display
+- **VIDEO badge** appears on card
+- **Autoplay** with loop, muted
+- Uses native `<video>` element
+
+### Detail View
+- Full video player with controls
+- Not muted by default
+
+### Key Files
+- `app/api/assets/upload/route.ts` - WebM handling (no image processing)
+- `components/assets/element-card.tsx` - Video element with VIDEO badge
+- `components/assets/asset-detail-desktop.tsx` - Video player with controls
+- `components/layout/upload-dialog.tsx` - Accepts video/webm, 50MB limit
+
+### Configuration
+```typescript
+// next.config.ts
+experimental: {
+  middlewareClientMaxBodySize: '50mb',  // For large video uploads
+}
+```
 
 ## Real-time Features
 
@@ -647,7 +689,10 @@ When working on a feature, review:
    - `018_add_drops.sql` - Drops base tables
    - `021_add_drop_blocks.sql` - Block-based editor
    - `022_add_image_gallery_block.sql` - Gallery blocks
+   - `023_add_auth_user_trigger.sql` - Auto-create users on signup
+   - `024_add_assets_rls_policies.sql` - Asset security policies
    - `025_add_asset_visibility.sql` - Unlisted assets
+   - `026_add_video_asset_type.sql` - WebM video support
 3. Type definitions: `lib/types/database.ts`
 4. Related API route: `app/api/[feature]/route.ts`
 5. Related hook: `lib/hooks/use-[feature].ts`

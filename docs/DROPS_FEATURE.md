@@ -391,6 +391,15 @@ RESEND_API_KEY=re_your-resend-key
 
 ---
 
+## Supported Asset Types
+
+Drops support all asset types:
+- **Images**: JPEG, PNG, WebP, GIF (including animated)
+- **Videos**: WebM (up to 50MB, autoplays in email as static preview)
+- **Embeds**: Figma, Loom (renders as clickable thumbnail in email)
+
+---
+
 ## Future Enhancements
 
 Planned features not yet implemented:
