@@ -22,6 +22,8 @@ export function SignupForm({
 }: React.ComponentProps<"div">) {
   const router = useRouter()
   const [email, setEmail] = useState("")
+  const [username, setUsername] = useState("")
+  const [displayName, setDisplayName] = useState("")
   const [password, setPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
   const [error, setError] = useState("")
@@ -30,6 +32,19 @@ export function SignupForm({
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     setError("")
+
+    // Username validation (3-30 chars, lowercase alphanumeric with hyphens/underscores)
+    const usernameRegex = /^[a-z0-9_-]{3,30}$/
+    if (!usernameRegex.test(username)) {
+      setError("Username must be 3-30 characters, lowercase letters, numbers, hyphens, or underscores only")
+      return
+    }
+
+    // Display name validation
+    if (displayName.trim().length < 2) {
+      setError("Please enter your full name")
+      return
+    }
 
     // Client-side validation
     if (password.length < 8) {
@@ -51,6 +66,10 @@ export function SignupForm({
         password,
         options: {
           emailRedirectTo: `${window.location.origin}/auth/callback`,
+          data: {
+            username: username.toLowerCase(),
+            display_name: displayName.trim(),
+          },
         },
       })
 
@@ -89,6 +108,38 @@ export function SignupForm({
               )}
 
               <Field>
+                <FieldLabel htmlFor="display-name">Full Name</FieldLabel>
+                <Input
+                  id="display-name"
+                  type="text"
+                  placeholder="Last Name, First Name"
+                  required
+                  value={displayName}
+                  onChange={(e) => setDisplayName(e.target.value)}
+                  disabled={loading}
+                />
+                <FieldDescription>
+                  Enter your name as &quot;Last Name, First Name&quot;
+                </FieldDescription>
+              </Field>
+
+              <Field>
+                <FieldLabel htmlFor="username">Username</FieldLabel>
+                <Input
+                  id="username"
+                  type="text"
+                  placeholder="johndoe"
+                  required
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value.toLowerCase())}
+                  disabled={loading}
+                />
+                <FieldDescription>
+                  3-30 characters, lowercase letters, numbers, hyphens, or underscores
+                </FieldDescription>
+              </Field>
+
+              <Field>
                 <FieldLabel htmlFor="email">Email</FieldLabel>
                 <Input
                   id="email"
@@ -99,10 +150,6 @@ export function SignupForm({
                   onChange={(e) => setEmail(e.target.value)}
                   disabled={loading}
                 />
-                <FieldDescription>
-                  We&apos;ll use this to contact you. We will not share your
-                  email with anyone else.
-                </FieldDescription>
               </Field>
 
               <Field>
@@ -120,7 +167,7 @@ export function SignupForm({
                   </Field>
                   <Field>
                     <FieldLabel htmlFor="confirm-password">
-                      Confirm Password
+                      Confirm
                     </FieldLabel>
                     <Input
                       id="confirm-password"
