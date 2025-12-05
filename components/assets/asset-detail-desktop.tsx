@@ -105,11 +105,15 @@ import type { Asset, User } from "@/lib/types/database";
 
 interface AssetDetailDesktopProps {
   asset: Asset;
+  /** Previous asset for arrow key navigation */
+  previousAsset?: Asset | null;
+  /** Next asset for arrow key navigation */
+  nextAsset?: Asset | null;
   /** Callback when modal should close (for overlay mode) */
   onClose?: () => void;
 }
 
-export function AssetDetailDesktop({ asset, onClose }: AssetDetailDesktopProps) {
+export function AssetDetailDesktop({ asset, previousAsset = null, nextAsset = null, onClose }: AssetDetailDesktopProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const highlightedCommentId = searchParams.get('comment');
@@ -186,9 +190,7 @@ export function AssetDetailDesktop({ asset, onClose }: AssetDetailDesktopProps) 
     setAssetStreams(asset.streams || []);
   }, [asset.streams]);
 
-  // Navigation between assets (simplified for now - can be enhanced with context)
-  const previousAsset: any = null;
-  const nextAsset: any = null;
+  // Navigation between assets (passed from parent)
   
   // Comment interaction handlers
   const handleAddComment = React.useCallback(async (content: string) => {

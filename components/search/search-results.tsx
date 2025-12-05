@@ -282,6 +282,7 @@ export const SearchResults = React.memo(function SearchResults({ initialQuery }:
       {selectedAsset && (
         <AssetDetail 
           asset={selectedAsset} 
+          allAssets={results.assets}
           onClose={handleCloseModal}
         />
       )}

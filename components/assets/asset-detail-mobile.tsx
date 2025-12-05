@@ -38,11 +38,13 @@ import {
 
 interface AssetDetailMobileProps {
   asset: any;  // Asset from database
+  /** All assets in the current view for swipe navigation */
+  allAssets?: any[];
   /** Callback when modal should close (for overlay mode) */
   onClose?: () => void;
 }
 
-export function AssetDetailMobile({ asset, onClose }: AssetDetailMobileProps) {
+export function AssetDetailMobile({ asset, allAssets: allAssetsProp, onClose }: AssetDetailMobileProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const highlightedCommentId = searchParams.get('comment');
@@ -63,10 +65,19 @@ export function AssetDetailMobile({ asset, onClose }: AssetDetailMobileProps) {
     setLocalAsset(asset);
   }, [asset]);
   
-  // Simplified navigation (carousel removed for now)
-  const allAssets = React.useMemo(() => [localAsset], [localAsset]);
+  // Use provided assets list for swipe navigation, fallback to just current asset
+  const allAssets = React.useMemo(() => {
+    if (allAssetsProp && allAssetsProp.length > 0) {
+      return allAssetsProp;
+    }
+    return [localAsset];
+  }, [allAssetsProp, localAsset]);
 
-  const initialIndex = 0;
+  // Find initial index based on current asset
+  const initialIndex = React.useMemo(() => {
+    const idx = allAssets.findIndex(a => a.id === asset.id);
+    return idx >= 0 ? idx : 0;
+  }, [allAssets, asset.id]);
 
   // Embla Carousel setup
   const [emblaRef, emblaApi] = useEmblaCarousel({
