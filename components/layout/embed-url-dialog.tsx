@@ -33,6 +33,7 @@ import {
   getProviderInfo,
   type EmbedProvider,
 } from "@/lib/utils/embed-providers";
+import { Badge } from "@/components/ui/badge";
 
 interface EmbedUrlDialogProps {
   open: boolean;
@@ -274,10 +275,12 @@ export function EmbedUrlDialog({ open, onOpenChange, initialStreamId }: EmbedUrl
                 )}
                 
                 {/* Provider Badge */}
-                <div className={`absolute top-3 left-3 flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-bold ${providerInfo.bgColor} text-white`}>
-                  <span>{providerInfo.icon}</span>
-                  <span>{providerInfo.name}</span>
-                </div>
+                <Badge 
+                  variant="secondary" 
+                  className="absolute top-3 left-3 bg-black/60 backdrop-blur-sm text-white border-white/10 text-[10px] font-medium"
+                >
+                  {providerInfo.name}
+                </Badge>
                 
                 {/* Open in New Tab */}
                 <a
