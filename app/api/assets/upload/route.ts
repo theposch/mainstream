@@ -35,6 +35,7 @@ import {
 import { createClient } from '@/lib/supabase/server';
 
 export const runtime = 'nodejs';
+export const maxDuration = 60; // Allow up to 60 seconds for large uploads
 
 /**
  * POST /api/assets/upload
@@ -85,7 +86,16 @@ export async function POST(request: NextRequest) {
     };
     
     // Parse multipart/form-data
-    const formData = await request.formData();
+    let formData: FormData;
+    try {
+      formData = await request.formData();
+    } catch (formError) {
+      console.error('[POST /api/assets/upload] Failed to parse form data:', formError);
+      return NextResponse.json(
+        { error: 'Failed to parse upload. File may be too large.' },
+        { status: 413 }
+      );
+    }
     const file = formData.get('file') as File | null;
     let title = formData.get('title') as string | null;
     const description = formData.get('description') as string | null;
@@ -113,6 +123,8 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
+
+    console.log(`[POST /api/assets/upload] File received: ${file.name}, size: ${(file.size / 1024 / 1024).toFixed(2)} MB, type: ${file.type}`);
 
     // Validate file type (images and WebM videos)
     const isImage = file.type.startsWith('image/');

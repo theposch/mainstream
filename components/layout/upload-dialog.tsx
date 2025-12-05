@@ -198,10 +198,15 @@ export function UploadDialog({ open, onOpenChange, initialStreamId }: UploadDial
         body: formData,
       });
 
-      const data = await response.json();
+      let data;
+      try {
+        data = await response.json();
+      } catch {
+        throw new Error(`Server error (${response.status}): Unable to parse response`);
+      }
 
       if (!response.ok) {
-        throw new Error(data.error || 'Failed to upload image');
+        throw new Error(data.error || data.message || `Upload failed (${response.status})`);
       }
 
       // Success! Close dialog and refresh current page
