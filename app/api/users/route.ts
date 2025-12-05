@@ -102,11 +102,14 @@ export async function GET(request: NextRequest) {
       .eq('streams.is_private', false);
 
     // Group streams by user, keeping only 4 unique streams per user
+    // Note: Supabase returns nested relations as arrays, so we unwrap them
     const streamsByUser = new Map<string, Set<string>>();
     const streamDataMap = new Map<string, { id: string; name: string; is_private: boolean }>();
     
     (assetStreams || []).forEach((rel: any) => {
-      const userId = rel.assets?.uploader_id;
+      // Supabase returns assets as an array, unwrap to get uploader_id
+      const asset = Array.isArray(rel.assets) ? rel.assets[0] : rel.assets;
+      const userId = asset?.uploader_id;
       const stream = rel.streams;
       
       if (userId && stream) {

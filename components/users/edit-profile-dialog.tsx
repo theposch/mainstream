@@ -152,7 +152,7 @@ export function EditProfileDialog({ open, onOpenChange }: EditProfileDialogProps
         setIsUploadingAvatar(false);
       }
 
-      // Update profile
+      // Update profile (include avatarUrl if it was changed)
       const response = await fetch('/api/users/me', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -162,6 +162,7 @@ export function EditProfileDialog({ open, onOpenChange }: EditProfileDialogProps
           bio,
           location,
           jobTitle,
+          avatarUrl: newAvatarUrl,
         })
       });
 
