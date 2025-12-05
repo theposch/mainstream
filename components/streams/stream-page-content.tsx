@@ -70,6 +70,7 @@ export function StreamPageContent({ assets }: StreamPageContentProps) {
           asset={selectedAsset} 
           allAssets={assets}
           onClose={handleCloseModal}
+          onNavigate={setSelectedAssetId}
         />
       )}
     </>

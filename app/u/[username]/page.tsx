@@ -501,6 +501,7 @@ export default function UserProfile({ params }: UserProfileProps) {
           asset={selectedAsset} 
           allAssets={activeTab === "liked" ? likedAssets : userAssets}
           onClose={handleCloseModal}
+          onNavigate={setSelectedAssetId}
         />
       )}
     </div>

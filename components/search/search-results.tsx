@@ -284,6 +284,7 @@ export const SearchResults = React.memo(function SearchResults({ initialQuery }:
           asset={selectedAsset} 
           allAssets={results.assets}
           onClose={handleCloseModal}
+          onNavigate={setSelectedAssetId}
         />
       )}
     </>
