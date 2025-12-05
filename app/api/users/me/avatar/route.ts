@@ -102,7 +102,9 @@ export async function POST(request: NextRequest) {
 
     // Delete old avatar if it's a local file
     if (currentUser?.avatar_url?.startsWith('/uploads/avatars/')) {
-      const oldFilepath = path.join(process.cwd(), 'public', currentUser.avatar_url);
+      // Strip leading slash to avoid path.join treating it as absolute path
+      const relativePath = currentUser.avatar_url.slice(1);
+      const oldFilepath = path.join(process.cwd(), 'public', relativePath);
       if (existsSync(oldFilepath)) {
         try {
           await unlink(oldFilepath);
@@ -171,7 +173,9 @@ export async function DELETE() {
 
     // Delete old avatar if it's a local file
     if (currentUser?.avatar_url?.startsWith('/uploads/avatars/')) {
-      const filepath = path.join(process.cwd(), 'public', currentUser.avatar_url);
+      // Strip leading slash to avoid path.join treating it as absolute path
+      const relativePath = currentUser.avatar_url.slice(1);
+      const filepath = path.join(process.cwd(), 'public', relativePath);
       if (existsSync(filepath)) {
         try {
           await unlink(filepath);
