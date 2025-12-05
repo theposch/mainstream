@@ -31,6 +31,12 @@ export function Navbar() {
               >
                 Drops
               </Link>
+              <Link 
+                href="/people" 
+                className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+              >
+                People
+              </Link>
             </div>
           </div>
 

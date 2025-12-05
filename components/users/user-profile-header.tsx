@@ -1,124 +1,134 @@
 "use client";
 
 import * as React from "react";
-import Link from "next/link";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { useUserFollow } from "@/lib/hooks/use-user-follow";
-import { Settings, UserPlus, UserMinus } from "lucide-react";
+import { EditProfileDialog } from "@/components/users/edit-profile-dialog";
+import { Pencil, UserPlus, UserMinus, MapPin, Briefcase } from "lucide-react";
 
 interface UserProfileHeaderProps {
   /** The user whose profile is being displayed */
-  user: any;
-  /** Optional team the user belongs to */
-  team?: any;
+  user: {
+    id: string;
+    username: string;
+    display_name: string;
+    avatar_url?: string;
+    bio?: string;
+    job_title?: string;
+    location?: string;
+    followersCount?: number;
+    followingCount?: number;
+    assetsCount?: number;
+  };
   /** Whether the current user is viewing their own profile */
   isOwnProfile?: boolean;
 }
 
 /**
- * User profile header component displaying avatar, name, job title, and team affiliation.
+ * User profile header component displaying avatar, name, job title, bio, and location.
  * Shows an "Edit Profile" button when viewing own profile, or "Follow" button for others.
- * 
- * @param user - The user whose profile is being displayed
- * @param team - Optional team the user belongs to
- * @param isOwnProfile - Whether the current user is viewing their own profile
  */
 export function UserProfileHeader({
   user,
-  team,
   isOwnProfile = false,
 }: UserProfileHeaderProps) {
   const { isFollowing, followerCount, toggleFollow, loading } = useUserFollow(user.username);
-
-  const handleSettingsClick = () => {
-    // Settings dialog is accessible from the user menu in the navbar
-  };
+  const [editProfileOpen, setEditProfileOpen] = React.useState(false);
 
   return (
-    <div className="py-8">
-      {/* User Info Section */}
-      <div className="flex flex-col lg:flex-row gap-6 items-start justify-between">
-        {/* Left Side: Avatar + Info */}
-        <div className="flex gap-5 items-center flex-1 min-w-0">
-          {/* Avatar */}
-          <Avatar className="h-24 w-24 rounded-xl border border-border/50 bg-background shadow-md flex-shrink-0">
-            <AvatarImage src={user.avatar_url} alt={user.display_name} />
-            <AvatarFallback className="text-2xl bg-secondary rounded-xl">
-              {user.display_name?.substring(0, 2).toUpperCase() || 'U'}
-            </AvatarFallback>
-          </Avatar>
+    <>
+      <div className="py-8">
+        {/* User Info Section */}
+        <div className="flex flex-col lg:flex-row gap-6 items-start justify-between">
+          {/* Left Side: Avatar + Info */}
+          <div className="flex gap-5 items-start flex-1 min-w-0">
+            {/* Avatar */}
+            <Avatar className="h-24 w-24 rounded-xl border border-border/50 bg-background shadow-md flex-shrink-0">
+              <AvatarImage src={user.avatar_url} alt={user.display_name} />
+              <AvatarFallback className="text-2xl bg-secondary rounded-xl">
+                {user.display_name?.substring(0, 2).toUpperCase() || 'U'}
+              </AvatarFallback>
+            </Avatar>
 
-          {/* Name, Username, Job Title & Team */}
-          <div className="space-y-3 flex-1 min-w-0">
-            <div className="space-y-1.5">
-              <h1 className="text-3xl lg:text-4xl font-bold text-foreground tracking-tight">
-                {user.display_name}
-              </h1>
-              <p className="text-sm text-muted-foreground">
-                @{user.username}
-              </p>
-              {user.job_title && (
-                <p className="text-sm text-muted-foreground/90 leading-relaxed">
-                  {user.job_title}
+            {/* Name, Username, Role & Location */}
+            <div className="space-y-3 flex-1 min-w-0">
+              <div className="space-y-1">
+                <h1 className="text-3xl lg:text-4xl font-bold text-foreground tracking-tight">
+                  {user.display_name}
+                </h1>
+                <p className="text-sm text-muted-foreground">
+                  @{user.username}
+                </p>
+              </div>
+
+              {/* Role and Location */}
+              {(user.job_title || user.location) && (
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
+                  {user.job_title && (
+                    <span className="flex items-center gap-1.5">
+                      <Briefcase className="h-3.5 w-3.5" />
+                      {user.job_title}
+                    </span>
+                  )}
+                  {user.location && (
+                    <span className="flex items-center gap-1.5">
+                      <MapPin className="h-3.5 w-3.5" />
+                      {user.location}
+                    </span>
+                  )}
+                </div>
+              )}
+
+              {/* Bio */}
+              {user.bio && (
+                <p className="text-sm text-foreground/80 leading-relaxed max-w-xl">
+                  {user.bio}
                 </p>
               )}
             </div>
+          </div>
 
-            {/* Team Badge */}
-            {team && (
-              <Link
-                href={`/t/${team.slug}`}
-                className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-secondary/50 hover:bg-secondary transition-colors group"
+          {/* Right Side: Action Buttons */}
+          <div className="flex items-center gap-2">
+            {isOwnProfile ? (
+              <Button
+                variant="outline"
+                onClick={() => setEditProfileOpen(true)}
+                className="gap-2 h-9 px-4 text-sm font-medium"
               >
-                <Avatar className="h-5 w-5 border border-border/50">
-                  <AvatarImage src={team.avatar_url} alt={team.name} />
-                  <AvatarFallback className="text-xs">
-                    {team.name?.substring(0, 1).toUpperCase() || 'T'}
-                  </AvatarFallback>
-                </Avatar>
-                <span className="text-xs font-medium text-muted-foreground group-hover:text-foreground transition-colors">
-                  {team.name}
-                </span>
-              </Link>
+                <Pencil className="h-3.5 w-3.5" />
+                Edit Profile
+              </Button>
+            ) : (
+              <Button
+                variant={isFollowing ? "outline" : "default"}
+                onClick={toggleFollow}
+                disabled={loading}
+                className="gap-2 h-9 px-4 text-sm font-medium"
+              >
+                {isFollowing ? (
+                  <>
+                    <UserMinus className="h-3.5 w-3.5" />
+                    Unfollow
+                  </>
+                ) : (
+                  <>
+                    <UserPlus className="h-3.5 w-3.5" />
+                    Follow
+                  </>
+                )}
+              </Button>
             )}
           </div>
         </div>
-
-        {/* Right Side: Action Buttons */}
-        <div className="flex items-center gap-2">
-          {isOwnProfile ? (
-            <Button
-              variant="outline"
-              onClick={handleSettingsClick}
-              className="gap-2 h-9 px-4 text-sm font-medium"
-            >
-              <Settings className="h-3.5 w-3.5" />
-              Edit Profile
-            </Button>
-          ) : (
-            <Button
-              variant={isFollowing ? "outline" : "default"}
-              onClick={toggleFollow}
-              disabled={loading}
-              className="gap-2 h-9 px-4 text-sm font-medium"
-            >
-              {isFollowing ? (
-                <>
-                  <UserMinus className="h-3.5 w-3.5" />
-                  Unfollow
-                </>
-              ) : (
-                <>
-                  <UserPlus className="h-3.5 w-3.5" />
-                  Follow
-                </>
-              )}
-            </Button>
-          )}
-        </div>
       </div>
-    </div>
+
+      {/* Edit Profile Dialog */}
+      <EditProfileDialog 
+        open={editProfileOpen} 
+        onOpenChange={setEditProfileOpen} 
+      />
+    </>
   );
 }
-
