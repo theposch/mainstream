@@ -198,11 +198,16 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: "asset_ids array is required" }, { status: 400 });
     }
 
-    // Delete all existing images
-    await supabase
+    // Delete all existing images - check for errors to prevent inconsistent state
+    const { error: deleteError } = await supabase
       .from("drop_block_gallery_images")
       .delete()
       .eq("block_id", blockId);
+
+    if (deleteError) {
+      console.error("[Gallery API] Error deleting existing images:", deleteError);
+      return NextResponse.json({ error: "Failed to clear existing gallery images" }, { status: 500 });
+    }
 
     // Insert new images in order
     if (asset_ids.length > 0) {
@@ -212,12 +217,12 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
         position: index,
       }));
 
-      const { error } = await supabase
+      const { error: insertError } = await supabase
         .from("drop_block_gallery_images")
         .insert(newImages);
 
-      if (error) {
-        console.error("[Gallery API] Error replacing images:", error);
+      if (insertError) {
+        console.error("[Gallery API] Error inserting new images:", insertError);
         return NextResponse.json({ error: "Failed to update gallery" }, { status: 500 });
       }
     }

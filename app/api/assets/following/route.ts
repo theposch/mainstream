@@ -123,12 +123,19 @@ export async function GET(request: NextRequest) {
     const assetQueries: PromiseLike<any>[] = [];
     
     // Query for assets from followed users
-    // Note: visibility filter may fail if migration 025 hasn't run yet
+    // Filter by visibility (exclude unlisted drop-only images)
+    // Use compound OR to ensure AND semantics with IN filter
     if (followingUserIds.length > 0) {
+      // Build visibility filter for each uploader_id
+      // Format: (uploader_id = X AND (visibility IS NULL OR visibility = public))
+      const userVisibilityFilter = followingUserIds
+        .map(id => `and(uploader_id.eq.${id},or(visibility.is.null,visibility.eq.public))`)
+        .join(',');
+      
       let userAssetsQuery = supabase
         .from('assets')
         .select(baseSelect)
-        .in('uploader_id', followingUserIds);
+        .or(userVisibilityFilter);
       
       // Apply cursor filter BEFORE limit for correct pagination semantics
       if (cursor) {
@@ -136,23 +143,30 @@ export async function GET(request: NextRequest) {
       }
       
       userAssetsQuery = userAssetsQuery
-      .order('created_at', { ascending: false })
+        .order('created_at', { ascending: false })
         .limit(fetchLimit);
       
       assetQueries.push(userAssetsQuery);
     }
     
     // Query for assets from followed streams
+    // Filter by visibility (exclude unlisted drop-only images)
     if (streamAssetIds.length > 0) {
+      // Build visibility filter for each asset_id
+      // Format: (id = X AND (visibility IS NULL OR visibility = public))
+      const streamVisibilityFilter = streamAssetIds
+        .map(id => `and(id.eq.${id},or(visibility.is.null,visibility.eq.public))`)
+        .join(',');
+      
       let streamAssetsQuery = supabase
         .from('assets')
         .select(baseSelect)
-        .in('id', streamAssetIds);
+        .or(streamVisibilityFilter);
 
       // Apply cursor filter BEFORE limit for correct pagination semantics
-    if (cursor) {
+      if (cursor) {
         streamAssetsQuery = streamAssetsQuery.lt('created_at', cursor);
-    }
+      }
 
       streamAssetsQuery = streamAssetsQuery
         .order('created_at', { ascending: false })
