@@ -37,6 +37,8 @@ import { createClient } from '@/lib/supabase/server';
 export const runtime = 'nodejs';
 export const maxDuration = 60; // Allow up to 60 seconds for large uploads
 
+// Note: Body size limit is configured in next.config.ts via middlewareClientMaxBodySize
+
 /**
  * POST /api/assets/upload
  * 
