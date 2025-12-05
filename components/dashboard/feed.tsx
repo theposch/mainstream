@@ -13,6 +13,7 @@ import { useRouter } from "next/navigation";
 import { useAssetsInfinite } from "@/lib/hooks/use-assets-infinite";
 import { useFollowingAssets } from "@/lib/hooks/use-following-assets";
 import { assetKeys, fetchAssetById } from "@/lib/queries/asset-queries";
+import { UploadDialog } from "@/components/layout/upload-dialog";
 import type { Asset } from "@/lib/types/database";
 
 interface DashboardFeedProps {
@@ -25,6 +26,7 @@ export const DashboardFeed = React.memo(function DashboardFeed({ initialAssets }
   const { debouncedQuery, clearSearch } = useSearch();
   const [searchResults, setSearchResults] = React.useState<Asset[]>([]);
   const [searching, setSearching] = React.useState(false);
+  const [uploadDialogOpen, setUploadDialogOpen] = React.useState(false);
   
   // Modal state with URL sync via nuqs
   // shallow: true = URL updates without server re-render (client-side only)
@@ -37,8 +39,8 @@ export const DashboardFeed = React.memo(function DashboardFeed({ initialAssets }
   
   // Memoized callbacks for stable references
   const handleUploadClick = React.useCallback(() => {
-    router.push('/upload');
-  }, [router]);
+    setUploadDialogOpen(true);
+  }, []);
   
   // Infinite scroll hook for recent feed
   const { assets, loadMore, hasMore, loading } = useAssetsInfinite(initialAssets);
@@ -288,6 +290,9 @@ export const DashboardFeed = React.memo(function DashboardFeed({ initialAssets }
           onClose={handleCloseModal}
         />
       )}
+
+      {/* Upload Dialog for empty state */}
+      <UploadDialog open={uploadDialogOpen} onOpenChange={setUploadDialogOpen} />
     </div>
   );
 });
