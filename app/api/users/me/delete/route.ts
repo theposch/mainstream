@@ -55,6 +55,9 @@ export async function DELETE(request: NextRequest) {
     // Use admin client to delete user data and auth account
     const adminSupabase = await createAdminClient();
 
+    // Collect errors - we need all data deletions to succeed before removing the account
+    const deletionErrors: string[] = [];
+
     // Delete user's assets (this will cascade to likes, comments, etc. via RLS)
     const { error: assetsError } = await adminSupabase
       .from('assets')
@@ -63,6 +66,7 @@ export async function DELETE(request: NextRequest) {
 
     if (assetsError) {
       console.error('[DELETE /api/users/me/delete] Assets deletion error:', assetsError);
+      deletionErrors.push('assets');
     }
 
     // Delete user's streams
@@ -73,6 +77,7 @@ export async function DELETE(request: NextRequest) {
 
     if (streamsError) {
       console.error('[DELETE /api/users/me/delete] Streams deletion error:', streamsError);
+      deletionErrors.push('streams');
     }
 
     // Delete user's drops
@@ -83,6 +88,16 @@ export async function DELETE(request: NextRequest) {
 
     if (dropsError) {
       console.error('[DELETE /api/users/me/delete] Drops deletion error:', dropsError);
+      deletionErrors.push('drops');
+    }
+
+    // If any data deletion failed, abort to prevent orphaned data
+    if (deletionErrors.length > 0) {
+      console.error('[DELETE /api/users/me/delete] Aborting - failed to delete:', deletionErrors.join(', '));
+      return NextResponse.json(
+        { error: `Failed to delete account data (${deletionErrors.join(', ')}). Please try again or contact support.` },
+        { status: 500 }
+      );
     }
 
     // Delete user profile from users table
@@ -94,18 +109,20 @@ export async function DELETE(request: NextRequest) {
     if (profileError) {
       console.error('[DELETE /api/users/me/delete] Profile deletion error:', profileError);
       return NextResponse.json(
-        { error: 'Failed to delete account' },
+        { error: 'Failed to delete account profile. Please try again or contact support.' },
         { status: 500 }
       );
     }
 
-    // Delete auth user
+    // Delete auth user - only after all data is successfully removed
     const { error: deleteAuthError } = await adminSupabase.auth.admin.deleteUser(authUser.id);
 
     if (deleteAuthError) {
       console.error('[DELETE /api/users/me/delete] Auth deletion error:', deleteAuthError);
+      // Note: At this point, user data is deleted but auth remains
+      // This is a safer failure mode - user can still log in and retry
       return NextResponse.json(
-        { error: 'Failed to delete authentication account' },
+        { error: 'Failed to complete account deletion. Please try again or contact support.' },
         { status: 500 }
       );
     }
