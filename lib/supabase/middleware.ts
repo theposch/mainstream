@@ -54,18 +54,29 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  // Protect auth routes - redirect to login if not authenticated
-  if (!user && request.nextUrl.pathname.startsWith("/api/")) {
-    // Allow public API routes
-    const publicRoutes = ["/api/auth"];
-    // Also allow viewers endpoint (public data)
-    const isViewersRoute = /^\/api\/assets\/[^/]+\/viewers/.test(request.nextUrl.pathname);
-    const isPublicRoute = isViewersRoute || publicRoutes.some((route) =>
-      request.nextUrl.pathname.startsWith(route)
+  const pathname = request.nextUrl.pathname;
+
+  // Public routes that don't require authentication
+  const publicRoutes = [
+    "/",              // Landing page
+    "/auth/login",    // Login page
+    "/auth/signup",   // Signup page
+    "/auth/callback", // Auth callback
+  ];
+  
+  const isPublicRoute = publicRoutes.some((route) => pathname === route);
+  const isAuthRoute = pathname.startsWith("/auth/");
+  const isApiRoute = pathname.startsWith("/api/");
+
+  // Handle API routes - return 401 for unauthorized requests
+  if (!user && isApiRoute) {
+    const publicApiRoutes = ["/api/auth"];
+    const isViewersRoute = /^\/api\/assets\/[^/]+\/viewers/.test(pathname);
+    const isPublicApiRoute = isViewersRoute || publicApiRoutes.some((route) =>
+      pathname.startsWith(route)
     );
 
-    if (!isPublicRoute) {
-      // Return 401 for API routes
+    if (!isPublicApiRoute) {
       return NextResponse.json(
         { error: "Unauthorized" },
         { status: 401 }
@@ -73,14 +84,20 @@ export async function updateSession(request: NextRequest) {
     }
   }
 
-  // Optional: Protect dashboard/profile routes
-  // const protectedRoutes = ['/dashboard', '/settings', '/profile'];
-  // if (!user && protectedRoutes.some(route => request.nextUrl.pathname.startsWith(route))) {
-  //   const redirectUrl = request.nextUrl.clone();
-  //   redirectUrl.pathname = '/login';
-  //   redirectUrl.searchParams.set('redirectTo', request.nextUrl.pathname);
-  //   return NextResponse.redirect(redirectUrl);
-  // }
+  // Redirect unauthenticated users to login for protected pages
+  if (!user && !isPublicRoute && !isAuthRoute && !isApiRoute) {
+    const redirectUrl = request.nextUrl.clone();
+    redirectUrl.pathname = "/auth/login";
+    redirectUrl.searchParams.set("redirectTo", pathname);
+    return NextResponse.redirect(redirectUrl);
+  }
+
+  // Redirect authenticated users away from auth pages to home
+  if (user && isAuthRoute) {
+    const redirectUrl = request.nextUrl.clone();
+    redirectUrl.pathname = "/home";
+    return NextResponse.redirect(redirectUrl);
+  }
 
   // IMPORTANT: You *must* return the supabaseResponse object as it is.
   // If you're creating a new response object with NextResponse.next() make sure to:
