@@ -16,7 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { KEYS } from "@/lib/constants";
 import { X, Heart, MessageCircle, Share2, Download, MoreHorizontal, Reply, Trash2, Loader2, Pencil, ExternalLink } from "lucide-react";
-import { getFigmaEmbedUrl, getProviderInfo, type EmbedProvider } from "@/lib/utils/embed-providers";
+import { getFigmaEmbedUrl, getLoomEmbedUrl, getProviderInfo, type EmbedProvider } from "@/lib/utils/embed-providers";
 import { CommentList } from "./comment-list";
 import { CommentInput } from "./comment-input";
 import { EditAssetDialog } from "./edit-asset-dialog";
@@ -419,6 +419,25 @@ export function AssetDetailDesktop({ asset, onClose }: AssetDetailDesktopProps) 
                   >
                     <ExternalLink className="h-4 w-4" />
                     Open in Figma
+                  </a>
+                </>
+              ) : currentAsset.embed_provider === 'loom' ? (
+                <>
+                  <iframe
+                    src={getLoomEmbedUrl(currentAsset.embed_url) || ''}
+                    className="w-full h-full rounded-lg"
+                    allowFullScreen
+                    allow="autoplay; fullscreen"
+                  />
+                  {/* Open in Loom button */}
+                  <a
+                    href={currentAsset.embed_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="absolute top-4 right-4 flex items-center gap-2 px-3 py-2 rounded-lg bg-black/70 hover:bg-black/90 text-white text-sm font-medium backdrop-blur-sm transition-colors"
+                  >
+                    <ExternalLink className="h-4 w-4" />
+                    Open in Loom
                   </a>
                 </>
               ) : (

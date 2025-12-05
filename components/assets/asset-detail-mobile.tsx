@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import useEmblaCarousel from "embla-carousel-react";
 import { X, Reply, Heart, MessageCircle, Loader2, ExternalLink } from "lucide-react";
-import { getFigmaEmbedUrl, getProviderInfo, type EmbedProvider } from "@/lib/utils/embed-providers";
+import { getFigmaEmbedUrl, getLoomEmbedUrl, getProviderInfo, type EmbedProvider } from "@/lib/utils/embed-providers";
 import { useAssetView } from "@/lib/hooks/use-asset-view";
 import { ViewersTooltip } from "./viewers-tooltip";
 import { Button } from "@/components/ui/button";
@@ -312,7 +312,7 @@ export function AssetDetailMobile({ asset, onClose }: AssetDetailMobileProps) {
               key={`${carouselAsset.id}-${index}`} 
               className="flex-[0_0_100%] min-w-0 relative flex items-center justify-center"
             >
-              {/* Embed View (Figma, etc.) */}
+              {/* Embed View (Figma, Loom, etc.) */}
               {carouselAsset.asset_type === 'embed' && carouselAsset.embed_url ? (
                 <div className="relative w-full h-full p-4">
                   {carouselAsset.embed_provider === 'figma' ? (
@@ -331,6 +331,25 @@ export function AssetDetailMobile({ asset, onClose }: AssetDetailMobileProps) {
                       >
                         <ExternalLink className="h-4 w-4" />
                         Open in Figma
+                      </a>
+                    </>
+                  ) : carouselAsset.embed_provider === 'loom' ? (
+                    <>
+                      <iframe
+                        src={getLoomEmbedUrl(carouselAsset.embed_url) || ''}
+                        className="w-full h-full rounded-lg"
+                        allowFullScreen
+                        allow="autoplay; fullscreen"
+                      />
+                      {/* Open in Loom button */}
+                      <a
+                        href={carouselAsset.embed_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="absolute bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-2 px-4 py-2 rounded-full bg-black/70 hover:bg-black/90 text-white text-sm font-medium backdrop-blur-sm transition-colors"
+                      >
+                        <ExternalLink className="h-4 w-4" />
+                        Open in Loom
                       </a>
                     </>
                   ) : (
