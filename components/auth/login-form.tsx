@@ -16,13 +16,27 @@ import {
 import { Input } from "@/components/ui/input"
 import { createClient } from "@/lib/supabase/client"
 
+// Validate redirect URL to prevent open redirect attacks
+function getSafeRedirectUrl(redirectTo: string | null): string {
+  if (!redirectTo) return "/home";
+  
+  // Only allow relative paths starting with /
+  // Reject absolute URLs, protocol-relative URLs, and paths with encoded characters
+  const isRelativePath = redirectTo.startsWith("/") && 
+    !redirectTo.startsWith("//") && 
+    !redirectTo.includes("://") &&
+    !redirectTo.includes("%");
+  
+  return isRelativePath ? redirectTo : "/home";
+}
+
 export function LoginForm({
   className,
   ...props
 }: React.ComponentProps<"div">) {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const redirectTo = searchParams.get("redirectTo") || "/home"
+  const redirectTo = getSafeRedirectUrl(searchParams.get("redirectTo"))
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")

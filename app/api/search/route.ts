@@ -90,13 +90,21 @@ export async function GET(request: NextRequest) {
         .select('*', { count: 'exact', head: true })
         .or(`and(title.ilike.%${searchTerm}%,visibility.is.null),and(title.ilike.%${searchTerm}%,visibility.eq.public)`);
       
-      // Only fallback if error is specifically "column not found" (code 42703)
-      if (countError && isColumnNotFoundError(countError)) {
-        const { count: fallbackCount } = await supabase
-          .from('assets')
-          .select('*', { count: 'exact', head: true })
-          .ilike('title', `%${searchTerm}%`);
-        totalAssets = fallbackCount || 0;
+      // Handle count query results
+      if (countError) {
+        // Only fallback if error is specifically "column not found" (code 42703)
+        if (isColumnNotFoundError(countError)) {
+          const { count: fallbackCount } = await supabase
+            .from('assets')
+            .select('*', { count: 'exact', head: true })
+            .ilike('title', `%${searchTerm}%`);
+          totalAssets = fallbackCount || 0;
+        }
+        // For other errors (network, permissions), leave totalAssets as 0
+        // but log the error for debugging
+        else {
+          console.error('[Search API] Error getting asset count:', countError);
+        }
       } else {
         totalAssets = filteredCount || 0;
       }
