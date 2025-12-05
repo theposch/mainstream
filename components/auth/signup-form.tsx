@@ -22,10 +22,11 @@ export function SignupForm({
 }: React.ComponentProps<"div">) {
   const router = useRouter()
   const [email, setEmail] = useState("")
-  const [username, setUsername] = useState("")
-  const [displayName, setDisplayName] = useState("")
   const [password, setPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
+  const [firstName, setFirstName] = useState("")
+  const [lastName, setLastName] = useState("")
+  const [username, setUsername] = useState("")
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
 
@@ -33,20 +34,7 @@ export function SignupForm({
     e.preventDefault()
     setError("")
 
-    // Username validation (3-30 chars, lowercase alphanumeric with hyphens/underscores)
-    const usernameRegex = /^[a-z0-9_-]{3,30}$/
-    if (!usernameRegex.test(username)) {
-      setError("Username must be 3-30 characters, lowercase letters, numbers, hyphens, or underscores only")
-      return
-    }
-
-    // Display name validation
-    if (displayName.trim().length < 2) {
-      setError("Please enter your full name")
-      return
-    }
-
-    // Client-side validation
+    // Password validation
     if (password.length < 8) {
       setError("Password must be at least 8 characters long")
       return
@@ -57,7 +45,28 @@ export function SignupForm({
       return
     }
 
+    // Name validation
+    if (firstName.trim().length < 1) {
+      setError("Please enter your first name")
+      return
+    }
+
+    if (lastName.trim().length < 1) {
+      setError("Please enter your last name")
+      return
+    }
+
+    // Username validation (3-30 chars, lowercase alphanumeric with hyphens/underscores)
+    const usernameRegex = /^[a-z0-9_-]{3,30}$/
+    if (!usernameRegex.test(username)) {
+      setError("Username must be 3-30 characters, lowercase letters, numbers, hyphens, or underscores only")
+      return
+    }
+
     setLoading(true)
+
+    // Construct display name as "Last Name, First Name"
+    const displayName = `${lastName.trim()}, ${firstName.trim()}`
 
     try {
       const supabase = createClient()
@@ -68,7 +77,7 @@ export function SignupForm({
           emailRedirectTo: `${window.location.origin}/auth/callback`,
           data: {
             username: username.toLowerCase(),
-            display_name: displayName.trim(),
+            display_name: displayName,
           },
         },
       })
@@ -97,7 +106,7 @@ export function SignupForm({
               <div className="flex flex-col items-center gap-2 text-center">
                 <h1 className="text-2xl font-bold">Create your account</h1>
                 <p className="text-muted-foreground text-sm text-balance">
-                  Enter your email below to create your account
+                  Join Mainstream to share and discover designs
                 </p>
               </div>
 
@@ -108,19 +117,71 @@ export function SignupForm({
               )}
 
               <Field>
-                <FieldLabel htmlFor="display-name">Full Name</FieldLabel>
+                <FieldLabel htmlFor="email">Email</FieldLabel>
                 <Input
-                  id="display-name"
-                  type="text"
-                  placeholder="Last Name, First Name"
+                  id="email"
+                  type="email"
+                  placeholder="you@example.com"
                   required
-                  value={displayName}
-                  onChange={(e) => setDisplayName(e.target.value)}
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
                   disabled={loading}
                 />
-                <FieldDescription>
-                  Enter your name as &quot;Last Name, First Name&quot;
-                </FieldDescription>
+              </Field>
+
+              <Field className="grid grid-cols-2 gap-4">
+                <Field>
+                  <FieldLabel htmlFor="password">Password</FieldLabel>
+                  <Input
+                    id="password"
+                    type="password"
+                    required
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    disabled={loading}
+                  />
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor="confirm-password">Confirm</FieldLabel>
+                  <Input
+                    id="confirm-password"
+                    type="password"
+                    required
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    disabled={loading}
+                  />
+                </Field>
+              </Field>
+              <FieldDescription className="-mt-2">
+                Must be at least 8 characters long.
+              </FieldDescription>
+
+              <Field className="grid grid-cols-2 gap-4">
+                <Field>
+                  <FieldLabel htmlFor="first-name">First Name</FieldLabel>
+                  <Input
+                    id="first-name"
+                    type="text"
+                    placeholder="John"
+                    required
+                    value={firstName}
+                    onChange={(e) => setFirstName(e.target.value)}
+                    disabled={loading}
+                  />
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor="last-name">Last Name</FieldLabel>
+                  <Input
+                    id="last-name"
+                    type="text"
+                    placeholder="Doe"
+                    required
+                    value={lastName}
+                    onChange={(e) => setLastName(e.target.value)}
+                    disabled={loading}
+                  />
+                </Field>
               </Field>
 
               <Field>
@@ -140,52 +201,7 @@ export function SignupForm({
               </Field>
 
               <Field>
-                <FieldLabel htmlFor="email">Email</FieldLabel>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="m@example.com"
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  disabled={loading}
-                />
-              </Field>
-
-              <Field>
-                <Field className="grid grid-cols-2 gap-4">
-                  <Field>
-                    <FieldLabel htmlFor="password">Password</FieldLabel>
-                    <Input
-                      id="password"
-                      type="password"
-                      required
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      disabled={loading}
-                    />
-                  </Field>
-                  <Field>
-                    <FieldLabel htmlFor="confirm-password">
-                      Confirm
-                    </FieldLabel>
-                    <Input
-                      id="confirm-password"
-                      type="password"
-                      required
-                      value={confirmPassword}
-                      onChange={(e) => setConfirmPassword(e.target.value)}
-                      disabled={loading}
-                    />
-                  </Field>
-                </Field>
-                <FieldDescription>
-                  Must be at least 8 characters long.
-                </FieldDescription>
-              </Field>
-
-              <Field>
-                <Button type="submit" disabled={loading}>
+                <Button type="submit" disabled={loading} className="w-full">
                   {loading ? "Creating account..." : "Create Account"}
                 </Button>
               </Field>
@@ -255,4 +271,3 @@ export function SignupForm({
     </div>
   )
 }
-
