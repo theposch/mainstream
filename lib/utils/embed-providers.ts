@@ -11,7 +11,7 @@
  * - Dribbble (shots) - future
  */
 
-export type EmbedProvider = 'figma' | 'youtube' | 'vimeo' | 'dribbble' | 'unknown';
+export type EmbedProvider = 'figma' | 'loom' | 'youtube' | 'vimeo' | 'dribbble' | 'unknown';
 
 export interface EmbedInfo {
   provider: EmbedProvider;
@@ -25,6 +25,7 @@ export interface EmbedInfo {
  */
 const PROVIDER_PATTERNS: Record<EmbedProvider, RegExp | null> = {
   figma: /figma\.com\/(file|design|proto|board)\/([a-zA-Z0-9-_]+)/,
+  loom: /(?:loom\.com|loom\.com\/share|loom\.com\/embed)\/([a-zA-Z0-9]+)/,
   youtube: /(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]+)/,
   vimeo: /vimeo\.com\/(\d+)/,
   dribbble: /dribbble\.com\/shots\/(\d+)/,
@@ -68,7 +69,7 @@ export function isSupportedUrl(url: string): boolean {
  */
 export function getSupportedProviders(): EmbedProvider[] {
   // Only return providers we've fully implemented
-  return ['figma'];
+  return ['figma', 'loom'];
 }
 
 /**
@@ -419,6 +420,108 @@ export async function fetchFigmaFrameThumbnail(
 }
 
 // ============================================================================
+// Loom Specific
+// ============================================================================
+
+/**
+ * Validates if a URL is a valid Loom URL
+ */
+export function isLoomUrl(url: string): boolean {
+  return PROVIDER_PATTERNS.loom?.test(url) ?? false;
+}
+
+/**
+ * Extracts the Loom video ID from a URL
+ * Supports: loom.com/share/ID, loom.com/embed/ID
+ */
+export function getLoomVideoId(url: string): string | null {
+  const match = url.match(/loom\.com\/(?:share|embed)\/([a-zA-Z0-9]+)/);
+  return match ? match[1] : null;
+}
+
+/**
+ * Converts a Loom URL to an embed URL
+ */
+export function getLoomEmbedUrl(loomUrl: string): string | null {
+  const videoId = getLoomVideoId(loomUrl);
+  if (!videoId) return null;
+  return `https://www.loom.com/embed/${videoId}`;
+}
+
+/**
+ * Gets the Loom thumbnail URL
+ * Loom provides a standard thumbnail endpoint
+ */
+export function getLoomThumbnail(loomUrl: string): string | null {
+  const videoId = getLoomVideoId(loomUrl);
+  if (!videoId) return null;
+  return `https://cdn.loom.com/sessions/thumbnails/${videoId}-with-play.gif`;
+}
+
+/**
+ * Extracts title from Loom URL path (if available)
+ */
+export function getLoomTitle(url: string): string | null {
+  try {
+    const urlObj = new URL(url);
+    const pathParts = urlObj.pathname.split('/');
+    // URL format might have title after ID: /share/ID/title-slug
+    if (pathParts.length >= 4 && pathParts[3]) {
+      return decodeURIComponent(pathParts[3])
+        .replace(/-/g, ' ')
+        .replace(/\?.*$/, '');
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Loom oEmbed response type
+ */
+export interface LoomOEmbedResponse {
+  title: string;
+  thumbnail_url?: string;
+  thumbnail_width?: number;
+  thumbnail_height?: number;
+  author_name?: string;
+  provider_name: string;
+  provider_url: string;
+  html: string;
+  type: string;
+  version: string;
+  duration?: number;
+}
+
+/**
+ * Fetches Loom video metadata via oEmbed API
+ */
+export async function fetchLoomOEmbed(loomUrl: string): Promise<LoomOEmbedResponse | null> {
+  try {
+    const oembedUrl = `https://www.loom.com/v1/oembed?url=${encodeURIComponent(loomUrl)}`;
+    
+    const response = await fetch(oembedUrl, {
+      headers: {
+        'Accept': 'application/json',
+      },
+      next: { revalidate: 3600 }, // 1 hour
+    });
+    
+    if (!response.ok) {
+      console.log(`[fetchLoomOEmbed] Failed to fetch oEmbed: ${response.status}`);
+      return null;
+    }
+    
+    const data = await response.json();
+    return data as LoomOEmbedResponse;
+  } catch (error) {
+    console.error('[fetchLoomOEmbed] Error:', error);
+    return null;
+  }
+}
+
+// ============================================================================
 // YouTube Specific (for future implementation)
 // ============================================================================
 
@@ -469,6 +572,8 @@ export function getEmbedUrl(url: string): string | null {
   switch (provider) {
     case 'figma':
       return getFigmaEmbedUrl(url);
+    case 'loom':
+      return getLoomEmbedUrl(url);
     case 'youtube':
       return getYouTubeEmbedUrl(url);
     // Add more providers here
@@ -492,6 +597,12 @@ export function getProviderInfo(provider: EmbedProvider): {
       icon: '🎨',
       color: 'text-purple-400',
       bgColor: 'bg-purple-500',
+    },
+    loom: {
+      name: 'Loom',
+      icon: '🎥',
+      color: 'text-indigo-400',
+      bgColor: 'bg-indigo-500',
     },
     youtube: {
       name: 'YouTube',

@@ -28,6 +28,8 @@ import {
   isSupportedUrl,
   getFigmaTitle,
   getFigmaEmbedUrl,
+  getLoomTitle,
+  getLoomEmbedUrl,
   getProviderInfo,
   type EmbedProvider,
 } from "@/lib/utils/embed-providers";
@@ -85,10 +87,17 @@ export function EmbedUrlDialog({ open, onOpenChange, initialStreamId }: EmbedUrl
       setIsValidUrl(isSupportedUrl(url));
       
       // Auto-populate title from URL
-      if (detected === 'figma' && !title) {
-        const extractedTitle = getFigmaTitle(url);
-        if (extractedTitle) {
-          setTitle(extractedTitle);
+      if (!title) {
+        if (detected === 'figma') {
+          const extractedTitle = getFigmaTitle(url);
+          if (extractedTitle) {
+            setTitle(extractedTitle);
+          }
+        } else if (detected === 'loom') {
+          const extractedTitle = getLoomTitle(url);
+          if (extractedTitle) {
+            setTitle(extractedTitle);
+          }
         }
       }
       
@@ -124,7 +133,7 @@ export function EmbedUrlDialog({ open, onOpenChange, initialStreamId }: EmbedUrl
     }
 
     if (!isValidUrl) {
-      setError("Please enter a supported URL (Figma)");
+      setError("Please enter a supported URL (Figma, Loom)");
       return;
     }
 
@@ -215,7 +224,7 @@ export function EmbedUrlDialog({ open, onOpenChange, initialStreamId }: EmbedUrl
                 {/* Provider Detection Hint */}
                 {url && !isValidUrl && provider === 'unknown' && (
                   <p className="text-sm text-muted-foreground">
-                    Currently supported: <span className="text-foreground">Figma</span>
+                    Currently supported: <span className="text-foreground">Figma, Loom</span>
                   </p>
                 )}
               </div>
@@ -253,6 +262,14 @@ export function EmbedUrlDialog({ open, onOpenChange, initialStreamId }: EmbedUrl
                     src={getFigmaEmbedUrl(url)}
                     className="w-full h-full"
                     allowFullScreen
+                  />
+                )}
+                {provider === 'loom' && (
+                  <iframe
+                    src={getLoomEmbedUrl(url) || ''}
+                    className="w-full h-full"
+                    allowFullScreen
+                    allow="autoplay; fullscreen"
                   />
                 )}
                 

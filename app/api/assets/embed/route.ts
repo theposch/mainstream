@@ -15,6 +15,9 @@ import {
   fetchFigmaOEmbed,
   fetchFigmaFrameThumbnail,
   getFigmaNodeId,
+  getLoomTitle,
+  getLoomThumbnail,
+  fetchLoomOEmbed,
 } from '@/lib/utils/embed-providers';
 import { decrypt } from '@/lib/utils/encryption';
 import { saveImageToPublic, generateUniqueFilename } from '@/lib/utils/file-storage';
@@ -98,7 +101,7 @@ export async function POST(request: NextRequest) {
     const provider = detectProvider(url);
     
     if (!isSupportedUrl(url)) {
-      const supportedList = 'Figma';
+      const supportedList = 'Figma, Loom';
       return NextResponse.json(
         { error: `Unsupported URL. Currently supported: ${supportedList}` },
         { status: 400 }
@@ -164,12 +167,43 @@ export async function POST(request: NextRequest) {
           console.log('[POST /api/assets/embed] No oEmbed data available (file may be private)');
         }
       }
+    } else if (provider === 'loom') {
+      console.log('[POST /api/assets/embed] Fetching Loom data...');
+      
+      // Try oEmbed first for better metadata
+      const oembedData = await fetchLoomOEmbed(url);
+      
+      if (oembedData) {
+        console.log('[POST /api/assets/embed] Loom oEmbed data received:', {
+          title: oembedData.title,
+          hasThumbnail: !!oembedData.thumbnail_url,
+        });
+        thumbnailUrl = oembedData.thumbnail_url || null;
+        oembedTitle = oembedData.title || null;
+        
+        if (oembedData.thumbnail_width && oembedData.thumbnail_height) {
+          frameWidth = oembedData.thumbnail_width;
+          frameHeight = oembedData.thumbnail_height;
+        }
+      }
+      
+      // Fall back to standard Loom thumbnail URL if oEmbed failed
+      if (!thumbnailUrl) {
+        thumbnailUrl = getLoomThumbnail(url);
+        console.log('[POST /api/assets/embed] Using Loom standard thumbnail:', thumbnailUrl);
+      }
     }
 
     // Extract title: user-provided > oEmbed > URL extraction > fallback
     let finalTitle = title?.trim();
     if (!finalTitle) {
-      finalTitle = oembedTitle || getFigmaTitle(url) || 'Figma Design';
+      if (provider === 'figma') {
+        finalTitle = oembedTitle || getFigmaTitle(url) || 'Figma Design';
+      } else if (provider === 'loom') {
+        finalTitle = oembedTitle || getLoomTitle(url) || 'Loom Recording';
+      } else {
+        finalTitle = oembedTitle || 'Embedded Content';
+      }
     }
 
     // Download and save thumbnail locally (never expires, fully under our control)
