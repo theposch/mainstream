@@ -3,14 +3,38 @@
 -- Function to handle new user creation
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
+DECLARE
+  new_username TEXT;
+  new_display_name TEXT;
 BEGIN
+  -- Get username from metadata, fallback to email prefix
+  new_username := COALESCE(
+    NEW.raw_user_meta_data->>'username',
+    LOWER(SPLIT_PART(NEW.email, '@', 1))
+  );
+  
+  -- Ensure username meets length requirements (3-30 chars)
+  IF char_length(new_username) < 3 THEN
+    new_username := new_username || '_user';
+  END IF;
+  IF char_length(new_username) > 30 THEN
+    new_username := substring(new_username from 1 for 30);
+  END IF;
+  
+  -- Get display_name from metadata, fallback to email prefix
+  new_display_name := COALESCE(
+    NEW.raw_user_meta_data->>'display_name',
+    NEW.raw_user_meta_data->>'full_name',
+    SPLIT_PART(NEW.email, '@', 1)
+  );
+
   INSERT INTO public.users (id, email, username, display_name, avatar_url)
   VALUES (
     NEW.id,
     NEW.email,
-    COALESCE(NEW.raw_user_meta_data->>'username', SPLIT_PART(NEW.email, '@', 1)),
-    COALESCE(NEW.raw_user_meta_data->>'display_name', NEW.raw_user_meta_data->>'full_name', SPLIT_PART(NEW.email, '@', 1)),
-    COALESCE(NEW.raw_user_meta_data->>'avatar_url', 'https://avatar.vercel.sh/' || SPLIT_PART(NEW.email, '@', 1) || '.png')
+    new_username,
+    new_display_name,
+    COALESCE(NEW.raw_user_meta_data->>'avatar_url', 'https://avatar.vercel.sh/' || new_username || '.png')
   )
   ON CONFLICT (id) DO NOTHING;
   RETURN NEW;
@@ -28,4 +52,3 @@ GRANT USAGE ON SCHEMA public TO supabase_auth_admin;
 GRANT ALL ON public.users TO supabase_auth_admin;
 
 COMMENT ON FUNCTION public.handle_new_user() IS 'Automatically creates a public.users entry when a new auth user signs up';
-
