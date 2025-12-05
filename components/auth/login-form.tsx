@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -21,6 +21,8 @@ export function LoginForm({
   ...props
 }: React.ComponentProps<"div">) {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const redirectTo = searchParams.get("redirectTo") || "/home"
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
@@ -44,8 +46,8 @@ export function LoginForm({
         return
       }
 
-      // Success - redirect to home
-      router.push("/home")
+      // Success - redirect to intended destination or home
+      router.push(redirectTo)
       router.refresh()
     } catch (err) {
       setError("An unexpected error occurred. Please try again.")
