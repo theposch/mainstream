@@ -58,11 +58,11 @@ export async function GET(
 
     // Get assets count (only public assets, not unlisted drop-only images)
     // Try with visibility filter, fallback if column doesn't exist
+    // Use compound OR to ensure AND semantics: (uploader_id = X AND visibility IS NULL) OR (uploader_id = X AND visibility = public)
     let { count: assetsCount, error: countError } = await supabase
       .from('assets')
       .select('*', { count: 'exact', head: true })
-      .eq('uploader_id', user.id)
-      .or('visibility.is.null,visibility.eq.public');
+      .or(`and(uploader_id.eq.${user.id},visibility.is.null),and(uploader_id.eq.${user.id},visibility.eq.public)`);
     
     if (countError) {
       const fallback = await supabase
