@@ -499,6 +499,7 @@ export default function UserProfile({ params }: UserProfileProps) {
       {selectedAsset && (
         <AssetDetail 
           asset={selectedAsset} 
+          allAssets={activeTab === "liked" ? likedAssets : userAssets}
           onClose={handleCloseModal}
         />
       )}

@@ -287,6 +287,7 @@ export const DashboardFeed = React.memo(function DashboardFeed({ initialAssets }
       {selectedAsset && (
         <AssetDetail 
           asset={selectedAsset} 
+          allAssets={displayedAssets}
           onClose={handleCloseModal}
         />
       )}

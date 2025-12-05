@@ -68,6 +68,7 @@ export function StreamPageContent({ assets }: StreamPageContentProps) {
       {selectedAsset && (
         <AssetDetail 
           asset={selectedAsset} 
+          allAssets={assets}
           onClose={handleCloseModal}
         />
       )}

@@ -7,11 +7,13 @@ import { AssetDetailMobile } from "./asset-detail-mobile";
 
 interface AssetDetailProps {
   asset: Asset;
+  /** All assets in the current view for navigation */
+  allAssets?: Asset[];
   /** Callback when modal should close (for overlay mode) */
   onClose?: () => void;
 }
 
-export function AssetDetail({ asset, onClose }: AssetDetailProps) {
+export function AssetDetail({ asset, allAssets = [], onClose }: AssetDetailProps) {
   // Check mobile on initial render (safe since this is only rendered client-side from feed.tsx)
   const [isMobile, setIsMobile] = React.useState(() => {
     if (typeof window === 'undefined') return false;
@@ -24,10 +26,28 @@ export function AssetDetail({ asset, onClose }: AssetDetailProps) {
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
+  // Calculate previous/next assets for navigation
+  const currentIndex = allAssets.findIndex(a => a.id === asset.id);
+  const previousAsset = currentIndex > 0 ? allAssets[currentIndex - 1] : null;
+  const nextAsset = currentIndex < allAssets.length - 1 ? allAssets[currentIndex + 1] : null;
+
   // Render immediately - no mounted check needed since parent conditionally renders us
   if (isMobile) {
-    return <AssetDetailMobile asset={asset} onClose={onClose} />;
+    return (
+      <AssetDetailMobile 
+        asset={asset} 
+        allAssets={allAssets}
+        onClose={onClose} 
+      />
+    );
   }
 
-  return <AssetDetailDesktop asset={asset} onClose={onClose} />;
+  return (
+    <AssetDetailDesktop 
+      asset={asset} 
+      previousAsset={previousAsset}
+      nextAsset={nextAsset}
+      onClose={onClose} 
+    />
+  );
 }
