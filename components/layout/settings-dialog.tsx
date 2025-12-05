@@ -817,8 +817,8 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="bg-popover border-border sm:max-w-[700px] max-h-[90vh] p-0">
-        <DialogHeader className="p-6 pb-4">
+      <DialogContent className="bg-popover border-border sm:max-w-[700px] max-h-[90vh] p-0 flex flex-col overflow-hidden">
+        <DialogHeader className="p-6 pb-4 flex-shrink-0">
           <DialogTitle className="text-foreground text-xl">
             Settings
           </DialogTitle>
@@ -828,7 +828,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
         </DialogHeader>
 
         {/* Tabs */}
-        <div className="border-b border-border px-6">
+        <div className="border-b border-border px-6 flex-shrink-0">
           <div className="flex gap-1" role="tablist" aria-label="Settings sections">
             {tabs.map((tab) => {
               const Icon = tab.icon;
@@ -867,8 +867,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
 
         {/* Tab Content */}
         <div 
-          className="p-6 overflow-y-auto"
-          style={{ maxHeight: "calc(90vh - 200px)" }}
+          className="p-6 overflow-y-auto flex-1 min-h-0"
           role="tabpanel"
           id={`${activeTab}-panel`}
         >
@@ -876,7 +875,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
         </div>
 
         {/* Footer */}
-        <div className="flex justify-end gap-3 p-6 border-t border-border">
+        <div className="flex justify-end gap-3 p-6 border-t border-border flex-shrink-0 bg-popover">
           <Button
             type="button"
             variant="outline"
