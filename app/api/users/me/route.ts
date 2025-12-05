@@ -81,11 +81,18 @@ export async function PUT(request: NextRequest) {
       display_name, 
       username, 
       email, 
-      bio
+      bio,
+      jobTitle,
+      job_title,
+      location,
+      avatarUrl,
+      avatar_url,
     } = body;
     
-    // Use displayName if provided, otherwise fall back to display_name
+    // Use camelCase if provided, otherwise fall back to snake_case
     const finalDisplayName = displayName || display_name;
+    const finalJobTitle = jobTitle || job_title;
+    const finalAvatarUrl = avatarUrl || avatar_url;
 
     // Validation
     if (username) {
@@ -133,6 +140,21 @@ export async function PUT(request: NextRequest) {
       );
     }
 
+    // Location length validation
+    if (location && location.length > 100) {
+      return NextResponse.json(
+        { error: 'Location must be 100 characters or less' },
+        { status: 400 }
+      );
+    }
+
+    // Job title length validation
+    if (finalJobTitle && finalJobTitle.length > 100) {
+      return NextResponse.json(
+        { error: 'Job title must be 100 characters or less' },
+        { status: 400 }
+      );
+    }
 
     // Build update object (only include provided fields)
     const updateData: Record<string, any> = {};
@@ -140,6 +162,9 @@ export async function PUT(request: NextRequest) {
     if (username !== undefined) updateData.username = username;
     if (email !== undefined) updateData.email = email;
     if (bio !== undefined) updateData.bio = bio;
+    if (finalJobTitle !== undefined) updateData.job_title = finalJobTitle;
+    if (location !== undefined) updateData.location = location;
+    if (finalAvatarUrl !== undefined) updateData.avatar_url = finalAvatarUrl;
 
     // Update user profile
     const { data: updatedUser, error: updateError } = await supabase
