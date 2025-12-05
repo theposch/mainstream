@@ -114,18 +114,22 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validate file type
-    if (!file.type.startsWith('image/')) {
+    // Validate file type (images and WebM videos)
+    const isImage = file.type.startsWith('image/');
+    const isWebM = file.type === 'video/webm';
+    
+    if (!isImage && !isWebM) {
       return NextResponse.json(
-        { error: 'File must be an image' },
+        { error: 'File must be an image or WebM video' },
         { status: 400 }
       );
     }
 
-    // Validate file size (10MB limit)
-    if (file.size > 10 * 1024 * 1024) {
+    // Validate file size (10MB for images, 50MB for videos)
+    const maxSize = isWebM ? 50 * 1024 * 1024 : 10 * 1024 * 1024;
+    if (file.size > maxSize) {
       return NextResponse.json(
-        { error: 'File size must be less than 10MB' },
+        { error: `File size must be less than ${isWebM ? '50MB' : '10MB'}` },
         { status: 400 }
       );
     }
@@ -167,54 +171,74 @@ export async function POST(request: NextRequest) {
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
 
-    // Validate it's a real image
-    if (!await isValidImage(buffer)) {
-      return NextResponse.json(
-        { error: 'Invalid image file' },
-        { status: 400 }
-      );
-    }
-
-    // Extract metadata (includes animation detection for GIFs)
-    const metadata = await extractImageMetadata(buffer);
-
     // Generate unique filename
     const uniqueFilename = generateUniqueFilename(file.name);
 
-    // Process images differently based on whether it's an animated GIF
-    let fullBuffer: Buffer;
-    let mediumBuffer: Buffer;
-    let thumbnailBuffer: Buffer;
+    let fullUrl: string;
+    let mediumUrl: string;
+    let thumbnailUrl: string;
+    let metadata: { width?: number; height?: number; isAnimated?: boolean; pages?: number } = {};
 
-    if (metadata.isAnimated) {
-      // Animated GIF: preserve animation for full and medium, static thumbnail
-      console.log(`[POST /api/assets/upload] Processing animated GIF (${metadata.pages} frames)`);
-      [fullBuffer, mediumBuffer, thumbnailBuffer] = await Promise.all([
-        optimizeAnimatedGif(buffer),      // Animated - all frames preserved
-        generateAnimatedMedium(buffer),   // Animated - smaller size
-        generateGifThumbnail(buffer),     // Static - first frame only (faster loading)
-      ]);
+    if (isWebM) {
+      // WebM video: save directly without processing
+      console.log(`[POST /api/assets/upload] Processing WebM video (${(file.size / 1024 / 1024).toFixed(2)} MB)`);
+      
+      // Save the WebM file directly (no transcoding needed)
+      fullUrl = await saveImageToPublic(buffer, uniqueFilename, 'full', '.webm');
+      // Use the same file for all sizes (browser handles video scaling)
+      mediumUrl = fullUrl;
+      thumbnailUrl = fullUrl;
+      
+      // WebM metadata - we don't extract dimensions, browser handles it
+      metadata = { isAnimated: true };
     } else {
-      // Static image (JPEG, PNG, WebP, or static GIF): convert to optimized JPEG
-      [fullBuffer, mediumBuffer, thumbnailBuffer] = await Promise.all([
-        optimizeImage(buffer, 90),
-        generateMediumSize(buffer),
-        generateThumbnail(buffer),
+      // Image processing
+      // Validate it's a real image
+      if (!await isValidImage(buffer)) {
+        return NextResponse.json(
+          { error: 'Invalid image file' },
+          { status: 400 }
+        );
+      }
+
+      // Extract metadata (includes animation detection for GIFs)
+      metadata = await extractImageMetadata(buffer);
+
+      // Process images differently based on whether it's an animated GIF
+      let fullBuffer: Buffer;
+      let mediumBuffer: Buffer;
+      let thumbnailBuffer: Buffer;
+
+      if (metadata.isAnimated) {
+        // Animated GIF: preserve animation for full and medium, static thumbnail
+        console.log(`[POST /api/assets/upload] Processing animated GIF (${metadata.pages} frames)`);
+        [fullBuffer, mediumBuffer, thumbnailBuffer] = await Promise.all([
+          optimizeAnimatedGif(buffer),      // Animated - all frames preserved
+          generateAnimatedMedium(buffer),   // Animated - smaller size
+          generateGifThumbnail(buffer),     // Static - first frame only (faster loading)
+        ]);
+      } else {
+        // Static image (JPEG, PNG, WebP, or static GIF): convert to optimized JPEG
+        [fullBuffer, mediumBuffer, thumbnailBuffer] = await Promise.all([
+          optimizeImage(buffer, 90),
+          generateMediumSize(buffer),
+          generateThumbnail(buffer),
+        ]);
+      }
+
+      // Save to filesystem
+      // Note: For animated GIFs, thumbnails are JPEG (static first frame), so override extension
+      [fullUrl, mediumUrl, thumbnailUrl] = await Promise.all([
+        saveImageToPublic(fullBuffer, uniqueFilename, 'full'),
+        saveImageToPublic(mediumBuffer, uniqueFilename, 'medium'),
+        saveImageToPublic(
+          thumbnailBuffer, 
+          uniqueFilename, 
+          'thumbnails',
+          metadata.isAnimated ? '.jpg' : undefined  // GIF thumbnails are JPEG
+        ),
       ]);
     }
-
-    // Save to filesystem
-    // Note: For animated GIFs, thumbnails are JPEG (static first frame), so override extension
-    const [fullUrl, mediumUrl, thumbnailUrl] = await Promise.all([
-      saveImageToPublic(fullBuffer, uniqueFilename, 'full'),
-      saveImageToPublic(mediumBuffer, uniqueFilename, 'medium'),
-      saveImageToPublic(
-        thumbnailBuffer, 
-        uniqueFilename, 
-        'thumbnails',
-        metadata.isAnimated ? '.jpg' : undefined  // GIF thumbnails are JPEG
-      ),
-    ]);
 
     // Ensure user profile exists in public.users
     const { data: existingUser } = await supabase
@@ -246,7 +270,8 @@ export async function POST(request: NextRequest) {
       .insert({
         title: title.trim(),
         description: description?.trim() || null,
-        type: 'image',
+        type: isWebM ? 'video' : 'image',
+        asset_type: isWebM ? 'video' : 'image',
         url: fullUrl,
         medium_url: mediumUrl,
         thumbnail_url: thumbnailUrl,
@@ -309,8 +334,11 @@ export async function POST(request: NextRequest) {
  */
 export async function GET() {
   return NextResponse.json({
-    maxFileSize: 10 * 1024 * 1024, // 10 MB
-    acceptedTypes: ['image/jpeg', 'image/png', 'image/gif', 'image/webp'],
+    maxFileSize: {
+      image: 10 * 1024 * 1024, // 10 MB for images
+      video: 50 * 1024 * 1024, // 50 MB for videos
+    },
+    acceptedTypes: ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'video/webm'],
     maxDimensions: {
       width: 8000,
       height: 8000,

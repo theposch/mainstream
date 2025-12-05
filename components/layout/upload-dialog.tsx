@@ -78,15 +78,19 @@ export function UploadDialog({ open, onOpenChange, initialStreamId }: UploadDial
   const handleFileSelect = (selectedFile: File) => {
     setError(null);
 
-    // Validate file type
-    if (!selectedFile.type.startsWith('image/')) {
-      setError(`${selectedFile.name} is not a valid image file`);
+    // Validate file type (images and WebM videos)
+    const isImage = selectedFile.type.startsWith('image/');
+    const isWebM = selectedFile.type === 'video/webm';
+    
+    if (!isImage && !isWebM) {
+      setError(`${selectedFile.name} is not a valid file. Supported: images and WebM videos.`);
       return;
     }
 
-    // Validate file size (10MB limit)
-    if (selectedFile.size > 10 * 1024 * 1024) {
-      setError(`${selectedFile.name} is too large (max 10MB)`);
+    // Validate file size (10MB for images, 50MB for videos)
+    const maxSize = isWebM ? 50 * 1024 * 1024 : 10 * 1024 * 1024;
+    if (selectedFile.size > maxSize) {
+      setError(`${selectedFile.name} is too large (max ${isWebM ? '50MB' : '10MB'})`);
       return;
     }
 
@@ -222,9 +226,9 @@ export function UploadDialog({ open, onOpenChange, initialStreamId }: UploadDial
         {!file && (
           <>
             <DialogHeader className="p-6 pb-2">
-              <DialogTitle>Upload Image</DialogTitle>
+              <DialogTitle>Upload Media</DialogTitle>
               <DialogDescription>
-                Upload a single image file. Drag and drop or click to browse.
+                Upload an image or video. Drag and drop or click to browse.
               </DialogDescription>
             </DialogHeader>
 
@@ -247,15 +251,15 @@ export function UploadDialog({ open, onOpenChange, initialStreamId }: UploadDial
                 >
                   <Upload className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
                   <p className="text-sm text-muted-foreground mb-2">
-                    Drag and drop an image here, or click to browse
+                    Drag and drop a file here, or click to browse
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    Max file size: 10MB • Supported: JPG, PNG, GIF, WebP
+                    Images: 10MB max (JPG, PNG, GIF, WebP) • Videos: 50MB max (WebM)
                   </p>
                   <input
                     ref={fileInputRef}
                     type="file"
-                    accept="image/*"
+                    accept="image/*,video/webm"
                     onChange={handleInputChange}
                     className="hidden"
                   />
@@ -290,11 +294,22 @@ export function UploadDialog({ open, onOpenChange, initialStreamId }: UploadDial
             {/* Preview Area */}
             <div className="p-6 pb-0">
               <div className="relative w-full aspect-[1.85/1] rounded-t-xl overflow-hidden bg-zinc-900 border border-zinc-800 border-b-0">
-                <img
-                  src={preview}
-                  alt="Preview"
-                  className="w-full h-full object-cover"
-                />
+                {file?.type === 'video/webm' ? (
+                  <video
+                    src={preview}
+                    className="w-full h-full object-cover"
+                    autoPlay
+                    loop
+                    muted
+                    playsInline
+                  />
+                ) : (
+                  <img
+                    src={preview}
+                    alt="Preview"
+                    className="w-full h-full object-cover"
+                  />
+                )}
                 {/* Close Button */}
                 <Button
                   type="button"

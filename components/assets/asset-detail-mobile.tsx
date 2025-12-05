@@ -381,6 +381,19 @@ export function AssetDetailMobile({ asset, onClose }: AssetDetailMobileProps) {
                     </div>
                   )}
                 </div>
+              ) : carouselAsset.asset_type === 'video' || carouselAsset.mime_type === 'video/webm' ? (
+                // Video View (WebM)
+                <div className="relative w-full h-full max-h-[80vh] flex items-center justify-center p-4">
+                  <video
+                    src={carouselAsset.url}
+                    className="max-w-full max-h-full rounded-lg"
+                    controls
+                    autoPlay
+                    loop
+                    muted
+                    playsInline
+                  />
+                </div>
               ) : (
                 // Image View
                 <div className="relative w-full h-full max-h-[80vh]">
