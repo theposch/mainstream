@@ -154,11 +154,16 @@ export default function UserProfile({ params }: UserProfileProps) {
             .eq('user_id', userData.id)
         ]);
         
-        // Fallback if visibility column doesn't exist yet
+        // Only fallback if error is specifically "column not found" (code 42703)
+        // Other errors (network, permissions) should not expose unlisted assets
         let assetsCount = assetsCountResult.count;
         let assetsData = assetsDataResult.data;
         
-        if (assetsCountResult.error || assetsDataResult.error) {
+        const countError = assetsCountResult.error;
+        const dataError = assetsDataResult.error;
+        const isColumnNotFoundError = (err: any) => err?.code === '42703' || err?.message?.includes('visibility');
+        
+        if ((countError && isColumnNotFoundError(countError)) || (dataError && isColumnNotFoundError(dataError))) {
           const [countFallback, dataFallback] = await Promise.all([
             supabase.from('assets').select('*', { count: 'exact', head: true }).eq('uploader_id', userData.id),
             supabase.from('assets').select(`*, uploader:users!uploader_id(*), asset_likes(count)`).eq('uploader_id', userData.id).order('created_at', { ascending: false }),

@@ -52,8 +52,10 @@ export async function GET() {
       .order('created_at', { ascending: false })
       .limit(100);
     
-    // Fallback if visibility column doesn't exist yet (migration 025)
-    if (error) {
+    // Only fallback if error is specifically "column not found" (code 42703)
+    // Other errors (network, permissions) should not expose unlisted assets
+    const isColumnNotFoundError = error?.code === '42703' || error?.message?.includes('visibility');
+    if (error && isColumnNotFoundError) {
       const fallback = await supabase
         .from('assets')
         .select(`

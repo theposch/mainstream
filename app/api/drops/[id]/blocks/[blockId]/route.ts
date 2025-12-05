@@ -99,12 +99,20 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    // Get the block's position before deleting
-    const { data: blockToDelete } = await supabase
+    // Get the block's position before deleting - verify block exists
+    const { data: blockToDelete, error: fetchError } = await supabase
       .from("drop_blocks")
       .select("position")
       .eq("id", blockId)
+      .eq("drop_id", dropId)
       .single();
+
+    // Check if block exists
+    if (fetchError || !blockToDelete) {
+      return NextResponse.json({ error: "Block not found" }, { status: 404 });
+    }
+
+    const deletedPosition = blockToDelete.position;
 
     // Delete the block
     const { error: deleteError } = await supabase
@@ -119,20 +127,25 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     }
 
     // Shift remaining blocks up to fill the gap
-    if (blockToDelete) {
-      const { data: blocksToShift } = await supabase
-        .from("drop_blocks")
-        .select("id, position")
-        .eq("drop_id", dropId)
-        .gt("position", blockToDelete.position)
-        .order("position", { ascending: true });
-      
-      if (blocksToShift) {
-        for (const block of blocksToShift) {
-          await supabase
-            .from("drop_blocks")
-            .update({ position: block.position - 1 })
-            .eq("id", block.id);
+    const { data: blocksToShift, error: shiftFetchError } = await supabase
+      .from("drop_blocks")
+      .select("id, position")
+      .eq("drop_id", dropId)
+      .gt("position", deletedPosition)
+      .order("position", { ascending: true });
+    
+    if (shiftFetchError) {
+      console.error("Failed to fetch blocks for position shift:", shiftFetchError);
+      // Block was deleted but positions may have gaps - not critical
+    } else if (blocksToShift && blocksToShift.length > 0) {
+      for (const block of blocksToShift) {
+        const { error: updateError } = await supabase
+          .from("drop_blocks")
+          .update({ position: block.position - 1 })
+          .eq("id", block.id);
+        
+        if (updateError) {
+          console.error(`Failed to update position for block ${block.id}:`, updateError);
         }
       }
     }

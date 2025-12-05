@@ -66,8 +66,10 @@ export async function GET(request: NextRequest) {
         .order('created_at', { ascending: false })
         .limit(limit);
       
-      // Fallback if visibility column doesn't exist
-      if (assetsError) {
+      // Only fallback if error is specifically "column not found" (code 42703)
+      // Other errors (network, permissions) should not expose unlisted assets
+      const isColumnNotFoundError = (err: any) => err?.code === '42703' || err?.message?.includes('visibility');
+      if (assetsError && isColumnNotFoundError(assetsError)) {
         const fallback = await supabase
           .from('assets')
           .select(`
@@ -88,8 +90,8 @@ export async function GET(request: NextRequest) {
         .select('*', { count: 'exact', head: true })
         .or(`and(title.ilike.%${searchTerm}%,visibility.is.null),and(title.ilike.%${searchTerm}%,visibility.eq.public)`);
       
-      // Fallback count if visibility column doesn't exist
-      if (countError) {
+      // Only fallback if error is specifically "column not found" (code 42703)
+      if (countError && isColumnNotFoundError(countError)) {
         const { count: fallbackCount } = await supabase
           .from('assets')
           .select('*', { count: 'exact', head: true })

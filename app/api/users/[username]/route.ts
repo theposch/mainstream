@@ -64,7 +64,10 @@ export async function GET(
       .select('*', { count: 'exact', head: true })
       .or(`and(uploader_id.eq.${user.id},visibility.is.null),and(uploader_id.eq.${user.id},visibility.eq.public)`);
     
-    if (countError) {
+    // Only fallback if error is specifically "column not found" (code 42703)
+    // Other errors (network, permissions) should not expose unlisted assets
+    const isColumnNotFoundError = countError?.code === '42703' || countError?.message?.includes('visibility');
+    if (countError && isColumnNotFoundError) {
       const fallback = await supabase
         .from('assets')
         .select('*', { count: 'exact', head: true })
