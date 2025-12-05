@@ -469,6 +469,26 @@ export function AssetDetailDesktop({ asset, onClose }: AssetDetailDesktopProps) 
                 </div>
               )}
             </div>
+          ) : currentAsset.asset_type === 'video' || currentAsset.mime_type === 'video/webm' ? (
+            // Video View (WebM)
+            <div className="relative w-full h-full flex items-center justify-center">
+              <video
+                src={currentAsset.url}
+                className="max-w-full max-h-full rounded-lg"
+                controls
+                autoPlay
+                loop
+                muted
+                playsInline
+              />
+              {/* Video badge */}
+              <Badge 
+                variant="secondary" 
+                className="absolute top-3 right-3 bg-black/60 backdrop-blur-sm text-white border-white/10 text-[10px] font-medium"
+              >
+                VIDEO
+              </Badge>
+            </div>
           ) : (
             // Image View
             <div className="relative w-full h-full">

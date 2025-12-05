@@ -76,6 +76,9 @@ export const ElementCard = React.memo(
   // Check if this is an animated GIF
   const isGif = asset.mime_type === 'image/gif';
 
+  // Check if this is a video asset (WebM)
+  const isVideo = asset.asset_type === 'video' || asset.mime_type === 'video/webm';
+
   // Check if this is an embed asset (Figma, YouTube, etc.)
   const isEmbed = asset.asset_type === 'embed';
   const embedProvider = isEmbed ? (asset.embed_provider as EmbedProvider) : null;
@@ -145,8 +148,18 @@ export const ElementCard = React.memo(
             className="relative w-full"
             style={{ paddingBottom: isEmbed ? `${embedAspectRatio}%` : `${aspectRatio}%` }}
           >
-            {/* Embed with thumbnail (from oEmbed or frame-specific) */}
-            {isEmbed && embedHasThumbnail ? (
+            {/* Video asset (WebM) - autoplay, loop, muted like GIFs */}
+            {isVideo ? (
+              <video
+                src={asset.url}
+                className="absolute inset-0 object-cover w-full h-full transition-transform duration-500 group-hover:scale-105"
+                autoPlay
+                loop
+                muted
+                playsInline
+              />
+            ) : isEmbed && embedHasThumbnail ? (
+              /* Embed with thumbnail (from oEmbed or frame-specific) */
               <>
                 <Image
                   src={asset.thumbnail_url!}
@@ -231,6 +244,17 @@ export const ElementCard = React.memo(
             >
               <ExternalLink className="h-3 w-3" />
               {providerInfo.name}
+            </Badge>
+          )}
+
+          {/* Video Badge - Always visible for videos */}
+          {isVideo && (
+            <Badge 
+              variant="secondary" 
+              className="absolute top-2 left-2 z-10 bg-black/60 backdrop-blur-sm text-white border-white/10 text-[10px] font-medium"
+            >
+              <Play className="h-3 w-3 fill-current" />
+              VIDEO
             </Badge>
           )}
 
