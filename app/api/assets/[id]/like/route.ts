@@ -9,6 +9,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { shouldCreateNotification } from '@/lib/notifications/check-preferences';
 
 interface RouteContext {
   params: Promise<{
@@ -76,20 +77,25 @@ export async function POST(
     }
 
     // Only create notification if user is not liking their own asset
+    // and recipient has notifications enabled for likes
     if (asset.uploader_id !== user.id) {
-      const { error: notificationError } = await supabase
-        .from('notifications')
-        .insert({
-          type: 'like_asset',
-          recipient_id: asset.uploader_id,
-          actor_id: user.id,
-          resource_id: assetId,
-          resource_type: 'asset',
-        });
+      const shouldNotify = await shouldCreateNotification(supabase, asset.uploader_id, 'like_asset');
+      
+      if (shouldNotify) {
+        const { error: notificationError } = await supabase
+          .from('notifications')
+          .insert({
+            type: 'like_asset',
+            recipient_id: asset.uploader_id,
+            actor_id: user.id,
+            resource_id: assetId,
+            resource_type: 'asset',
+          });
 
-      if (notificationError) {
-        console.warn('[POST /api/assets/[id]/like] Failed to create notification:', notificationError);
-        // Continue anyway - like was successful
+        if (notificationError) {
+          console.warn('[POST /api/assets/[id]/like] Failed to create notification:', notificationError);
+          // Continue anyway - like was successful
+        }
       }
     }
 

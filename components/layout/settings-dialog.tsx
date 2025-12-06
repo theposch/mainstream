@@ -62,11 +62,15 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
   const [showDeleteConfirm, setShowDeleteConfirm] = React.useState(false);
 
   // Notification settings state
-  const [emailNotifications, setEmailNotifications] = React.useState(true);
-  const [pushNotifications, setPushNotifications] = React.useState(true);
-  const [commentNotifications, setCommentNotifications] = React.useState(true);
-  const [likeNotifications, setLikeNotifications] = React.useState(true);
-  const [followNotifications, setFollowNotifications] = React.useState(true);
+  const [notificationSettings, setNotificationSettings] = React.useState({
+    in_app_enabled: true,
+    likes_enabled: true,
+    comments_enabled: true,
+    follows_enabled: true,
+    mentions_enabled: true,
+  });
+  const [notificationLoading, setNotificationLoading] = React.useState(false);
+  const [notificationSaving, setNotificationSaving] = React.useState(false);
 
   // Figma integration state
   const [figmaToken, setFigmaToken] = React.useState("");
@@ -95,6 +99,60 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
       setShowDeleteConfirm(false);
     }
   }, [open]);
+
+  // Fetch notification settings
+  React.useEffect(() => {
+    if (open && user) {
+      fetchNotificationSettings();
+    }
+  }, [open, user]);
+
+  const fetchNotificationSettings = async () => {
+    setNotificationLoading(true);
+    try {
+      const response = await fetch('/api/users/me/notification-settings');
+      if (response.ok) {
+        const data = await response.json();
+        setNotificationSettings({
+          in_app_enabled: data.in_app_enabled ?? true,
+          likes_enabled: data.likes_enabled ?? true,
+          comments_enabled: data.comments_enabled ?? true,
+          follows_enabled: data.follows_enabled ?? true,
+          mentions_enabled: data.mentions_enabled ?? true,
+        });
+      }
+    } catch (error) {
+      console.error('Failed to fetch notification settings:', error);
+    } finally {
+      setNotificationLoading(false);
+    }
+  };
+
+  const updateNotificationSetting = async (key: keyof typeof notificationSettings, value: boolean) => {
+    // Optimistically update UI
+    setNotificationSettings(prev => ({ ...prev, [key]: value }));
+    setNotificationSaving(true);
+    
+    try {
+      const response = await fetch('/api/users/me/notification-settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ [key]: value }),
+      });
+      
+      if (!response.ok) {
+        // Revert on failure
+        setNotificationSettings(prev => ({ ...prev, [key]: !value }));
+        console.error('Failed to save notification setting');
+      }
+    } catch (error) {
+      // Revert on error
+      setNotificationSettings(prev => ({ ...prev, [key]: !value }));
+      console.error('Failed to save notification setting:', error);
+    } finally {
+      setNotificationSaving(false);
+    }
+  };
 
   // Fetch Figma integration status
   React.useEffect(() => {
@@ -522,53 +580,73 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
       case "notifications":
         return (
           <div className="space-y-4">
-            {/* Placeholder notice */}
-            <div className="rounded-lg bg-amber-500/10 border border-amber-500/20 p-3 text-xs text-amber-600 dark:text-amber-400">
-              <strong>Coming Soon:</strong> Notification preferences will be saved to your account in a future update.
-            </div>
+            {notificationLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              </div>
+            ) : (
+              <>
+                {/* Master Toggle */}
+                <div className="space-y-4">
+                  <h3 className="text-sm font-semibold text-foreground">In-App Notifications</h3>
+                  
+                  <ToggleItem
+                    label="Enable notifications"
+                    description="Receive in-app notifications for activity"
+                    checked={notificationSettings.in_app_enabled}
+                    onChange={(checked) => updateNotificationSetting('in_app_enabled', checked)}
+                    disabled={notificationSaving}
+                  />
+                </div>
 
-            <div className="space-y-4">
-              <h3 className="text-sm font-semibold text-foreground">Email Notifications</h3>
-              
-              <ToggleItem
-                label="Email notifications"
-                description="Receive notifications via email"
-                checked={emailNotifications}
-                onChange={setEmailNotifications}
-              />
+                {/* Activity Notifications - only show if master toggle is on */}
+                {notificationSettings.in_app_enabled && (
+                  <div className="border-t border-border pt-4 mt-6 space-y-4">
+                    <h3 className="text-sm font-semibold text-foreground">Activity Types</h3>
+                    
+                    <ToggleItem
+                      label="Likes"
+                      description="When someone likes your work or comments"
+                      checked={notificationSettings.likes_enabled}
+                      onChange={(checked) => updateNotificationSetting('likes_enabled', checked)}
+                      disabled={notificationSaving}
+                    />
 
-              <ToggleItem
-                label="Push notifications"
-                description="Receive push notifications in your browser"
-                checked={pushNotifications}
-                onChange={setPushNotifications}
-              />
-            </div>
+                    <ToggleItem
+                      label="Comments"
+                      description="When someone comments on your work or replies"
+                      checked={notificationSettings.comments_enabled}
+                      onChange={(checked) => updateNotificationSetting('comments_enabled', checked)}
+                      disabled={notificationSaving}
+                    />
 
-            <div className="border-t border-border pt-4 mt-6 space-y-4">
-              <h3 className="text-sm font-semibold text-foreground">Activity Notifications</h3>
-              
-              <ToggleItem
-                label="Comments"
-                description="When someone comments on your work"
-                checked={commentNotifications}
-                onChange={setCommentNotifications}
-              />
+                    <ToggleItem
+                      label="Follows"
+                      description="When someone follows you or your streams"
+                      checked={notificationSettings.follows_enabled}
+                      onChange={(checked) => updateNotificationSetting('follows_enabled', checked)}
+                      disabled={notificationSaving}
+                    />
 
-              <ToggleItem
-                label="Likes"
-                description="When someone likes your work"
-                checked={likeNotifications}
-                onChange={setLikeNotifications}
-              />
+                    <ToggleItem
+                      label="Mentions"
+                      description="When someone mentions you in a comment"
+                      checked={notificationSettings.mentions_enabled}
+                      onChange={(checked) => updateNotificationSetting('mentions_enabled', checked)}
+                      disabled={notificationSaving}
+                    />
+                  </div>
+                )}
 
-              <ToggleItem
-                label="Follows"
-                description="When someone follows you"
-                checked={followNotifications}
-                onChange={setFollowNotifications}
-              />
-            </div>
+                {/* Saving indicator */}
+                {notificationSaving && (
+                  <p className="text-xs text-muted-foreground flex items-center gap-1.5">
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                    Saving...
+                  </p>
+                )}
+              </>
+            )}
           </div>
         );
 
@@ -819,21 +897,27 @@ interface ToggleItemProps {
   description: string;
   checked: boolean;
   onChange: (checked: boolean) => void;
+  disabled?: boolean;
 }
 
-function ToggleItem({ label, description, checked, onChange }: ToggleItemProps) {
+function ToggleItem({ label, description, checked, onChange, disabled }: ToggleItemProps) {
   return (
-    <div className="flex items-center justify-between rounded-lg border border-border bg-background p-4">
+    <div className={cn(
+      "flex items-center justify-between rounded-lg border border-border bg-background p-4",
+      disabled && "opacity-60"
+    )}>
       <div className="flex-1">
         <p className="text-sm font-medium text-foreground">{label}</p>
         <p className="text-xs text-muted-foreground mt-0.5">{description}</p>
       </div>
       <button
         type="button"
-        onClick={() => onChange(!checked)}
+        onClick={() => !disabled && onChange(!checked)}
+        disabled={disabled}
         className={cn(
           "relative inline-flex h-6 w-11 items-center rounded-full transition-colors",
           "focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
+          "disabled:cursor-not-allowed",
           checked ? "bg-primary" : "bg-muted"
         )}
         role="switch"
