@@ -6,30 +6,9 @@ import { UserCard } from "@/components/users/user-card";
 import { Button } from "@/components/ui/button";
 import { Loader2, Users } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import type { UserWithDetails } from "@/lib/types/database";
 
 const PAGE_SIZE = 12;
-
-interface UserWithDetails {
-  id: string;
-  username: string;
-  display_name: string;
-  avatar_url?: string;
-  job_title?: string;
-  location?: string;
-  followerCount?: number;
-  recentAssets?: Array<{
-    id: string;
-    title: string;
-    thumbnail_url?: string;
-    url?: string;
-  }>;
-  streams?: Array<{
-    id: string;
-    name: string;
-    is_private: boolean;
-  }>;
-  totalStreams?: number;
-}
 
 async function fetchUsers(
   pageParam: number

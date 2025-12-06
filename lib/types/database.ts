@@ -22,6 +22,23 @@ export interface User {
   figma_token_updated_at?: string;
 }
 
+// User with enriched data for People page cards
+export interface UserWithDetails extends User {
+  followerCount?: number;
+  recentAssets?: Array<{
+    id: string;
+    title: string;
+    thumbnail_url?: string;
+    url?: string;
+  }>;
+  streams?: Array<{
+    id: string;
+    name: string;
+    is_private: boolean;
+  }>;
+  totalStreams?: number;
+}
+
 export interface Team {
   id: string;
   slug: string;
