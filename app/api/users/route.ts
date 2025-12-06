@@ -147,7 +147,10 @@ export async function GET(request: NextRequest) {
       return {
         ...user,
         recentAssets: assetsByUser.get(user.id) || [],
-        streams: userStreamsArray.map(streamId => streamDataMap.get(streamId)),
+        // Filter out undefined to prevent runtime errors if streamId not in map
+        streams: userStreamsArray
+          .map(streamId => streamDataMap.get(streamId))
+          .filter((stream): stream is { id: string; name: string; is_private: boolean } => stream !== undefined),
         totalStreams,
         followerCount: followerCountMap.get(user.id) || 0,
       };
