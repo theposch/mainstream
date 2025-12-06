@@ -95,7 +95,6 @@ export function useUser(): UseUserReturn {
         setLoading(false)
       }
     }
-  }
 
   useEffect(() => {
     fetchUser()
