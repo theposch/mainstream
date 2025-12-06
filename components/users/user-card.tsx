@@ -32,7 +32,7 @@ interface UserCardProps {
     totalStreams?: number;
   };
   currentUserId?: string;
-  onFollow?: (username: string, isFollowing: boolean) => Promise<void>;
+  onFollow?: (username: string, isFollowing: boolean, userId: string) => Promise<void>;
   isFollowing?: boolean;
 }
 
@@ -61,7 +61,7 @@ export const UserCard = React.memo(function UserCard({
     setFollowing(!following);
     
     try {
-      await onFollow(user.username, following);
+      await onFollow(user.username, following, user.id);
     } catch {
       // Rollback on error
       setFollowing(following);
