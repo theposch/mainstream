@@ -94,6 +94,29 @@ export async function DELETE(request: NextRequest) {
       deletionErrors.push('drops');
     }
 
+    // Delete follow relationships (both directions)
+    // Where user is following others
+    const { error: followingError } = await adminSupabase
+      .from('user_follows')
+      .delete()
+      .eq('follower_id', authUser.id);
+
+    if (followingError) {
+      console.error('[DELETE /api/users/me/delete] Following deletion error:', followingError);
+      deletionErrors.push('following');
+    }
+
+    // Where user is being followed by others
+    const { error: followersError } = await adminSupabase
+      .from('user_follows')
+      .delete()
+      .eq('following_id', authUser.id);
+
+    if (followersError) {
+      console.error('[DELETE /api/users/me/delete] Followers deletion error:', followersError);
+      deletionErrors.push('followers');
+    }
+
     // If any data deletion failed, abort to prevent orphaned data
     if (deletionErrors.length > 0) {
       console.error('[DELETE /api/users/me/delete] Aborting - failed to delete:', deletionErrors.join(', '));
