@@ -10,6 +10,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { shouldCreateNotification } from '@/lib/notifications/check-preferences';
 
 interface RouteContext {
   params: Promise<{
@@ -208,14 +209,19 @@ export async function POST(
     }
 
     // Optionally notify stream owner (only if owner is a user, not a team)
+    // and recipient has notifications enabled for follows
     if (stream.owner_type === 'user' && stream.owner_id !== currentUser.id) {
-      await supabase.from('notifications').insert({
-        type: 'follow',
-        recipient_id: stream.owner_id,
-        actor_id: currentUser.id,
-        resource_id: streamId,
-        resource_type: 'stream',
-      });
+      const shouldNotify = await shouldCreateNotification(supabase, stream.owner_id, 'follow');
+      
+      if (shouldNotify) {
+        await supabase.from('notifications').insert({
+          type: 'follow',
+          recipient_id: stream.owner_id,
+          actor_id: currentUser.id,
+          resource_id: streamId,
+          resource_type: 'stream',
+        });
+      }
     }
 
     return NextResponse.json({ success: true });

@@ -9,6 +9,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { shouldCreateNotification } from '@/lib/notifications/check-preferences';
 
 interface RouteContext {
   params: Promise<{
@@ -82,14 +83,18 @@ export async function POST(
       );
     }
 
-    // Create notification
-    await supabase.from('notifications').insert({
-      type: 'follow',
-      recipient_id: targetUser.id,
-      actor_id: currentUser.id,
-      resource_id: currentUser.id,
-      resource_type: 'user',
-    });
+    // Create notification if recipient has notifications enabled for follows
+    const shouldNotify = await shouldCreateNotification(supabase, targetUser.id, 'follow');
+    
+    if (shouldNotify) {
+      await supabase.from('notifications').insert({
+        type: 'follow',
+        recipient_id: targetUser.id,
+        actor_id: currentUser.id,
+        resource_id: currentUser.id,
+        resource_type: 'user',
+      });
+    }
 
     return NextResponse.json({ success: true });
   } catch (error) {

@@ -9,6 +9,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { shouldCreateNotification } from '@/lib/notifications/check-preferences';
 
 interface RouteContext {
   params: Promise<{
@@ -76,21 +77,26 @@ export async function POST(
     }
 
     // Only create notification if user is not liking their own comment
+    // and recipient has notifications enabled for likes
     if (comment.user_id !== user.id) {
-      const { error: notificationError } = await supabase
-        .from('notifications')
-        .insert({
-          type: 'like_comment',
-          recipient_id: comment.user_id,
-          actor_id: user.id,
-          resource_id: comment.asset_id,
-          resource_type: 'asset',
-          comment_id: commentId,
-        });
+      const shouldNotify = await shouldCreateNotification(supabase, comment.user_id, 'like_comment');
+      
+      if (shouldNotify) {
+        const { error: notificationError } = await supabase
+          .from('notifications')
+          .insert({
+            type: 'like_comment',
+            recipient_id: comment.user_id,
+            actor_id: user.id,
+            resource_id: comment.asset_id,
+            resource_type: 'asset',
+            comment_id: commentId,
+          });
 
-      if (notificationError) {
-        console.warn('[POST /api/comments/[id]/like] Failed to create notification:', notificationError);
-        // Continue anyway - like was successful
+        if (notificationError) {
+          console.warn('[POST /api/comments/[id]/like] Failed to create notification:', notificationError);
+          // Continue anyway - like was successful
+        }
       }
     }
 

@@ -9,6 +9,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { shouldCreateNotification } from '@/lib/notifications/check-preferences';
 
 interface RouteContext {
   params: Promise<{
@@ -170,24 +171,30 @@ export async function POST(
       .single();
 
     // Create notification if commenting on someone else's asset
+    // and recipient has notifications enabled for comments
     if (asset && asset.uploader_id !== user.id) {
-      // Truncate comment for preview (max 100 chars)
-      const commentPreview = content.trim().length > 100 
-        ? content.trim().substring(0, 100) + '...' 
-        : content.trim();
+      const notificationType = parent_id ? 'reply_comment' : 'comment';
+      const shouldNotify = await shouldCreateNotification(supabase, asset.uploader_id, notificationType);
+      
+      if (shouldNotify) {
+        // Truncate comment for preview (max 100 chars)
+        const commentPreview = content.trim().length > 100 
+          ? content.trim().substring(0, 100) + '...' 
+          : content.trim();
 
-      const { error: notificationError } = await supabase.from('notifications').insert({
-        type: parent_id ? 'reply_comment' : 'comment',
-        recipient_id: asset.uploader_id,
-        actor_id: user.id,
-        resource_id: assetId,
-        resource_type: 'asset',
-        content: commentPreview,
-        comment_id: comment.id,
-      });
+        const { error: notificationError } = await supabase.from('notifications').insert({
+          type: notificationType,
+          recipient_id: asset.uploader_id,
+          actor_id: user.id,
+          resource_id: assetId,
+          resource_type: 'asset',
+          content: commentPreview,
+          comment_id: comment.id,
+        });
 
-      if (notificationError) {
-        console.warn('[POST /api/assets/[id]/comments] Failed to create notification:', notificationError);
+        if (notificationError) {
+          console.warn('[POST /api/assets/[id]/comments] Failed to create notification:', notificationError);
+        }
       }
     }
 
