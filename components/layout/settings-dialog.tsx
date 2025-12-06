@@ -10,12 +10,10 @@ import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { 
   Bell, 
-  Lock, 
   Link2, 
   Loader2,
   Github,
   Twitter,
-  Globe,
   Check,
   AlertCircle,
   ExternalLink,
@@ -31,7 +29,7 @@ interface SettingsDialogProps {
   onOpenChange: (open: boolean) => void;
 }
 
-type SettingsTab = "account" | "notifications" | "privacy" | "connected";
+type SettingsTab = "account" | "notifications" | "connected";
 
 interface TabConfig {
   id: SettingsTab;
@@ -69,12 +67,6 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
   const [commentNotifications, setCommentNotifications] = React.useState(true);
   const [likeNotifications, setLikeNotifications] = React.useState(true);
   const [followNotifications, setFollowNotifications] = React.useState(true);
-
-  // Privacy settings state
-  const [profileVisibility, setProfileVisibility] = React.useState<"public" | "private">("public");
-  const [showEmail, setShowEmail] = React.useState(false);
-  const [showLikes, setShowLikes] = React.useState(true);
-  const [allowIndexing, setAllowIndexing] = React.useState(true);
 
   // Figma integration state
   const [figmaToken, setFigmaToken] = React.useState("");
@@ -313,7 +305,6 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
   const tabs: TabConfig[] = [
     { id: "account", label: "Account", icon: ShieldAlert },
     { id: "notifications", label: "Notifications", icon: Bell },
-    { id: "privacy", label: "Privacy", icon: Lock },
     { id: "connected", label: "Connected Accounts", icon: Link2 },
   ];
 
@@ -576,85 +567,6 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                 description="When someone follows you"
                 checked={followNotifications}
                 onChange={setFollowNotifications}
-              />
-            </div>
-          </div>
-        );
-
-      case "privacy":
-        return (
-          <div className="space-y-6">
-            {/* Placeholder notice */}
-            <div className="rounded-lg bg-amber-500/10 border border-amber-500/20 p-3 text-xs text-amber-600 dark:text-amber-400">
-              <strong>Coming Soon:</strong> Privacy settings will be saved to your account in a future update.
-            </div>
-
-            <div className="space-y-4">
-              <h3 className="text-sm font-semibold text-foreground">Profile Privacy</h3>
-              
-              <div className="space-y-3">
-                <label className="flex items-start gap-3 cursor-pointer">
-                  <input
-                    type="radio"
-                    name="profileVisibility"
-                    checked={profileVisibility === "public"}
-                    onChange={() => setProfileVisibility("public")}
-                    className="mt-0.5 h-4 w-4 border-border text-primary focus:ring-ring"
-                  />
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <Globe className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-sm font-medium text-foreground">Public</span>
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Anyone can view your profile and work
-                    </p>
-                  </div>
-                </label>
-
-                <label className="flex items-start gap-3 cursor-pointer">
-                  <input
-                    type="radio"
-                    name="profileVisibility"
-                    checked={profileVisibility === "private"}
-                    onChange={() => setProfileVisibility("private")}
-                    className="mt-0.5 h-4 w-4 border-border text-primary focus:ring-ring"
-                  />
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <Lock className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-sm font-medium text-foreground">Private</span>
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Only you can view your profile
-                    </p>
-                  </div>
-                </label>
-              </div>
-            </div>
-
-            <div className="border-t border-border pt-6 space-y-4">
-              <h3 className="text-sm font-semibold text-foreground">Visibility Settings</h3>
-              
-              <ToggleItem
-                label="Show email address"
-                description="Display your email on your profile"
-                checked={showEmail}
-                onChange={setShowEmail}
-              />
-
-              <ToggleItem
-                label="Show liked shots"
-                description="Let others see what you've liked"
-                checked={showLikes}
-                onChange={setShowLikes}
-              />
-
-              <ToggleItem
-                label="Search engine indexing"
-                description="Allow search engines to index your profile"
-                checked={allowIndexing}
-                onChange={setAllowIndexing}
               />
             </div>
           </div>
