@@ -22,7 +22,7 @@ interface EditProfileDialogProps {
 }
 
 export function EditProfileDialog({ open, onOpenChange }: EditProfileDialogProps) {
-  const { user } = useUser();
+  const { user, refetch } = useUser();
   const [isLoading, setIsLoading] = React.useState(false);
   const [isUploadingAvatar, setIsUploadingAvatar] = React.useState(false);
   const [successMessage, setSuccessMessage] = React.useState<string | null>(null);
@@ -173,11 +173,11 @@ export function EditProfileDialog({ open, onOpenChange }: EditProfileDialogProps
       setPendingAvatarFile(null);
       setAvatarPreview(null);
       
-      setTimeout(() => {
+      setTimeout(async () => {
         setSuccessMessage(null);
         onOpenChange(false);
-        // Refresh the page to update user data throughout the app
-        window.location.reload();
+        // Refresh user data throughout the app
+        await refetch();
       }, 1000);
     } catch (error) {
       console.error("Failed to save profile:", error);

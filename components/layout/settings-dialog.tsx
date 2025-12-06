@@ -531,6 +531,11 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
       case "notifications":
         return (
           <div className="space-y-4">
+            {/* Placeholder notice */}
+            <div className="rounded-lg bg-amber-500/10 border border-amber-500/20 p-3 text-xs text-amber-600 dark:text-amber-400">
+              <strong>Coming Soon:</strong> Notification preferences will be saved to your account in a future update.
+            </div>
+
             <div className="space-y-4">
               <h3 className="text-sm font-semibold text-foreground">Email Notifications</h3>
               
@@ -579,6 +584,11 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
       case "privacy":
         return (
           <div className="space-y-6">
+            {/* Placeholder notice */}
+            <div className="rounded-lg bg-amber-500/10 border border-amber-500/20 p-3 text-xs text-amber-600 dark:text-amber-400">
+              <strong>Coming Soon:</strong> Privacy settings will be saved to your account in a future update.
+            </div>
+
             <div className="space-y-4">
               <h3 className="text-sm font-semibold text-foreground">Profile Privacy</h3>
               

@@ -8,29 +8,10 @@ import { Button } from "@/components/ui/button";
 import { StreamBadge } from "@/components/streams/stream-badge";
 import { MapPin, Briefcase, UserPlus, UserMinus, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import type { UserWithDetails } from "@/lib/types/database";
 
 interface UserCardProps {
-  user: {
-    id: string;
-    username: string;
-    display_name: string;
-    avatar_url?: string;
-    job_title?: string;
-    location?: string;
-    followerCount?: number;
-    recentAssets?: Array<{
-      id: string;
-      title: string;
-      thumbnail_url?: string;
-      url?: string;
-    }>;
-    streams?: Array<{
-      id: string;
-      name: string;
-      is_private: boolean;
-    }>;
-    totalStreams?: number;
-  };
+  user: UserWithDetails;
   currentUserId?: string;
   onFollow?: (username: string, isFollowing: boolean, userId: string) => Promise<void>;
   isFollowing?: boolean;

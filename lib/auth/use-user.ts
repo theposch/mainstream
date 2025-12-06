@@ -28,6 +28,7 @@ interface UseUserReturn {
   user: User | null;
   loading: boolean;
   error: string | null;
+  refetch: () => Promise<void>;
 }
 
 export function useUser(): UseUserReturn {
@@ -35,8 +36,7 @@ export function useUser(): UseUserReturn {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
-    const fetchUser = async () => {
+  const fetchUser = async () => {
       try {
         const supabase = createClient()
         
@@ -92,10 +92,11 @@ export function useUser(): UseUserReturn {
         setLoading(false)
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to fetch user')
-        setLoading(false)
-      }
+      setLoading(false)
     }
+  }
 
+  useEffect(() => {
     fetchUser()
 
     // Subscribe to auth state changes
@@ -114,6 +115,6 @@ export function useUser(): UseUserReturn {
     }
   }, [])
 
-  return { user, loading, error }
+  return { user, loading, error, refetch: fetchUser }
 }
 
