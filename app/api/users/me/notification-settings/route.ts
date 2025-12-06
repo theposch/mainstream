@@ -142,21 +142,43 @@ export async function PUT(request: NextRequest) {
       );
     }
 
-    // Upsert settings (create if not exists, update if exists)
-    const { data: settings, error: upsertError } = await supabase
+    // First, check if settings exist
+    const { data: existingSettings } = await supabase
       .from('user_notification_settings')
-      .upsert({
-        user_id: user.id,
-        ...DEFAULT_SETTINGS,
-        ...updateData,
-      }, {
-        onConflict: 'user_id',
-      })
-      .select()
-      .single();
+      .select('*')
+      .eq('user_id', user.id)
+      .maybeSingle();
 
-    if (upsertError) {
-      console.error('[PUT /api/users/me/notification-settings] Upsert error:', upsertError);
+    let settings;
+    let error;
+
+    if (existingSettings) {
+      // Settings exist - UPDATE only the changed fields
+      const result = await supabase
+        .from('user_notification_settings')
+        .update(updateData)
+        .eq('user_id', user.id)
+        .select()
+        .single();
+      settings = result.data;
+      error = result.error;
+    } else {
+      // No settings exist - INSERT with defaults + updates
+      const result = await supabase
+        .from('user_notification_settings')
+        .insert({
+          user_id: user.id,
+          ...DEFAULT_SETTINGS,
+          ...updateData,
+        })
+        .select()
+        .single();
+      settings = result.data;
+      error = result.error;
+    }
+
+    if (error) {
+      console.error('[PUT /api/users/me/notification-settings] Update error:', error);
       return NextResponse.json(
         { error: 'Failed to update notification settings' },
         { status: 500 }
