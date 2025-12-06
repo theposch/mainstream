@@ -106,12 +106,21 @@ export async function PUT(request: NextRequest) {
       }
 
       // Check username uniqueness (if changed)
-      const { data: existingUser } = await supabase
+      // Use maybeSingle() instead of single() - single() throws PGRST116 error when 0 rows found
+      const { data: existingUser, error: usernameCheckError } = await supabase
         .from('users')
         .select('id')
         .eq('username', username)
         .neq('id', authUser.id)
-        .single();
+        .maybeSingle();
+
+      if (usernameCheckError) {
+        console.error('[PUT /api/users/me] Username check error:', usernameCheckError);
+        return NextResponse.json(
+          { error: 'Failed to verify username availability' },
+          { status: 500 }
+        );
+      }
 
       if (existingUser) {
         return NextResponse.json(
