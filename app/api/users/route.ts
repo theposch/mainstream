@@ -111,12 +111,12 @@ export async function GET(request: NextRequest) {
     const streamDataMap = new Map<string, { id: string; name: string; is_private: boolean }>();
     
     (assetStreams || []).forEach((rel: any) => {
-      // Supabase returns assets as an array, unwrap to get uploader_id
+      // Supabase returns nested relations as arrays due to !inner joins, unwrap them
       const asset = Array.isArray(rel.assets) ? rel.assets[0] : rel.assets;
+      const stream = Array.isArray(rel.streams) ? rel.streams[0] : rel.streams;
       const userId = asset?.uploader_id;
-      const stream = rel.streams;
       
-      if (userId && stream) {
+      if (userId && stream?.id) {
         streamDataMap.set(stream.id, stream);
         
         if (!streamsByUser.has(userId)) {

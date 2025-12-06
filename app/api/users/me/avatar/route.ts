@@ -125,6 +125,14 @@ export async function POST(request: NextRequest) {
 
     if (updateError) {
       console.error('[POST /api/users/me/avatar] Update error:', updateError);
+      // Clean up the newly written file since DB update failed
+      try {
+        if (existsSync(filepath)) {
+          await unlink(filepath);
+        }
+      } catch (cleanupError) {
+        console.error('[POST /api/users/me/avatar] Failed to cleanup orphaned file:', cleanupError);
+      }
       return NextResponse.json(
         { error: 'Failed to update avatar' },
         { status: 500 }
