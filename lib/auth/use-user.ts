@@ -28,6 +28,7 @@ interface UseUserReturn {
   user: User | null;
   loading: boolean;
   error: string | null;
+  refetch: () => Promise<void>;
 }
 
 export function useUser(): UseUserReturn {
@@ -35,8 +36,7 @@ export function useUser(): UseUserReturn {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
-    const fetchUser = async () => {
+  const fetchUser = async () => {
       try {
         const supabase = createClient()
         
@@ -64,12 +64,14 @@ export function useUser(): UseUserReturn {
 
         if (profileError) {
           // User authenticated but no profile - create fallback
+          // Use email or id for avatar to avoid 'undefined' in URL
+          const avatarIdentifier = authUser.email || authUser.id;
           setUser({
             id: authUser.id,
             username: authUser.email?.split('@')[0] || 'user',
             displayName: authUser.email?.split('@')[0] || 'User',
             email: authUser.email || '',
-            avatarUrl: `https://avatar.vercel.sh/${authUser.email}.png`,
+            avatarUrl: `https://avatar.vercel.sh/${avatarIdentifier}.png`,
             createdAt: authUser.created_at,
           })
           setLoading(false)
@@ -85,6 +87,7 @@ export function useUser(): UseUserReturn {
           avatarUrl: userProfile.avatar_url,
           bio: userProfile.bio,
           jobTitle: userProfile.job_title,
+          location: userProfile.location,
           teamId: userProfile.team_id,
           createdAt: userProfile.created_at,
         })
@@ -95,6 +98,7 @@ export function useUser(): UseUserReturn {
       }
     }
 
+  useEffect(() => {
     fetchUser()
 
     // Subscribe to auth state changes
@@ -113,6 +117,6 @@ export function useUser(): UseUserReturn {
     }
   }, [])
 
-  return { user, loading, error }
+  return { user, loading, error, refetch: fetchUser }
 }
 

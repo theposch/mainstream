@@ -116,15 +116,17 @@ export default async function EditDropPage({ params }: EditDropPageProps) {
   const contributors = Array.from(contributorMap.values());
 
   // Fetch available assets for the asset picker
-  const { data: availableAssets } = await supabase
+  const { data: availableAssetsRaw } = await supabase
     .from("assets")
     .select(`
       id,
       title,
       description,
+      type,
       url,
       medium_url,
       thumbnail_url,
+      uploader_id,
       asset_type,
       embed_provider,
       created_at,
@@ -135,12 +137,21 @@ export default async function EditDropPage({ params }: EditDropPageProps) {
     .order("created_at", { ascending: false })
     .limit(100);
 
+  // Transform assets: Supabase returns uploader as array, unwrap to single object
+  // Check array has elements to avoid undefined when empty
+  const availableAssets = (availableAssetsRaw || []).map((asset: any) => ({
+    ...asset,
+    uploader: Array.isArray(asset.uploader) && asset.uploader.length > 0 
+      ? asset.uploader[0] 
+      : asset.uploader,
+  }));
+
   return (
     <DropBlocksEditorClient
       drop={drop}
       initialBlocks={enrichedBlocks}
       initialContributors={contributors}
-      availableAssets={availableAssets || []}
+      availableAssets={availableAssets}
     />
   );
 }

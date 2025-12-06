@@ -13,11 +13,30 @@ export interface User {
   avatar_url: string;
   bio?: string;
   email?: string;
+  job_title?: string;
+  location?: string;
   created_at: string;
   updated_at?: string;
   // Integrations
   figma_access_token?: string;
   figma_token_updated_at?: string;
+}
+
+// User with enriched data for People page cards
+export interface UserWithDetails extends User {
+  followerCount?: number;
+  recentAssets?: Array<{
+    id: string;
+    title: string;
+    thumbnail_url?: string;
+    url?: string;
+  }>;
+  streams?: Array<{
+    id: string;
+    name: string;
+    is_private: boolean;
+  }>;
+  totalStreams?: number;
 }
 
 export interface Team {

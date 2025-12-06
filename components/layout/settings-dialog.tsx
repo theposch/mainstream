@@ -1,28 +1,26 @@
 "use client";
 
 import * as React from "react";
+import { useRouter } from "next/navigation";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { 
-  User, 
   Bell, 
-  Lock, 
   Link2, 
-  Camera, 
-  Save,
   Loader2,
   Github,
   Twitter,
-  Mail,
-  Globe,
   Check,
   AlertCircle,
-  ExternalLink
+  ExternalLink,
+  KeyRound,
+  Mail,
+  Trash2,
+  ShieldAlert,
 } from "lucide-react";
 import { useUser } from "@/lib/auth/use-user";
 
@@ -31,7 +29,7 @@ interface SettingsDialogProps {
   onOpenChange: (open: boolean) => void;
 }
 
-type SettingsTab = "account" | "notifications" | "privacy" | "connected";
+type SettingsTab = "account" | "notifications" | "connected";
 
 interface TabConfig {
   id: SettingsTab;
@@ -40,27 +38,28 @@ interface TabConfig {
 }
 
 export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
-  const { user, loading } = useUser();
+  const router = useRouter();
+  const { user } = useUser();
   const [activeTab, setActiveTab] = React.useState<SettingsTab>("account");
-  const [isLoading, setIsLoading] = React.useState(false);
-  const [successMessage, setSuccessMessage] = React.useState<string | null>(null);
 
   // Account settings state
-  const [displayName, setDisplayName] = React.useState("");
-  const [username, setUsername] = React.useState("");
-  const [email, setEmail] = React.useState("");
-  const [bio, setBio] = React.useState("");
-  const [location, setLocation] = React.useState("");
+  const [newEmail, setNewEmail] = React.useState("");
+  const [emailLoading, setEmailLoading] = React.useState(false);
+  const [emailSuccess, setEmailSuccess] = React.useState<string | null>(null);
+  const [emailError, setEmailError] = React.useState<string | null>(null);
 
-  // Initialize form with user data
-  React.useEffect(() => {
-    if (user) {
-      setDisplayName(user.displayName || "");
-      setUsername(user.username || "");
-      setEmail(user.email || "");
-      setBio(user.bio || "");
-    }
-  }, [user]);
+  const [currentPassword, setCurrentPassword] = React.useState("");
+  const [newPassword, setNewPassword] = React.useState("");
+  const [confirmPassword, setConfirmPassword] = React.useState("");
+  const [passwordLoading, setPasswordLoading] = React.useState(false);
+  const [passwordSuccess, setPasswordSuccess] = React.useState<string | null>(null);
+  const [passwordError, setPasswordError] = React.useState<string | null>(null);
+
+  const [deletePassword, setDeletePassword] = React.useState("");
+  const [deleteConfirmation, setDeleteConfirmation] = React.useState("");
+  const [deleteLoading, setDeleteLoading] = React.useState(false);
+  const [deleteError, setDeleteError] = React.useState<string | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = React.useState(false);
 
   // Notification settings state
   const [emailNotifications, setEmailNotifications] = React.useState(true);
@@ -68,12 +67,6 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
   const [commentNotifications, setCommentNotifications] = React.useState(true);
   const [likeNotifications, setLikeNotifications] = React.useState(true);
   const [followNotifications, setFollowNotifications] = React.useState(true);
-
-  // Privacy settings state
-  const [profileVisibility, setProfileVisibility] = React.useState<"public" | "private">("public");
-  const [showEmail, setShowEmail] = React.useState(false);
-  const [showLikes, setShowLikes] = React.useState(true);
-  const [allowIndexing, setAllowIndexing] = React.useState(true);
 
   // Figma integration state
   const [figmaToken, setFigmaToken] = React.useState("");
@@ -84,6 +77,24 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
   const [figmaError, setFigmaError] = React.useState<string | null>(null);
   const [figmaSuccess, setFigmaSuccess] = React.useState<string | null>(null);
   const [showFigmaInput, setShowFigmaInput] = React.useState(false);
+
+  // Reset form state when dialog opens
+  React.useEffect(() => {
+    if (open) {
+      setNewEmail("");
+      setEmailSuccess(null);
+      setEmailError(null);
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+      setPasswordSuccess(null);
+      setPasswordError(null);
+      setDeletePassword("");
+      setDeleteConfirmation("");
+      setDeleteError(null);
+      setShowDeleteConfirm(false);
+    }
+  }, [open]);
 
   // Fetch Figma integration status
   React.useEffect(() => {
@@ -103,6 +114,125 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
       }
     } catch (error) {
       console.error('Failed to fetch Figma status:', error);
+    }
+  };
+
+  // Email change handler
+  const handleEmailChange = async () => {
+    if (!newEmail.trim()) {
+      setEmailError('Please enter a new email address');
+      return;
+    }
+
+    setEmailLoading(true);
+    setEmailError(null);
+    setEmailSuccess(null);
+
+    try {
+      const response = await fetch('/api/users/me/email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: newEmail }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setEmailError(data.error || 'Failed to update email');
+        return;
+      }
+
+      setEmailSuccess(data.message);
+      setNewEmail("");
+    } catch (error) {
+      setEmailError('Failed to update email');
+    } finally {
+      setEmailLoading(false);
+    }
+  };
+
+  // Password change handler
+  const handlePasswordChange = async () => {
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      setPasswordError('All password fields are required');
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      setPasswordError('New passwords do not match');
+      return;
+    }
+
+    if (newPassword.length < 8) {
+      setPasswordError('New password must be at least 8 characters');
+      return;
+    }
+
+    setPasswordLoading(true);
+    setPasswordError(null);
+    setPasswordSuccess(null);
+
+    try {
+      const response = await fetch('/api/users/me/password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ currentPassword, newPassword }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setPasswordError(data.error || 'Failed to update password');
+        return;
+      }
+
+      setPasswordSuccess(data.message);
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+    } catch (error) {
+      setPasswordError('Failed to update password');
+    } finally {
+      setPasswordLoading(false);
+    }
+  };
+
+  // Account deletion handler
+  const handleDeleteAccount = async () => {
+    if (!deletePassword) {
+      setDeleteError('Password is required');
+      return;
+    }
+
+    if (deleteConfirmation !== 'DELETE') {
+      setDeleteError('Please type DELETE to confirm');
+      return;
+    }
+
+    setDeleteLoading(true);
+    setDeleteError(null);
+
+    try {
+      const response = await fetch('/api/users/me/delete', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: deletePassword }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setDeleteError(data.error || 'Failed to delete account');
+        return;
+      }
+
+      // Redirect to login page after successful deletion
+      onOpenChange(false);
+      router.push('/auth/login');
+    } catch (error) {
+      setDeleteError('Failed to delete account');
+    } finally {
+      setDeleteLoading(false);
     }
   };
 
@@ -173,152 +303,217 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
   };
 
   const tabs: TabConfig[] = [
-    { id: "account", label: "Account", icon: User },
+    { id: "account", label: "Account", icon: ShieldAlert },
     { id: "notifications", label: "Notifications", icon: Bell },
-    { id: "privacy", label: "Privacy", icon: Lock },
     { id: "connected", label: "Connected Accounts", icon: Link2 },
   ];
-
-  const handleSave = async () => {
-    setIsLoading(true);
-    setSuccessMessage(null);
-
-    try {
-      const response = await fetch('/api/users/me', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          displayName,
-          username,
-          email,
-          bio
-        })
-      });
-
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || 'Failed to save settings');
-      }
-      
-      setSuccessMessage("Settings saved successfully!");
-      setTimeout(() => {
-        setSuccessMessage(null);
-        // Refresh the page to update user data throughout the app
-        window.location.reload();
-      }, 1500);
-    } catch (error) {
-      console.error("Failed to save settings:", error);
-      setSuccessMessage(error instanceof Error ? error.message : "Failed to save settings");
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   const renderTabContent = () => {
     switch (activeTab) {
       case "account":
         return (
-          <div className="space-y-6">
-            {/* Avatar Section */}
-            <div className="flex items-center gap-6">
-              <div className="relative group">
-                <Avatar className="h-24 w-24">
-                  <AvatarImage src={user?.avatarUrl} alt={user?.username} />
-                  <AvatarFallback className="text-2xl">
-                    {user?.username?.substring(0, 2).toUpperCase() || "US"}
-                  </AvatarFallback>
-                </Avatar>
-                <button
-                  type="button"
-                  className="absolute inset-0 flex items-center justify-center bg-black/60 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-                  aria-label="Change avatar"
-                >
-                  <Camera className="h-6 w-6 text-white" />
-                </button>
+          <div className="space-y-8">
+            {/* Change Email Section */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-2">
+                <Mail className="h-4 w-4 text-muted-foreground" />
+                <h3 className="text-sm font-semibold text-foreground">Change Email</h3>
               </div>
-              <div className="flex-1">
-                <h3 className="text-sm font-semibold text-foreground mb-1">Profile Photo</h3>
-                <p className="text-xs text-muted-foreground mb-3">
-                  Click to upload a new avatar. JPG, PNG or GIF. Max size 2MB.
-                </p>
-                <Button variant="outline" size="sm" className="text-xs">
-                  Upload New Photo
-                </Button>
-              </div>
-            </div>
-
-            {/* Account Fields */}
-            <div className="grid gap-4">
-              <div className="grid gap-2">
-                <Label htmlFor="displayName">Display Name</Label>
-                <Input
-                  id="displayName"
-                  value={displayName}
-                  onChange={(e) => setDisplayName(e.target.value)}
-                  placeholder="Your display name"
-                  className="bg-background border-border"
-                />
-              </div>
-
-              <div className="grid gap-2">
-                <Label htmlFor="username">Username</Label>
-                <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
-                    @
-                  </span>
+              <p className="text-xs text-muted-foreground">
+                Current email: <span className="text-foreground">{user?.email}</span>
+              </p>
+              <div className="space-y-3">
+                <div className="space-y-2">
+                  <Label htmlFor="new-email" className="text-xs">New Email Address</Label>
                   <Input
-                    id="username"
-                    value={username}
-                    onChange={(e) => setUsername(e.target.value.replace(/[^a-zA-Z0-9_]/g, ''))}
-                    placeholder="username"
-                    className="bg-background border-border pl-7"
-                  />
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Your profile URL: mainstream.so/u/{username}
-                </p>
-              </div>
-
-              <div className="grid gap-2">
-                <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="your.email@example.com"
-                  className="bg-background border-border"
-                />
-              </div>
-
-              <div className="grid gap-2">
-                <Label htmlFor="bio">Bio</Label>
-                <textarea
-                  id="bio"
-                  value={bio}
-                  onChange={(e) => setBio(e.target.value)}
-                  placeholder="Tell us about yourself..."
-                  maxLength={160}
-                  rows={3}
-                  className="flex w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50 resize-none"
-                />
-                <p className="text-xs text-muted-foreground">
-                  {bio.length}/160 characters
-                </p>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="grid gap-2">
-                  <Label htmlFor="location">Location</Label>
-                  <Input
-                    id="location"
-                    value={location}
-                    onChange={(e) => setLocation(e.target.value)}
-                    placeholder="City, Country"
+                    id="new-email"
+                    type="email"
+                    value={newEmail}
+                    onChange={(e) => setNewEmail(e.target.value)}
+                    placeholder="Enter new email"
                     className="bg-background border-border"
                   />
                 </div>
+                <Button
+                  size="sm"
+                  onClick={handleEmailChange}
+                  disabled={emailLoading || !newEmail.trim()}
+                >
+                  {emailLoading ? (
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  ) : (
+                    <Mail className="h-4 w-4 mr-2" />
+                  )}
+                  Update Email
+                </Button>
+                {emailSuccess && (
+                  <div className="p-2 rounded bg-green-500/10 border border-green-500/20 text-xs text-green-500 flex items-center gap-2">
+                    <Check className="h-3 w-3" />
+                    {emailSuccess}
+                  </div>
+                )}
+                {emailError && (
+                  <div className="p-2 rounded bg-destructive/10 border border-destructive/20 text-xs text-destructive flex items-center gap-2">
+                    <AlertCircle className="h-3 w-3" />
+                    {emailError}
+                  </div>
+                )}
+              </div>
+            </div>
 
+            <div className="border-t border-border" />
+
+            {/* Change Password Section */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-2">
+                <KeyRound className="h-4 w-4 text-muted-foreground" />
+                <h3 className="text-sm font-semibold text-foreground">Change Password</h3>
+              </div>
+              <div className="space-y-3">
+                <div className="space-y-2">
+                  <Label htmlFor="current-password" className="text-xs">Current Password</Label>
+                  <Input
+                    id="current-password"
+                    type="password"
+                    value={currentPassword}
+                    onChange={(e) => setCurrentPassword(e.target.value)}
+                    placeholder="Enter current password"
+                    className="bg-background border-border"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="new-password" className="text-xs">New Password</Label>
+                  <Input
+                    id="new-password"
+                    type="password"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    placeholder="Enter new password (min 8 characters)"
+                    className="bg-background border-border"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="confirm-password" className="text-xs">Confirm New Password</Label>
+                  <Input
+                    id="confirm-password"
+                    type="password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    placeholder="Confirm new password"
+                    className="bg-background border-border"
+                  />
+                </div>
+                <Button
+                  size="sm"
+                  onClick={handlePasswordChange}
+                  disabled={passwordLoading || !currentPassword || !newPassword || !confirmPassword}
+                >
+                  {passwordLoading ? (
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  ) : (
+                    <KeyRound className="h-4 w-4 mr-2" />
+                  )}
+                  Update Password
+                </Button>
+                {passwordSuccess && (
+                  <div className="p-2 rounded bg-green-500/10 border border-green-500/20 text-xs text-green-500 flex items-center gap-2">
+                    <Check className="h-3 w-3" />
+                    {passwordSuccess}
+                  </div>
+                )}
+                {passwordError && (
+                  <div className="p-2 rounded bg-destructive/10 border border-destructive/20 text-xs text-destructive flex items-center gap-2">
+                    <AlertCircle className="h-3 w-3" />
+                    {passwordError}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="border-t border-border" />
+
+            {/* Delete Account Section */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-2">
+                <Trash2 className="h-4 w-4 text-destructive" />
+                <h3 className="text-sm font-semibold text-destructive">Delete Account</h3>
+              </div>
+              <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4">
+                <p className="text-xs text-muted-foreground mb-4">
+                  Permanently delete your account and all associated data. This action cannot be undone.
+                </p>
+                
+                {!showDeleteConfirm ? (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowDeleteConfirm(true)}
+                    className="text-destructive border-destructive/30 hover:bg-destructive/10"
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Delete Account
+                  </Button>
+                ) : (
+                  <div className="space-y-3">
+                    <div className="space-y-2">
+                      <Label htmlFor="delete-password" className="text-xs">Enter your password</Label>
+                      <Input
+                        id="delete-password"
+                        type="password"
+                        value={deletePassword}
+                        onChange={(e) => setDeletePassword(e.target.value)}
+                        placeholder="Your password"
+                        className="bg-background border-border"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="delete-confirm" className="text-xs">
+                        Type <span className="font-mono font-bold text-destructive">DELETE</span> to confirm
+                      </Label>
+                      <Input
+                        id="delete-confirm"
+                        type="text"
+                        value={deleteConfirmation}
+                        onChange={(e) => setDeleteConfirmation(e.target.value)}
+                        placeholder="DELETE"
+                        className="bg-background border-border font-mono"
+                      />
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={handleDeleteAccount}
+                        disabled={deleteLoading || !deletePassword || deleteConfirmation !== 'DELETE'}
+                      >
+                        {deleteLoading ? (
+                          <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                        ) : (
+                          <Trash2 className="h-4 w-4 mr-2" />
+                        )}
+                        Permanently Delete
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setShowDeleteConfirm(false);
+                          setDeletePassword("");
+                          setDeleteConfirmation("");
+                          setDeleteError(null);
+                        }}
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                    {deleteError && (
+                      <div className="p-2 rounded bg-destructive/10 border border-destructive/20 text-xs text-destructive flex items-center gap-2">
+                        <AlertCircle className="h-3 w-3" />
+                        {deleteError}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -327,6 +522,11 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
       case "notifications":
         return (
           <div className="space-y-4">
+            {/* Placeholder notice */}
+            <div className="rounded-lg bg-amber-500/10 border border-amber-500/20 p-3 text-xs text-amber-600 dark:text-amber-400">
+              <strong>Coming Soon:</strong> Notification preferences will be saved to your account in a future update.
+            </div>
+
             <div className="space-y-4">
               <h3 className="text-sm font-semibold text-foreground">Email Notifications</h3>
               
@@ -367,80 +567,6 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                 description="When someone follows you"
                 checked={followNotifications}
                 onChange={setFollowNotifications}
-              />
-            </div>
-          </div>
-        );
-
-      case "privacy":
-        return (
-          <div className="space-y-6">
-            <div className="space-y-4">
-              <h3 className="text-sm font-semibold text-foreground">Profile Privacy</h3>
-              
-              <div className="space-y-3">
-                <label className="flex items-start gap-3 cursor-pointer">
-                  <input
-                    type="radio"
-                    name="profileVisibility"
-                    checked={profileVisibility === "public"}
-                    onChange={() => setProfileVisibility("public")}
-                    className="mt-0.5 h-4 w-4 border-border text-primary focus:ring-ring"
-                  />
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <Globe className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-sm font-medium text-foreground">Public</span>
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Anyone can view your profile and work
-                    </p>
-                  </div>
-                </label>
-
-                <label className="flex items-start gap-3 cursor-pointer">
-                  <input
-                    type="radio"
-                    name="profileVisibility"
-                    checked={profileVisibility === "private"}
-                    onChange={() => setProfileVisibility("private")}
-                    className="mt-0.5 h-4 w-4 border-border text-primary focus:ring-ring"
-                  />
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <Lock className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-sm font-medium text-foreground">Private</span>
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Only you can view your profile
-                    </p>
-                  </div>
-                </label>
-              </div>
-            </div>
-
-            <div className="border-t border-border pt-6 space-y-4">
-              <h3 className="text-sm font-semibold text-foreground">Visibility Settings</h3>
-              
-              <ToggleItem
-                label="Show email address"
-                description="Display your email on your profile"
-                checked={showEmail}
-                onChange={setShowEmail}
-              />
-
-              <ToggleItem
-                label="Show liked shots"
-                description="Let others see what you've liked"
-                checked={showLikes}
-                onChange={setShowLikes}
-              />
-
-              <ToggleItem
-                label="Search engine indexing"
-                description="Allow search engines to index your profile"
-                checked={allowIndexing}
-                onChange={setAllowIndexing}
               />
             </div>
           </div>
@@ -613,18 +739,18 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="bg-popover border-border sm:max-w-[700px] max-h-[90vh] p-0">
-        <DialogHeader className="p-6 pb-4">
+      <DialogContent className="bg-popover border-border sm:max-w-[700px] max-h-[90vh] p-0 flex flex-col overflow-hidden">
+        <DialogHeader className="p-6 pb-4 flex-shrink-0">
           <DialogTitle className="text-foreground text-xl">
             Settings
           </DialogTitle>
           <DialogDescription className="text-muted-foreground">
-            Manage your account settings and preferences
+            Manage your account, notifications, and privacy preferences
           </DialogDescription>
         </DialogHeader>
 
         {/* Tabs */}
-        <div className="border-b border-border px-6">
+        <div className="border-b border-border px-6 flex-shrink-0">
           <div className="flex gap-1" role="tablist" aria-label="Settings sections">
             {tabs.map((tab) => {
               const Icon = tab.icon;
@@ -638,7 +764,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                   onClick={() => setActiveTab(tab.id)}
                   className={cn(
                     "relative px-4 py-3 text-sm font-medium transition-colors rounded-t-md",
-                    "focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
+                    "focus:outline-none focus-visible:outline-none",
                     activeTab === tab.id 
                       ? "text-foreground" 
                       : "text-muted-foreground hover:text-foreground"
@@ -663,53 +789,22 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
 
         {/* Tab Content */}
         <div 
-          className="p-6 overflow-y-auto"
-          style={{ maxHeight: "calc(90vh - 200px)" }}
+          className="p-6 overflow-y-auto flex-1 min-h-0"
           role="tabpanel"
           id={`${activeTab}-panel`}
         >
           {renderTabContent()}
         </div>
 
-        {/* Success Message */}
-        {successMessage && (
-          <div 
-            className="mx-6 mb-4 p-3 rounded-md bg-green-500/10 border border-green-500/20 text-sm text-green-500"
-            role="alert"
-            aria-live="polite"
-          >
-            {successMessage}
-          </div>
-        )}
-
         {/* Footer */}
-        <div className="flex justify-end gap-3 p-6 pt-0 border-t border-border">
+        <div className="flex justify-end gap-3 p-6 border-t border-border flex-shrink-0 bg-popover">
           <Button
             type="button"
             variant="outline"
             onClick={() => onOpenChange(false)}
-            disabled={isLoading}
             className="border-border"
           >
-            Cancel
-          </Button>
-          <Button
-            type="button"
-            onClick={handleSave}
-            disabled={isLoading}
-            className="bg-primary text-primary-foreground hover:bg-primary/90"
-          >
-            {isLoading ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Saving...
-              </>
-            ) : (
-              <>
-                <Save className="mr-2 h-4 w-4" />
-                Save Changes
-              </>
-            )}
+            Close
           </Button>
         </div>
       </DialogContent>
@@ -795,4 +890,3 @@ function ConnectedAccountItem({
     </div>
   );
 }
-
