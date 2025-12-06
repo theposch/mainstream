@@ -36,9 +36,13 @@ export async function GET(request: NextRequest) {
       .select('id, username, display_name, avatar_url, bio, job_title, location, created_at', { count: 'exact' })
       .order('created_at', { ascending: false });
 
-    // Add search filter if provided
+    // Add search filter if provided (sanitize to prevent SQL injection)
     if (search) {
-      usersQuery = usersQuery.or(`username.ilike.%${search}%,display_name.ilike.%${search}%`);
+      // Escape special characters that could be used in LIKE patterns
+      const sanitizedSearch = search
+        .replace(/[%_\\]/g, '\\$&')  // Escape LIKE wildcards
+        .replace(/['"]/g, '');       // Remove quotes
+      usersQuery = usersQuery.or(`username.ilike.%${sanitizedSearch}%,display_name.ilike.%${sanitizedSearch}%`);
     }
 
     // Apply pagination

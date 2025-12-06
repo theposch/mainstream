@@ -113,8 +113,8 @@ export default function PeoplePage() {
 
   const allUsers = data?.pages.flatMap((page) => page.users) || [];
 
-  // Handle follow/unfollow - accepts userId directly to avoid stale closure issues
-  const handleFollow = async (username: string, isCurrentlyFollowing: boolean, userId: string) => {
+  // Handle follow/unfollow - memoized to prevent unnecessary UserCard re-renders
+  const handleFollow = React.useCallback(async (username: string, isCurrentlyFollowing: boolean, userId: string) => {
     const response = await fetch(`/api/users/${username}/follow`, {
       method: isCurrentlyFollowing ? "DELETE" : "POST",
       headers: { "Content-Type": "application/json" },
@@ -134,7 +134,7 @@ export default function PeoplePage() {
       }
       return newMap;
     });
-  };
+  }, []);
 
   return (
     <div className="w-full min-h-screen pb-20">

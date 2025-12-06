@@ -6,14 +6,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { cn } from "@/lib/utils";
 import { 
   Camera, 
   Save,
   Loader2,
   MapPin,
   Briefcase,
-  X,
   Trash2,
 } from "lucide-react";
 import { useUser } from "@/lib/auth/use-user";
