@@ -165,6 +165,22 @@ export async function PUT(request: NextRequest) {
       );
     }
 
+    // Validate avatar_url if provided - only allow safe, whitelisted patterns
+    // Avatar changes should primarily go through /api/users/me/avatar endpoint
+    if (finalAvatarUrl !== undefined) {
+      const isLocalUpload = finalAvatarUrl.startsWith('/uploads/avatars/');
+      const isVercelAvatar = finalAvatarUrl.startsWith('https://avatar.vercel.sh/');
+      const isGravatar = finalAvatarUrl.startsWith('https://www.gravatar.com/avatar/');
+      const isGitHubAvatar = finalAvatarUrl.startsWith('https://avatars.githubusercontent.com/');
+      
+      if (!isLocalUpload && !isVercelAvatar && !isGravatar && !isGitHubAvatar) {
+        return NextResponse.json(
+          { error: 'Invalid avatar URL. Only local uploads and approved avatar services are allowed.' },
+          { status: 400 }
+        );
+      }
+    }
+
     // Build update object (only include provided fields)
     const updateData: Record<string, any> = {};
     if (finalDisplayName !== undefined) updateData.display_name = finalDisplayName;
