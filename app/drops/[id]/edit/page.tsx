@@ -138,9 +138,12 @@ export default async function EditDropPage({ params }: EditDropPageProps) {
     .limit(100);
 
   // Transform assets: Supabase returns uploader as array, unwrap to single object
+  // Check array has elements to avoid undefined when empty
   const availableAssets = (availableAssetsRaw || []).map((asset: any) => ({
     ...asset,
-    uploader: Array.isArray(asset.uploader) ? asset.uploader[0] : asset.uploader,
+    uploader: Array.isArray(asset.uploader) && asset.uploader.length > 0 
+      ? asset.uploader[0] 
+      : asset.uploader,
   }));
 
   return (
