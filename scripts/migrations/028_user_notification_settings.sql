@@ -45,10 +45,14 @@ CREATE TRIGGER update_user_notification_settings_updated_at
 -- Enable RLS
 ALTER TABLE user_notification_settings ENABLE ROW LEVEL SECURITY;
 
--- Users can only read their own settings
-CREATE POLICY "Users can read own notification settings"
+-- Any authenticated user can read notification settings
+-- This is needed because when checking if we should send a notification to user B,
+-- we're authenticated as user A (the actor), and need to read user B's settings.
+-- Notification preferences are not sensitive data.
+CREATE POLICY "Authenticated users can read notification settings"
   ON user_notification_settings FOR SELECT
-  USING (auth.uid() = user_id);
+  TO authenticated
+  USING (true);
 
 -- Users can insert their own settings (for first-time setup)
 CREATE POLICY "Users can create own notification settings"
