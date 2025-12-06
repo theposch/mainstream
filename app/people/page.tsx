@@ -111,8 +111,10 @@ export default function PeoplePage() {
     return () => observer.disconnect();
   }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
 
-  // Handle follow/unfollow
-  const handleFollow = async (username: string, isCurrentlyFollowing: boolean) => {
+  const allUsers = data?.pages.flatMap((page) => page.users) || [];
+
+  // Handle follow/unfollow - accepts userId directly to avoid stale closure issues
+  const handleFollow = async (username: string, isCurrentlyFollowing: boolean, userId: string) => {
     const response = await fetch(`/api/users/${username}/follow`, {
       method: isCurrentlyFollowing ? "DELETE" : "POST",
       headers: { "Content-Type": "application/json" },
@@ -122,22 +124,17 @@ export default function PeoplePage() {
       throw new Error("Failed to toggle follow");
     }
 
-    // Update local state
+    // Update local state using userId directly
     setFollowingMap(prev => {
       const newMap = new Map(prev);
-      const user = allUsers.find(u => u.username === username);
-      if (user) {
-        if (isCurrentlyFollowing) {
-          newMap.delete(user.id);
-        } else {
-          newMap.set(user.id, true);
-        }
+      if (isCurrentlyFollowing) {
+        newMap.delete(userId);
+      } else {
+        newMap.set(userId, true);
       }
       return newMap;
     });
   };
-
-  const allUsers = data?.pages.flatMap((page) => page.users) || [];
 
   return (
     <div className="w-full min-h-screen pb-20">

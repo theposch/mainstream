@@ -48,8 +48,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check if email is same as current
-    if (email === authUser.email) {
+    // Check if email is same as current (case-insensitive per RFC)
+    if (email.toLowerCase() === authUser.email?.toLowerCase()) {
       return NextResponse.json(
         { error: 'New email must be different from current email' },
         { status: 400 }
