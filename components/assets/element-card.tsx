@@ -60,6 +60,7 @@ export const ElementCard = React.memo(
   
   const handleLikeClick = React.useCallback(async (e: React.MouseEvent) => {
     e.preventDefault();
+    e.stopPropagation(); // Prevent click from bubbling to parent Link/card
     const wasLiked = isLiked;
     const success = await toggleLike();
     // Only notify parent if toggle succeeded (prevents desynced state on API failure)
@@ -264,7 +265,7 @@ export const ElementCard = React.memo(
             isHovered ? "opacity-100" : "opacity-0"
           )}>
             {/* Top Right: Save to Collection */}
-            <div className="absolute top-3 right-3" onClick={(e) => e.preventDefault()}>
+            <div className="absolute top-3 right-3" onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}>
               {/* TODO: Replace with real save to collection functionality
                   - Open dialog to select collection/stream
                   - POST /api/streams/:streamId/assets with { assetId }
@@ -277,7 +278,7 @@ export const ElementCard = React.memo(
             </div>
 
             {/* Bottom Section */}
-            <div className="absolute bottom-0 left-0 right-0 p-4 flex flex-col gap-2" onClick={(e) => e.preventDefault()}>
+            <div className="absolute bottom-0 left-0 right-0 p-4 flex flex-col gap-2" onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}>
               {/* Streams - Show on hover (clickable=false to avoid nested <a> tags) */}
               {streams.length > 0 && (
                 <div className="flex items-center gap-1.5 flex-wrap">
