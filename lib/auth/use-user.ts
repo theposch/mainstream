@@ -92,7 +92,8 @@ export function useUser(): UseUserReturn {
         setLoading(false)
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to fetch user')
-      setLoading(false)
+        setLoading(false)
+      }
     }
   }
 
