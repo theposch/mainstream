@@ -764,7 +764,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                   onClick={() => setActiveTab(tab.id)}
                   className={cn(
                     "relative px-4 py-3 text-sm font-medium transition-colors rounded-t-md",
-                    "focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
+                    "focus:outline-none focus-visible:outline-none",
                     activeTab === tab.id 
                       ? "text-foreground" 
                       : "text-muted-foreground hover:text-foreground"
