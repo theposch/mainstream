@@ -1,5 +1,3 @@
-import { Loader2 } from "lucide-react";
-
 export default function PeopleLoading() {
   return (
     <div className="w-full min-h-screen pb-20">
