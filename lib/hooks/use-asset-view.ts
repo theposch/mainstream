@@ -29,9 +29,18 @@ const VIEW_THRESHOLD_MS = 2000; // 2 seconds
  */
 export function useAssetView(assetId: string, enabled: boolean = true): void {
   const hasRecordedRef = useRef(false);
+  // Track the assetId we've recorded for to detect changes
+  const recordedAssetIdRef = useRef<string | null>(null);
 
   useEffect(() => {
-    // Skip if disabled or already recorded this session
+    // Reset flag when viewing a different asset
+    // This MUST happen before the skip check below
+    if (assetId !== recordedAssetIdRef.current) {
+      hasRecordedRef.current = false;
+      recordedAssetIdRef.current = assetId;
+    }
+
+    // Skip if disabled or already recorded for this asset
     if (!enabled || !assetId || hasRecordedRef.current) {
       return;
     }
@@ -56,10 +65,5 @@ export function useAssetView(assetId: string, enabled: boolean = true): void {
       clearTimeout(timer);
     };
   }, [assetId, enabled]);
-
-  // Reset recorded flag when assetId changes (viewing different asset)
-  useEffect(() => {
-    hasRecordedRef.current = false;
-  }, [assetId]);
 }
 
