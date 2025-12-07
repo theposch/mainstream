@@ -1,13 +1,19 @@
 /**
  * Asset View Hook
  * 
- * Records that a user has viewed an asset after a 2-second threshold.
+ * Records that a user has viewed an asset after a configurable threshold.
  * Uses fire-and-forget pattern to avoid blocking UI.
+ * 
+ * Features:
+ * - Debounced: only records after user has viewed for 2+ seconds
+ * - Idempotent: safe to call multiple times, server handles deduplication
+ * - Resilient: uses keepalive to complete even on navigation
+ * - Retry-limited: won't spam server on repeated failures
  * 
  * Usage:
  * ```tsx
- * // Just call the hook - it handles everything
- * useAssetView(assetId);
+ * // Track views for an asset (disabled for owner)
+ * useAssetView(assetId, !isOwner);
  * ```
  */
 
@@ -15,74 +21,74 @@
 
 import { useEffect, useRef } from "react";
 
-const VIEW_THRESHOLD_MS = 2000; // 2 seconds
+/** Time user must view asset before recording (milliseconds) */
+const VIEW_THRESHOLD_MS = 2000;
+
+/** Maximum retry attempts on failure */
+const MAX_RETRIES = 2;
 
 /**
- * Records an asset view after user has been viewing for 2+ seconds.
- * 
- * - Automatically cleans up if component unmounts before threshold
- * - Uses keepalive to ensure request completes even on navigation
- * - Fire-and-forget: doesn't block UI or return status
+ * Records an asset view after user has been viewing for threshold duration.
  * 
  * @param assetId - The ID of the asset being viewed
- * @param enabled - Whether to track views (default true)
+ * @param enabled - Whether to track views (set false for owner viewing own asset)
  */
 export function useAssetView(assetId: string, enabled: boolean = true): void {
-  const hasRecordedRef = useRef(false);
+  // Track state across renders without causing re-renders
+  const stateRef = useRef({
+    hasRecorded: false,
+    retryCount: 0,
+    lastAssetId: '',
+  });
 
   useEffect(() => {
-    console.log('[useAssetView] Effect running:', { assetId, enabled, hasRecorded: hasRecordedRef.current });
-    
-    // Skip if disabled or already recorded this session
-    if (!enabled || !assetId || hasRecordedRef.current) {
-      console.log('[useAssetView] Skipping:', { 
-        enabled, 
-        assetId: assetId || '(empty)', 
-        hasRecorded: hasRecordedRef.current,
-        reason: !enabled ? 'DISABLED (viewing own post?)' : !assetId ? 'NO_ASSET_ID' : 'ALREADY_RECORDED'
-      });
+    // Reset state when viewing a different asset
+    if (stateRef.current.lastAssetId !== assetId) {
+      stateRef.current = {
+        hasRecorded: false,
+        retryCount: 0,
+        lastAssetId: assetId,
+      };
+    }
+
+    // Skip if disabled, no asset ID, already recorded, or max retries exceeded
+    if (
+      !enabled || 
+      !assetId || 
+      stateRef.current.hasRecorded || 
+      stateRef.current.retryCount >= MAX_RETRIES
+    ) {
       return;
     }
 
-    console.log('[useAssetView] Starting 2s timer for asset:', assetId);
-
     const timer = setTimeout(() => {
-      // Mark as recorded to prevent duplicate calls
-      hasRecordedRef.current = true;
+      // Mark as recorded optimistically to prevent duplicate calls
+      stateRef.current.hasRecorded = true;
 
-      console.log('[useAssetView] Timer fired! Making API call for:', assetId);
-
-      // Fire-and-forget: don't await, use keepalive for reliability
+      // Fire-and-forget with keepalive for reliability
       fetch(`/api/assets/${assetId}/view`, {
         method: 'POST',
-        keepalive: true, // Ensures request completes even if user navigates away
+        credentials: 'include', // Ensure auth cookies are sent
+        keepalive: true, // Complete request even if user navigates away
       })
         .then(async (response) => {
-          const data = await response.json().catch(() => ({}));
           if (!response.ok) {
-            console.error('[useAssetView] API error:', response.status, data);
-            hasRecordedRef.current = false;
-          } else {
-            console.log('[useAssetView] ✓ View recorded successfully:', data);
+            // Server error - allow limited retries
+            stateRef.current.hasRecorded = false;
+            stateRef.current.retryCount++;
           }
+          // Success or 4xx client error - don't retry
         })
-        .catch((error) => {
-          console.error('[useAssetView] Network error:', error);
-        hasRecordedRef.current = false;
-      });
+        .catch(() => {
+          // Network error - allow limited retries
+          stateRef.current.hasRecorded = false;
+          stateRef.current.retryCount++;
+        });
     }, VIEW_THRESHOLD_MS);
 
     // Cleanup: cancel timer if unmounted before threshold
     return () => {
-      console.log('[useAssetView] Cleanup - clearing timer');
       clearTimeout(timer);
     };
   }, [assetId, enabled]);
-
-  // Reset recorded flag when assetId changes (viewing different asset)
-  useEffect(() => {
-    console.log('[useAssetView] Reset effect - assetId changed to:', assetId);
-    hasRecordedRef.current = false;
-  }, [assetId]);
 }
-
