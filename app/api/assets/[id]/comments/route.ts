@@ -180,16 +180,17 @@ export async function POST(
     const attemptedUsers = new Set<string>();
 
     // 1. Notify asset owner if commenting on someone else's asset
+    // Asset owner always gets 'comment' type - it's activity on their asset
+    // (Only the parent comment author gets 'reply_comment' when someone replies to their comment)
     if (asset && asset.uploader_id !== user.id) {
       // Mark as attempted before trying (prevents duplicate attempts if same user is parent author)
       attemptedUsers.add(asset.uploader_id);
       
-      const notificationType = parent_id ? 'reply_comment' : 'comment';
-      const shouldNotify = await shouldCreateNotification(supabase, asset.uploader_id, notificationType);
+      const shouldNotify = await shouldCreateNotification(supabase, asset.uploader_id, 'comment');
       
       if (shouldNotify) {
         const { error: notificationError } = await supabase.from('notifications').insert({
-          type: notificationType,
+          type: 'comment',
           recipient_id: asset.uploader_id,
           actor_id: user.id,
           resource_id: assetId,

@@ -23,7 +23,7 @@ SECURITY DEFINER
 AS $$
 DECLARE
   v_uploader_id UUID;
-  v_is_new_view BOOLEAN := FALSE;
+  v_row_count INTEGER;
   v_view_count INTEGER;
 BEGIN
   -- Get asset owner (and verify asset exists)
@@ -40,14 +40,16 @@ BEGIN
     RETURN jsonb_build_object('success', true, 'is_owner', true, 'counted', false);
   END IF;
   
-  -- Try to insert new view (will fail silently if exists due to ON CONFLICT)
+  -- Try to insert new view (will do nothing if exists due to ON CONFLICT)
   INSERT INTO asset_views (asset_id, user_id, viewed_at)
   VALUES (p_asset_id, p_user_id, NOW())
-  ON CONFLICT (asset_id, user_id) DO NOTHING
-  RETURNING TRUE INTO v_is_new_view;
+  ON CONFLICT (asset_id, user_id) DO NOTHING;
+  
+  -- Check if a row was actually inserted
+  GET DIAGNOSTICS v_row_count = ROW_COUNT;
   
   -- If new view was inserted, increment count
-  IF v_is_new_view THEN
+  IF v_row_count > 0 THEN
     UPDATE assets
     SET view_count = view_count + 1
     WHERE id = p_asset_id
@@ -79,4 +81,3 @@ GRANT EXECUTE ON FUNCTION record_asset_view(UUID, UUID) TO authenticated;
 
 -- Add documentation
 COMMENT ON FUNCTION record_asset_view(UUID, UUID) IS 'Atomically records an asset view. Returns success status, whether it was a new view, and current view count.';
-
