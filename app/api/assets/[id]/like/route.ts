@@ -82,19 +82,19 @@ export async function POST(
       const shouldNotify = await shouldCreateNotification(supabase, asset.uploader_id, 'like_asset');
       
       if (shouldNotify) {
-        const { error: notificationError } = await supabase
-          .from('notifications')
-          .insert({
-            type: 'like_asset',
-            recipient_id: asset.uploader_id,
-            actor_id: user.id,
-            resource_id: assetId,
-            resource_type: 'asset',
-          });
+      const { error: notificationError } = await supabase
+        .from('notifications')
+        .insert({
+          type: 'like_asset',
+          recipient_id: asset.uploader_id,
+          actor_id: user.id,
+          resource_id: assetId,
+          resource_type: 'asset',
+        });
 
-        if (notificationError) {
-          console.warn('[POST /api/assets/[id]/like] Failed to create notification:', notificationError);
-          // Continue anyway - like was successful
+      if (notificationError) {
+        console.warn('[POST /api/assets/[id]/like] Failed to create notification:', notificationError);
+        // Continue anyway - like was successful
         }
       }
     }

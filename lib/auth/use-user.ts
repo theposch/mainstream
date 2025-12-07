@@ -36,7 +36,7 @@ export function useUser(): UseUserReturn {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  const fetchUser = async () => {
+    const fetchUser = async () => {
       try {
         const supabase = createClient()
         

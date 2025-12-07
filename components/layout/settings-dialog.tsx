@@ -513,15 +513,15 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
               <div className="space-y-3">
                 <div className="space-y-2">
                   <Label htmlFor="current-password" className="text-xs">Current Password</Label>
-                  <Input
+                <Input
                     id="current-password"
                     type="password"
                     value={currentPassword}
                     onChange={(e) => setCurrentPassword(e.target.value)}
                     placeholder="Enter current password"
-                    className="bg-background border-border"
-                  />
-                </div>
+                  className="bg-background border-border"
+                />
+              </div>
                 <div className="space-y-2">
                   <Label htmlFor="new-password" className="text-xs">New Password</Label>
                   <Input
@@ -535,14 +535,14 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="confirm-password" className="text-xs">Confirm New Password</Label>
-                  <Input
+                <Input
                     id="confirm-password"
                     type="password"
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     placeholder="Confirm new password"
-                    className="bg-background border-border"
-                  />
+                  className="bg-background border-border"
+                />
                 </div>
                 <Button
                   size="sm"
@@ -569,7 +569,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                   </div>
                 )}
               </div>
-            </div>
+              </div>
 
             <div className="border-t border-border" />
 
@@ -598,15 +598,15 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                   <div className="space-y-3">
                     <div className="space-y-2">
                       <Label htmlFor="delete-password" className="text-xs">Enter your password</Label>
-                      <Input
+                  <Input
                         id="delete-password"
                         type="password"
                         value={deletePassword}
                         onChange={(e) => setDeletePassword(e.target.value)}
                         placeholder="Your password"
-                        className="bg-background border-border"
-                      />
-                    </div>
+                    className="bg-background border-border"
+                  />
+                </div>
                     <div className="space-y-2">
                       <Label htmlFor="delete-confirm" className="text-xs">
                         Type <span className="font-mono font-bold text-destructive">DELETE</span> to confirm
@@ -619,7 +619,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                         placeholder="DELETE"
                         className="bg-background border-border font-mono"
                       />
-                    </div>
+              </div>
                     <div className="flex gap-2">
                       <Button
                         variant="destructive"
@@ -670,47 +670,47 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
             ) : (
               <>
                 {/* Master Toggle */}
-                <div className="space-y-4">
+            <div className="space-y-4">
                   <h3 className="text-sm font-semibold text-foreground">In-App Notifications</h3>
-                  
-                  <ToggleItem
+              
+              <ToggleItem
                     label="Enable notifications"
                     description="Receive in-app notifications for activity"
                     checked={notificationSettings.in_app_enabled}
                     onChange={(checked) => updateNotificationSetting('in_app_enabled', checked)}
                     disabled={notificationSaving}
-                  />
-                </div>
+              />
+            </div>
 
                 {/* Activity Notifications - only show if master toggle is on */}
                 {notificationSettings.in_app_enabled && (
-                  <div className="border-t border-border pt-4 mt-6 space-y-4">
+            <div className="border-t border-border pt-4 mt-6 space-y-4">
                     <h3 className="text-sm font-semibold text-foreground">Activity Types</h3>
-                    
-                    <ToggleItem
+              
+              <ToggleItem
                       label="Likes"
                       description="When someone likes your work or comments"
                       checked={notificationSettings.likes_enabled}
                       onChange={(checked) => updateNotificationSetting('likes_enabled', checked)}
                       disabled={notificationSaving}
-                    />
+              />
 
-                    <ToggleItem
+              <ToggleItem
                       label="Comments"
                       description="When someone comments on your work or replies"
                       checked={notificationSettings.comments_enabled}
                       onChange={(checked) => updateNotificationSetting('comments_enabled', checked)}
                       disabled={notificationSaving}
-                    />
+              />
 
-                    <ToggleItem
-                      label="Follows"
+              <ToggleItem
+                label="Follows"
                       description="When someone follows you or your streams"
                       checked={notificationSettings.follows_enabled}
                       onChange={(checked) => updateNotificationSetting('follows_enabled', checked)}
                       disabled={notificationSaving}
                     />
-
+              
                     <ToggleItem
                       label="Mentions"
                       description="When someone mentions you in a comment"
@@ -718,7 +718,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                       onChange={(checked) => updateNotificationSetting('mentions_enabled', checked)}
                       disabled={notificationSaving}
                     />
-                  </div>
+                    </div>
                 )}
 
                 {/* Saving indicator */}
