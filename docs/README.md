@@ -46,6 +46,8 @@ Design collaboration platform for internal teams to share work and organize into
 ✅ **Complete** - AI description generation (LiteLLM + Gemini 2.5 Flash)  
 ✅ **Complete** - Image galleries in drops (grid and featured layouts)  
 ✅ **Complete** - Unlisted assets (drop-only images hidden from feed)  
+✅ **Complete** - Notification settings (toggle by type: likes, comments, follows, mentions)  
+✅ **Complete** - View tracking improvements (atomic RPC, real-time count updates)  
 
 ## Project Structure
 
@@ -114,6 +116,13 @@ See assets from users and streams you follow.
 - Live notification updates
 - Typing indicators in comments
 - Comment deep linking (click notification → jump to comment)
+- Real-time view count updates (via callback)
+
+### Notification Settings
+Control which notifications you receive:
+- **Master toggle** - Enable/disable all in-app notifications
+- **By type** - Likes, Comments, Follows, Mentions
+- Settings persist and are respected when notifications are created
 
 ### Drops (AI Newsletter)
 AI-powered newsletters that summarize your team's weekly design work. Features:
