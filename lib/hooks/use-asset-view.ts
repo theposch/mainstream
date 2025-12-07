@@ -8,7 +8,7 @@
  * - Debounced: only records after user has viewed for 2+ seconds
  * - Idempotent: safe to call multiple times, server handles deduplication
  * - Resilient: uses keepalive to complete even on navigation
- * - Retry-limited: won't spam server on repeated failures
+ * - Retry with backoff: retries failed requests with exponential delay
  * - Optional callback: receive updated view count for UI updates
  * 
  * Usage:
@@ -33,6 +33,9 @@ const VIEW_THRESHOLD_MS = 2000;
 /** Maximum retry attempts on failure */
 const MAX_RETRIES = 2;
 
+/** Base delay for retry backoff (milliseconds) */
+const RETRY_BASE_DELAY_MS = 1000;
+
 /** Callback type for view count updates */
 export type ViewCountCallback = (newCount: number, isNewView: boolean) => void;
 
@@ -48,52 +51,36 @@ export function useAssetView(
   enabled: boolean = true,
   onViewRecorded?: ViewCountCallback
 ): void {
-  // Track state across renders without causing re-renders
-  const stateRef = useRef({
-    hasRecorded: false,
-    retryCount: 0,
-    lastAssetId: '',
-  });
-  
   // Store callback in ref to avoid effect re-runs when callback changes
   const callbackRef = useRef(onViewRecorded);
   callbackRef.current = onViewRecorded;
 
   useEffect(() => {
-    // Reset state when viewing a different asset
-    if (stateRef.current.lastAssetId !== assetId) {
-      stateRef.current = {
-        hasRecorded: false,
-        retryCount: 0,
-        lastAssetId: assetId,
-      };
-    }
-
-    // Skip if disabled, no asset ID, already recorded, or max retries exceeded
-    if (
-      !enabled || 
-      !assetId || 
-      stateRef.current.hasRecorded || 
-      stateRef.current.retryCount >= MAX_RETRIES
-    ) {
+    // Skip if disabled or no asset ID
+    if (!enabled || !assetId) {
       return;
     }
 
-    const timer = setTimeout(() => {
-      // Mark as recorded optimistically to prevent duplicate calls
-      stateRef.current.hasRecorded = true;
+    let isCancelled = false;
+    let retryTimer: NodeJS.Timeout | null = null;
 
-      // Fire-and-forget with keepalive for reliability
+    const recordView = (attempt: number) => {
+      if (isCancelled) return;
+
       fetch(`/api/assets/${assetId}/view`, {
         method: 'POST',
-        credentials: 'include', // Ensure auth cookies are sent
-        keepalive: true, // Complete request even if user navigates away
+        credentials: 'include',
+        keepalive: true,
       })
         .then(async (response) => {
+          if (isCancelled) return;
+
           if (!response.ok) {
-            // Server error - allow limited retries
-            stateRef.current.hasRecorded = false;
-            stateRef.current.retryCount++;
+            // Server error - schedule retry with exponential backoff
+            if (attempt < MAX_RETRIES) {
+              const delay = RETRY_BASE_DELAY_MS * Math.pow(2, attempt);
+              retryTimer = setTimeout(() => recordView(attempt + 1), delay);
+            }
             return;
           }
           
@@ -109,15 +96,28 @@ export function useAssetView(
           }
         })
         .catch(() => {
-          // Network error - allow limited retries
-          stateRef.current.hasRecorded = false;
-          stateRef.current.retryCount++;
+          if (isCancelled) return;
+
+          // Network error - schedule retry with exponential backoff
+          if (attempt < MAX_RETRIES) {
+            const delay = RETRY_BASE_DELAY_MS * Math.pow(2, attempt);
+            retryTimer = setTimeout(() => recordView(attempt + 1), delay);
+          }
         });
+    };
+
+    // Start initial timer - wait VIEW_THRESHOLD_MS before first attempt
+    const initialTimer = setTimeout(() => {
+      recordView(0);
     }, VIEW_THRESHOLD_MS);
 
-    // Cleanup: cancel timer if unmounted before threshold
+    // Cleanup: cancel all timers if unmounted or deps change
     return () => {
-      clearTimeout(timer);
+      isCancelled = true;
+      clearTimeout(initialTimer);
+      if (retryTimer) {
+        clearTimeout(retryTimer);
+      }
     };
   }, [assetId, enabled]);
 }
