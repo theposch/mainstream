@@ -12,10 +12,14 @@ Quick onboarding guide for AI assistants working on the Mainstream codebase.
 ## Critical Context
 
 ### Recent Major Changes
-- ✅ **WebM Video Support** - Upload WebM videos up to 50MB with autoplay in feed (NEW)
-- ✅ **Loom Embeds** - Paste Loom URLs to embed videos with thumbnails (NEW)
-- ✅ **Route Protection** - Middleware redirects unauthenticated users to login (NEW)
-- ✅ **Arrow Key Navigation** - Navigate between assets in modal with keyboard (NEW)
+- ✅ **Notification Settings** - Toggle notifications by type (likes, comments, follows, mentions) (NEW)
+- ✅ **Real-time View Counts** - View count updates instantly via callback (NEW)
+- ✅ **Atomic View Recording** - Single RPC call handles view tracking atomically (NEW)
+- ✅ **Reply Notifications** - Both asset owner and comment author notified on replies (NEW)
+- ✅ **WebM Video Support** - Upload WebM videos up to 50MB with autoplay in feed
+- ✅ **Loom Embeds** - Paste Loom URLs to embed videos with thumbnails
+- ✅ **Route Protection** - Middleware redirects unauthenticated users to login
+- ✅ **Arrow Key Navigation** - Navigate between assets in modal with keyboard
 - ✅ **Drops (AI Newsletter)** - AI-powered weekly drops with block-based Notion-like editor
 - ✅ **LiteLLM Integration** - AI description generation using Gemini 2.5 Flash
 - ✅ **Unlisted Assets** - Images uploaded in drops don't appear in feed
@@ -109,11 +113,17 @@ ai/
   describe/route.ts    - POST: Generate AI asset description
 
 users/
+  route.ts             - GET: List users with pagination (People page)
   [username]/
     route.ts           - GET: User profile
     follow/route.ts    - POST/DELETE: Toggle follow
   me/route.ts          - PUT: Update current user
+  me/avatar/route.ts   - POST/DELETE: Upload/remove avatar
+  me/email/route.ts    - POST: Change email
+  me/password/route.ts - POST: Change password
+  me/delete/route.ts   - DELETE: Delete account
   me/integrations/route.ts - GET/POST: Manage integrations (Figma token)
+  me/notification-settings/route.ts - GET/PUT: Notification preferences
 
 search/route.ts        - GET: Search assets/users/streams (with total counts)
 notifications/route.ts - GET/PUT: Notifications
@@ -170,7 +180,7 @@ layout/
 use-assets-infinite.ts      - Infinite scroll for recent assets
 use-following-assets.ts     - Infinite scroll for following feed (users + streams)
 use-asset-like.ts           - Like/unlike with optimistic updates
-use-asset-view.ts           - Record view after 2s threshold (fire-and-forget)
+use-asset-view.ts           - Record view after 2s (atomic RPC, real-time count callback)
 use-asset-comments.ts       - CRUD operations (React Query + Supabase Realtime)
 use-asset-prefetch.ts       - Hover-based data prefetching for instant modal
 use-comment-like.ts         - Like/unlike comments (race-condition fixed)
@@ -263,6 +273,10 @@ stream_bookmarks
 notifications
   └─ user_id, type (like_asset|like_comment|comment|reply_comment|follow|mention)
   └─ resource_id, resource_type, actor_id, content, comment_id, is_read
+
+user_notification_settings
+  └─ user_id (PK), in_app_enabled, likes_enabled, comments_enabled
+  └─ follows_enabled, mentions_enabled, created_at, updated_at
 
 drops
   ├─ title, description, status ('draft' | 'published')
@@ -693,6 +707,9 @@ When working on a feature, review:
    - `024_add_assets_rls_policies.sql` - Asset security policies
    - `025_add_asset_visibility.sql` - Unlisted assets
    - `026_add_video_asset_type.sql` - WebM video support
+   - `028_user_notification_settings.sql` - Notification preferences table
+   - `029_increment_view_count_rpc.sql` - View count increment function
+   - `030_record_asset_view_rpc.sql` - Atomic view recording function
 3. Type definitions: `lib/types/database.ts`
 4. Related API route: `app/api/[feature]/route.ts`
 5. Related hook: `lib/hooks/use-[feature].ts`

@@ -44,6 +44,7 @@ All tables created with Row Level Security:
 - `stream_follows` - Stream following relationships
 - `stream_bookmarks` - External links for streams
 - `notifications` - Activity feed (+ `content`, `comment_id` for deep linking)
+- `user_notification_settings` - Notification preferences (toggles per type)
 
 **Migration Files:**
 - `scripts/migrations/001_initial_schema.sql`
@@ -60,6 +61,9 @@ All tables created with Row Level Security:
 - `scripts/migrations/015_add_comment_id_to_notifications.sql`
 - `scripts/migrations/016_add_embed_support.sql` - Figma embeds
 - `scripts/migrations/017_add_figma_integration.sql` - Figma token storage
+- `scripts/migrations/028_user_notification_settings.sql` - Notification preferences
+- `scripts/migrations/029_increment_view_count_rpc.sql` - View count RPC
+- `scripts/migrations/030_record_asset_view_rpc.sql` - Atomic view recording RPC
 
 ### ✅ Storage
 Configured buckets:
@@ -108,12 +112,20 @@ Storage policies allow:
 - `DELETE /api/streams/[id]/bookmarks/[bookmarkId]` - Delete bookmark (creator or owner)
 
 #### Users
+- `GET /api/users` - List users with pagination (People page)
 - `GET /api/users/[username]` - Get user profile
-- `POST /api/users/[username]/follow` - Follow user
+- `POST /api/users/[username]/follow` - Follow user (respects notification settings)
 - `DELETE /api/users/[username]/follow` - Unfollow user
-- `PUT /api/users/me` - Update current user
+- `PUT /api/users/me` - Update current user profile
+- `POST /api/users/me/avatar` - Upload avatar
+- `DELETE /api/users/me/avatar` - Remove avatar (reset to default)
+- `POST /api/users/me/email` - Change email
+- `POST /api/users/me/password` - Change password
+- `DELETE /api/users/me/delete` - Delete account
 - `GET /api/users/me/integrations` - Get integration status (Figma)
 - `POST /api/users/me/integrations` - Connect/disconnect integrations
+- `GET /api/users/me/notification-settings` - Get notification preferences
+- `PUT /api/users/me/notification-settings` - Update notification preferences
 
 #### Other
 - `GET /api/search` - Search with total counts
@@ -144,7 +156,7 @@ Implemented with Supabase Realtime:
 
 **Hooks:**
 - `lib/hooks/use-asset-like.ts`
-- `lib/hooks/use-asset-view.ts` - Fire-and-forget view tracking (2s delay)
+- `lib/hooks/use-asset-view.ts` - Atomic view recording with real-time count callback
 - `lib/hooks/use-comment-like.ts` - With race-condition prevention
 - `lib/hooks/use-asset-comments.ts`
 - `lib/hooks/use-notifications.ts` - Enriches with asset data
