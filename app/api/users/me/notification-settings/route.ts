@@ -142,43 +142,77 @@ export async function PUT(request: NextRequest) {
       );
     }
 
-    // First, try to fetch existing settings to merge with
-    const { data: existingSettings } = await supabase
+    // Atomic update pattern: UPDATE existing, or INSERT if none exist
+    // This avoids the race condition of SELECT-then-UPSERT where two concurrent
+    // requests could both read defaults and overwrite each other's changes
+    
+    // Step 1: Try to UPDATE existing settings (only updates provided fields)
+    const { data: updatedSettings, error: updateError } = await supabase
       .from('user_notification_settings')
-      .select('*')
+      .update(updateData)
       .eq('user_id', user.id)
+      .select()
       .maybeSingle();
 
-    // Build the full data to upsert
-    // If settings exist, merge with existing values; otherwise use defaults
-    const baseSettings = existingSettings || DEFAULT_SETTINGS;
-    const upsertData = {
-      user_id: user.id,
-      in_app_enabled: updateData.in_app_enabled ?? baseSettings.in_app_enabled,
-      likes_enabled: updateData.likes_enabled ?? baseSettings.likes_enabled,
-      comments_enabled: updateData.comments_enabled ?? baseSettings.comments_enabled,
-      follows_enabled: updateData.follows_enabled ?? baseSettings.follows_enabled,
-      mentions_enabled: updateData.mentions_enabled ?? baseSettings.mentions_enabled,
-    };
-
-    // Use upsert to handle race conditions atomically
-    // If another request inserted between our SELECT and this UPSERT,
-    // this will update instead of failing with a constraint violation
-    const { data: settings, error } = await supabase
-      .from('user_notification_settings')
-      .upsert(upsertData, { onConflict: 'user_id' })
-      .select()
-      .single();
-
-    if (error) {
-      console.error('[PUT /api/users/me/notification-settings] Upsert error:', error);
+    if (updateError) {
+      console.error('[PUT /api/users/me/notification-settings] Update error:', updateError);
       return NextResponse.json(
         { error: 'Failed to update notification settings' },
         { status: 500 }
       );
     }
 
-    return NextResponse.json(settings);
+    // If update succeeded (row existed), return the updated settings
+    if (updatedSettings) {
+      return NextResponse.json(updatedSettings);
+    }
+
+    // Step 2: No existing settings - INSERT with defaults + provided updates
+    // Use INSERT to avoid overwriting if another request created settings concurrently
+    const insertData = {
+      user_id: user.id,
+      ...DEFAULT_SETTINGS,
+      ...updateData, // Provided values override defaults
+    };
+
+    const { data: insertedSettings, error: insertError } = await supabase
+      .from('user_notification_settings')
+      .insert(insertData)
+      .select()
+      .single();
+
+    if (insertError) {
+      // If insert fails due to conflict, another request created settings - fetch and return
+      if (insertError.code === '23505') { // Unique constraint violation
+        const { data: existingSettings } = await supabase
+          .from('user_notification_settings')
+          .select('*')
+          .eq('user_id', user.id)
+          .single();
+        
+        if (existingSettings) {
+          // Apply our updates to the now-existing settings
+          const { data: retrySettings, error: retryError } = await supabase
+            .from('user_notification_settings')
+            .update(updateData)
+            .eq('user_id', user.id)
+            .select()
+            .single();
+          
+          if (!retryError && retrySettings) {
+            return NextResponse.json(retrySettings);
+          }
+        }
+      }
+      
+      console.error('[PUT /api/users/me/notification-settings] Insert error:', insertError);
+      return NextResponse.json(
+        { error: 'Failed to save notification settings' },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json(insertedSettings);
   } catch (error) {
     console.error('[PUT /api/users/me/notification-settings] Error:', error);
     return NextResponse.json(
