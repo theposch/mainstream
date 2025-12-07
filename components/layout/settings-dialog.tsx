@@ -100,14 +100,12 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
     }
   }, [open]);
 
-  // Fetch notification settings
-  React.useEffect(() => {
-    if (open && user) {
-      fetchNotificationSettings();
-    }
-  }, [open, user]);
+  // Track pending save to debounce rapid clicks
+  const pendingSaveRef = React.useRef<NodeJS.Timeout | null>(null);
+  const pendingUpdatesRef = React.useRef<Record<string, boolean>>({});
 
-  const fetchNotificationSettings = async () => {
+  // Memoized fetch function
+  const fetchNotificationSettings = React.useCallback(async () => {
     setNotificationLoading(true);
     try {
       const response = await fetch('/api/users/me/notification-settings');
@@ -126,33 +124,83 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
     } finally {
       setNotificationLoading(false);
     }
-  };
+  }, []);
 
-  const updateNotificationSetting = async (key: keyof typeof notificationSettings, value: boolean) => {
-    // Optimistically update UI
-    setNotificationSettings(prev => ({ ...prev, [key]: value }));
+  // Fetch notification settings when dialog opens
+  React.useEffect(() => {
+    if (open && user) {
+      fetchNotificationSettings();
+    }
+  }, [open, user, fetchNotificationSettings]);
+
+  // Debounced save function - batches rapid changes
+  const saveNotificationSettings = React.useCallback(async (updates: Record<string, boolean>) => {
     setNotificationSaving(true);
-    
     try {
       const response = await fetch('/api/users/me/notification-settings', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ [key]: value }),
+        body: JSON.stringify(updates),
       });
       
       if (!response.ok) {
-        // Revert on failure
-        setNotificationSettings(prev => ({ ...prev, [key]: !value }));
-        console.error('Failed to save notification setting');
+        // Revert all pending changes on failure
+        setNotificationSettings(prev => {
+          const reverted = { ...prev };
+          for (const key of Object.keys(updates)) {
+            reverted[key as keyof typeof prev] = !updates[key];
+          }
+          return reverted;
+        });
+        console.error('Failed to save notification settings');
       }
     } catch (error) {
       // Revert on error
-      setNotificationSettings(prev => ({ ...prev, [key]: !value }));
-      console.error('Failed to save notification setting:', error);
+      setNotificationSettings(prev => {
+        const reverted = { ...prev };
+        for (const key of Object.keys(updates)) {
+          reverted[key as keyof typeof prev] = !updates[key];
+        }
+        return reverted;
+      });
+      console.error('Failed to save notification settings:', error);
     } finally {
       setNotificationSaving(false);
+      pendingUpdatesRef.current = {};
     }
-  };
+  }, []);
+
+  const updateNotificationSetting = React.useCallback((key: keyof typeof notificationSettings, value: boolean) => {
+    // Optimistically update UI immediately
+    setNotificationSettings(prev => ({ ...prev, [key]: value }));
+    
+    // Batch this update with any pending updates
+    pendingUpdatesRef.current[key] = value;
+    
+    // Clear any existing debounce timer
+    if (pendingSaveRef.current) {
+      clearTimeout(pendingSaveRef.current);
+    }
+    
+    // Debounce: wait 300ms before sending to server
+    // This batches rapid clicks into a single request
+    pendingSaveRef.current = setTimeout(() => {
+      const updates = { ...pendingUpdatesRef.current };
+      if (Object.keys(updates).length > 0) {
+        saveNotificationSettings(updates);
+      }
+      pendingSaveRef.current = null;
+    }, 300);
+  }, [saveNotificationSettings]);
+
+  // Cleanup debounce timer on unmount
+  React.useEffect(() => {
+    return () => {
+      if (pendingSaveRef.current) {
+        clearTimeout(pendingSaveRef.current);
+      }
+    };
+  }, []);
 
   // Fetch Figma integration status
   React.useEffect(() => {
