@@ -214,13 +214,18 @@ export async function POST(
       const shouldNotify = await shouldCreateNotification(supabase, stream.owner_id, 'follow');
       
       if (shouldNotify) {
-      await supabase.from('notifications').insert({
-        type: 'follow',
-        recipient_id: stream.owner_id,
-        actor_id: currentUser.id,
-        resource_id: streamId,
-        resource_type: 'stream',
-      });
+        const { error: notificationError } = await supabase.from('notifications').insert({
+          type: 'follow',
+          recipient_id: stream.owner_id,
+          actor_id: currentUser.id,
+          resource_id: streamId,
+          resource_type: 'stream',
+        });
+
+        if (notificationError) {
+          console.warn('[POST /api/streams/[id]/follow] Failed to create notification:', notificationError);
+          // Continue anyway - follow was successful
+        }
       }
     }
 
