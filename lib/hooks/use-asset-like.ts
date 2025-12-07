@@ -1,3 +1,5 @@
+"use client";
+
 /**
  * Asset Like Hook
  * 
@@ -17,8 +19,6 @@
  * );
  * ```
  */
-
-"use client";
 
 import { useState, useCallback, useRef } from "react";
 

@@ -1,3 +1,5 @@
+"use client";
+
 /**
  * User Follow Hook
  * 
@@ -8,8 +10,6 @@
  * const { isFollowing, followerCount, toggleFollow, loading } = useUserFollow(username);
  * ```
  */
-
-"use client";
 
 import { useState, useEffect, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";

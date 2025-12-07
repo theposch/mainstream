@@ -1,3 +1,5 @@
+"use client";
+
 /**
  * Infinite Scroll Hook for Assets
  * 
@@ -9,8 +11,6 @@
  * const { assets, loadMore, hasMore, loading } = useAssetsInfinite(initialAssets);
  * ```
  */
-
-"use client";
 
 import { useState, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
