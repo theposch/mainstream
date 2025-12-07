@@ -1,14 +1,20 @@
 /**
  * Asset View API Route
  * 
- * Records that a user has viewed an asset (after 2+ second threshold on client)
- * Uses UPSERT to handle duplicate views efficiently
+ * Records that a user has viewed an asset (after 2+ second threshold on client).
+ * Uses an atomic stored procedure to ensure consistency.
  * 
  * POST /api/assets/[id]/view - Record a view
+ * 
+ * Behavior:
+ * - Owner views are not counted
+ * - First view by a user increments view_count
+ * - Subsequent views by same user are no-ops (idempotent)
+ * - Returns 202 Accepted for fire-and-forget pattern
  */
 
-import { NextRequest, NextResponse } from 'next/server';
-import { createClient, createAdminClient } from '@/lib/supabase/server';
+import { NextResponse } from 'next/server';
+import { createClient } from '@/lib/supabase/server';
 
 interface RouteContext {
   params: Promise<{
@@ -16,124 +22,93 @@ interface RouteContext {
   }>;
 }
 
+interface RecordViewResult {
+  success: boolean;
+  error?: string;
+  is_owner?: boolean;
+  is_new_view?: boolean;
+  view_count?: number;
+  counted?: boolean;
+}
+
 /**
  * POST /api/assets/[id]/view
  * 
  * Records a view for the current user on the specified asset.
- * - Excludes asset owner (owners viewing their own assets don't count)
- * - Uses UPSERT: new viewers increment count, repeat viewers update timestamp
- * - Returns 202 Accepted (fire-and-forget pattern)
+ * Uses atomic RPC to ensure consistency between view record and count.
  */
 export async function POST(
-  request: NextRequest,
+  _request: Request,
   context: RouteContext
 ) {
   try {
     const { id: assetId } = await context.params;
-    console.log('[POST /api/assets/[id]/view] Recording view for asset:', assetId);
     
+    // Validate UUID format to fail fast
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(assetId)) {
+      return NextResponse.json(
+        { error: 'Invalid asset ID' },
+        { status: 400 }
+      );
+    }
+
     const supabase = await createClient();
     
     // Check authentication
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     
     if (authError || !user) {
-      console.log('[POST /api/assets/[id]/view] Auth failed:', authError?.message || 'No user');
       return NextResponse.json(
         { error: 'Authentication required' },
         { status: 401 }
       );
     }
 
-    console.log('[POST /api/assets/[id]/view] User authenticated:', user.id);
+    // Call atomic stored procedure
+    // This handles: asset existence check, owner check, view recording, count increment
+    const { data, error } = await supabase.rpc('record_asset_view', {
+      p_asset_id: assetId,
+      p_user_id: user.id,
+    });
 
-    // Get asset to check ownership
-    const { data: asset, error: assetError } = await supabase
-      .from('assets')
-      .select('uploader_id')
-      .eq('id', assetId)
-      .single();
-
-    if (assetError || !asset) {
-      console.log('[POST /api/assets/[id]/view] Asset not found:', assetError?.message);
+    if (error) {
+      console.error('[POST /api/assets/[id]/view] RPC error:', error.message);
       return NextResponse.json(
-        { error: 'Asset not found' },
-        { status: 404 }
+        { error: 'Failed to record view' },
+        { status: 500 }
       );
     }
 
-    // Don't count owner's own views
-    if (asset.uploader_id === user.id) {
-      console.log('[POST /api/assets/[id]/view] Owner viewing own asset, not counting');
-      return NextResponse.json(
-        { message: 'Owner view not counted' },
-        { status: 202 }
-      );
-    }
+    const result = data as RecordViewResult;
 
-    // Use admin client for insert to bypass RLS
-    // (We've already validated auth and ownership above)
-    const adminSupabase = await createAdminClient();
-
-    // Check if view already exists
-    const { data: existingView } = await adminSupabase
-      .from('asset_views')
-      .select('asset_id')
-      .eq('asset_id', assetId)
-      .eq('user_id', user.id)
-      .maybeSingle();
-
-    if (existingView) {
-      // View already exists - just update timestamp (no count increment)
-      const { error: updateError } = await adminSupabase
-        .from('asset_views')
-        .update({ viewed_at: new Date().toISOString() })
-        .eq('asset_id', assetId)
-        .eq('user_id', user.id);
-
-      if (updateError) {
-        console.error('[POST /api/assets/[id]/view] Error updating view timestamp:', updateError);
-      }
-      console.log('[POST /api/assets/[id]/view] Repeat view - timestamp updated');
-    } else {
-      // New view - INSERT the view record
-      const { error: insertError } = await adminSupabase
-        .from('asset_views')
-        .insert({
-          asset_id: assetId,
-          user_id: user.id,
-          viewed_at: new Date().toISOString(),
-        });
-
-      if (insertError) {
-        console.error('[POST /api/assets/[id]/view] Error recording view:', insertError);
+    // Handle RPC-level errors (e.g., asset not found)
+    if (!result.success) {
+      if (result.error === 'asset_not_found') {
         return NextResponse.json(
-          { error: 'Failed to record view' },
-          { status: 500 }
+          { error: 'Asset not found' },
+          { status: 404 }
         );
       }
-
-      // Manually increment view_count (trigger isn't reliable via Supabase client)
-      const { error: incrementError } = await adminSupabase.rpc('increment_view_count', {
-        asset_id: assetId
-      });
-
-      if (incrementError) {
-        console.error('[POST /api/assets/[id]/view] Error incrementing count:', incrementError);
-        // Don't fail the request - view was recorded, count will be eventually consistent
-      }
-
-      console.log('[POST /api/assets/[id]/view] New view recorded and count incremented');
+      return NextResponse.json(
+        { error: result.error || 'Unknown error' },
+        { status: 500 }
+      );
     }
 
-    // 202 Accepted - view recorded (or updated)
-    return NextResponse.json({ success: true }, { status: 202 });
+    // 202 Accepted - view processed successfully
+    return NextResponse.json(
+      { 
+        success: true,
+        counted: result.is_new_view === true,
+      },
+      { status: 202 }
+    );
   } catch (error) {
-    console.error('[POST /api/assets/[id]/view] Error:', error);
+    console.error('[POST /api/assets/[id]/view] Unexpected error:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
     );
   }
 }
-
