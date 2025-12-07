@@ -29,20 +29,13 @@ const VIEW_THRESHOLD_MS = 2000; // 2 seconds
  */
 export function useAssetView(assetId: string, enabled: boolean = true): void {
   const hasRecordedRef = useRef(false);
-  // Track the assetId we've recorded for to detect changes
-  const recordedAssetIdRef = useRef<string | null>(null);
 
   useEffect(() => {
-    // Reset flag when viewing a different asset
-    // This MUST happen before the skip check below
-    if (assetId !== recordedAssetIdRef.current) {
-      hasRecordedRef.current = false;
-      recordedAssetIdRef.current = assetId;
-    }
-
-    // Skip if disabled or already recorded for this asset
+    console.log('[useAssetView] Effect running:', { assetId, enabled, hasRecorded: hasRecordedRef.current });
+    
+    // Skip if disabled or already recorded this session
     if (!enabled || !assetId || hasRecordedRef.current) {
-      console.log('[useAssetView] Skipping:', { enabled, assetId, hasRecorded: hasRecordedRef.current });
+      console.log('[useAssetView] Skipping - conditions not met');
       return;
     }
 
@@ -52,20 +45,20 @@ export function useAssetView(assetId: string, enabled: boolean = true): void {
       // Mark as recorded to prevent duplicate calls
       hasRecordedRef.current = true;
 
-      console.log('[useAssetView] Timer fired, recording view for:', assetId);
+      console.log('[useAssetView] Timer fired! Making API call for:', assetId);
 
-      // Fire-and-forget with proper error logging
+      // Fire-and-forget: don't await, use keepalive for reliability
       fetch(`/api/assets/${assetId}/view`, {
         method: 'POST',
-        credentials: 'include', // Explicitly include cookies
+        keepalive: true, // Ensures request completes even if user navigates away
       })
         .then(async (response) => {
+          const data = await response.json().catch(() => ({}));
           if (!response.ok) {
-            const data = await response.json().catch(() => ({}));
             console.error('[useAssetView] API error:', response.status, data);
             hasRecordedRef.current = false;
           } else {
-            console.log('[useAssetView] View recorded successfully');
+            console.log('[useAssetView] ✓ View recorded successfully:', data);
           }
         })
         .catch((error) => {
@@ -76,9 +69,15 @@ export function useAssetView(assetId: string, enabled: boolean = true): void {
 
     // Cleanup: cancel timer if unmounted before threshold
     return () => {
-      console.log('[useAssetView] Cleanup - clearing timer for:', assetId);
+      console.log('[useAssetView] Cleanup - clearing timer');
       clearTimeout(timer);
     };
   }, [assetId, enabled]);
+
+  // Reset recorded flag when assetId changes (viewing different asset)
+  useEffect(() => {
+    console.log('[useAssetView] Reset effect - assetId changed to:', assetId);
+    hasRecordedRef.current = false;
+  }, [assetId]);
 }
 
