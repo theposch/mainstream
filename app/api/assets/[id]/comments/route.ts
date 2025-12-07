@@ -163,6 +163,11 @@ export async function POST(
       );
     }
 
+    // Truncate comment for preview (max 100 chars)
+    const commentPreview = content.trim().length > 100 
+      ? content.trim().substring(0, 100) + '...' 
+      : content.trim();
+
     // Get asset owner for notification
     const { data: asset } = await supabase
       .from('assets')
@@ -170,18 +175,15 @@ export async function POST(
       .eq('id', assetId)
       .single();
 
-    // Create notification if commenting on someone else's asset
-    // and recipient has notifications enabled for comments
+    // Track who we've already notified to avoid duplicate notifications
+    const notifiedUsers = new Set<string>();
+
+    // 1. Notify asset owner if commenting on someone else's asset
     if (asset && asset.uploader_id !== user.id) {
       const notificationType = parent_id ? 'reply_comment' : 'comment';
       const shouldNotify = await shouldCreateNotification(supabase, asset.uploader_id, notificationType);
       
       if (shouldNotify) {
-        // Truncate comment for preview (max 100 chars)
-        const commentPreview = content.trim().length > 100 
-          ? content.trim().substring(0, 100) + '...' 
-          : content.trim();
-
         const { error: notificationError } = await supabase.from('notifications').insert({
           type: notificationType,
           recipient_id: asset.uploader_id,
@@ -193,7 +195,44 @@ export async function POST(
         });
 
         if (notificationError) {
-          console.warn('[POST /api/assets/[id]/comments] Failed to create notification:', notificationError);
+          console.warn('[POST /api/assets/[id]/comments] Failed to create asset owner notification:', notificationError);
+        } else {
+          notifiedUsers.add(asset.uploader_id);
+        }
+      }
+    }
+
+    // 2. If this is a reply, also notify the original comment author
+    if (parent_id) {
+      const { data: parentComment } = await supabase
+        .from('asset_comments')
+        .select('user_id')
+        .eq('id', parent_id)
+        .single();
+
+      // Only notify if:
+      // - Parent comment exists
+      // - Parent author is not the current user (don't notify yourself)
+      // - Parent author wasn't already notified (e.g., if they're also the asset owner)
+      if (parentComment && 
+          parentComment.user_id !== user.id && 
+          !notifiedUsers.has(parentComment.user_id)) {
+        const shouldNotify = await shouldCreateNotification(supabase, parentComment.user_id, 'reply_comment');
+        
+        if (shouldNotify) {
+          const { error: replyNotificationError } = await supabase.from('notifications').insert({
+            type: 'reply_comment',
+            recipient_id: parentComment.user_id,
+            actor_id: user.id,
+            resource_id: assetId,
+            resource_type: 'asset',
+            content: commentPreview,
+            comment_id: comment.id,
+          });
+
+          if (replyNotificationError) {
+            console.warn('[POST /api/assets/[id]/comments] Failed to create reply notification:', replyNotificationError);
+          }
         }
       }
     }
