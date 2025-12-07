@@ -9,11 +9,17 @@
  * - Idempotent: safe to call multiple times, server handles deduplication
  * - Resilient: uses keepalive to complete even on navigation
  * - Retry-limited: won't spam server on repeated failures
+ * - Optional callback: receive updated view count for UI updates
  * 
  * Usage:
  * ```tsx
  * // Track views for an asset (disabled for owner)
  * useAssetView(assetId, !isOwner);
+ * 
+ * // With callback to update UI
+ * useAssetView(assetId, !isOwner, (newCount) => {
+ *   setViewCount(newCount);
+ * });
  * ```
  */
 
@@ -27,19 +33,31 @@ const VIEW_THRESHOLD_MS = 2000;
 /** Maximum retry attempts on failure */
 const MAX_RETRIES = 2;
 
+/** Callback type for view count updates */
+export type ViewCountCallback = (newCount: number, isNewView: boolean) => void;
+
 /**
  * Records an asset view after user has been viewing for threshold duration.
  * 
  * @param assetId - The ID of the asset being viewed
  * @param enabled - Whether to track views (set false for owner viewing own asset)
+ * @param onViewRecorded - Optional callback called with updated view count when view is recorded
  */
-export function useAssetView(assetId: string, enabled: boolean = true): void {
+export function useAssetView(
+  assetId: string, 
+  enabled: boolean = true,
+  onViewRecorded?: ViewCountCallback
+): void {
   // Track state across renders without causing re-renders
   const stateRef = useRef({
     hasRecorded: false,
     retryCount: 0,
     lastAssetId: '',
   });
+  
+  // Store callback in ref to avoid effect re-runs when callback changes
+  const callbackRef = useRef(onViewRecorded);
+  callbackRef.current = onViewRecorded;
 
   useEffect(() => {
     // Reset state when viewing a different asset
@@ -76,8 +94,19 @@ export function useAssetView(assetId: string, enabled: boolean = true): void {
             // Server error - allow limited retries
             stateRef.current.hasRecorded = false;
             stateRef.current.retryCount++;
+            return;
           }
-          // Success or 4xx client error - don't retry
+          
+          // Parse response for view count
+          try {
+            const data = await response.json();
+            const callback = callbackRef.current;
+            if (callback && data.view_count !== undefined) {
+              callback(data.view_count, data.counted === true);
+            }
+          } catch {
+            // JSON parse failed - view was still recorded, just no callback
+          }
         })
         .catch(() => {
           // Network error - allow limited retries

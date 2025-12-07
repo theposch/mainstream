@@ -125,11 +125,19 @@ export function AssetDetailMobile({ asset, allAssets: allAssetsProp, onClose, on
   // Check if current user is viewing their own post
   const isOwnPost = currentUser?.id === currentAsset.uploader_id;
   
-  // Track view after 2 seconds (excludes owner views)
-  useAssetView(currentAsset.id, !isOwnPost);
+  // View count state - initialized from asset, updated when view is recorded
+  const [viewCount, setViewCount] = React.useState(currentAsset.view_count || 0);
   
-  // Get view count from asset (denormalized for performance)
-  const viewCount = currentAsset.view_count || 0;
+  // Sync view count when asset changes (e.g., navigating between assets)
+  React.useEffect(() => {
+    setViewCount(currentAsset.view_count || 0);
+  }, [currentAsset.id, currentAsset.view_count]);
+  
+  // Track view after 2 seconds (excludes owner views)
+  // Callback updates the displayed count in real-time
+  useAssetView(currentAsset.id, !isOwnPost, (newCount) => {
+    setViewCount(newCount);
+  });
   
   // Get streams from asset (already joined in server query or passed from feed)
   // Use local state to allow optimistic updates from edit dialog
