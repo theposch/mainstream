@@ -30,17 +30,22 @@ export async function POST(
 ) {
   try {
     const { id: assetId } = await context.params;
+    console.log('[POST /api/assets/[id]/view] Recording view for asset:', assetId);
+    
     const supabase = await createClient();
     
     // Check authentication
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     
     if (authError || !user) {
+      console.log('[POST /api/assets/[id]/view] Auth failed:', authError?.message || 'No user');
       return NextResponse.json(
         { error: 'Authentication required' },
         { status: 401 }
       );
     }
+
+    console.log('[POST /api/assets/[id]/view] User authenticated:', user.id);
 
     // Get asset to check ownership
     const { data: asset, error: assetError } = await supabase
@@ -50,6 +55,7 @@ export async function POST(
       .single();
 
     if (assetError || !asset) {
+      console.log('[POST /api/assets/[id]/view] Asset not found:', assetError?.message);
       return NextResponse.json(
         { error: 'Asset not found' },
         { status: 404 }
@@ -58,6 +64,7 @@ export async function POST(
 
     // Don't count owner's own views
     if (asset.uploader_id === user.id) {
+      console.log('[POST /api/assets/[id]/view] Owner viewing own asset, not counting');
       return NextResponse.json(
         { message: 'Owner view not counted' },
         { status: 202 }
@@ -70,7 +77,7 @@ export async function POST(
 
     // UPSERT: Insert new view or update timestamp for existing
     // The trigger only fires on INSERT, so repeat views won't increment count
-    const { error: viewError } = await adminSupabase
+    const { data: upsertData, error: viewError } = await adminSupabase
       .from('asset_views')
       .upsert(
         {
@@ -81,7 +88,8 @@ export async function POST(
         {
           onConflict: 'asset_id,user_id',
         }
-      );
+      )
+      .select();
 
     if (viewError) {
       console.error('[POST /api/assets/[id]/view] Error recording view:', viewError);
@@ -90,6 +98,8 @@ export async function POST(
         { status: 500 }
       );
     }
+
+    console.log('[POST /api/assets/[id]/view] View recorded successfully:', upsertData);
 
     // 202 Accepted - view recorded (or updated)
     return NextResponse.json({ success: true }, { status: 202 });

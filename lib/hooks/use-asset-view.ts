@@ -42,26 +42,41 @@ export function useAssetView(assetId: string, enabled: boolean = true): void {
 
     // Skip if disabled or already recorded for this asset
     if (!enabled || !assetId || hasRecordedRef.current) {
+      console.log('[useAssetView] Skipping:', { enabled, assetId, hasRecorded: hasRecordedRef.current });
       return;
     }
+
+    console.log('[useAssetView] Starting 2s timer for asset:', assetId);
 
     const timer = setTimeout(() => {
       // Mark as recorded to prevent duplicate calls
       hasRecordedRef.current = true;
 
-      // Fire-and-forget: don't await, use keepalive for reliability
+      console.log('[useAssetView] Timer fired, recording view for:', assetId);
+
+      // Fire-and-forget with proper error logging
       fetch(`/api/assets/${assetId}/view`, {
         method: 'POST',
-        keepalive: true, // Ensures request completes even if user navigates away
-      }).catch(() => {
-        // Silently ignore errors - view tracking is non-critical
-        // Reset flag so it can retry on next mount
-        hasRecordedRef.current = false;
-      });
+        credentials: 'include', // Explicitly include cookies
+      })
+        .then(async (response) => {
+          if (!response.ok) {
+            const data = await response.json().catch(() => ({}));
+            console.error('[useAssetView] API error:', response.status, data);
+            hasRecordedRef.current = false;
+          } else {
+            console.log('[useAssetView] View recorded successfully');
+          }
+        })
+        .catch((error) => {
+          console.error('[useAssetView] Network error:', error);
+          hasRecordedRef.current = false;
+        });
     }, VIEW_THRESHOLD_MS);
 
     // Cleanup: cancel timer if unmounted before threshold
     return () => {
+      console.log('[useAssetView] Cleanup - clearing timer for:', assetId);
       clearTimeout(timer);
     };
   }, [assetId, enabled]);
