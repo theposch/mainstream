@@ -68,8 +68,8 @@ export function useAssetView(assetId: string, enabled: boolean = true): void {
         })
         .catch((error) => {
           console.error('[useAssetView] Network error:', error);
-          hasRecordedRef.current = false;
-        });
+        hasRecordedRef.current = false;
+      });
     }, VIEW_THRESHOLD_MS);
 
     // Cleanup: cancel timer if unmounted before threshold

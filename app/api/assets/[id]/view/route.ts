@@ -96,7 +96,7 @@ export async function POST(
       }
       console.log('[POST /api/assets/[id]/view] Repeat view - timestamp updated');
     } else {
-      // New view - INSERT to trigger the view_count increment
+      // New view - INSERT the view record
       const { error: insertError } = await adminSupabase
         .from('asset_views')
         .insert({
@@ -112,7 +112,18 @@ export async function POST(
           { status: 500 }
         );
       }
-      console.log('[POST /api/assets/[id]/view] New view recorded - trigger should increment count');
+
+      // Manually increment view_count (trigger isn't reliable via Supabase client)
+      const { error: incrementError } = await adminSupabase.rpc('increment_view_count', {
+        asset_id: assetId
+      });
+
+      if (incrementError) {
+        console.error('[POST /api/assets/[id]/view] Error incrementing count:', incrementError);
+        // Don't fail the request - view was recorded, count will be eventually consistent
+      }
+
+      console.log('[POST /api/assets/[id]/view] New view recorded and count incremented');
     }
 
     // 202 Accepted - view recorded (or updated)

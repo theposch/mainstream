@@ -87,13 +87,13 @@ export async function POST(
     const shouldNotify = await shouldCreateNotification(supabase, targetUser.id, 'follow');
     
     if (shouldNotify) {
-      await supabase.from('notifications').insert({
-        type: 'follow',
-        recipient_id: targetUser.id,
-        actor_id: currentUser.id,
-        resource_id: currentUser.id,
-        resource_type: 'user',
-      });
+    await supabase.from('notifications').insert({
+      type: 'follow',
+      recipient_id: targetUser.id,
+      actor_id: currentUser.id,
+      resource_id: currentUser.id,
+      resource_type: 'user',
+    });
     }
 
     return NextResponse.json({ success: true });

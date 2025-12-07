@@ -184,17 +184,17 @@ export async function POST(
       const shouldNotify = await shouldCreateNotification(supabase, asset.uploader_id, notificationType);
       
       if (shouldNotify) {
-        const { error: notificationError } = await supabase.from('notifications').insert({
+      const { error: notificationError } = await supabase.from('notifications').insert({
           type: notificationType,
-          recipient_id: asset.uploader_id,
-          actor_id: user.id,
-          resource_id: assetId,
-          resource_type: 'asset',
-          content: commentPreview,
-          comment_id: comment.id,
-        });
+        recipient_id: asset.uploader_id,
+        actor_id: user.id,
+        resource_id: assetId,
+        resource_type: 'asset',
+        content: commentPreview,
+        comment_id: comment.id,
+      });
 
-        if (notificationError) {
+      if (notificationError) {
           console.warn('[POST /api/assets/[id]/comments] Failed to create asset owner notification:', notificationError);
         } else {
           notifiedUsers.add(asset.uploader_id);
