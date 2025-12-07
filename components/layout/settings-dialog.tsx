@@ -103,6 +103,10 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
   // Track pending save to debounce rapid clicks
   const pendingSaveRef = React.useRef<NodeJS.Timeout | null>(null);
   const pendingUpdatesRef = React.useRef<Record<string, boolean>>({});
+  // Track original values before optimistic updates for proper revert
+  const originalValuesRef = React.useRef<Record<string, boolean>>({});
+  // Track if a save is currently in progress to handle concurrent changes
+  const saveInProgressRef = React.useRef(false);
 
   // Memoized fetch function
   const fetchNotificationSettings = React.useCallback(async () => {
@@ -134,8 +138,13 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
   }, [open, user, fetchNotificationSettings]);
 
   // Debounced save function - batches rapid changes
-  const saveNotificationSettings = React.useCallback(async (updates: Record<string, boolean>) => {
+  const saveNotificationSettings = React.useCallback(async (
+    updates: Record<string, boolean>,
+    originalValues: Record<string, boolean>
+  ) => {
+    saveInProgressRef.current = true;
     setNotificationSaving(true);
+    
     try {
       const response = await fetch('/api/users/me/notification-settings', {
         method: 'PUT',
@@ -144,38 +153,62 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
       });
       
       if (!response.ok) {
-        // Revert all pending changes on failure
+        // Revert to original values (not just flipping the attempted values)
         setNotificationSettings(prev => {
           const reverted = { ...prev };
           for (const key of Object.keys(updates)) {
-            reverted[key as keyof typeof prev] = !updates[key];
+            if (key in originalValues) {
+              reverted[key as keyof typeof prev] = originalValues[key];
+            }
           }
           return reverted;
         });
         console.error('Failed to save notification settings');
       }
     } catch (error) {
-      // Revert on error
+      // Revert to original values on error
       setNotificationSettings(prev => {
         const reverted = { ...prev };
         for (const key of Object.keys(updates)) {
-          reverted[key as keyof typeof prev] = !updates[key];
+          if (key in originalValues) {
+            reverted[key as keyof typeof prev] = originalValues[key];
+          }
         }
         return reverted;
       });
       console.error('Failed to save notification settings:', error);
     } finally {
       setNotificationSaving(false);
-      pendingUpdatesRef.current = {};
+      saveInProgressRef.current = false;
+      
+      // Check if new changes accumulated while saving - trigger another save
+      if (Object.keys(pendingUpdatesRef.current).length > 0) {
+        const newUpdates = { ...pendingUpdatesRef.current };
+        const newOriginals = { ...originalValuesRef.current };
+        pendingUpdatesRef.current = {};
+        originalValuesRef.current = {};
+        saveNotificationSettings(newUpdates, newOriginals);
+      }
     }
   }, []);
 
   const updateNotificationSetting = React.useCallback((key: keyof typeof notificationSettings, value: boolean) => {
-    // Optimistically update UI immediately
-    setNotificationSettings(prev => ({ ...prev, [key]: value }));
+    // Store original value before first optimistic update for this key
+    // (only if not already stored from a previous pending change)
+    setNotificationSettings(prev => {
+      if (!(key in originalValuesRef.current)) {
+        originalValuesRef.current[key] = prev[key];
+      }
+      return { ...prev, [key]: value };
+    });
     
     // Batch this update with any pending updates
     pendingUpdatesRef.current[key] = value;
+    
+    // If save is in progress, just queue the update (it will be picked up when save completes)
+    if (saveInProgressRef.current) {
+      return;
+    }
     
     // Clear any existing debounce timer
     if (pendingSaveRef.current) {
@@ -183,11 +216,13 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
     }
     
     // Debounce: wait 300ms before sending to server
-    // This batches rapid clicks into a single request
     pendingSaveRef.current = setTimeout(() => {
       const updates = { ...pendingUpdatesRef.current };
+      const originals = { ...originalValuesRef.current };
       if (Object.keys(updates).length > 0) {
-        saveNotificationSettings(updates);
+        pendingUpdatesRef.current = {};
+        originalValuesRef.current = {};
+        saveNotificationSettings(updates, originals);
       }
       pendingSaveRef.current = null;
     }, 300);

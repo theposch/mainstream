@@ -142,43 +142,36 @@ export async function PUT(request: NextRequest) {
       );
     }
 
-    // First, check if settings exist
+    // First, try to fetch existing settings to merge with
     const { data: existingSettings } = await supabase
       .from('user_notification_settings')
       .select('*')
       .eq('user_id', user.id)
       .maybeSingle();
 
-    let settings;
-    let error;
+    // Build the full data to upsert
+    // If settings exist, merge with existing values; otherwise use defaults
+    const baseSettings = existingSettings || DEFAULT_SETTINGS;
+    const upsertData = {
+      user_id: user.id,
+      in_app_enabled: updateData.in_app_enabled ?? baseSettings.in_app_enabled,
+      likes_enabled: updateData.likes_enabled ?? baseSettings.likes_enabled,
+      comments_enabled: updateData.comments_enabled ?? baseSettings.comments_enabled,
+      follows_enabled: updateData.follows_enabled ?? baseSettings.follows_enabled,
+      mentions_enabled: updateData.mentions_enabled ?? baseSettings.mentions_enabled,
+    };
 
-    if (existingSettings) {
-      // Settings exist - UPDATE only the changed fields
-      const result = await supabase
-        .from('user_notification_settings')
-        .update(updateData)
-        .eq('user_id', user.id)
-        .select()
-        .single();
-      settings = result.data;
-      error = result.error;
-    } else {
-      // No settings exist - INSERT with defaults + updates
-      const result = await supabase
-        .from('user_notification_settings')
-        .insert({
-          user_id: user.id,
-          ...DEFAULT_SETTINGS,
-          ...updateData,
-        })
-        .select()
-        .single();
-      settings = result.data;
-      error = result.error;
-    }
+    // Use upsert to handle race conditions atomically
+    // If another request inserted between our SELECT and this UPSERT,
+    // this will update instead of failing with a constraint violation
+    const { data: settings, error } = await supabase
+      .from('user_notification_settings')
+      .upsert(upsertData, { onConflict: 'user_id' })
+      .select()
+      .single();
 
     if (error) {
-      console.error('[PUT /api/users/me/notification-settings] Update error:', error);
+      console.error('[PUT /api/users/me/notification-settings] Upsert error:', error);
       return NextResponse.json(
         { error: 'Failed to update notification settings' },
         { status: 500 }
