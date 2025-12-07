@@ -75,31 +75,45 @@ export async function POST(
     // (We've already validated auth and ownership above)
     const adminSupabase = await createAdminClient();
 
-    // UPSERT: Insert new view or update timestamp for existing
-    // The trigger only fires on INSERT, so repeat views won't increment count
-    const { data: upsertData, error: viewError } = await adminSupabase
+    // Check if view already exists
+    const { data: existingView } = await adminSupabase
       .from('asset_views')
-      .upsert(
-        {
+      .select('asset_id')
+      .eq('asset_id', assetId)
+      .eq('user_id', user.id)
+      .maybeSingle();
+
+    if (existingView) {
+      // View already exists - just update timestamp (no count increment)
+      const { error: updateError } = await adminSupabase
+        .from('asset_views')
+        .update({ viewed_at: new Date().toISOString() })
+        .eq('asset_id', assetId)
+        .eq('user_id', user.id);
+
+      if (updateError) {
+        console.error('[POST /api/assets/[id]/view] Error updating view timestamp:', updateError);
+      }
+      console.log('[POST /api/assets/[id]/view] Repeat view - timestamp updated');
+    } else {
+      // New view - INSERT to trigger the view_count increment
+      const { error: insertError } = await adminSupabase
+        .from('asset_views')
+        .insert({
           asset_id: assetId,
           user_id: user.id,
           viewed_at: new Date().toISOString(),
-        },
-        {
-          onConflict: 'asset_id,user_id',
-        }
-      )
-      .select();
+        });
 
-    if (viewError) {
-      console.error('[POST /api/assets/[id]/view] Error recording view:', viewError);
-      return NextResponse.json(
-        { error: 'Failed to record view' },
-        { status: 500 }
-      );
+      if (insertError) {
+        console.error('[POST /api/assets/[id]/view] Error recording view:', insertError);
+        return NextResponse.json(
+          { error: 'Failed to record view' },
+          { status: 500 }
+        );
+      }
+      console.log('[POST /api/assets/[id]/view] New view recorded - trigger should increment count');
     }
-
-    console.log('[POST /api/assets/[id]/view] View recorded successfully:', upsertData);
 
     // 202 Accepted - view recorded (or updated)
     return NextResponse.json({ success: true }, { status: 202 });
