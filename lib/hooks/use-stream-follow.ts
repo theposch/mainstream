@@ -1,3 +1,5 @@
+"use client";
+
 /**
  * Stream Follow Hook
  * 
@@ -13,8 +15,6 @@
  * const { isFollowing, followerCount, toggleFollow } = useStreamFollow(streamId, initialData);
  * ```
  */
-
-"use client";
 
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import type { User } from "@/lib/types/database";

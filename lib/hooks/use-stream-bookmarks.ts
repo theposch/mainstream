@@ -1,3 +1,5 @@
+"use client";
+
 /**
  * Stream Bookmarks Hook
  * 
@@ -13,8 +15,6 @@
  * const { bookmarks, addBookmark, deleteBookmark } = useStreamBookmarks(streamId, initialBookmarks);
  * ```
  */
-
-"use client";
 
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import type { StreamBookmark } from "@/lib/types/database";

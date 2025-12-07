@@ -1,3 +1,5 @@
+"use client";
+
 /**
  * Notifications Hook
  * 
@@ -8,8 +10,6 @@
  * const { notifications, unreadCount, markAsRead, markAllAsRead, loading } = useNotifications();
  * ```
  */
-
-"use client";
 
 import { useState, useEffect, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";

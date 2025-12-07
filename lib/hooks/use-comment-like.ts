@@ -1,3 +1,5 @@
+"use client";
+
 /**
  * Comment Like Hook
  * 
@@ -9,8 +11,6 @@
  * const { isLiked, likeCount, toggleLike, loading } = useCommentLike(commentId, initialLiked, initialCount);
  * ```
  */
-
-"use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";

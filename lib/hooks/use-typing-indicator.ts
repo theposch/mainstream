@@ -1,3 +1,5 @@
+"use client";
+
 /**
  * Typing Indicator Hook
  * 
@@ -14,8 +16,6 @@
  * {typingUsers.length > 0 && <TypingIndicator users={typingUsers} />}
  * ```
  */
-
-"use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";

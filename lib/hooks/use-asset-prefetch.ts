@@ -1,3 +1,5 @@
+"use client";
+
 /**
  * Asset Prefetch Hook
  * 
@@ -18,8 +20,6 @@
  * </div>
  * ```
  */
-
-"use client";
 
 import * as React from "react";
 import { useQueryClient } from "@tanstack/react-query";

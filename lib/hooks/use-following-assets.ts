@@ -1,3 +1,5 @@
+"use client";
+
 /**
  * Following Assets Hook
  * 
@@ -9,8 +11,6 @@
  * const { assets, loadMore, hasMore, loading, error } = useFollowingAssets();
  * ```
  */
-
-"use client";
 
 import { useCallback, useMemo } from "react";
 import { useInfiniteQuery } from "@tanstack/react-query";
