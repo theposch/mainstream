@@ -101,6 +101,7 @@ export async function POST(
       { 
         success: true,
         counted: result.is_new_view === true,
+        view_count: result.view_count,
       },
       { status: 202 }
     );
