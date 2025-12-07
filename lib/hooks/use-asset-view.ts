@@ -1,3 +1,5 @@
+"use client";
+
 /**
  * Asset View Hook
  * 
@@ -22,8 +24,6 @@
  * });
  * ```
  */
-
-"use client";
 
 import { useEffect, useRef } from "react";
 
