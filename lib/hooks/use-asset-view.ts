@@ -35,7 +35,12 @@ export function useAssetView(assetId: string, enabled: boolean = true): void {
     
     // Skip if disabled or already recorded this session
     if (!enabled || !assetId || hasRecordedRef.current) {
-      console.log('[useAssetView] Skipping - conditions not met');
+      console.log('[useAssetView] Skipping:', { 
+        enabled, 
+        assetId: assetId || '(empty)', 
+        hasRecorded: hasRecordedRef.current,
+        reason: !enabled ? 'DISABLED (viewing own post?)' : !assetId ? 'NO_ASSET_ID' : 'ALREADY_RECORDED'
+      });
       return;
     }
 
