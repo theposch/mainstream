@@ -35,7 +35,6 @@ export function DropBlocksEditorClient({
   const [contributors, setContributors] = React.useState(initialContributors);
   const [title, setTitle] = React.useState(drop.title);
   const [description, setDescription] = React.useState(drop.description || "");
-  const [showDateRange, setShowDateRange] = React.useState(drop.show_date_range ?? true);
   const [isSaving, setIsSaving] = React.useState(false);
   const [isGenerating, setIsGenerating] = React.useState(false);
   const [publishDialogOpen, setPublishDialogOpen] = React.useState(false);
@@ -110,7 +109,7 @@ export function DropBlocksEditorClient({
   };
 
   // Save a field to the drop
-  const saveField = async (field: string, value: string | boolean) => {
+  const saveField = async (field: string, value: string) => {
     setIsSaving(true);
     try {
       await fetch(`/api/drops/${drop.id}`, {
@@ -123,13 +122,6 @@ export function DropBlocksEditorClient({
     } finally {
       setIsSaving(false);
     }
-  };
-
-  // Handle show date range toggle
-  const handleShowDateRangeToggle = () => {
-    const newValue = !showDateRange;
-    setShowDateRange(newValue);
-    saveField("show_date_range", newValue);
   };
 
   // Count posts
@@ -231,7 +223,6 @@ export function DropBlocksEditorClient({
             contributors={contributors}
             dateRangeStart={drop.date_range_start}
             dateRangeEnd={drop.date_range_end}
-            showDateRange={showDateRange}
           />
         </div>
       ) : (
@@ -248,25 +239,11 @@ export function DropBlocksEditorClient({
               className="w-full text-3xl font-bold text-white bg-transparent border-none text-center outline-none placeholder:text-zinc-700"
             />
             {drop.date_range_start && drop.date_range_end && (
-              <div className="mt-3 flex items-center justify-center gap-3">
-                <button
-                  onClick={handleShowDateRangeToggle}
-                  className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
-                    showDateRange ? "bg-violet-500" : "bg-zinc-700"
-                  }`}
-                >
-                  <span
-                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                      showDateRange ? "translate-x-4" : "translate-x-0.5"
-                    }`}
-                  />
-                </button>
-                <span className={`text-sm ${showDateRange ? "text-zinc-300" : "text-zinc-500"}`}>
-                  {new Date(drop.date_range_start).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
-                  {" – "}
-                  {new Date(drop.date_range_end).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
-                </span>
-              </div>
+              <p className="text-sm text-zinc-500 mt-2">
+                {new Date(drop.date_range_start).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                {" – "}
+                {new Date(drop.date_range_end).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+              </p>
             )}
             {isSaving && (
               <p className="text-xs text-zinc-500 mt-2">Saving...</p>
