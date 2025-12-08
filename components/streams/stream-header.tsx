@@ -13,6 +13,7 @@ import {
   Loader2, 
   X,
   Users,
+  Pencil,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useStreamFollow, type InitialFollowData } from "@/lib/hooks/use-stream-follow";
@@ -20,6 +21,7 @@ import { useStreamBookmarks, extractDomain, getFaviconUrl, type BookmarkWithCrea
 import { UploadDialog } from "@/components/layout/upload-dialog";
 import { AddBookmarkDialog } from "@/components/streams/add-bookmark-dialog";
 import { ManageMembersDialog } from "@/components/streams/manage-members-dialog";
+import { StreamDialog } from "@/components/layout/stream-dialog";
 import { useStreamMembers, type InitialMembersData } from "@/lib/hooks/use-stream-members";
 import {
   DropdownMenu,
@@ -65,6 +67,7 @@ export const StreamHeader = React.memo(function StreamHeader({
   const [uploadDialogOpen, setUploadDialogOpen] = React.useState(false);
   const [addBookmarkDialogOpen, setAddBookmarkDialogOpen] = React.useState(false);
   const [manageMembersDialogOpen, setManageMembersDialogOpen] = React.useState(false);
+  const [editStreamDialogOpen, setEditStreamDialogOpen] = React.useState(false);
   
   // Use stream follow hook with server-prefetched initial data
   const { 
@@ -180,6 +183,10 @@ export const StreamHeader = React.memo(function StreamHeader({
 
   const handleOpenManageMembersDialog = React.useCallback(() => {
     setManageMembersDialogOpen(true);
+  }, []);
+
+  const handleOpenEditStreamDialog = React.useCallback(() => {
+    setEditStreamDialogOpen(true);
   }, []);
 
   const handleAddBookmark = React.useCallback(async (url: string, title?: string): Promise<boolean> => {
@@ -301,15 +308,22 @@ export const StreamHeader = React.memo(function StreamHeader({
                 <Share className="h-4 w-4 mr-2" />
                 Share Stream
               </DropdownMenuItem>
-              {/* Manage Members - only for private streams, owner or admin */}
-              {stream.is_private && (currentUserRole === 'owner' || currentUserRole === 'admin' || canDelete) && (
+              {/* Edit Stream - owner only */}
+              {canDelete && (
                 <>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={handleOpenManageMembersDialog}>
-                    <Users className="h-4 w-4 mr-2" />
-                    Manage Members
+                  <DropdownMenuItem onClick={handleOpenEditStreamDialog}>
+                    <Pencil className="h-4 w-4 mr-2" />
+                    Edit Stream
                   </DropdownMenuItem>
                 </>
+              )}
+              {/* Manage Members - only for private streams, owner or admin */}
+              {stream.is_private && (currentUserRole === 'owner' || currentUserRole === 'admin' || canDelete) && (
+                <DropdownMenuItem onClick={handleOpenManageMembersDialog}>
+                  <Users className="h-4 w-4 mr-2" />
+                  Manage Members
+                </DropdownMenuItem>
               )}
               {canDelete && (
                 <>
@@ -510,6 +524,14 @@ export const StreamHeader = React.memo(function StreamHeader({
           streamOwnerId={stream.owner_id}
         />
       )}
+
+      {/* Edit Stream Dialog */}
+      <StreamDialog
+        open={editStreamDialogOpen}
+        onOpenChange={setEditStreamDialogOpen}
+        mode="edit"
+        stream={stream}
+      />
     </div>
   );
 });

@@ -6,18 +6,31 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Loader2, Lock, Globe, WifiOff, Hash, CheckCircle2, XCircle } from "lucide-react";
+import { Loader2, Lock, Globe, WifiOff, Hash, CheckCircle2, XCircle, Pencil } from "lucide-react";
 import { STREAM_VALIDATION } from "@/lib/constants/streams";
 import { fetchWithRetry, getUserFriendlyErrorMessage, isOnline, deduplicatedRequest } from "@/lib/utils/api";
 import { isValidSlug } from "@/lib/utils/slug";
 import { createClient } from "@/lib/supabase/client";
+import type { Stream } from "@/lib/types/database";
 
-interface CreateStreamDialogProps {
+interface StreamDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** 'create' for new stream, 'edit' for existing stream */
+  mode?: 'create' | 'edit';
+  /** Required when mode='edit' - the stream to edit */
+  stream?: Stream;
+  /** Callback after successful create/edit */
+  onSuccess?: (stream: Stream) => void;
 }
 
-export function CreateStreamDialog({ open, onOpenChange }: CreateStreamDialogProps) {
+export function StreamDialog({ 
+  open, 
+  onOpenChange, 
+  mode = 'create',
+  stream,
+  onSuccess,
+}: StreamDialogProps) {
   const router = useRouter();
   const supabase = createClient();
   const [isLoading, setIsLoading] = React.useState(false);
@@ -41,6 +54,11 @@ export function CreateStreamDialog({ open, onOpenChange }: CreateStreamDialogPro
   }>({ isValid: false, message: '', type: 'idle' });
   const [debouncedName, setDebouncedName] = React.useState("");
 
+  // Track original name for edit mode
+  const originalName = React.useRef<string>("");
+
+  const isEditMode = mode === 'edit';
+
   // Fetch current user
   React.useEffect(() => {
     if (!open) return;
@@ -62,7 +80,7 @@ export function CreateStreamDialog({ open, onOpenChange }: CreateStreamDialogPro
           }
         }
       } catch (error) {
-        console.error('[CreateStreamDialog] Failed to fetch user:', error);
+        console.error('[StreamDialog] Failed to fetch user:', error);
       } finally {
         setIsLoadingUser(false);
       }
@@ -85,6 +103,18 @@ export function CreateStreamDialog({ open, onOpenChange }: CreateStreamDialogPro
       window.removeEventListener('offline', handleOffline);
     };
   }, []);
+
+  // Initialize form with stream data in edit mode
+  React.useEffect(() => {
+    if (open && isEditMode && stream) {
+      setName(stream.name);
+      setDescription(stream.description || "");
+      setIsPrivate(stream.is_private);
+      originalName.current = stream.name;
+      // Set initial validation state for edit mode
+      setValidationState({ isValid: true, message: '', type: 'idle' });
+    }
+  }, [open, isEditMode, stream]);
 
   // Handle name input change (simple state update)
   const handleNameChange = React.useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
@@ -128,6 +158,16 @@ export function CreateStreamDialog({ open, onOpenChange }: CreateStreamDialogPro
       return;
     }
 
+    // In edit mode, if name hasn't changed, it's valid
+    if (isEditMode && debouncedName === originalName.current) {
+      setValidationState({
+        isValid: true,
+        message: '',
+        type: 'idle'
+      });
+      return;
+    }
+
     // Check availability via database
     const checkAvailability = async () => {
       try {
@@ -152,7 +192,7 @@ export function CreateStreamDialog({ open, onOpenChange }: CreateStreamDialogPro
           type: 'success'
         });
       } catch (error) {
-        console.error('[CreateStreamDialog] Error checking name availability:', error);
+        console.error('[StreamDialog] Error checking name availability:', error);
         // Don't block on validation errors
         setValidationState({
           isValid: true,
@@ -163,7 +203,7 @@ export function CreateStreamDialog({ open, onOpenChange }: CreateStreamDialogPro
     };
 
     checkAvailability();
-  }, [debouncedName, supabase]);
+  }, [debouncedName, supabase, isEditMode]);
 
   // Reset form when dialog closes
   React.useEffect(() => {
@@ -173,6 +213,7 @@ export function CreateStreamDialog({ open, onOpenChange }: CreateStreamDialogPro
       setIsPrivate(false);
       setError(null);
       setValidationState({ isValid: false, message: '', type: 'idle' });
+      originalName.current = "";
     }
   }, [open]);
 
@@ -212,24 +253,19 @@ export function CreateStreamDialog({ open, onOpenChange }: CreateStreamDialogPro
     setIsLoading(true);
 
     try {
-      // Use deduplication to prevent double submissions
-      const requestKey = `create-stream-${trimmedName}-${Date.now()}`;
-      
-      const data = await deduplicatedRequest(requestKey, async () => {
+      if (isEditMode && stream) {
+        // EDIT MODE: PUT request
         const response = await fetchWithRetry(
-          "/api/streams",
+          `/api/streams/${stream.id}`,
           {
-            method: "POST",
+            method: "PUT",
             headers: {
               "Content-Type": "application/json",
             },
             body: JSON.stringify({
               name: trimmedName,
-              description: description.trim() || undefined,
+              description: description.trim() || null,
               is_private: isPrivate,
-              owner_type: "user",
-              owner_id: currentUser?.id,
-              status: 'active',
             }),
           },
           {
@@ -241,16 +277,69 @@ export function CreateStreamDialog({ open, onOpenChange }: CreateStreamDialogPro
         const responseData = await response.json();
 
         if (!response.ok) {
-          throw new Error(responseData.error || "Failed to create stream");
+          throw new Error(responseData.error || "Failed to update stream");
         }
 
-        return responseData;
-      });
-      
-      // Success! Close dialog and redirect to new stream
-      onOpenChange(false);
-      router.push(`/stream/${data.stream.name}`);
-      router.refresh(); // Refresh to show new stream in lists
+        // Success!
+        onOpenChange(false);
+        
+        // Call onSuccess callback
+        if (onSuccess) {
+          onSuccess(responseData.stream);
+        }
+
+        // If name changed, navigate to new URL
+        if (trimmedName !== originalName.current) {
+          router.push(`/stream/${responseData.stream.name}`);
+        } else {
+          router.refresh();
+        }
+      } else {
+        // CREATE MODE: POST request
+        const requestKey = `create-stream-${trimmedName}-${Date.now()}`;
+        
+        const data = await deduplicatedRequest(requestKey, async () => {
+          const response = await fetchWithRetry(
+            "/api/streams",
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                name: trimmedName,
+                description: description.trim() || undefined,
+                is_private: isPrivate,
+                owner_type: "user",
+                owner_id: currentUser?.id,
+                status: 'active',
+              }),
+            },
+            {
+              maxRetries: 2,
+              retryDelay: 1000,
+            }
+          );
+
+          const responseData = await response.json();
+
+          if (!response.ok) {
+            throw new Error(responseData.error || "Failed to create stream");
+          }
+
+          return responseData;
+        });
+        
+        // Success! Close dialog and redirect to new stream
+        onOpenChange(false);
+        
+        if (onSuccess) {
+          onSuccess(data.stream);
+        }
+        
+        router.push(`/stream/${data.stream.name}`);
+        router.refresh();
+      }
     } catch (err) {
       setError(getUserFriendlyErrorMessage(err));
     } finally {
@@ -263,11 +352,23 @@ export function CreateStreamDialog({ open, onOpenChange }: CreateStreamDialogPro
       <DialogContent className="bg-popover border-border sm:max-w-[500px]">
         <DialogHeader>
           <DialogTitle className="text-foreground flex items-center gap-2">
-            <Hash className="h-5 w-5" />
-            Create New Stream
+            {isEditMode ? (
+              <>
+                <Pencil className="h-5 w-5" />
+                Edit Stream
+              </>
+            ) : (
+              <>
+                <Hash className="h-5 w-5" />
+                Create New Stream
+              </>
+            )}
           </DialogTitle>
           <DialogDescription className="text-muted-foreground">
-            Create a stream to organize and tag your design work
+            {isEditMode 
+              ? "Update your stream's name, description, or privacy settings"
+              : "Create a stream to organize and tag your design work"
+            }
           </DialogDescription>
         </DialogHeader>
         
@@ -281,7 +382,7 @@ export function CreateStreamDialog({ open, onOpenChange }: CreateStreamDialogPro
                 aria-live="polite"
               >
                 <WifiOff className="h-4 w-4" aria-hidden="true" />
-                <span>You're offline. Check your connection to create streams.</span>
+                <span>You're offline. Check your connection to {isEditMode ? 'save changes' : 'create streams'}.</span>
               </div>
             )}
             
@@ -420,10 +521,10 @@ export function CreateStreamDialog({ open, onOpenChange }: CreateStreamDialogPro
               {isLoading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Creating...
+                  {isEditMode ? 'Saving...' : 'Creating...'}
                 </>
               ) : (
-                "Create Stream"
+                isEditMode ? "Save Changes" : "Create Stream"
               )}
             </Button>
           </DialogFooter>
@@ -432,4 +533,7 @@ export function CreateStreamDialog({ open, onOpenChange }: CreateStreamDialogPro
     </Dialog>
   );
 }
+
+// Re-export as CreateStreamDialog for backwards compatibility
+export { StreamDialog as CreateStreamDialog };
 

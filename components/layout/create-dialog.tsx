@@ -4,7 +4,7 @@ import * as React from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { FolderPlus, Upload, Link as LinkIcon } from "lucide-react";
-import { CreateStreamDialog } from "./create-stream-dialog";
+import { StreamDialog } from "./stream-dialog";
 import { UploadDialog } from "./upload-dialog";
 import { EmbedUrlDialog } from "./embed-url-dialog";
 
@@ -83,7 +83,7 @@ export function CreateDialog({ children }: { children: React.ReactNode }) {
     </Dialog>
 
     {/* Separate dialogs for Create Stream, Upload, and Embed */}
-    <CreateStreamDialog open={streamDialogOpen} onOpenChange={setStreamDialogOpen} />
+    <StreamDialog open={streamDialogOpen} onOpenChange={setStreamDialogOpen} mode="create" />
     <UploadDialog open={uploadDialogOpen} onOpenChange={setUploadDialogOpen} />
     <EmbedUrlDialog open={embedDialogOpen} onOpenChange={setEmbedDialogOpen} />
     </>
