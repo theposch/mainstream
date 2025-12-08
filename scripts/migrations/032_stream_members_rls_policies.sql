@@ -23,19 +23,14 @@ CREATE POLICY "Users can view stream members"
   ON stream_members FOR SELECT
   TO authenticated
   USING (
-    -- User can see members if they are the stream owner
-    EXISTS (
-      SELECT 1 FROM streams 
-      WHERE streams.id = stream_members.stream_id 
-      AND streams.owner_id = auth.uid()
-    )
+    -- User owns the stream
+    stream_id IN (SELECT id FROM streams WHERE owner_id = auth.uid())
     OR
-    -- Or if they are a member of the stream themselves
-    EXISTS (
-      SELECT 1 FROM stream_members sm2 
-      WHERE sm2.stream_id = stream_members.stream_id 
-      AND sm2.user_id = auth.uid()
-    )
+    -- User is viewing their own membership row
+    user_id = auth.uid()
+    OR
+    -- User is viewing members of a stream they're also a member of
+    stream_id IN (SELECT stream_id FROM stream_members WHERE user_id = auth.uid())
   );
 
 -- ============================================================================
