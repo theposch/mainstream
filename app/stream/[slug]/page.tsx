@@ -39,6 +39,32 @@ export default async function StreamPage({ params }: StreamPageProps) {
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
+  // ACCESS CONTROL - Check if user can access private stream
+  // ═══════════════════════════════════════════════════════════════════════════
+  if (stream.is_private) {
+    if (!user) {
+      notFound(); // Not authenticated - hide existence of private stream
+    }
+
+    // Check if user is owner or a member
+    const isOwner = stream.owner_id === user.id;
+    
+    if (!isOwner) {
+      // Check stream_members table
+      const { data: membership } = await supabase
+        .from('stream_members')
+        .select('role')
+        .eq('stream_id', stream.id)
+        .eq('user_id', user.id)
+        .single();
+
+      if (!membership) {
+        notFound(); // No access - hide existence of private stream
+      }
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
   // PARALLEL DATA FETCHING - All these queries run simultaneously
   // ═══════════════════════════════════════════════════════════════════════════
   const [
