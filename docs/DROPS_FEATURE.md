@@ -49,10 +49,29 @@ Three tabs for filtering drops:
 **Location**: `components/drops/create-drop-dialog.tsx`
 
 When creating a new drop, users can configure:
-- **Title**: Required name for the drop
-- **Date Range**: Filter posts by creation date
-- **Stream Filters**: Only include posts from specific streams
-- **User Filters**: Only include posts from specific people
+- **Title**: Required name for the drop (defaults to "Weekly Drop · [date]")
+- **Date Range**: Filter posts by creation date using shadcn DatePicker components
+- **Stream Filters**: Multi-select streams using `StreamPicker` component
+- **User Filters**: Multi-select users using `UserPicker` component
+
+**Key Components Used**:
+- `DatePicker` (`components/ui/date-picker.tsx`) - shadcn-style date picker built on react-day-picker
+- `StreamPicker` (`components/streams/stream-picker.tsx`) - Multi-select stream filter
+- `UserPicker` (`components/users/user-picker.tsx`) - Multi-select user filter with search
+
+**Stream Grouping Logic**:
+When streams are selected, posts are grouped under the first matching filtered stream (in selection order). If no streams are selected, posts are grouped by their primary stream.
+
+**Date Range Display**:
+The selected date range is shown throughout the drop lifecycle:
+- Create dialog (summary below date pickers)
+- Drop editor (below title)
+- Preview mode (in header)
+- Published view (in header)
+- Email preview (in header)
+
+**Timezone Handling**:
+Dates are stored with explicit date components (YYYY-MM-DDT00:00:00Z) to avoid timezone shifts. Display functions extract the date portion to ensure correct rendering regardless of user timezone.
 
 ### 3. Block-Based Editor
 
@@ -366,21 +385,34 @@ Located in `scripts/migrations/`:
 components/drops/blocks/
   block-editor.tsx         # Main interactive editor
   block-renderer.tsx       # Client-side block rendering
-  drop-blocks-view.tsx     # Preview/published view
+  drop-blocks-view.tsx     # Preview/published view (with date range display)
   email-block-renderer.tsx # Server-side email rendering
-  email-drop-view.tsx      # Full email template
+  email-drop-view.tsx      # Full email template (with date range display)
   index.ts                 # Exports
 ```
 
 ### Drop Components
 ```
 components/drops/
-  create-drop-dialog.tsx   # New drop creation form
+  create-drop-dialog.tsx   # New drop creation with filters (DatePicker, StreamPicker, UserPicker)
   drop-card.tsx            # Grid card preview with delete menu
   drop-publish-dialog.tsx  # Publish confirmation
   delete-drop-dialog.tsx   # Delete confirmation with error handling
   drop-view.tsx            # Classic layout view
   drops-grid.tsx           # Grid container
+```
+
+### Reusable UI Components (used in Create Drop)
+```
+components/ui/
+  calendar.tsx             # shadcn Calendar component (react-day-picker v9)
+  date-picker.tsx          # Reusable date picker (Popover + Calendar)
+
+components/streams/
+  stream-picker.tsx        # Multi-select stream picker
+
+components/users/
+  user-picker.tsx          # Multi-select user picker with search
 ```
 
 ---
