@@ -41,12 +41,35 @@ export function UserPicker({
   popoverClassName,
 }: UserPickerProps) {
   const [searchQuery, setSearchQuery] = React.useState("");
+  const [allUsers, setAllUsers] = React.useState<User[]>([]);
   const [searchResults, setSearchResults] = React.useState<User[]>([]);
   const [selectedUsers, setSelectedUsers] = React.useState<User[]>([]);
-  const [isSearching, setIsSearching] = React.useState(false);
+  const [isLoading, setIsLoading] = React.useState(false);
   const [open, setOpen] = React.useState(false);
   const [selectedIndex, setSelectedIndex] = React.useState(0);
   const searchTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
+  const hasLoadedRef = React.useRef(false);
+
+  // Load initial users when popover opens
+  React.useEffect(() => {
+    if (open && !hasLoadedRef.current) {
+      hasLoadedRef.current = true;
+      setIsLoading(true);
+      
+      fetch("/api/users?limit=50")
+        .then((res) => res.json())
+        .then((data) => {
+          setAllUsers(data.users || []);
+          setSearchResults(data.users || []);
+        })
+        .catch((err) => {
+          console.error("[UserPicker] Failed to load users:", err);
+        })
+        .finally(() => {
+          setIsLoading(false);
+        });
+    }
+  }, [open]);
 
   // Fetch selected users' data when selectedUserIds change
   React.useEffect(() => {
@@ -70,12 +93,14 @@ export function UserPicker({
       }
 
       try {
-        // Fetch each missing user - in a real app you might have a batch endpoint
+        // Try to find in all users or search results first
         const fetchedUsers: User[] = [];
         for (const userId of missingIds) {
-          // Try to find in search results first
+          const fromAll = allUsers.find((u) => u.id === userId);
           const fromResults = searchResults.find((u) => u.id === userId);
-          if (fromResults) {
+          if (fromAll) {
+            fetchedUsers.push(fromAll);
+          } else if (fromResults) {
             fetchedUsers.push(fromResults);
           }
         }
@@ -90,21 +115,22 @@ export function UserPicker({
     };
 
     fetchSelectedUsers();
-  }, [selectedUserIds, searchResults]);
+  }, [selectedUserIds, allUsers, searchResults]);
 
-  // Debounced search
+  // Filter/search users
   React.useEffect(() => {
     if (searchTimeoutRef.current) {
       clearTimeout(searchTimeoutRef.current);
     }
 
+    // If no search query, show all users
     if (!searchQuery.trim()) {
-      setSearchResults([]);
-      setIsSearching(false);
+      setSearchResults(allUsers);
+      setSelectedIndex(0);
       return;
     }
 
-    setIsSearching(true);
+    setIsLoading(true);
 
     let isCancelled = false;
     const abortController = new AbortController();
@@ -130,7 +156,7 @@ export function UserPicker({
         console.error("[UserPicker] Search error:", err);
       } finally {
         if (!isCancelled) {
-          setIsSearching(false);
+          setIsLoading(false);
         }
       }
     }, 300);
@@ -142,7 +168,7 @@ export function UserPicker({
         clearTimeout(searchTimeoutRef.current);
       }
     };
-  }, [searchQuery]);
+  }, [searchQuery, allUsers]);
 
   // Reset selected index when results change
   React.useEffect(() => {
@@ -213,7 +239,7 @@ export function UserPicker({
           disabled={disabled}
           autoFocus
         />
-        {isSearching && (
+        {isLoading && (
           <div className="absolute right-3 top-1/2 -translate-y-1/2">
             <div className="h-4 w-4 animate-spin rounded-full border-2 border-muted-foreground border-t-transparent" />
           </div>
@@ -278,15 +304,17 @@ export function UserPicker({
             );
           })}
 
-          {searchQuery && !isSearching && searchResults.length === 0 && (
+          {!isLoading && searchResults.length === 0 && (
             <div className="text-center py-8 text-muted-foreground text-sm">
-              No teammates found matching &quot;{searchQuery}&quot;
+              {searchQuery
+                ? `No teammates found matching "${searchQuery}"`
+                : "No teammates available"}
             </div>
           )}
 
-          {!searchQuery && (
+          {isLoading && searchResults.length === 0 && (
             <div className="text-center py-8 text-muted-foreground text-sm">
-              Type to search for teammates
+              Loading teammates...
             </div>
           )}
         </div>
