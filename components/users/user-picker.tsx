@@ -299,80 +299,66 @@ export function UserPicker({
       <div className={cn("flex flex-wrap items-center gap-2", className)}>
         <Popover open={open} onOpenChange={setOpen}>
           <PopoverTrigger asChild>
-            <Button
-              type="button"
-              variant="outline"
-              className={cn(
-                "w-full justify-start text-muted-foreground font-normal",
-                selectedUserIds.length > 0 && "hidden"
-              )}
-              disabled={disabled}
-            >
-              <UserIcon className="mr-2 h-4 w-4" />
-              All teammates
-            </Button>
+            {selectedUsers.length === 0 ? (
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full justify-start text-muted-foreground font-normal"
+                disabled={disabled}
+              >
+                <UserIcon className="mr-2 h-4 w-4" />
+                All teammates
+              </Button>
+            ) : (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-8 border rounded-full px-3 text-xs font-medium bg-zinc-900/50 border-zinc-700 hover:bg-zinc-900 hover:text-white hover:border-zinc-600 text-zinc-400"
+                disabled={disabled}
+              >
+                <UserIcon className="mr-1.5 h-3.5 w-3.5" />
+                Add
+              </Button>
+            )}
           </PopoverTrigger>
           <PopoverContent
             className={cn("w-[300px] p-3", popoverClassName)}
             align="start"
+            onOpenAutoFocus={(e) => e.preventDefault()}
           >
             {renderSelectionContent()}
           </PopoverContent>
         </Popover>
 
-        {selectedUsers.length > 0 && (
-          <div className="w-full flex flex-wrap items-center gap-2">
-            <Popover open={open} onOpenChange={setOpen}>
-              <PopoverTrigger asChild>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="h-8 border rounded-full px-3 text-xs font-medium bg-zinc-900/50 border-zinc-700 hover:bg-zinc-900 hover:text-white hover:border-zinc-600 text-zinc-400"
-                  disabled={disabled}
-                >
-                  <UserIcon className="mr-1.5 h-3.5 w-3.5" />
-                  Add
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent
-                className={cn("w-[300px] p-3", popoverClassName)}
-                align="start"
-              >
-                {renderSelectionContent()}
-              </PopoverContent>
-            </Popover>
-
-            {selectedUsers.map((user) => (
-              <div
-                key={user.id}
-                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-secondary hover:bg-secondary/80 text-secondary-foreground transition-colors border border-border"
-              >
-                <Avatar className="h-4 w-4">
-                  <AvatarImage src={user.avatar_url || undefined} />
-                  <AvatarFallback className="text-[10px]">
-                    {(user.display_name || user.username)
-                      ?.substring(0, 2)
-                      .toUpperCase()}
-                  </AvatarFallback>
-                </Avatar>
-                <span className="max-w-[100px] truncate">
-                  {user.display_name || user.username}
-                </span>
-                <button
-                  onClick={() => toggleUser(user)}
-                  className="ml-0.5 p-0.5 rounded-full hover:bg-background/20 text-muted-foreground hover:text-foreground transition-colors"
-                  type="button"
-                >
-                  <X className="h-3 w-3" />
-                  <span className="sr-only">
-                    Remove {user.display_name || user.username}
-                  </span>
-                </button>
-              </div>
-            ))}
+        {selectedUsers.map((user) => (
+          <div
+            key={user.id}
+            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-secondary hover:bg-secondary/80 text-secondary-foreground transition-colors border border-border"
+          >
+            <Avatar className="h-4 w-4">
+              <AvatarImage src={user.avatar_url || undefined} />
+              <AvatarFallback className="text-[10px]">
+                {(user.display_name || user.username)
+                  ?.substring(0, 2)
+                  .toUpperCase()}
+              </AvatarFallback>
+            </Avatar>
+            <span className="max-w-[100px] truncate">
+              {user.display_name || user.username}
+            </span>
+            <button
+              onClick={() => toggleUser(user)}
+              className="ml-0.5 p-0.5 rounded-full hover:bg-background/20 text-muted-foreground hover:text-foreground transition-colors"
+              type="button"
+            >
+              <X className="h-3 w-3" />
+              <span className="sr-only">
+                Remove {user.display_name || user.username}
+              </span>
+            </button>
           </div>
-        )}
+        ))}
       </div>
     );
   }
