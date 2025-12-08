@@ -240,11 +240,23 @@ export async function POST(
         role,
       });
 
-    // If already a member, return success (idempotent)
+    // If already a member, fetch actual membership and return it (idempotent)
     if (insertError?.code === '23505') {
+      const { data: existingMembership } = await supabase
+        .from('stream_members')
+        .select('user_id, role, joined_at')
+        .eq('stream_id', stream.id)
+        .eq('user_id', user_id)
+        .single();
+
       return NextResponse.json({ 
         message: 'User is already a member',
-        member: { user_id, role, user: targetUser }
+        member: { 
+          user_id, 
+          role: existingMembership?.role || role,
+          joined_at: existingMembership?.joined_at,
+          user: targetUser 
+        }
       });
     }
 

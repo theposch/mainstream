@@ -250,6 +250,12 @@ export function StreamDialog({
       return;
     }
 
+    // In create mode, ensure currentUser is loaded
+    if (!isEditMode && !currentUser) {
+      setError("Unable to verify your account. Please try again.");
+      return;
+    }
+
     setIsLoading(true);
 
     try {
@@ -402,7 +408,7 @@ export function StreamDialog({
                     validationState.type === 'error' ? 'border-destructive focus:ring-destructive' :
                     validationState.type === 'success' ? 'border-green-500 focus:ring-green-500' : ''
                   }`}
-                  disabled={isLoading}
+                  disabled={isLoading || (!isEditMode && isLoadingUser)}
                   autoFocus
                 />
                 {validationState.type !== 'idle' && (
@@ -440,7 +446,7 @@ export function StreamDialog({
                 maxLength={STREAM_VALIDATION.MAX_STREAM_DESCRIPTION_LENGTH}
                 rows={3}
                 className="flex w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
-                disabled={isLoading}
+                disabled={isLoading || (!isEditMode && isLoadingUser)}
                 aria-describedby="description-count"
               />
               <p 
@@ -474,7 +480,7 @@ export function StreamDialog({
               <button
                 type="button"
                 onClick={() => setIsPrivate(!isPrivate)}
-                disabled={isLoading}
+                disabled={isLoading || (!isEditMode && isLoadingUser)}
                 className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 ${
                   isPrivate ? "bg-primary" : "bg-muted"
                 }`}
@@ -515,7 +521,7 @@ export function StreamDialog({
             </Button>
             <Button
               type="submit"
-              disabled={isLoading || !validationState.isValid}
+              disabled={isLoading || !validationState.isValid || (!isEditMode && (isLoadingUser || !currentUser))}
               className="bg-primary text-primary-foreground hover:bg-primary/90"
             >
               {isLoading ? (
