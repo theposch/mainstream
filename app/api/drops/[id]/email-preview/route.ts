@@ -126,6 +126,8 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
           description: drop.description,
           blocks: enrichedBlocks,
           contributors,
+          dateRangeStart: drop.date_range_start,
+          dateRangeEnd: drop.date_range_end,
         })
       );
     } else {
@@ -184,6 +186,8 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
           description: drop.description,
           blocks,
           contributors,
+          dateRangeStart: drop.date_range_start,
+          dateRangeEnd: drop.date_range_end,
         })
       );
     }

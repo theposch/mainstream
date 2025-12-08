@@ -80,7 +80,6 @@ export default async function DropPage({ params }: DropPageProps) {
           contributors={contributors}
           dateRangeStart={drop.date_range_start}
           dateRangeEnd={drop.date_range_end}
-          showDateRange={drop.show_date_range ?? true}
         />
       </div>
     );
