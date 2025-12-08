@@ -143,17 +143,22 @@ export function useStreamMembers(
       }
 
       // Add to local state (only if not already present)
-      // Use functional updates to avoid race conditions with stale closures
+      // Track whether we added to ensure atomic count update
       if (data.member) {
+        let wasAdded = false;
+        
         setMembers(prev => {
-          // Check within the functional update for atomicity
           if (prev.some(m => m.user_id === data.member.user_id)) {
             return prev; // Already exists, don't add
           }
-          // Increment count only when we actually add
-          setMemberCount(c => c + 1);
+          wasAdded = true;
           return [...prev, data.member];
         });
+        
+        // Update count outside the setMembers callback to avoid nested setState
+        if (wasAdded) {
+          setMemberCount(c => c + 1);
+        }
       }
 
       return true;
@@ -170,13 +175,15 @@ export function useStreamMembers(
   const removeMember = useCallback(async (userId: string): Promise<boolean> => {
     if (actionLoading || !streamId) return false;
 
-    // Optimistic update
+    // Set loading FIRST to prevent rapid successive calls
+    setActionLoading(true);
+    setError(null);
+    
+    // Optimistic update - capture current state for rollback
     const previousMembers = members;
     const previousCount = memberCount;
     setMembers(prev => prev.filter(m => m.user_id !== userId));
     setMemberCount(prev => Math.max(0, prev - 1));
-    setActionLoading(true);
-    setError(null);
 
     try {
       const response = await fetch(`/api/streams/${streamId}/members?user_id=${userId}`, {
