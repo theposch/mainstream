@@ -143,14 +143,17 @@ export function useStreamMembers(
       }
 
       // Add to local state (only if not already present)
+      // Use functional updates to avoid race conditions with stale closures
       if (data.member) {
-        // Check if already exists before updating state
-        const alreadyExists = members.some(m => m.user_id === data.member.user_id);
-        
-        if (!alreadyExists) {
-          setMembers(prev => [...prev, data.member]);
-          setMemberCount(prev => prev + 1);
-        }
+        setMembers(prev => {
+          // Check within the functional update for atomicity
+          if (prev.some(m => m.user_id === data.member.user_id)) {
+            return prev; // Already exists, don't add
+          }
+          // Increment count only when we actually add
+          setMemberCount(c => c + 1);
+          return [...prev, data.member];
+        });
       }
 
       return true;
@@ -161,7 +164,7 @@ export function useStreamMembers(
     } finally {
       setActionLoading(false);
     }
-  }, [streamId, actionLoading, members]);
+  }, [streamId, actionLoading]);
 
   // Remove a member from the stream
   const removeMember = useCallback(async (userId: string): Promise<boolean> => {
