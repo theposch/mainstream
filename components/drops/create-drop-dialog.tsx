@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
+import { format } from "date-fns";
 import {
   Dialog,
   DialogContent,
@@ -16,6 +17,7 @@ import { Label } from "@/components/ui/label";
 import { Loader2, Calendar, Hash, Users } from "lucide-react";
 import { StreamPicker } from "@/components/streams/stream-picker";
 import { UserPicker } from "@/components/users/user-picker";
+import { DatePicker } from "@/components/ui/date-picker";
 
 interface CreateDropDialogProps {
   open: boolean;
@@ -28,15 +30,11 @@ function getDefaultDateRange() {
   const start = new Date();
   start.setDate(start.getDate() - 7);
   
-  return {
-    start: start.toISOString().split("T")[0],
-    end: end.toISOString().split("T")[0],
-  };
+  return { start, end };
 }
 
-// Format date for display
-function formatDateForTitle(dateStr: string) {
-  const date = new Date(dateStr);
+// Format date for display in title
+function formatDateForTitle(date: Date) {
   return date.toLocaleDateString("en-US", {
     month: "long",
     day: "numeric",
@@ -52,8 +50,8 @@ export function CreateDropDialog({ open, onOpenChange }: CreateDropDialogProps) 
   const defaultDates = React.useMemo(() => getDefaultDateRange(), []);
   
   const [title, setTitle] = React.useState(`Weekly Drop · ${formatDateForTitle(defaultDates.end)}`);
-  const [dateStart, setDateStart] = React.useState(defaultDates.start);
-  const [dateEnd, setDateEnd] = React.useState(defaultDates.end);
+  const [dateStart, setDateStart] = React.useState<Date | undefined>(defaultDates.start);
+  const [dateEnd, setDateEnd] = React.useState<Date | undefined>(defaultDates.end);
   const [selectedStreamIds, setSelectedStreamIds] = React.useState<string[]>([]);
   const [selectedUserIds, setSelectedUserIds] = React.useState<string[]>([]);
 
@@ -84,7 +82,7 @@ export function CreateDropDialog({ open, onOpenChange }: CreateDropDialogProps) 
       return;
     }
 
-    if (new Date(dateStart) > new Date(dateEnd)) {
+    if (dateStart > dateEnd) {
       setError("Start date must be before end date");
       return;
     }
@@ -92,13 +90,17 @@ export function CreateDropDialog({ open, onOpenChange }: CreateDropDialogProps) 
     setIsLoading(true);
 
     try {
+      // Set end date to end of day
+      const endOfDay = new Date(dateEnd);
+      endOfDay.setHours(23, 59, 59, 999);
+      
       const response = await fetch("/api/drops", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           title: title.trim(),
-          date_range_start: new Date(dateStart).toISOString(),
-          date_range_end: new Date(dateEnd + "T23:59:59").toISOString(),
+          date_range_start: dateStart.toISOString(),
+          date_range_end: endOfDay.toISOString(),
           filter_stream_ids: selectedStreamIds.length > 0 ? selectedStreamIds : null,
           filter_user_ids: selectedUserIds.length > 0 ? selectedUserIds : null,
         }),
@@ -154,20 +156,22 @@ export function CreateDropDialog({ open, onOpenChange }: CreateDropDialogProps) 
                 <span>Created between...</span>
               </div>
               <div className="flex items-center gap-2">
-                <Input
-                  type="date"
-                  value={dateStart}
-                  onChange={(e) => setDateStart(e.target.value)}
+                <DatePicker
+                  date={dateStart}
+                  onDateChange={setDateStart}
+                  placeholder="Start date"
                   disabled={isLoading}
                   className="flex-1"
+                  popoverClassName="z-[60]"
                 />
                 <span className="text-muted-foreground">→</span>
-                <Input
-                  type="date"
-                  value={dateEnd}
-                  onChange={(e) => setDateEnd(e.target.value)}
+                <DatePicker
+                  date={dateEnd}
+                  onDateChange={setDateEnd}
+                  placeholder="End date"
                   disabled={isLoading}
                   className="flex-1"
+                  popoverClassName="z-[60]"
                 />
               </div>
             </div>
