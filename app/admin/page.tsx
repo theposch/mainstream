@@ -3,10 +3,15 @@
 import * as React from "react";
 import { useUser } from "@/lib/auth/use-user";
 import { UserTable } from "@/components/admin/user-table";
-import { Loader2, Shield, Users } from "lucide-react";
+import { AnalyticsDashboard } from "@/components/admin/analytics-dashboard";
+import { Loader2, Shield, Users, BarChart3 } from "lucide-react";
+import { cn } from "@/lib/utils";
+
+type AdminTab = "users" | "analytics";
 
 export default function AdminPage() {
   const { user, loading } = useUser();
+  const [activeTab, setActiveTab] = React.useState<AdminTab>("users");
 
   if (loading) {
     return (
@@ -31,6 +36,11 @@ export default function AdminPage() {
     );
   }
 
+  const tabs = [
+    { id: "users" as const, label: "Users", icon: Users },
+    { id: "analytics" as const, label: "Analytics", icon: BarChart3 },
+  ];
+
   return (
     <div className="w-full min-h-screen pb-20">
       {/* Page Header */}
@@ -48,21 +58,34 @@ export default function AdminPage() {
         </div>
       </div>
 
-      {/* Admin Tabs - just Users for now */}
+      {/* Admin Tabs */}
       <div className="border-b border-border mb-6">
         <nav className="flex gap-1">
-          <button
-            className="px-4 py-3 text-sm font-medium text-foreground border-b-2 border-primary flex items-center gap-2"
-          >
-            <Users className="h-4 w-4" />
-            Users
-          </button>
+          {tabs.map((tab) => {
+            const Icon = tab.icon;
+            const isActive = activeTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={cn(
+                  "px-4 py-3 text-sm font-medium flex items-center gap-2 border-b-2 transition-colors",
+                  isActive
+                    ? "text-foreground border-primary"
+                    : "text-muted-foreground border-transparent hover:text-foreground hover:border-border"
+                )}
+              >
+                <Icon className="h-4 w-4" />
+                {tab.label}
+              </button>
+            );
+          })}
         </nav>
       </div>
 
-      {/* User Management Table */}
-      <UserTable currentUser={user} />
+      {/* Tab Content */}
+      {activeTab === "users" && <UserTable currentUser={user} />}
+      {activeTab === "analytics" && <AnalyticsDashboard />}
     </div>
   );
 }
-
