@@ -12,10 +12,13 @@ Quick onboarding guide for AI assistants working on the Mainstream codebase.
 ## Critical Context
 
 ### Recent Major Changes
-- ✅ **Notification Settings** - Toggle notifications by type (likes, comments, follows, mentions) (NEW)
-- ✅ **Real-time View Counts** - View count updates instantly via callback (NEW)
-- ✅ **Atomic View Recording** - Single RPC call handles view tracking atomically (NEW)
-- ✅ **Reply Notifications** - Both asset owner and comment author notified on replies (NEW)
+- ✅ **Private Stream Members** - Add/remove users to private streams with roles (owner/admin/member) (NEW)
+- ✅ **Stream Editing** - Edit stream name, description, privacy from dropdown menu (NEW)
+- ✅ **Draft Deletion** - Delete drafts from drop cards and editor with optimistic UI (NEW)
+- ✅ **Notification Settings** - Toggle notifications by type (likes, comments, follows, mentions)
+- ✅ **Real-time View Counts** - View count updates instantly via callback
+- ✅ **Atomic View Recording** - Single RPC call handles view tracking atomically
+- ✅ **Reply Notifications** - Both asset owner and comment author notified on replies
 - ✅ **WebM Video Support** - Upload WebM videos up to 50MB with autoplay in feed
 - ✅ **Loom Embeds** - Paste Loom URLs to embed videos with thumbnails
 - ✅ **Route Protection** - Middleware redirects unauthenticated users to login
@@ -96,6 +99,9 @@ streams/
   [id]/follow/route.ts - GET/POST/DELETE: Follow status & toggle
   [id]/bookmarks/route.ts - GET/POST: Stream bookmarks
   [id]/bookmarks/[bookmarkId]/route.ts - DELETE: Remove bookmark
+  [id]/members/route.ts - GET/POST/DELETE: Member management (private streams)
+  [id]/assets/route.ts  - GET/POST/DELETE: Assets with access control
+
 
 drops/
   route.ts             - GET/POST: List/create drops
@@ -143,17 +149,19 @@ assets/
   typing-indicator.tsx      - "X is typing..." indicator
 
 streams/
-  stream-header.tsx         - Stream header (follow, bookmarks, contributors)
+  stream-header.tsx         - Stream header (follow, bookmarks, contributors, members)
   stream-grid.tsx           - Stream listing grid
   stream-picker.tsx         - Stream selector for uploads
   add-bookmark-dialog.tsx   - Dialog for adding bookmarks
+  manage-members-dialog.tsx - Add/remove members for private streams
 
 drops/
   create-drop-dialog.tsx    - New drop creation form
-  drop-card.tsx             - Drop preview card for grid
+  drop-card.tsx             - Drop preview card with delete menu
   drops-grid.tsx            - Grid layout for drops
   drop-view.tsx             - Classic drop view (legacy)
   drop-publish-dialog.tsx   - Publish confirmation dialog
+  delete-drop-dialog.tsx    - Confirm delete with error handling
   blocks/
     block-editor.tsx        - Notion-like interactive block editor
     block-renderer.tsx      - Client-side block rendering
@@ -173,6 +181,7 @@ layout/
   upload-dialog.tsx         - Asset upload flow
   create-dialog.tsx         - Create options (stream, upload, URL)
   embed-url-dialog.tsx      - Dialog for adding embeds via URL
+  stream-dialog.tsx         - Create/edit stream dialog (dual-mode)
 ```
 
 ### Hooks (`lib/hooks/`)
@@ -187,6 +196,7 @@ use-comment-like.ts         - Like/unlike comments (race-condition fixed)
 use-user-follow.ts          - Follow/unfollow users
 use-stream-follow.ts        - Follow/unfollow streams with optimistic updates
 use-stream-bookmarks.ts     - CRUD for stream bookmarks
+use-stream-members.ts       - Add/remove members with optimistic updates
 use-notifications.ts        - Real-time notifications with asset enrichment
 use-stream-mentions.ts      - Parse and create streams from hashtags
 use-stream-dropdown-options.ts - Shared stream dropdown logic
@@ -269,6 +279,9 @@ stream_follows
 
 stream_bookmarks
   └─ id, stream_id, url, title, created_by, position, created_at
+
+stream_members
+  └─ stream_id, user_id, role ('admin' | 'member'), joined_at
 
 notifications
   └─ user_id, type (like_asset|like_comment|comment|reply_comment|follow|mention)
@@ -537,6 +550,8 @@ See `docs/DROPS_FEATURE.md` for comprehensive documentation.
 | Streams | `app/stream/[slug]/page.tsx` | `api/streams/route.ts` | `use-stream-mentions.ts` | `stream-*.tsx` |
 | Stream Follow | `app/stream/[slug]/page.tsx` | `api/streams/[id]/follow/route.ts` | `use-stream-follow.ts` | `stream-header.tsx` |
 | Stream Bookmarks | `app/stream/[slug]/page.tsx` | `api/streams/[id]/bookmarks/route.ts` | `use-stream-bookmarks.ts` | `stream-header.tsx` |
+| Stream Members | `app/stream/[slug]/page.tsx` | `api/streams/[id]/members/route.ts` | `use-stream-members.ts` | `manage-members-dialog.tsx` |
+| Stream Edit | `app/stream/[slug]/page.tsx` | `api/streams/[id]/route.ts` | - | `stream-dialog.tsx` |
 | Profiles | `app/u/[username]/page.tsx` | `api/users/[username]/route.ts` | `use-user-follow.ts` | `user-profile-*.tsx` |
 | Search | `app/search/page.tsx` | `api/search/route.ts` | - | `search-*.tsx` |
 | Notifications | - | `api/notifications/route.ts` | `use-notifications.ts` | `notifications-popover.tsx` |
@@ -710,6 +725,8 @@ When working on a feature, review:
    - `028_user_notification_settings.sql` - Notification preferences table
    - `029_increment_view_count_rpc.sql` - View count increment function
    - `030_record_asset_view_rpc.sql` - Atomic view recording function
+   - `032_stream_members_rls_policies.sql` - RLS for stream_members table
+   - `033_fix_streams_rls_for_members.sql` - Allow members to see private streams
 3. Type definitions: `lib/types/database.ts`
 4. Related API route: `app/api/[feature]/route.ts`
 5. Related hook: `lib/hooks/use-[feature].ts`

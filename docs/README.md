@@ -30,6 +30,8 @@ Design collaboration platform for internal teams to share work and organize into
 ✅ **Complete** - Streams feature (many-to-many asset relationships)  
 ✅ **Complete** - Stream following (follow streams, see posts in Following tab)  
 ✅ **Complete** - Stream bookmarks (external links with favicons)  
+✅ **Complete** - Private stream members (add/remove users with role-based access)  
+✅ **Complete** - Stream editing (edit name, description, privacy toggle)  
 ✅ **Complete** - Real-time likes and comments  
 ✅ **Complete** - Comment likes  
 ✅ **Complete** - View tracking ("Seen by X people" with viewer tooltip)  
@@ -37,6 +39,7 @@ Design collaboration platform for internal teams to share work and organize into
 ✅ **Complete** - User profiles and settings  
 ✅ **Complete** - Performance optimizations (N+1 fixes, memoization, server prefetch)  
 ✅ **Complete** - Asset and stream deletion  
+✅ **Complete** - Draft deletion (delete drafts from cards and editor)  
 ✅ **Complete** - Animated GIF support (upload, preview, badge, hover animation)  
 ✅ **Complete** - Figma embeds (paste URL, auto-thumbnails, frame-specific previews)  
 ✅ **Complete** - Real-time notifications with typing indicators  
@@ -90,6 +93,8 @@ Organizational units that support many-to-many relationships with assets. An ass
 - Follow streams to see their posts in your Following feed
 - Add bookmarks (external links to Jira, Figma, Notion) with favicons
 - Contributor tooltip showing who has posted to the stream
+- Private stream member management (owner, admin, member roles)
+- Edit stream name, description, and privacy settings
 
 ### Assets
 Uploaded designs and images organized by streams. Supports likes, comments, view tracking ("Seen by X people" with hover tooltip), and deletion by owner.

@@ -8,6 +8,8 @@ A Pinterest-style design sharing platform with:
 - **Streams** - Flexible organizational units (like projects + tags)
 - **Stream Following** - Follow streams to see their posts in your feed
 - **Stream Bookmarks** - Add external links (Jira, Figma, Notion) to streams
+- **Private Stream Members** - Add users to private streams with role-based access
+- **Stream Editing** - Edit name, description, and privacy settings
 - **Assets** - Uploaded designs with likes and comments
   - Images (JPG, PNG, WebP)
   - Animated GIFs (with GIF badge and hover animation)
@@ -215,6 +217,26 @@ Visit stream page (`/stream/stream-name`) → Click "Follow"
 3. Enter URL and optional title
 4. Favicon is displayed automatically
 
+### Edit a Stream
+
+1. Visit stream page (`/stream/stream-name`)
+2. Click "..." menu → "Edit Stream"
+3. Change name, description, or privacy
+4. Click "Save Changes" (auto-redirects if name changes)
+
+### Add Members to a Private Stream
+
+1. Create or edit a stream to make it private
+2. Visit stream page → Click "..." menu → "Manage Members"
+3. Search for users and click "Add"
+4. Members can view and contribute to the stream
+5. Remove members by clicking the X button
+
+**Roles:**
+- **Owner** - Full access, cannot be removed
+- **Admin** - Can add/remove regular members
+- **Member** - Can view and contribute
+
 ### Delete an Asset
 
 Open asset detail → Click "..." menu → Delete (owner only)
@@ -241,6 +263,7 @@ Open asset detail → Click "..." menu → Delete (owner only)
 - `user_follows` - User following relationships
 - `stream_follows` - Stream following relationships
 - `stream_bookmarks` - External links for streams
+- `stream_members` - Private stream membership (role-based)
 - `notifications` - Activity feed (+ comment deep linking)
 
 ### Row Level Security (RLS)
@@ -262,10 +285,10 @@ All tables have RLS policies:
 - `GET /api/assets/[id]/comments` - Get comments
 
 ### Streams
-- `GET /api/streams` - List streams
+- `GET /api/streams` - List streams (respects membership)
 - `POST /api/streams` - Create stream
 - `GET /api/streams/[id]` - Get stream details
-- `PUT /api/streams/[id]` - Update stream
+- `PUT /api/streams/[id]` - Update stream (name, description, privacy)
 - `DELETE /api/streams/[id]` - Delete stream (owner only)
 - `GET /api/streams/[id]/follow` - Get follow status
 - `POST /api/streams/[id]/follow` - Follow stream
@@ -273,6 +296,9 @@ All tables have RLS policies:
 - `GET /api/streams/[id]/bookmarks` - List bookmarks
 - `POST /api/streams/[id]/bookmarks` - Add bookmark
 - `DELETE /api/streams/[id]/bookmarks/[bookmarkId]` - Delete bookmark
+- `GET /api/streams/[id]/members` - List members (private streams)
+- `POST /api/streams/[id]/members` - Add member (owner/admin)
+- `DELETE /api/streams/[id]/members?user_id=xxx` - Remove member
 
 ### Users
 - `GET /api/users/[username]` - Get user profile
@@ -351,6 +377,8 @@ After schema changes:
 - `011_notifications_rls_policies.sql` - Real-time notifications
 - `016_add_embed_support.sql` - Figma embeds
 - `017_add_figma_integration.sql` - Figma token storage
+- `032_stream_members_rls_policies.sql` - Stream members RLS
+- `033_fix_streams_rls_for_members.sql` - Streams visibility for members
 
 ### Component Changes
 

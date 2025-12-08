@@ -99,6 +99,7 @@ Open http://localhost:3000
 - `user_follows` - Following relationships
 - `stream_follows` - Stream following
 - `stream_bookmarks` - External links
+- `stream_members` - Private stream membership
 - `notifications` - Activity feed (+ `content`, `comment_id`)
 
 ### Verify in Studio
@@ -122,6 +123,9 @@ Apply in order after `001_initial_schema.sql` and `002_seed_data.sql`:
 015_add_comment_id_to_notifications.sql
 016_add_embed_support.sql             # Figma embeds
 017_add_figma_integration.sql         # Figma tokens
+028_user_notification_settings.sql    # Notification preferences
+032_stream_members_rls_policies.sql   # Stream members RLS
+033_fix_streams_rls_for_members.sql   # Streams visibility for members
 ```
 
 ## Authentication
@@ -388,6 +392,8 @@ Now you can:
 - Follow users on their profiles
 - Follow streams to see posts in Following feed
 - Create streams with `#stream-name` hashtags
+- Edit streams (name, description, privacy)
+- Add members to private streams
 - Test real-time likes, comments, and notifications
 - Connect Figma account in Settings for frame-specific thumbnails
 

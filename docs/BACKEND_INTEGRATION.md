@@ -43,6 +43,7 @@ All tables created with Row Level Security:
 - `user_follows` - User following relationships
 - `stream_follows` - Stream following relationships
 - `stream_bookmarks` - External links for streams
+- `stream_members` - Private stream membership (role-based access)
 - `notifications` - Activity feed (+ `content`, `comment_id` for deep linking)
 - `user_notification_settings` - Notification preferences (toggles per type)
 
@@ -64,6 +65,8 @@ All tables created with Row Level Security:
 - `scripts/migrations/028_user_notification_settings.sql` - Notification preferences
 - `scripts/migrations/029_increment_view_count_rpc.sql` - View count RPC
 - `scripts/migrations/030_record_asset_view_rpc.sql` - Atomic view recording RPC
+- `scripts/migrations/032_stream_members_rls_policies.sql` - Stream members RLS
+- `scripts/migrations/033_fix_streams_rls_for_members.sql` - Streams RLS for members
 
 ### ✅ Storage
 Configured buckets:
@@ -99,17 +102,23 @@ Storage policies allow:
 - `DELETE /api/comments/[id]/like` - Unlike comment
 
 #### Streams
-- `GET /api/streams` - List streams
+- `GET /api/streams` - List streams (respects membership for private)
 - `POST /api/streams` - Create stream (idempotent)
 - `GET /api/streams/[id]` - Get stream details
-- `PUT /api/streams/[id]` - Update stream
+- `PUT /api/streams/[id]` - Update stream (name, description, privacy)
 - `DELETE /api/streams/[id]` - Delete stream (owner only)
 - `GET /api/streams/[id]/follow` - Get follow status, follower count, contributors, asset count
 - `POST /api/streams/[id]/follow` - Follow stream
 - `DELETE /api/streams/[id]/follow` - Unfollow stream
 - `GET /api/streams/[id]/bookmarks` - List stream bookmarks
-- `POST /api/streams/[id]/bookmarks` - Add bookmark (any authenticated user)
+- `POST /api/streams/[id]/bookmarks` - Add bookmark (members/owner)
 - `DELETE /api/streams/[id]/bookmarks/[bookmarkId]` - Delete bookmark (creator or owner)
+- `GET /api/streams/[id]/members` - List members (private streams)
+- `POST /api/streams/[id]/members` - Add member (owner/admin only)
+- `DELETE /api/streams/[id]/members?user_id=xxx` - Remove member
+- `GET /api/streams/[id]/assets` - List assets (with access control)
+- `POST /api/streams/[id]/assets` - Add asset (with access control)
+- `DELETE /api/streams/[id]/assets?asset_id=xxx` - Remove asset
 
 #### Users
 - `GET /api/users` - List users with pagination (People page)
@@ -162,6 +171,7 @@ Implemented with Supabase Realtime:
 - `lib/hooks/use-notifications.ts` - Enriches with asset data
 - `lib/hooks/use-stream-follow.ts`
 - `lib/hooks/use-stream-bookmarks.ts`
+- `lib/hooks/use-stream-members.ts` - Private stream member management
 - `lib/hooks/use-typing-indicator.ts` - Supabase Presence for typing
 - `lib/hooks/use-figma-integration.ts` - Figma token management
 
@@ -242,6 +252,7 @@ users (1) ----< (many) assets
 streams (many) >----< (many) assets  [via asset_streams]
 users (many) >----< (many) users     [via user_follows]
 users (many) >----< (many) streams   [via stream_follows]
+users (many) >----< (many) streams   [via stream_members]
 streams (1) ----< (many) stream_bookmarks
 assets (1) ----< (many) asset_likes
 assets (1) ----< (many) asset_views  [unique per user, increments view_count]
@@ -263,6 +274,8 @@ Indexes on:
 - `stream_follows.user_id` (for user's followed streams)
 - `stream_bookmarks.stream_id` (for bookmark lists)
 - `stream_bookmarks.created_by` (for permission checks)
+- `stream_members.stream_id` (for membership checks)
+- `stream_members.user_id` (for user's accessible streams)
 
 ### RLS Policies
 
@@ -280,6 +293,13 @@ Indexes on:
 - Update/delete own comments
 - Update own profile
 - Delete stream bookmarks (creator or stream owner)
+- Add/remove stream members (owner or admin)
+- Update member roles (owner only)
+
+**Stream Members Access:**
+- Private streams visible to owner and members
+- Stream assets/bookmarks accessible to members
+- Uses SECURITY DEFINER functions to prevent RLS recursion
 
 ## Testing
 
@@ -425,7 +445,6 @@ Users can connect their Figma account for frame-specific thumbnails:
 - [ ] Email notifications
 - [ ] Advanced search filters
 - [ ] Bulk asset operations
-- [ ] Stream permissions (public/private members)
 - [ ] Asset versioning
 - [ ] Activity analytics
 - [ ] Bookmark reordering (drag and drop)
