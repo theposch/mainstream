@@ -3,6 +3,7 @@
  * Used for generating email HTML on the server
  */
 import * as React from "react";
+import { format } from "date-fns";
 import {
   Container,
   Section,
@@ -19,6 +20,8 @@ interface EmailDropViewProps {
   description?: string | null;
   blocks: DropBlock[];
   contributors: User[];
+  dateRangeStart?: string;
+  dateRangeEnd?: string;
 }
 
 // Styles for email compatibility
@@ -78,14 +81,30 @@ function countPosts(blocks: DropBlock[]): number {
   return blocks.filter((b) => b.type === "post" || b.type === "featured_post").length;
 }
 
+// Format date range for display
+// Extracts the date portion (YYYY-MM-DD) to avoid timezone shifts
+function formatDateRange(start?: string, end?: string): string | null {
+  if (!start || !end) return null;
+  // Extract date portion to avoid UTC->local timezone shifts
+  const startDateStr = start.substring(0, 10);
+  const endDateStr = end.substring(0, 10);
+  // Parse at noon local time to avoid DST edge cases
+  const startDate = new Date(`${startDateStr}T12:00:00`);
+  const endDate = new Date(`${endDateStr}T12:00:00`);
+  return `${format(startDate, "MMM d")} – ${format(endDate, "MMM d, yyyy")}`;
+}
+
 export function EmailDropView({
   title,
   description,
   blocks,
   contributors,
+  dateRangeStart,
+  dateRangeEnd,
 }: EmailDropViewProps) {
   const postCount = countPosts(blocks);
   const contributorNames = formatContributorNames(contributors);
+  const dateRange = formatDateRange(dateRangeStart, dateRangeEnd);
 
   return (
     <Container style={styles.container}>
@@ -93,6 +112,15 @@ export function EmailDropView({
       <Section style={styles.header}>
         <Text style={styles.brandName}>Mainstream</Text>
         <Heading style={styles.title}>{title}</Heading>
+        {dateRange && (
+          <Text style={{
+            fontSize: "14px",
+            color: "#71717a",
+            margin: "8px 0 0 0",
+          }}>
+            {dateRange}
+          </Text>
+        )}
       </Section>
 
       {/* Description */}

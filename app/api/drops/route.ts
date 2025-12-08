@@ -218,18 +218,37 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Group assets by their primary stream
+    // Group assets by stream
+    // When filter_stream_ids is provided, group by the first matching filtered stream
+    // When no filter, group by primary stream (first stream association)
     const assetsByStream: Record<string, string[]> = {};
     const uncategorized: string[] = [];
     
     filteredAssetIds.forEach((assetId) => {
       const streams = assetStreamMap[assetId];
       if (streams && streams.length > 0) {
-        const primaryStream = streams[0];
-        if (!assetsByStream[primaryStream.streamId]) {
-          assetsByStream[primaryStream.streamId] = [];
+        let groupingStream;
+        
+        if (filter_stream_ids?.length) {
+          // Find first filtered stream this asset belongs to (in filter order)
+          for (const filteredId of filter_stream_ids) {
+            const match = streams.find(s => s.streamId === filteredId);
+            if (match) {
+              groupingStream = match;
+              break;
+            }
+          }
         }
-        assetsByStream[primaryStream.streamId].push(assetId);
+        
+        // Fall back to primary stream if no filter or no match found
+        if (!groupingStream) {
+          groupingStream = streams[0];
+        }
+        
+        if (!assetsByStream[groupingStream.streamId]) {
+          assetsByStream[groupingStream.streamId] = [];
+        }
+        assetsByStream[groupingStream.streamId].push(assetId);
       } else {
         uncategorized.push(assetId);
       }
@@ -248,7 +267,22 @@ export async function POST(request: NextRequest) {
     let position = 0;
 
     // Add blocks for each stream group
-    for (const [streamId, assetIds] of Object.entries(assetsByStream)) {
+    // When filter_stream_ids is provided, maintain their order
+    const streamOrder = filter_stream_ids?.length 
+      ? filter_stream_ids.filter(id => assetsByStream[id]) // Only include streams with assets
+      : Object.keys(assetsByStream); // Default order
+    
+    // Add any streams not in filter (shouldn't happen, but just in case)
+    for (const streamId of Object.keys(assetsByStream)) {
+      if (!streamOrder.includes(streamId)) {
+        streamOrder.push(streamId);
+      }
+    }
+    
+    for (const streamId of streamOrder) {
+      const assetIds = assetsByStream[streamId];
+      if (!assetIds || assetIds.length === 0) continue;
+      
       // Add heading for the stream
       blocks.push({
         drop_id: drop.id,
