@@ -70,10 +70,15 @@ function countPosts(blocks: DropBlock[]): number {
 }
 
 // Format date range for display
+// Extracts the date portion (YYYY-MM-DD) to avoid timezone shifts
 function formatDateRange(start?: string, end?: string): string | null {
   if (!start || !end) return null;
-  const startDate = new Date(start);
-  const endDate = new Date(end);
+  // Extract date portion to avoid UTC->local timezone shifts
+  const startDateStr = start.substring(0, 10);
+  const endDateStr = end.substring(0, 10);
+  // Parse at noon local time to avoid DST edge cases
+  const startDate = new Date(`${startDateStr}T12:00:00`);
+  const endDate = new Date(`${endDateStr}T12:00:00`);
   return `${format(startDate, "MMM d")} – ${format(endDate, "MMM d, yyyy")}`;
 }
 

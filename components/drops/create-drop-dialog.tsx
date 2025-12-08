@@ -42,6 +42,19 @@ function formatDateForTitle(date: Date) {
   });
 }
 
+// Format date for API storage - preserves local date by using UTC with same date components
+// This avoids timezone shifts when converting local dates to ISO strings
+function formatDateForStorage(date: Date, endOfDay: boolean = false): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  
+  if (endOfDay) {
+    return `${year}-${month}-${day}T23:59:59.999Z`;
+  }
+  return `${year}-${month}-${day}T00:00:00.000Z`;
+}
+
 export function CreateDropDialog({ open, onOpenChange }: CreateDropDialogProps) {
   const router = useRouter();
   const [isLoading, setIsLoading] = React.useState(false);
@@ -90,17 +103,14 @@ export function CreateDropDialog({ open, onOpenChange }: CreateDropDialogProps) 
     setIsLoading(true);
 
     try {
-      // Set end date to end of day
-      const endOfDay = new Date(dateEnd);
-      endOfDay.setHours(23, 59, 59, 999);
-      
       const response = await fetch("/api/drops", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           title: title.trim(),
-          date_range_start: dateStart.toISOString(),
-          date_range_end: endOfDay.toISOString(),
+          // Use timezone-safe formatting to preserve the local date intent
+          date_range_start: formatDateForStorage(dateStart),
+          date_range_end: formatDateForStorage(dateEnd, true),
           filter_stream_ids: selectedStreamIds.length > 0 ? selectedStreamIds : null,
           filter_user_ids: selectedUserIds.length > 0 ? selectedUserIds : null,
         }),
