@@ -78,6 +78,8 @@ export default async function DropPage({ params }: DropPageProps) {
           description={drop.description}
           blocks={blocks || []}
           contributors={contributors}
+          dateRangeStart={drop.date_range_start}
+          dateRangeEnd={drop.date_range_end}
         />
       </div>
     );
