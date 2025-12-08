@@ -240,9 +240,10 @@ export function DropBlocksEditorClient({
             />
             {drop.date_range_start && drop.date_range_end && (
               <p className="text-sm text-zinc-500 mt-2">
-                {new Date(drop.date_range_start).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                {/* Extract date portion to avoid timezone shifts */}
+                {new Date(`${drop.date_range_start.substring(0, 10)}T12:00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
                 {" – "}
-                {new Date(drop.date_range_end).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                {new Date(`${drop.date_range_end.substring(0, 10)}T12:00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
               </p>
             )}
             {isSaving && (
