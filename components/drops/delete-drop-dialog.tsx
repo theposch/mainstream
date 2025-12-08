@@ -29,9 +29,18 @@ export const DeleteDropDialog = React.memo(function DeleteDropDialog({
   onDeleted,
 }: DeleteDropDialogProps) {
   const [isDeleting, setIsDeleting] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
+
+  // Reset error when dialog opens/closes
+  React.useEffect(() => {
+    if (!open) {
+      setError(null);
+    }
+  }, [open]);
 
   const handleDelete = React.useCallback(async () => {
     setIsDeleting(true);
+    setError(null);
     
     try {
       const response = await fetch(`/api/drops/${dropId}`, {
@@ -39,15 +48,15 @@ export const DeleteDropDialog = React.memo(function DeleteDropDialog({
       });
 
       if (!response.ok) {
-        const data = await response.json();
+        const data = await response.json().catch(() => ({}));
         throw new Error(data.error || "Failed to delete draft");
       }
 
       onDeleted();
       onOpenChange(false);
-    } catch (error) {
-      console.error("Failed to delete draft:", error);
-      // Could add toast notification here
+    } catch (err) {
+      console.error("Failed to delete draft:", err);
+      setError(err instanceof Error ? err.message : "Failed to delete draft. Please try again.");
     } finally {
       setIsDeleting(false);
     }
@@ -63,6 +72,14 @@ export const DeleteDropDialog = React.memo(function DeleteDropDialog({
             cannot be undone.
           </AlertDialogDescription>
         </AlertDialogHeader>
+        
+        {/* Error feedback */}
+        {error && (
+          <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive" role="alert">
+            {error}
+          </div>
+        )}
+        
         <AlertDialogFooter>
           <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
           <AlertDialogAction

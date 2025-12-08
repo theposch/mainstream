@@ -64,6 +64,15 @@ export async function GET(request: NextRequest) {
     // 2. Private streams where user is owner
     // 3. Private streams where user is a member
 
+    // Validate user.id format for security (used in dynamic queries)
+    if (!isValidUUID(user.id)) {
+      console.error('[GET /api/streams] Invalid user ID format');
+      return NextResponse.json(
+        { error: 'Invalid user session' },
+        { status: 401 }
+      );
+    }
+
     // First, get the IDs of private streams where user is a member
     const { data: membershipData } = await supabase
       .from('stream_members')
