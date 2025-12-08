@@ -14,6 +14,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Loader2, Calendar, Hash, Users } from "lucide-react";
+import { StreamPicker } from "@/components/streams/stream-picker";
+import { UserPicker } from "@/components/users/user-picker";
 
 interface CreateDropDialogProps {
   open: boolean;
@@ -52,6 +54,8 @@ export function CreateDropDialog({ open, onOpenChange }: CreateDropDialogProps) 
   const [title, setTitle] = React.useState(`Weekly Drop · ${formatDateForTitle(defaultDates.end)}`);
   const [dateStart, setDateStart] = React.useState(defaultDates.start);
   const [dateEnd, setDateEnd] = React.useState(defaultDates.end);
+  const [selectedStreamIds, setSelectedStreamIds] = React.useState<string[]>([]);
+  const [selectedUserIds, setSelectedUserIds] = React.useState<string[]>([]);
 
   // Reset form when dialog opens
   React.useEffect(() => {
@@ -60,6 +64,8 @@ export function CreateDropDialog({ open, onOpenChange }: CreateDropDialogProps) 
       setTitle(`Weekly Drop · ${formatDateForTitle(dates.end)}`);
       setDateStart(dates.start);
       setDateEnd(dates.end);
+      setSelectedStreamIds([]);
+      setSelectedUserIds([]);
       setError(null);
     }
   }, [open]);
@@ -93,6 +99,8 @@ export function CreateDropDialog({ open, onOpenChange }: CreateDropDialogProps) 
           title: title.trim(),
           date_range_start: new Date(dateStart).toISOString(),
           date_range_end: new Date(dateEnd + "T23:59:59").toISOString(),
+          filter_stream_ids: selectedStreamIds.length > 0 ? selectedStreamIds : null,
+          filter_user_ids: selectedUserIds.length > 0 ? selectedUserIds : null,
         }),
       });
 
@@ -137,11 +145,11 @@ export function CreateDropDialog({ open, onOpenChange }: CreateDropDialogProps) 
 
           {/* Include posts section */}
           <div className="space-y-4">
-            <Label className="text-zinc-400">Include posts</Label>
+            <Label className="text-muted-foreground">Include posts</Label>
             
             {/* Date range */}
             <div className="space-y-2">
-              <div className="flex items-center gap-2 text-sm text-zinc-500">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <Calendar className="h-4 w-4" />
                 <span>Created between...</span>
               </div>
@@ -153,7 +161,7 @@ export function CreateDropDialog({ open, onOpenChange }: CreateDropDialogProps) 
                   disabled={isLoading}
                   className="flex-1"
                 />
-                <span className="text-zinc-500">→</span>
+                <span className="text-muted-foreground">→</span>
                 <Input
                   type="date"
                   value={dateEnd}
@@ -164,42 +172,42 @@ export function CreateDropDialog({ open, onOpenChange }: CreateDropDialogProps) 
               </div>
             </div>
 
-            {/* Stream filter (placeholder - can be expanded) */}
+            {/* Stream filter */}
             <div className="space-y-2">
-              <div className="flex items-center gap-2 text-sm text-zinc-500">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <Hash className="h-4 w-4" />
                 <span>Posted in...</span>
               </div>
-              <Button
-                type="button"
-                variant="outline"
-                className="w-full justify-start text-zinc-400 font-normal"
+              <StreamPicker
+                selectedStreamIds={selectedStreamIds}
+                onSelectStreams={setSelectedStreamIds}
                 disabled={isLoading}
-              >
-                All streams
-              </Button>
+                variant="compact"
+                maxStreams={10}
+                popoverClassName="z-[60]"
+              />
             </div>
 
-            {/* User filter (placeholder - can be expanded) */}
+            {/* User filter */}
             <div className="space-y-2">
-              <div className="flex items-center gap-2 text-sm text-zinc-500">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <Users className="h-4 w-4" />
                 <span>Posted by...</span>
               </div>
-              <Button
-                type="button"
-                variant="outline"
-                className="w-full justify-start text-zinc-400 font-normal"
+              <UserPicker
+                selectedUserIds={selectedUserIds}
+                onSelectUsers={setSelectedUserIds}
                 disabled={isLoading}
-              >
-                All teammates
-              </Button>
+                variant="compact"
+                maxUsers={10}
+                popoverClassName="z-[60]"
+              />
             </div>
           </div>
 
           {/* Error */}
           {error && (
-            <p className="text-sm text-red-400">{error}</p>
+            <p className="text-sm text-destructive">{error}</p>
           )}
 
           <DialogFooter>
@@ -227,4 +235,3 @@ export function CreateDropDialog({ open, onOpenChange }: CreateDropDialogProps) 
     </Dialog>
   );
 }
-
