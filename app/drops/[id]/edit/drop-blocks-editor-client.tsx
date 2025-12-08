@@ -221,6 +221,8 @@ export function DropBlocksEditorClient({
             description={description}
             blocks={blocks}
             contributors={contributors}
+            dateRangeStart={drop.date_range_start}
+            dateRangeEnd={drop.date_range_end}
           />
         </div>
       ) : (
@@ -236,6 +238,13 @@ export function DropBlocksEditorClient({
               placeholder="Enter title..."
               className="w-full text-3xl font-bold text-white bg-transparent border-none text-center outline-none placeholder:text-zinc-700"
             />
+            {drop.date_range_start && drop.date_range_end && (
+              <p className="text-sm text-zinc-500 mt-2">
+                {new Date(drop.date_range_start).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                {" – "}
+                {new Date(drop.date_range_end).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+              </p>
+            )}
             {isSaving && (
               <p className="text-xs text-zinc-500 mt-2">Saving...</p>
             )}
