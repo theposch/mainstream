@@ -32,6 +32,50 @@ export async function GET(
     const { id: streamId } = await context.params;
     const supabase = await createClient();
 
+    // Get current user
+    const { data: { user } } = await supabase.auth.getUser();
+
+    // Fetch stream to check access
+    const { data: stream, error: streamError } = await supabase
+      .from('streams')
+      .select('id, owner_id, is_private')
+      .or(`id.eq.${streamId},name.eq.${streamId}`)
+      .single();
+
+    if (streamError || !stream) {
+      return NextResponse.json(
+        { error: 'Stream not found' },
+        { status: 404 }
+      );
+    }
+
+    // Check access for private streams
+    if (stream.is_private) {
+      if (!user) {
+        return NextResponse.json(
+          { error: 'Authentication required' },
+          { status: 401 }
+        );
+      }
+
+      const isOwner = stream.owner_id === user.id;
+      if (!isOwner) {
+        const { data: membership } = await supabase
+          .from('stream_members')
+          .select('role')
+          .eq('stream_id', stream.id)
+          .eq('user_id', user.id)
+          .single();
+
+        if (!membership) {
+          return NextResponse.json(
+            { error: 'Access denied' },
+            { status: 403 }
+          );
+        }
+      }
+    }
+
     // Get assets via junction table
     const { data, error } = await supabase
       .from('asset_streams')
@@ -43,7 +87,7 @@ export async function GET(
           uploader:users!uploader_id(*)
         )
       `)
-      .eq('stream_id', streamId)
+      .eq('stream_id', stream.id)
       .order('added_at', { ascending: false });
 
     if (error) {
@@ -90,6 +134,40 @@ export async function POST(
       );
     }
 
+    // Fetch stream to check access
+    const { data: stream, error: streamError } = await supabase
+      .from('streams')
+      .select('id, owner_id, is_private')
+      .or(`id.eq.${streamId},name.eq.${streamId}`)
+      .single();
+
+    if (streamError || !stream) {
+      return NextResponse.json(
+        { error: 'Stream not found' },
+        { status: 404 }
+      );
+    }
+
+    // Check access for private streams
+    if (stream.is_private) {
+      const isOwner = stream.owner_id === user.id;
+      if (!isOwner) {
+        const { data: membership } = await supabase
+          .from('stream_members')
+          .select('role')
+          .eq('stream_id', stream.id)
+          .eq('user_id', user.id)
+          .single();
+
+        if (!membership) {
+          return NextResponse.json(
+            { error: 'Access denied' },
+            { status: 403 }
+          );
+        }
+      }
+    }
+
     const body = await request.json();
     const { asset_id } = body;
 
@@ -105,7 +183,7 @@ export async function POST(
       .from('asset_streams')
       .insert({
         asset_id,
-        stream_id: streamId,
+        stream_id: stream.id,
         added_by: user.id,
       });
 
@@ -164,12 +242,46 @@ export async function DELETE(
       );
     }
 
+    // Fetch stream to check access
+    const { data: stream, error: streamError } = await supabase
+      .from('streams')
+      .select('id, owner_id, is_private')
+      .or(`id.eq.${streamId},name.eq.${streamId}`)
+      .single();
+
+    if (streamError || !stream) {
+      return NextResponse.json(
+        { error: 'Stream not found' },
+        { status: 404 }
+      );
+    }
+
+    // Check access for private streams
+    if (stream.is_private) {
+      const isOwner = stream.owner_id === user.id;
+      if (!isOwner) {
+        const { data: membership } = await supabase
+          .from('stream_members')
+          .select('role')
+          .eq('stream_id', stream.id)
+          .eq('user_id', user.id)
+          .single();
+
+        if (!membership) {
+          return NextResponse.json(
+            { error: 'Access denied' },
+            { status: 403 }
+          );
+        }
+      }
+    }
+
     // Remove asset from stream
     const { error: deleteError } = await supabase
       .from('asset_streams')
       .delete()
       .eq('asset_id', assetId)
-      .eq('stream_id', streamId);
+      .eq('stream_id', stream.id);
 
     if (deleteError) {
       console.error('[DELETE /api/streams/[id]/assets] Error:', deleteError);

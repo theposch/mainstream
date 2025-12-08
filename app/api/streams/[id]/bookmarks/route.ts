@@ -29,6 +29,50 @@ export async function GET(
     const { id: streamId } = await context.params;
     const supabase = await createClient();
 
+    // Get current user
+    const { data: { user } } = await supabase.auth.getUser();
+
+    // Fetch stream to check access
+    const { data: stream, error: streamError } = await supabase
+      .from('streams')
+      .select('id, owner_id, is_private')
+      .or(`id.eq.${streamId},name.eq.${streamId}`)
+      .single();
+
+    if (streamError || !stream) {
+      return NextResponse.json(
+        { error: 'Stream not found' },
+        { status: 404 }
+      );
+    }
+
+    // Check access for private streams
+    if (stream.is_private) {
+      if (!user) {
+        return NextResponse.json(
+          { error: 'Authentication required' },
+          { status: 401 }
+        );
+      }
+
+      const isOwner = stream.owner_id === user.id;
+      if (!isOwner) {
+        const { data: membership } = await supabase
+          .from('stream_members')
+          .select('role')
+          .eq('stream_id', stream.id)
+          .eq('user_id', user.id)
+          .single();
+
+        if (!membership) {
+          return NextResponse.json(
+            { error: 'Access denied' },
+            { status: 403 }
+          );
+        }
+      }
+    }
+
     // Fetch bookmarks with creator info
     const { data: bookmarks, error } = await supabase
       .from('stream_bookmarks')
@@ -41,7 +85,7 @@ export async function GET(
           avatar_url
         )
       `)
-      .eq('stream_id', streamId)
+      .eq('stream_id', stream.id)
       .order('position', { ascending: true })
       .order('created_at', { ascending: true });
 
@@ -114,11 +158,11 @@ export async function POST(
       );
     }
 
-    // Verify stream exists
+    // Verify stream exists and check access
     const { data: stream, error: streamError } = await supabase
       .from('streams')
-      .select('id')
-      .eq('id', streamId)
+      .select('id, owner_id, is_private')
+      .or(`id.eq.${streamId},name.eq.${streamId}`)
       .single();
 
     if (streamError || !stream) {
@@ -128,11 +172,31 @@ export async function POST(
       );
     }
 
+    // Check access for private streams
+    if (stream.is_private) {
+      const isOwner = stream.owner_id === currentUser.id;
+      if (!isOwner) {
+        const { data: membership } = await supabase
+          .from('stream_members')
+          .select('role')
+          .eq('stream_id', stream.id)
+          .eq('user_id', currentUser.id)
+          .single();
+
+        if (!membership) {
+          return NextResponse.json(
+            { error: 'Access denied' },
+            { status: 403 }
+          );
+        }
+      }
+    }
+
     // Get the highest position for ordering
     const { data: maxPositionResult } = await supabase
       .from('stream_bookmarks')
       .select('position')
-      .eq('stream_id', streamId)
+      .eq('stream_id', stream.id)
       .order('position', { ascending: false })
       .limit(1)
       .single();
@@ -143,7 +207,7 @@ export async function POST(
     const { data: bookmark, error: insertError } = await supabase
       .from('stream_bookmarks')
       .insert({
-        stream_id: streamId,
+        stream_id: stream.id,
         url,
         title: title || null,
         created_by: currentUser.id,
