@@ -106,6 +106,17 @@ Open http://localhost:3000
 
 Navigate to **Table Editor** and confirm all tables exist.
 
+### Seed Data Contents
+
+The `002_seed_data.sql` includes:
+- 2 users (Christian Poschmann, John Does)
+- 5 streams (mainstream, design-a-palooza, wallpaper, credit-card, private-stream-test)
+- 16 assets (images, GIFs, WebM video, Figma/Loom embeds)
+- Comments, likes, follows, bookmarks
+- 1 published drop with blocks
+
+**Note:** Figma tokens are not seeded for security. Users must reconnect after seeding.
+
 ### All Migrations
 
 Apply in order after `001_initial_schema.sql` and `002_seed_data.sql`:

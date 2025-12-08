@@ -65,6 +65,8 @@ docker-compose -f ../../supabase-docker/docker-compose.yml exec db psql -U postg
 
 Or paste into Supabase Studio SQL Editor.
 
+**Seed data includes:** 2 users, 5 streams, 16 assets (images, GIFs, video, embeds), comments, likes, follows, and 1 published drop.
+
 ### 5. Start Dev Server
 
 ```bash
