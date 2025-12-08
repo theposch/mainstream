@@ -71,3 +71,4 @@ INSERT INTO schema_migrations (version, name)
 VALUES (9, '009_add_asset_views')
 ON CONFLICT (version) DO NOTHING;
 
+

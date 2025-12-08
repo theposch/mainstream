@@ -54,7 +54,13 @@ export default async function DropsPage({
   let enrichedDrops = allDrops;
   
   if (dropIds.length > 0) {
-    // Get post counts
+    // Initialize data structure
+    const dropData: Record<string, { count: number; previews: string[] }> = {};
+    dropIds.forEach((id) => {
+      dropData[id] = { count: 0, previews: [] };
+    });
+
+    // Get post counts from drop_posts (legacy/non-block drops)
     const { data: dropPosts } = await supabase
       .from("drop_posts")
       .select(`
@@ -64,18 +70,35 @@ export default async function DropsPage({
       .in("drop_id", dropIds)
       .order("position", { ascending: true });
 
-    // Group by drop_id
-    const dropData: Record<string, { count: number; previews: string[] }> = {};
-    dropIds.forEach((id) => {
-      dropData[id] = { count: 0, previews: [] };
-    });
-
     dropPosts?.forEach((dp: any) => {
       const data = dropData[dp.drop_id];
       if (data) {
         data.count++;
         if (data.previews.length < 3 && dp.asset?.thumbnail_url) {
           data.previews.push(dp.asset.thumbnail_url);
+        }
+      }
+    });
+
+    // Also get post counts from drop_blocks (block-based drops)
+    // Blocks of type 'post' or 'featured_post' count as posts
+    const { data: dropBlocks } = await supabase
+      .from("drop_blocks")
+      .select(`
+        drop_id,
+        type,
+        asset:assets(thumbnail_url)
+      `)
+      .in("drop_id", dropIds)
+      .in("type", ["post", "featured_post"])
+      .order("position", { ascending: true });
+
+    dropBlocks?.forEach((db: any) => {
+      const data = dropData[db.drop_id];
+      if (data) {
+        data.count++;
+        if (data.previews.length < 3 && db.asset?.thumbnail_url) {
+          data.previews.push(db.asset.thumbnail_url);
         }
       }
     });
@@ -92,6 +115,7 @@ export default async function DropsPage({
       initialDrops={enrichedDrops}
       currentTab={tab}
       isAuthenticated={!!user}
+      currentUserId={user?.id}
     />
   );
 }

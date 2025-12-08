@@ -26,3 +26,4 @@ INSERT INTO schema_migrations (version, name)
 VALUES (10, '010_asset_views_rls')
 ON CONFLICT (version) DO NOTHING;
 
+

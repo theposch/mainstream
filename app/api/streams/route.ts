@@ -30,6 +30,45 @@ export async function GET(request: NextRequest) {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
 
+    // If not authenticated, only show public streams
+    if (!user) {
+      let query = supabase
+        .from('streams')
+        .select('*')
+        .eq('status', status)
+        .eq('is_private', false);
+
+      if (ownerId && ownerType) {
+        query = query.eq('owner_id', ownerId).eq('owner_type', ownerType);
+      }
+
+      const { data: streams, error } = await query.order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('[GET /api/streams] Error:', error);
+        return NextResponse.json(
+          { error: 'Failed to fetch streams' },
+          { status: 500 }
+        );
+      }
+
+      return NextResponse.json({ streams: streams || [] });
+    }
+
+    // For authenticated users, we need to get:
+    // 1. Public streams
+    // 2. Private streams where user is owner
+    // 3. Private streams where user is a member
+
+    // First, get the IDs of private streams where user is a member
+    const { data: membershipData } = await supabase
+      .from('stream_members')
+      .select('stream_id')
+      .eq('user_id', user.id);
+
+    const memberStreamIds = membershipData?.map(m => m.stream_id) || [];
+
+    // Build query for all accessible streams
     let query = supabase
       .from('streams')
       .select('*')
@@ -40,11 +79,10 @@ export async function GET(request: NextRequest) {
       query = query.eq('owner_id', ownerId).eq('owner_type', ownerType);
     }
 
-    // If not authenticated, only show public streams
-    if (!user) {
-      query = query.eq('is_private', false);
+    // Show: public streams OR user's owned private streams OR streams user is a member of
+    if (memberStreamIds.length > 0) {
+      query = query.or(`is_private.eq.false,owner_id.eq.${user.id},id.in.(${memberStreamIds.join(',')})`);
     } else {
-      // If authenticated, show public streams + user's private streams
       query = query.or(`is_private.eq.false,owner_id.eq.${user.id}`);
     }
 
@@ -61,11 +99,11 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ streams: streams || [] });
   } catch (error) {
     console.error('[GET /api/streams] Error:', error);
-      return NextResponse.json(
+    return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
-      );
-    }
+    );
+  }
 }
 
 /**

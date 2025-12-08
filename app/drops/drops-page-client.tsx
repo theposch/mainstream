@@ -16,6 +16,7 @@ interface DropsPageClientProps {
   }>;
   currentTab: string;
   isAuthenticated: boolean;
+  currentUserId?: string;
 }
 
 const tabs = [
@@ -28,12 +29,21 @@ export function DropsPageClient({
   initialDrops,
   currentTab,
   isAuthenticated,
+  currentUserId,
 }: DropsPageClientProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [createDialogOpen, setCreateDialogOpen] = React.useState(false);
+  
+  // Local state for optimistic updates
+  const [drops, setDrops] = React.useState(initialDrops);
 
-  const handleTabChange = (tabId: string) => {
+  // Sync with server data when initialDrops changes (e.g., tab change)
+  React.useEffect(() => {
+    setDrops(initialDrops);
+  }, [initialDrops]);
+
+  const handleTabChange = React.useCallback((tabId: string) => {
     const params = new URLSearchParams(searchParams.toString());
     if (tabId === "all") {
       params.delete("tab");
@@ -41,7 +51,12 @@ export function DropsPageClient({
       params.set("tab", tabId);
     }
     router.push(`/drops${params.toString() ? `?${params.toString()}` : ""}`);
-  };
+  }, [router, searchParams]);
+
+  // Optimistic delete - remove from local state immediately
+  const handleDropDeleted = React.useCallback((dropId: string) => {
+    setDrops((prev) => prev.filter((drop) => drop.id !== dropId));
+  }, []);
 
   return (
     <div className="w-full min-h-screen pb-20">
@@ -93,7 +108,11 @@ export function DropsPageClient({
       </div>
 
       {/* Grid */}
-      <DropsGrid drops={initialDrops} />
+      <DropsGrid 
+        drops={drops}
+        currentUserId={currentUserId}
+        onDropDeleted={handleDropDeleted}
+      />
 
       {/* Create Dialog */}
       <CreateDropDialog
@@ -103,4 +122,3 @@ export function DropsPageClient({
     </div>
   );
 }
-

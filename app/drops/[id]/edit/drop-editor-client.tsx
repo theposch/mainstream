@@ -3,10 +3,17 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, MoreHorizontal, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { DropView } from "@/components/drops/drop-view";
 import { DropPublishDialog } from "@/components/drops/drop-publish-dialog";
+import { DeleteDropDialog } from "@/components/drops/delete-drop-dialog";
 import type { Drop, Asset, User, Stream, DropPostDisplayMode } from "@/lib/types/database";
 
 interface DropPost extends Asset {
@@ -36,6 +43,12 @@ export function DropEditorClient({
   const [isGenerating, setIsGenerating] = React.useState(false);
   const [isSaving, setIsSaving] = React.useState(false);
   const [publishDialogOpen, setPublishDialogOpen] = React.useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false);
+
+  // Handle successful deletion - redirect to drafts list
+  const handleDeleted = React.useCallback(() => {
+    router.push("/drops?tab=drafts");
+  }, [router]);
 
   // Update contributors when posts change
   React.useEffect(() => {
@@ -203,6 +216,25 @@ export function DropEditorClient({
             >
               Publish
             </Button>
+            
+            {/* More options menu */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-9 w-9">
+                  <MoreHorizontal className="h-4 w-4" />
+                  <span className="sr-only">More options</span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem
+                  onClick={() => setDeleteDialogOpen(true)}
+                  className="text-destructive focus:text-destructive"
+                >
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Delete Draft
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
       </div>
@@ -253,6 +285,15 @@ export function DropEditorClient({
         onOpenChange={setPublishDialogOpen}
         dropId={drop.id}
         dropTitle={title}
+      />
+
+      {/* Delete confirmation dialog */}
+      <DeleteDropDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        dropId={drop.id}
+        dropTitle={title}
+        onDeleted={handleDeleted}
       />
     </div>
   );
