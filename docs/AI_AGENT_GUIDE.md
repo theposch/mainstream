@@ -12,9 +12,14 @@ Quick onboarding guide for AI assistants working on the Mainstream codebase.
 ## Critical Context
 
 ### Recent Major Changes
-- ✅ **Private Stream Members** - Add/remove users to private streams with roles (owner/admin/member) (NEW)
-- ✅ **Stream Editing** - Edit stream name, description, privacy from dropdown menu (NEW)
-- ✅ **Draft Deletion** - Delete drafts from drop cards and editor with optimistic UI (NEW)
+- ✅ **Create Drop Filters** - Multi-select streams and users when creating drops (NEW)
+- ✅ **shadcn DatePicker** - Replace native date inputs with shadcn DatePicker component (NEW)
+- ✅ **UserPicker Component** - Multi-select user picker with search and keyboard navigation (NEW)
+- ✅ **Date Range Display** - Show date range in drop editor, preview, published view, and email (NEW)
+- ✅ **Timezone-safe Dates** - Dates stored/displayed correctly regardless of user timezone (NEW)
+- ✅ **Private Stream Members** - Add/remove users to private streams with roles (owner/admin/member)
+- ✅ **Stream Editing** - Edit stream name, description, privacy from dropdown menu
+- ✅ **Draft Deletion** - Delete drafts from drop cards and editor with optimistic UI
 - ✅ **Notification Settings** - Toggle notifications by type (likes, comments, follows, mentions)
 - ✅ **Real-time View Counts** - View count updates instantly via callback
 - ✅ **Atomic View Recording** - Single RPC call handles view tracking atomically
@@ -151,12 +156,15 @@ assets/
 streams/
   stream-header.tsx         - Stream header (follow, bookmarks, contributors, members)
   stream-grid.tsx           - Stream listing grid
-  stream-picker.tsx         - Stream selector for uploads
+  stream-picker.tsx         - Multi-select stream picker (used in uploads and drop creation)
   add-bookmark-dialog.tsx   - Dialog for adding bookmarks
   manage-members-dialog.tsx - Add/remove members for private streams
 
+users/
+  user-picker.tsx           - Multi-select user picker with search (used in drop creation)
+
 drops/
-  create-drop-dialog.tsx    - New drop creation form
+  create-drop-dialog.tsx    - New drop creation with DatePicker, StreamPicker, UserPicker
   drop-card.tsx             - Drop preview card with delete menu
   drops-grid.tsx            - Grid layout for drops
   drop-view.tsx             - Classic drop view (legacy)
@@ -165,9 +173,13 @@ drops/
   blocks/
     block-editor.tsx        - Notion-like interactive block editor
     block-renderer.tsx      - Client-side block rendering
-    drop-blocks-view.tsx    - Preview/published drop view
+    drop-blocks-view.tsx    - Preview/published drop view (with date range)
     email-block-renderer.tsx - Server-side email block rendering
-    email-drop-view.tsx     - Full email template
+    email-drop-view.tsx     - Full email template (with date range)
+
+ui/ (shadcn components)
+  calendar.tsx              - Calendar component (react-day-picker v9)
+  date-picker.tsx           - Reusable date picker (Popover + Calendar)
 
 users/
   user-profile-header.tsx   - Profile header with follow button
@@ -516,6 +528,14 @@ AI-powered newsletters that summarize your team's weekly design work. Uses a Not
 - **Unlisted Assets**: Images uploaded in drops are hidden from feed/search/profiles
 - **Email Preview**: Renders using React Email components for cross-client compatibility
 - **Display Modes**: Fit/Cover with adjustable crop position for images
+- **Create Drop Filters**: Multi-select streams and users to filter which posts are included
+- **Date Range Display**: Shows the date range in editor, preview, published view, and email
+- **Timezone-safe**: Dates are stored and displayed correctly regardless of user timezone
+
+### Create Drop Components
+- `DatePicker` - shadcn date picker built on react-day-picker v9
+- `StreamPicker` - Multi-select stream filter with compact variant
+- `UserPicker` - Multi-select user filter with search and keyboard navigation
 
 ### Environment Variables
 ```env
@@ -557,6 +577,9 @@ See `docs/DROPS_FEATURE.md` for comprehensive documentation.
 | Notifications | - | `api/notifications/route.ts` | `use-notifications.ts` | `notifications-popover.tsx` |
 | Drops | `app/drops/page.tsx` | `api/drops/route.ts` | - | `drops/drop-*.tsx` |
 | Drop Editor | `app/drops/[id]/edit/page.tsx` | `api/drops/[id]/blocks/route.ts` | - | `drops/blocks/*.tsx` |
+| Create Drop | - | `api/drops/route.ts` | - | `create-drop-dialog.tsx` |
+| DatePicker | - | - | - | `ui/date-picker.tsx`, `ui/calendar.tsx` |
+| UserPicker | - | `api/users/route.ts` | - | `users/user-picker.tsx` |
 | AI Describe | - | `api/ai/describe/route.ts` | `use-ai-description.ts` | `post-metadata-form.tsx` |
 
 ## Embeds (Figma & Loom)
