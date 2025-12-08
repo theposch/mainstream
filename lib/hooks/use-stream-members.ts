@@ -66,6 +66,20 @@ export function useStreamMembers(
   
   // Track if we've initialized to prevent re-fetching when initial data changes
   const hasInitialized = useRef(!!initialData);
+  const previousStreamId = useRef(streamId);
+
+  // Reset state when streamId changes
+  useEffect(() => {
+    if (previousStreamId.current !== streamId) {
+      previousStreamId.current = streamId;
+      hasInitialized.current = false;
+      setMembers([]);
+      setMemberCount(0);
+      setCurrentUserRole(null);
+      setOwner(null);
+      setError(null);
+    }
+  }, [streamId]);
 
   // Fetch members from API
   const fetchMembers = useCallback(async () => {
@@ -128,16 +142,15 @@ export function useStreamMembers(
         throw new Error(data.error || 'Failed to add member');
       }
 
-      // Add to local state
+      // Add to local state (only if not already present)
       if (data.member) {
-        setMembers(prev => {
-          // Check if already exists
-          if (prev.some(m => m.user_id === data.member.user_id)) {
-            return prev;
-          }
-          return [...prev, data.member];
-        });
-        setMemberCount(prev => prev + 1);
+        // Check if already exists before updating state
+        const alreadyExists = members.some(m => m.user_id === data.member.user_id);
+        
+        if (!alreadyExists) {
+          setMembers(prev => [...prev, data.member]);
+          setMemberCount(prev => prev + 1);
+        }
       }
 
       return true;
@@ -148,7 +161,7 @@ export function useStreamMembers(
     } finally {
       setActionLoading(false);
     }
-  }, [streamId, actionLoading]);
+  }, [streamId, actionLoading, members]);
 
   // Remove a member from the stream
   const removeMember = useCallback(async (userId: string): Promise<boolean> => {

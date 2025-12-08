@@ -77,13 +77,29 @@ export async function GET(request: NextRequest) {
     // Filter by owner if provided
     if (ownerId && ownerType) {
       query = query.eq('owner_id', ownerId).eq('owner_type', ownerType);
-    }
-
-    // Show: public streams OR user's owned private streams OR streams user is a member of
-    if (memberStreamIds.length > 0) {
-      query = query.or(`is_private.eq.false,owner_id.eq.${user.id},id.in.(${memberStreamIds.join(',')})`);
+      
+      // When filtering by a specific owner:
+      // - Show public streams from that owner
+      // - Show private streams from that owner if user owns them OR is a member
+      if (ownerId === user.id) {
+        // User is viewing their own streams - show all (public and private)
+        // No additional filter needed since owner_id already matches user
+      } else {
+        // User is viewing someone else's streams - show public OR streams they're a member of
+        if (memberStreamIds.length > 0) {
+          query = query.or(`is_private.eq.false,id.in.(${memberStreamIds.join(',')})`);
+        } else {
+          query = query.eq('is_private', false);
+        }
+      }
     } else {
-      query = query.or(`is_private.eq.false,owner_id.eq.${user.id}`);
+      // No owner filter - show all accessible streams:
+      // Public streams OR user's private streams OR streams user is a member of
+      if (memberStreamIds.length > 0) {
+        query = query.or(`is_private.eq.false,owner_id.eq.${user.id},id.in.(${memberStreamIds.join(',')})`);
+      } else {
+        query = query.or(`is_private.eq.false,owner_id.eq.${user.id}`);
+      }
     }
 
     const { data: streams, error } = await query.order('created_at', { ascending: false });
