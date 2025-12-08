@@ -9,13 +9,18 @@ A design collaboration platform for internal teams to share work, organize into 
 
 ## Features
 
-- 📸 **Asset Sharing** - Upload images, GIFs, and Figma embeds
+- 📸 **Asset Sharing** - Upload images, GIFs, WebM videos, and Figma/Loom embeds
 - 🏷️ **Streams** - Organize content with many-to-many relationships
+- 🔒 **Private Streams** - Add members with role-based access (owner/admin/member)
+- ✏️ **Stream Editing** - Edit name, description, and privacy settings
 - 💬 **Comments & Likes** - Real-time engagement with notifications
 - 👥 **Following** - Follow users and streams for a personalized feed
 - 📰 **Drops** - AI-powered newsletters with block-based editor
+- 🗑️ **Draft Management** - Delete drafts from cards or editor
 - 🤖 **AI Descriptions** - Auto-generate descriptions using LiteLLM
 - 🔐 **Authentication** - Secure signup/login with Supabase Auth
+- 👁️ **View Tracking** - "Seen by X people" with viewer tooltips
+- 🔔 **Notification Settings** - Toggle notifications by type
 
 ## Quick Start (Local Development)
 
@@ -67,11 +72,19 @@ RESEND_API_KEY=your-resend-key
 ### 4. Run Migrations
 
 ```bash
-# Connect to local Supabase and run migrations
+# Run all migrations in order
+for f in scripts/migrations/*.sql; do
+  psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -f "$f"
+done
+```
+
+Or run individually:
+
+```bash
 psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" \
-  -f scripts/migrations/001_create_users.sql \
-  -f scripts/migrations/002_create_assets.sql
-  # ... run all migrations in order (001-025)
+  -f scripts/migrations/001_initial_schema.sql \
+  -f scripts/migrations/002_seed_data.sql
+  # ... continue through 033
 ```
 
 ### 5. Start Development Server
@@ -314,7 +327,7 @@ psql "postgresql://postgres:<password>@localhost:5432/postgres"
 # Run migrations
 \i scripts/migrations/001_create_users.sql
 \i scripts/migrations/002_create_assets.sql
-# ... continue through 025
+# ... continue through 033
 ```
 
 Or run all at once:
@@ -447,6 +460,13 @@ Migrations are in `scripts/migrations/` and should be run in order:
 | 023 | Auth user trigger (auto-create public.users) |
 | 024 | RLS policies for assets |
 | 025 | Asset visibility (public/unlisted) |
+| 026 | Video asset type (WebM support) |
+| 027 | Loom embed support |
+| 028 | User notification settings |
+| 029-030 | View count RPC functions |
+| 031 | Stream members table |
+| 032 | Stream members RLS policies |
+| 033 | Streams RLS for members visibility |
 
 ---
 
