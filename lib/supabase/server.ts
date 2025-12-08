@@ -1,4 +1,4 @@
-/**
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  /**
  * Supabase Server Client
  * 
  * Use this client in Server Components, Server Actions, and API Routes.
@@ -64,25 +64,16 @@ export async function createClient() {
  * Only use in server-side code for admin operations
  */
 export async function createAdminClient() {
-  const cookieStore = await cookies();
-
-  return createServerClient(
+  // Import directly to avoid SSR client issues with service role
+  const { createClient } = await import('@supabase/supabase-js');
+  
+  return createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
     {
-      cookies: {
-        getAll() {
-          return cookieStore.getAll();
-        },
-        setAll(cookiesToSet) {
-          try {
-            cookiesToSet.forEach(({ name, value, options }) => {
-              cookieStore.set(name, value, options);
-            });
-          } catch (error) {
-            // Ignore cookie errors in Server Components
-          }
-        },
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
       },
     }
   );

@@ -97,6 +97,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     }
 
     // Update target user's role
+    console.log('[PATCH /api/admin/users] Updating user:', targetUserId, 'to role:', newRole);
     const { data: updatedUser, error: updateError } = await supabase
       .from('users')
       .update({ platform_role: newRole })
@@ -106,11 +107,14 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
     if (updateError) {
       console.error('[PATCH /api/admin/users] Error updating user:', updateError);
+      console.error('[PATCH /api/admin/users] Error details:', JSON.stringify(updateError, null, 2));
       return NextResponse.json(
-        { error: 'Failed to update user role' },
+        { error: `Failed to update user role: ${updateError.message}` },
         { status: 500 }
       );
     }
+    
+    console.log('[PATCH /api/admin/users] Updated user:', updatedUser);
 
     return NextResponse.json({ user: updatedUser });
   } catch (error) {
