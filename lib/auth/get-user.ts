@@ -8,6 +8,9 @@
 import { createClient } from "@/lib/supabase/server";
 import { cache } from "react";
 
+// Platform role type for admin functionality
+export type PlatformRole = 'user' | 'admin' | 'owner';
+
 export interface User {
   id: string;
   username: string;
@@ -19,6 +22,7 @@ export interface User {
   location?: string;
   teamId?: string;
   createdAt: string;
+  platformRole?: PlatformRole;
 }
 
 /**
@@ -58,6 +62,7 @@ export const getCurrentUser = cache(async (): Promise<User | null> => {
         jobTitle: undefined,
         teamId: undefined,
         createdAt: authUser.created_at,
+        platformRole: 'user',
       };
     }
 
@@ -66,13 +71,14 @@ export const getCurrentUser = cache(async (): Promise<User | null> => {
       id: userProfile.id,
       username: userProfile.username,
       displayName: userProfile.display_name,
-    email: userProfile.email,
-    avatarUrl: userProfile.avatar_url,
-    bio: userProfile.bio,
-    jobTitle: userProfile.job_title,
+      email: userProfile.email,
+      avatarUrl: userProfile.avatar_url,
+      bio: userProfile.bio,
+      jobTitle: userProfile.job_title,
       location: userProfile.location,
       teamId: userProfile.team_id,
       createdAt: userProfile.created_at,
+      platformRole: userProfile.platform_role || 'user',
     };
   } catch (error) {
     console.error('Error getting current user:', error);

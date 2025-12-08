@@ -73,6 +73,7 @@ export function useUser(): UseUserReturn {
             email: authUser.email || '',
             avatarUrl: `https://avatar.vercel.sh/${avatarIdentifier}.png`,
             createdAt: authUser.created_at,
+            platformRole: 'user',
           })
           setLoading(false)
           return
@@ -90,6 +91,7 @@ export function useUser(): UseUserReturn {
           location: userProfile.location,
           teamId: userProfile.team_id,
           createdAt: userProfile.created_at,
+          platformRole: userProfile.platform_role || 'user',
         })
         setLoading(false)
       } catch (err) {
