@@ -174,6 +174,11 @@ export function CreateDropDialog({ open, onOpenChange }: CreateDropDialogProps) 
                   popoverClassName="z-[60]"
                 />
               </div>
+              {dateStart && dateEnd && (
+                <p className="text-xs text-muted-foreground">
+                  Showing posts from {format(dateStart, "MMM d, yyyy")} to {format(dateEnd, "MMM d, yyyy")}
+                </p>
+              )}
             </div>
 
             {/* Stream filter */}
