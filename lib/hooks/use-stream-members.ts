@@ -26,10 +26,18 @@ export interface StreamMember {
   user: Pick<User, 'id' | 'username' | 'display_name' | 'avatar_url'>;
 }
 
+export interface StreamOwner {
+  id: string;
+  username: string;
+  display_name: string | null;
+  avatar_url: string | null;
+}
+
 export interface InitialMembersData {
   members: StreamMember[];
   memberCount: number;
   currentUserRole: 'owner' | 'admin' | 'member' | null;
+  owner: StreamOwner | null;
 }
 
 interface UseStreamMembersReturn extends InitialMembersData {
@@ -51,6 +59,7 @@ export function useStreamMembers(
   const [currentUserRole, setCurrentUserRole] = useState<'owner' | 'admin' | 'member' | null>(
     initialData?.currentUserRole ?? null
   );
+  const [owner, setOwner] = useState<StreamOwner | null>(initialData?.owner ?? null);
   const [loading, setLoading] = useState(!initialData);
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -73,6 +82,7 @@ export function useStreamMembers(
         setMembers(data.members || []);
         setMemberCount(data.memberCount || 0);
         setCurrentUserRole(data.currentUserRole || null);
+        setOwner(data.owner || null);
         hasInitialized.current = true;
       } else {
         const errorData = await response.json().catch(() => ({}));
@@ -181,12 +191,13 @@ export function useStreamMembers(
     members,
     memberCount,
     currentUserRole,
+    owner,
     addMember,
     removeMember,
     loading,
     actionLoading,
     error,
     refetch: fetchMembers,
-  }), [members, memberCount, currentUserRole, addMember, removeMember, loading, actionLoading, error, fetchMembers]);
+  }), [members, memberCount, currentUserRole, owner, addMember, removeMember, loading, actionLoading, error, fetchMembers]);
 }
 

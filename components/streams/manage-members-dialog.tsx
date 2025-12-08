@@ -48,6 +48,7 @@ export function ManageMembersDialog({
     members,
     memberCount,
     currentUserRole,
+    owner,
     addMember,
     removeMember,
     loading,
@@ -242,16 +243,33 @@ export function ManageMembersDialog({
                 {/* Stream Owner (always shown first, cannot be removed) */}
                 <div className="flex items-center justify-between p-3 bg-muted/30">
                   <div className="flex items-center gap-3">
-                    <Avatar className="h-8 w-8">
+                    <Avatar className="h-8 w-8 ring-2 ring-amber-500/30">
+                      {owner?.avatar_url ? (
+                        <AvatarImage 
+                          src={owner.avatar_url} 
+                          alt={owner.display_name || owner.username} 
+                        />
+                      ) : null}
                       <AvatarFallback className="text-xs bg-amber-500/10 text-amber-600">
-                        <Crown className="h-4 w-4" />
+                        {owner 
+                          ? (owner.display_name || owner.username)?.substring(0, 2).toUpperCase()
+                          : <Crown className="h-4 w-4" />
+                        }
                       </AvatarFallback>
                     </Avatar>
                     <div className="flex flex-col">
-                      <span className="text-sm font-medium">Stream Owner</span>
+                      <span className="text-sm font-medium">
+                        {owner?.display_name || owner?.username || 'Stream Owner'}
+                      </span>
                       <div className="flex items-center gap-1 text-xs text-muted-foreground">
                         {getRoleIcon('owner')}
                         <span>{getRoleLabel('owner')}</span>
+                        {owner?.username && (
+                          <>
+                            <span>•</span>
+                            <span>@{owner.username}</span>
+                          </>
+                        )}
                       </div>
                     </div>
                   </div>

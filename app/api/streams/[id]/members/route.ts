@@ -101,6 +101,13 @@ export async function GET(
       );
     }
 
+    // Fetch owner's user data
+    const { data: ownerUser } = await supabase
+      .from('users')
+      .select('id, username, display_name, avatar_url')
+      .eq('id', stream.owner_id)
+      .single();
+
     // Determine current user's role
     let currentUserRole: string | null = null;
     if (currentUser) {
@@ -117,6 +124,7 @@ export async function GET(
       memberCount: members?.length || 0,
       currentUserRole,
       streamId: stream.id,
+      owner: ownerUser || null,
     });
   } catch (error) {
     console.error('[GET /api/streams/[id]/members] Error:', error);
