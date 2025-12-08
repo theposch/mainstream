@@ -154,6 +154,7 @@ export interface Drop {
   filter_user_ids: string[] | null;
   is_weekly: boolean;
   use_blocks: boolean; // Whether this drop uses the block-based editor
+  show_date_range: boolean; // Whether to display date range in the drop
   created_at: string;
   updated_at: string;
   // Joined data

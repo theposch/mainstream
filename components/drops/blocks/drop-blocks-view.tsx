@@ -19,6 +19,7 @@ interface DropBlocksViewProps {
   isEditing?: boolean;
   dateRangeStart?: string;
   dateRangeEnd?: string;
+  showDateRange?: boolean;
 }
 
 // Styles for email compatibility
@@ -85,10 +86,11 @@ export function DropBlocksView({
   isEditing = false,
   dateRangeStart,
   dateRangeEnd,
+  showDateRange = true,
 }: DropBlocksViewProps) {
   const postCount = countPosts(blocks);
   const contributorNames = formatContributorNames(contributors);
-  const dateRange = formatDateRange(dateRangeStart, dateRangeEnd);
+  const dateRange = showDateRange ? formatDateRange(dateRangeStart, dateRangeEnd) : null;
 
   return (
     <Container style={styles.container}>
