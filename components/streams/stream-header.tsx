@@ -11,13 +11,16 @@ import {
   Trash2, 
   Check, 
   Loader2, 
-  X, 
+  X,
+  Users,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useStreamFollow, type InitialFollowData } from "@/lib/hooks/use-stream-follow";
 import { useStreamBookmarks, extractDomain, getFaviconUrl, type BookmarkWithCreator } from "@/lib/hooks/use-stream-bookmarks";
 import { UploadDialog } from "@/components/layout/upload-dialog";
 import { AddBookmarkDialog } from "@/components/streams/add-bookmark-dialog";
+import { ManageMembersDialog } from "@/components/streams/manage-members-dialog";
+import { useStreamMembers, type InitialMembersData } from "@/lib/hooks/use-stream-members";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -43,6 +46,8 @@ interface StreamHeaderProps {
   initialFollowData?: InitialFollowData;
   /** Server-prefetched bookmarks - avoids client-side fetch */
   initialBookmarks?: BookmarkWithCreator[];
+  /** Server-prefetched members data - avoids client-side fetch for private streams */
+  initialMembersData?: InitialMembersData;
   /** Server-prefetched current user - avoids client-side fetch */
   currentUser?: User | null;
 }
@@ -51,6 +56,7 @@ export const StreamHeader = React.memo(function StreamHeader({
   stream, 
   initialFollowData,
   initialBookmarks,
+  initialMembersData,
   currentUser,
 }: StreamHeaderProps) {
   const router = useRouter();
@@ -58,6 +64,7 @@ export const StreamHeader = React.memo(function StreamHeader({
   const [isDeleting, setIsDeleting] = React.useState(false);
   const [uploadDialogOpen, setUploadDialogOpen] = React.useState(false);
   const [addBookmarkDialogOpen, setAddBookmarkDialogOpen] = React.useState(false);
+  const [manageMembersDialogOpen, setManageMembersDialogOpen] = React.useState(false);
   
   // Use stream follow hook with server-prefetched initial data
   const { 
@@ -75,6 +82,12 @@ export const StreamHeader = React.memo(function StreamHeader({
     addBookmark,
     deleteBookmark,
   } = useStreamBookmarks(stream.id, initialBookmarks);
+
+  // Use stream members hook for private streams
+  const {
+    memberCount,
+    currentUserRole,
+  } = useStreamMembers(stream.id, initialMembersData);
 
   // Track window width for responsive bookmark display
   // Start with null to avoid SSR hydration mismatch, then set on client
@@ -165,6 +178,10 @@ export const StreamHeader = React.memo(function StreamHeader({
     setAddBookmarkDialogOpen(true);
   }, []);
 
+  const handleOpenManageMembersDialog = React.useCallback(() => {
+    setManageMembersDialogOpen(true);
+  }, []);
+
   const handleAddBookmark = React.useCallback(async (url: string, title?: string): Promise<boolean> => {
     const result = await addBookmark(url, title);
     return result !== null;
@@ -210,6 +227,18 @@ export const StreamHeader = React.memo(function StreamHeader({
           {/* Stats - inline text */}
           <div className="flex items-center gap-1.5 text-sm text-muted-foreground pt-1">
             <span>{stream.is_private ? 'Private' : 'Public'}</span>
+            {/* Member count - only for private streams */}
+            {stream.is_private && (
+              <>
+                <span>•</span>
+                <span 
+                  className="cursor-pointer hover:text-foreground transition-colors"
+                  onClick={handleOpenManageMembersDialog}
+                >
+                  {memberCount + 1} {memberCount + 1 === 1 ? 'member' : 'members'}
+                </span>
+              </>
+            )}
             <span>•</span>
             <span className="relative group/contributors cursor-default hover:text-foreground transition-colors">
               {contributorCount} {contributorCount === 1 ? 'contributor' : 'contributors'}
@@ -272,6 +301,16 @@ export const StreamHeader = React.memo(function StreamHeader({
                 <Share className="h-4 w-4 mr-2" />
                 Share Stream
               </DropdownMenuItem>
+              {/* Manage Members - only for private streams, owner or admin */}
+              {stream.is_private && (currentUserRole === 'owner' || currentUserRole === 'admin' || canDelete) && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={handleOpenManageMembersDialog}>
+                    <Users className="h-4 w-4 mr-2" />
+                    Manage Members
+                  </DropdownMenuItem>
+                </>
+              )}
               {canDelete && (
                 <>
                   <DropdownMenuSeparator />
@@ -461,6 +500,16 @@ export const StreamHeader = React.memo(function StreamHeader({
         onOpenChange={setAddBookmarkDialogOpen}
         onSubmit={handleAddBookmark}
       />
+
+      {/* Manage Members Dialog - for private streams */}
+      {stream.is_private && (
+        <ManageMembersDialog
+          open={manageMembersDialogOpen}
+          onOpenChange={setManageMembersDialogOpen}
+          streamId={stream.id}
+          streamOwnerId={stream.owner_id}
+        />
+      )}
     </div>
   );
 });

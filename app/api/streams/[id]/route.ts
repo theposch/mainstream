@@ -58,8 +58,20 @@ export async function GET(request: NextRequest, context: RouteContext) {
         );
       }
 
-      // Check if user is owner or team member
-      const hasAccess = stream.owner_id === user.id;
+      // Check if user is owner or a member
+      let hasAccess = stream.owner_id === user.id;
+
+      if (!hasAccess) {
+        // Check stream_members table
+        const { data: membership } = await supabase
+          .from('stream_members')
+          .select('role')
+          .eq('stream_id', stream.id)
+          .eq('user_id', user.id)
+          .single();
+
+        hasAccess = !!membership;
+      }
 
       if (!hasAccess) {
         return NextResponse.json(

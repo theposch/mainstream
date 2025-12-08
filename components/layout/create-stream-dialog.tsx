@@ -24,17 +24,14 @@ export function CreateStreamDialog({ open, onOpenChange }: CreateStreamDialogPro
   const [error, setError] = React.useState<string | null>(null);
   const [isOffline, setIsOffline] = React.useState(false);
   
-  // User and teams state
+  // User state
   const [currentUser, setCurrentUser] = React.useState<any>(null);
-  const [userTeams, setUserTeams] = React.useState<any[]>([]);
   const [isLoadingUser, setIsLoadingUser] = React.useState(true);
   
   // Form state
   const [name, setName] = React.useState("");
   const [description, setDescription] = React.useState("");
   const [isPrivate, setIsPrivate] = React.useState(false);
-  const [ownerType, setOwnerType] = React.useState<"user" | "team">("user");
-  const [ownerId, setOwnerId] = React.useState("");
 
   // Slug validation state
   const [validationState, setValidationState] = React.useState<{
@@ -44,18 +41,16 @@ export function CreateStreamDialog({ open, onOpenChange }: CreateStreamDialogPro
   }>({ isValid: false, message: '', type: 'idle' });
   const [debouncedName, setDebouncedName] = React.useState("");
 
-  // Fetch current user and teams
+  // Fetch current user
   React.useEffect(() => {
     if (!open) return;
     
-    const fetchUserAndTeams = async () => {
+    const fetchUser = async () => {
       setIsLoadingUser(true);
       try {
-        // Get authenticated user
         const { data: { user: authUser } } = await supabase.auth.getUser();
         
         if (authUser) {
-          // Fetch user profile
           const { data: userProfile } = await supabase
             .from('users')
             .select('*')
@@ -64,30 +59,16 @@ export function CreateStreamDialog({ open, onOpenChange }: CreateStreamDialogPro
           
           if (userProfile) {
             setCurrentUser(userProfile);
-            setOwnerId(userProfile.id);
-            
-            // Fetch user's teams
-            const { data: teamMemberships } = await supabase
-              .from('team_members')
-              .select('team:teams(*)')
-              .eq('user_id', userProfile.id);
-            
-            if (teamMemberships) {
-              const teams = teamMemberships
-                .map((m: any) => m.team)
-                .filter(Boolean);
-              setUserTeams(teams);
-            }
           }
         }
       } catch (error) {
-        console.error('[CreateStreamDialog] Failed to fetch user/teams:', error);
+        console.error('[CreateStreamDialog] Failed to fetch user:', error);
       } finally {
         setIsLoadingUser(false);
       }
     };
     
-    fetchUserAndTeams();
+    fetchUser();
   }, [open, supabase]);
 
   // Monitor online status
@@ -190,14 +171,10 @@ export function CreateStreamDialog({ open, onOpenChange }: CreateStreamDialogPro
       setName("");
       setDescription("");
       setIsPrivate(false);
-      setOwnerType("user");
-      if (currentUser) {
-        setOwnerId(currentUser.id);
-      }
       setError(null);
       setValidationState({ isValid: false, message: '', type: 'idle' });
     }
-  }, [open, currentUser]);
+  }, [open]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -250,8 +227,8 @@ export function CreateStreamDialog({ open, onOpenChange }: CreateStreamDialogPro
               name: trimmedName,
               description: description.trim() || undefined,
               is_private: isPrivate,
-              owner_type: ownerType,
-              owner_id: ownerId,
+              owner_type: "user",
+              owner_id: currentUser?.id,
               status: 'active',
             }),
           },
@@ -284,17 +261,17 @@ export function CreateStreamDialog({ open, onOpenChange }: CreateStreamDialogPro
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="bg-popover border-border sm:max-w-[500px]">
-          <DialogHeader>
-            <DialogTitle className="text-foreground flex items-center gap-2" id="create-stream-title">
-              <Hash className="h-5 w-5" />
-              Create New Stream
-            </DialogTitle>
-            <DialogDescription className="text-muted-foreground" id="create-stream-description">
-              Create a stream to organize and tag your design work
-            </DialogDescription>
-          </DialogHeader>
-        <form onSubmit={handleSubmit} aria-labelledby="create-stream-title" aria-describedby="create-stream-description">
-
+        <DialogHeader>
+          <DialogTitle className="text-foreground flex items-center gap-2">
+            <Hash className="h-5 w-5" />
+            Create New Stream
+          </DialogTitle>
+          <DialogDescription className="text-muted-foreground">
+            Create a stream to organize and tag your design work
+          </DialogDescription>
+        </DialogHeader>
+        
+        <form onSubmit={handleSubmit}>
           <div className="grid gap-4 py-4">
             {/* Offline Warning */}
             {isOffline && (
@@ -307,7 +284,8 @@ export function CreateStreamDialog({ open, onOpenChange }: CreateStreamDialogPro
                 <span>You're offline. Check your connection to create streams.</span>
               </div>
             )}
-            {            /* Stream Name */}
+            
+            {/* Stream Name */}
             <div className="grid gap-2">
               <Label htmlFor="stream-name" className="text-foreground">
                 Stream Name <span className="text-red-500">*</span>
@@ -371,36 +349,6 @@ export function CreateStreamDialog({ open, onOpenChange }: CreateStreamDialogPro
               >
                 {description.length}/{STREAM_VALIDATION.MAX_STREAM_DESCRIPTION_LENGTH} characters
               </p>
-            </div>
-
-            {/* Workspace Selection */}
-            <div className="grid gap-2">
-              <Label htmlFor="workspace" className="text-foreground">
-                Workspace
-              </Label>
-              <select
-                id="workspace"
-                value={ownerType === "user" && currentUser ? currentUser.id : ownerId}
-                onChange={(e) => {
-                  const value = e.target.value;
-                  if (currentUser && value === currentUser.id) {
-                    setOwnerType("user");
-                    setOwnerId(currentUser.id);
-                  } else {
-                    setOwnerType("team");
-                    setOwnerId(value);
-                  }
-                }}
-                className="flex h-10 w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
-                disabled={isLoading || isLoadingUser || !currentUser}
-              >
-                {currentUser && <option value={currentUser.id}>Personal</option>}
-                {userTeams.map((team) => (
-                  <option key={team.id} value={team.id}>
-                    {team.name}
-                  </option>
-                ))}
-              </select>
             </div>
 
             {/* Privacy Toggle */}

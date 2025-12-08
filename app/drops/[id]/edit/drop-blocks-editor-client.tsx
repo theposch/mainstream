@@ -1,12 +1,20 @@
 "use client";
 
 import * as React from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
-import { ArrowLeft, Sparkles, Loader2, Eye, Pencil, Mail } from "lucide-react";
+import { ArrowLeft, Sparkles, Loader2, Eye, Pencil, Mail, MoreHorizontal, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { BlockEditor, DropBlocksView } from "@/components/drops/blocks";
 import { DropPublishDialog } from "@/components/drops/drop-publish-dialog";
+import { DeleteDropDialog } from "@/components/drops/delete-drop-dialog";
 import type { Drop, DropBlock, Asset, User } from "@/lib/types/database";
 
 interface DropBlocksEditorClientProps {
@@ -22,6 +30,7 @@ export function DropBlocksEditorClient({
   initialContributors,
   availableAssets,
 }: DropBlocksEditorClientProps) {
+  const router = useRouter();
   const [blocks, setBlocks] = React.useState(initialBlocks);
   const [contributors, setContributors] = React.useState(initialContributors);
   const [title, setTitle] = React.useState(drop.title);
@@ -29,7 +38,13 @@ export function DropBlocksEditorClient({
   const [isSaving, setIsSaving] = React.useState(false);
   const [isGenerating, setIsGenerating] = React.useState(false);
   const [publishDialogOpen, setPublishDialogOpen] = React.useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false);
   const [showPreview, setShowPreview] = React.useState(false);
+
+  // Handle successful deletion - redirect to drafts list
+  const handleDeleted = React.useCallback(() => {
+    router.push("/drops?tab=drafts");
+  }, [router]);
 
   // Update contributors when blocks change
   React.useEffect(() => {
@@ -175,6 +190,25 @@ export function DropBlocksEditorClient({
             >
               Publish
             </Button>
+            
+            {/* More options menu */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-9 w-9">
+                  <MoreHorizontal className="h-4 w-4" />
+                  <span className="sr-only">More options</span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem
+                  onClick={() => setDeleteDialogOpen(true)}
+                  className="text-destructive focus:text-destructive"
+                >
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Delete Draft
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
       </div>
@@ -334,6 +368,15 @@ export function DropBlocksEditorClient({
         onOpenChange={setPublishDialogOpen}
         dropId={drop.id}
         dropTitle={title}
+      />
+
+      {/* Delete confirmation dialog */}
+      <DeleteDropDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        dropId={drop.id}
+        dropTitle={title}
+        onDeleted={handleDeleted}
       />
     </div>
   );

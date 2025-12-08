@@ -10,9 +10,15 @@ interface DropsGridProps {
     post_count?: number;
     preview_images?: string[];
   }>;
+  currentUserId?: string;
+  onDropDeleted?: (dropId: string) => void;
 }
 
-export function DropsGrid({ drops }: DropsGridProps) {
+export const DropsGrid = React.memo(function DropsGrid({ 
+  drops,
+  currentUserId,
+  onDropDeleted,
+}: DropsGridProps) {
   if (drops.length === 0) {
     return (
       <div className="text-center py-16">
@@ -27,9 +33,13 @@ export function DropsGrid({ drops }: DropsGridProps) {
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
       {drops.map((drop) => (
-        <DropCard key={drop.id} drop={drop} />
+        <DropCard 
+          key={drop.id} 
+          drop={drop}
+          currentUserId={currentUserId}
+          onDelete={onDropDeleted}
+        />
       ))}
     </div>
   );
-}
-
+});
