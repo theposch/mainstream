@@ -70,7 +70,7 @@ export function ManageMembersDialog({
     }
   }, [open, refetch]);
 
-  // Debounced search
+  // Debounced search with cancellation support
   React.useEffect(() => {
     if (searchTimeoutRef.current) {
       clearTimeout(searchTimeoutRef.current);
@@ -83,10 +83,20 @@ export function ManageMembersDialog({
     }
 
     setIsSearching(true);
+    
+    // Track if effect was cleaned up to prevent state updates on unmounted component
+    let isCancelled = false;
+    const abortController = new AbortController();
 
     searchTimeoutRef.current = setTimeout(async () => {
       try {
-        const response = await fetch(`/api/users?search=${encodeURIComponent(searchQuery)}&limit=10`);
+        const response = await fetch(
+          `/api/users?search=${encodeURIComponent(searchQuery)}&limit=10`,
+          { signal: abortController.signal }
+        );
+        
+        if (isCancelled) return;
+        
         if (response.ok) {
           const data = await response.json();
           // Filter out users who are already members or the owner
@@ -97,16 +107,25 @@ export function ManageMembersDialog({
           const filteredUsers = (data.users || []).filter(
             (user: SearchUser) => !existingMemberIds.has(user.id)
           );
-          setSearchResults(filteredUsers);
+          
+          if (!isCancelled) {
+            setSearchResults(filteredUsers);
+          }
         }
       } catch (err) {
+        // Ignore abort errors
+        if (err instanceof Error && err.name === 'AbortError') return;
         console.error('[ManageMembersDialog] Search error:', err);
       } finally {
-        setIsSearching(false);
+        if (!isCancelled) {
+          setIsSearching(false);
+        }
       }
     }, 300);
 
     return () => {
+      isCancelled = true;
+      abortController.abort();
       if (searchTimeoutRef.current) {
         clearTimeout(searchTimeoutRef.current);
       }

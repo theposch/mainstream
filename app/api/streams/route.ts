@@ -12,6 +12,10 @@ import { createClient } from '@/lib/supabase/server';
 
 export const dynamic = 'force-dynamic';
 
+// UUID validation regex
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const isValidUUID = (id: string): boolean => UUID_REGEX.test(id);
+
 /**
  * GET /api/streams
  * 
@@ -66,7 +70,9 @@ export async function GET(request: NextRequest) {
       .select('stream_id')
       .eq('user_id', user.id);
 
-    const memberStreamIds = membershipData?.map(m => m.stream_id) || [];
+    // Validate UUIDs to prevent SQL injection in OR clause
+    const memberStreamIds = (membershipData?.map(m => m.stream_id) || [])
+      .filter(id => isValidUUID(id));
 
     // Build query for all accessible streams
     let query = supabase

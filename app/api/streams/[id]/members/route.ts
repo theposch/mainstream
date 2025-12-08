@@ -231,14 +231,16 @@ export async function POST(
       );
     }
 
-    // Add member
-    const { error: insertError } = await supabase
+    // Add member and return the created row to get actual DB timestamp
+    const { data: newMember, error: insertError } = await supabase
       .from('stream_members')
       .insert({
         stream_id: stream.id,
         user_id,
         role,
-      });
+      })
+      .select('user_id, role, joined_at')
+      .single();
 
     // If already a member, fetch actual membership and return it (idempotent)
     if (insertError?.code === '23505') {
@@ -260,7 +262,7 @@ export async function POST(
       });
     }
 
-    if (insertError) {
+    if (insertError || !newMember) {
       console.error('[POST /api/streams/[id]/members] Error:', insertError);
       return NextResponse.json(
         { error: 'Failed to add member' },
@@ -271,9 +273,9 @@ export async function POST(
     return NextResponse.json({ 
       success: true,
       member: {
-        user_id,
-        role,
-        joined_at: new Date().toISOString(),
+        user_id: newMember.user_id,
+        role: newMember.role,
+        joined_at: newMember.joined_at,
         user: targetUser
       }
     }, { status: 201 });

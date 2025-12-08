@@ -11,7 +11,7 @@ import { STREAM_VALIDATION } from "@/lib/constants/streams";
 import { fetchWithRetry, getUserFriendlyErrorMessage, isOnline, deduplicatedRequest } from "@/lib/utils/api";
 import { isValidSlug } from "@/lib/utils/slug";
 import { createClient } from "@/lib/supabase/client";
-import type { Stream } from "@/lib/types/database";
+import type { Stream, User } from "@/lib/types/database";
 
 interface StreamDialogProps {
   open: boolean;
@@ -38,8 +38,9 @@ export function StreamDialog({
   const [isOffline, setIsOffline] = React.useState(false);
   
   // User state
-  const [currentUser, setCurrentUser] = React.useState<any>(null);
+  const [currentUser, setCurrentUser] = React.useState<User | null>(null);
   const [isLoadingUser, setIsLoadingUser] = React.useState(true);
+  const [userFetchError, setUserFetchError] = React.useState(false);
   
   // Form state
   const [name, setName] = React.useState("");
@@ -65,22 +66,30 @@ export function StreamDialog({
     
     const fetchUser = async () => {
       setIsLoadingUser(true);
+      setUserFetchError(false);
       try {
         const { data: { user: authUser } } = await supabase.auth.getUser();
         
         if (authUser) {
-          const { data: userProfile } = await supabase
+          const { data: userProfile, error: profileError } = await supabase
             .from('users')
             .select('*')
             .eq('id', authUser.id)
             .single();
           
-          if (userProfile) {
-            setCurrentUser(userProfile);
+          if (profileError) {
+            console.error('[StreamDialog] Failed to fetch user profile:', profileError);
+            setUserFetchError(true);
+          } else if (userProfile) {
+            setCurrentUser(userProfile as User);
           }
+        } else {
+          // Not authenticated
+          setUserFetchError(true);
         }
       } catch (error) {
         console.error('[StreamDialog] Failed to fetch user:', error);
+        setUserFetchError(true);
       } finally {
         setIsLoadingUser(false);
       }
@@ -212,6 +221,7 @@ export function StreamDialog({
       setDescription("");
       setIsPrivate(false);
       setError(null);
+      setUserFetchError(false);
       setValidationState({ isValid: false, message: '', type: 'idle' });
       originalName.current = "";
     }
@@ -389,6 +399,17 @@ export function StreamDialog({
               >
                 <WifiOff className="h-4 w-4" aria-hidden="true" />
                 <span>You're offline. Check your connection to {isEditMode ? 'save changes' : 'create streams'}.</span>
+              </div>
+            )}
+
+            {/* User Fetch Error Warning - only in create mode */}
+            {!isEditMode && userFetchError && !isLoadingUser && (
+              <div 
+                className="flex items-center gap-2 rounded-md bg-destructive/10 p-3 text-sm text-destructive"
+                role="alert"
+                aria-live="polite"
+              >
+                <span>Unable to verify your account. Please refresh the page and try again.</span>
               </div>
             )}
             
