@@ -89,7 +89,7 @@ export function useStreamMembers(
     setError(null);
     
     try {
-      const response = await fetch(`/api/streams/${streamId}/members`);
+      const response = await fetch(`/api/streams/${encodeURIComponent(streamId)}/members`);
       
       if (response.ok) {
         const data = await response.json();
@@ -128,7 +128,7 @@ export function useStreamMembers(
     setError(null);
 
     try {
-      const response = await fetch(`/api/streams/${streamId}/members`, {
+      const response = await fetch(`/api/streams/${encodeURIComponent(streamId)}/members`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -186,7 +186,7 @@ export function useStreamMembers(
     setMemberCount(prev => Math.max(0, prev - 1));
 
     try {
-      const response = await fetch(`/api/streams/${streamId}/members?user_id=${userId}`, {
+      const response = await fetch(`/api/streams/${encodeURIComponent(streamId)}/members?user_id=${encodeURIComponent(userId)}`, {
         method: 'DELETE',
       });
 
