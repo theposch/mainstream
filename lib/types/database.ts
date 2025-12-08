@@ -5,6 +5,9 @@
  * These match the Supabase database schema
  */
 
+// Platform role type for admin functionality
+export type PlatformRole = 'user' | 'admin' | 'owner';
+
 // User type (must be defined before Asset which references it)
 export interface User {
   id: string;
@@ -17,6 +20,8 @@ export interface User {
   location?: string;
   created_at: string;
   updated_at?: string;
+  // Platform role for admin functionality
+  platform_role?: PlatformRole;
   // Integrations
   figma_access_token?: string;
   figma_token_updated_at?: string;
