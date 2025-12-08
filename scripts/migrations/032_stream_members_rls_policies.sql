@@ -5,13 +5,62 @@
 -- Date: 2025-12-08
 -- Issue: stream_members table has RLS enabled but no policies, blocking inserts
 --
+-- NOTE: Uses SECURITY DEFINER functions to avoid infinite recursion when
+-- checking membership within policies on the same table.
+--
 -- Usage:
---   docker-compose -f supabase-docker/docker-compose.yml exec -T db psql -U postgres -d postgres < scripts/migrations/032_stream_members_rls_policies.sql
+--   docker exec -i supabase_db_cosmos psql -U postgres -d postgres < scripts/migrations/032_stream_members_rls_policies.sql
 -- ============================================================================
 
 BEGIN;
 
+-- ============================================================================
+-- HELPER FUNCTIONS (SECURITY DEFINER to bypass RLS and avoid recursion)
+-- ============================================================================
+
+-- Check if user is a member of a stream
+CREATE OR REPLACE FUNCTION is_stream_member(p_stream_id UUID, p_user_id UUID)
+RETURNS BOOLEAN
+LANGUAGE SQL
+SECURITY DEFINER
+STABLE
+AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM stream_members 
+    WHERE stream_id = p_stream_id AND user_id = p_user_id
+  );
+$$;
+
+-- Check if user owns a stream
+CREATE OR REPLACE FUNCTION is_stream_owner(p_stream_id UUID, p_user_id UUID)
+RETURNS BOOLEAN
+LANGUAGE SQL
+SECURITY DEFINER
+STABLE
+AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM streams 
+    WHERE id = p_stream_id AND owner_id = p_user_id
+  );
+$$;
+
+-- Check if user is an admin of a stream
+CREATE OR REPLACE FUNCTION is_stream_admin(p_stream_id UUID, p_user_id UUID)
+RETURNS BOOLEAN
+LANGUAGE SQL
+SECURITY DEFINER
+STABLE
+AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM stream_members 
+    WHERE stream_id = p_stream_id AND user_id = p_user_id AND role = 'admin'
+  );
+$$;
+
+-- ============================================================================
 -- Ensure RLS is enabled
+-- ============================================================================
+
 ALTER TABLE stream_members ENABLE ROW LEVEL SECURITY;
 
 -- ============================================================================
@@ -24,13 +73,13 @@ CREATE POLICY "Users can view stream members"
   TO authenticated
   USING (
     -- User owns the stream
-    stream_id IN (SELECT id FROM streams WHERE owner_id = auth.uid())
+    is_stream_owner(stream_id, auth.uid())
     OR
     -- User is viewing their own membership row
     user_id = auth.uid()
     OR
-    -- User is viewing members of a stream they're also a member of
-    stream_id IN (SELECT stream_id FROM stream_members WHERE user_id = auth.uid())
+    -- User is a member of this stream
+    is_stream_member(stream_id, auth.uid())
   );
 
 -- ============================================================================
@@ -42,20 +91,9 @@ CREATE POLICY "Stream owners and admins can add members"
   ON stream_members FOR INSERT
   TO authenticated
   WITH CHECK (
-    -- User is the stream owner
-    EXISTS (
-      SELECT 1 FROM streams 
-      WHERE streams.id = stream_members.stream_id 
-      AND streams.owner_id = auth.uid()
-    )
+    is_stream_owner(stream_id, auth.uid())
     OR
-    -- Or user is an admin of the stream
-    EXISTS (
-      SELECT 1 FROM stream_members sm2 
-      WHERE sm2.stream_id = stream_members.stream_id 
-      AND sm2.user_id = auth.uid() 
-      AND sm2.role = 'admin'
-    )
+    is_stream_admin(stream_id, auth.uid())
   );
 
 -- ============================================================================
@@ -67,23 +105,12 @@ CREATE POLICY "Stream owners and admins can remove members"
   ON stream_members FOR DELETE
   TO authenticated
   USING (
-    -- User is the stream owner
-    EXISTS (
-      SELECT 1 FROM streams 
-      WHERE streams.id = stream_members.stream_id 
-      AND streams.owner_id = auth.uid()
-    )
+    is_stream_owner(stream_id, auth.uid())
     OR
-    -- Or user is an admin of the stream
-    EXISTS (
-      SELECT 1 FROM stream_members sm2 
-      WHERE sm2.stream_id = stream_members.stream_id 
-      AND sm2.user_id = auth.uid() 
-      AND sm2.role = 'admin'
-    )
+    is_stream_admin(stream_id, auth.uid())
     OR
-    -- Or user is removing themselves
-    stream_members.user_id = auth.uid()
+    -- Users can remove themselves (leave stream)
+    user_id = auth.uid()
   );
 
 -- ============================================================================
@@ -94,21 +121,8 @@ DROP POLICY IF EXISTS "Stream owners can update member roles" ON stream_members;
 CREATE POLICY "Stream owners can update member roles"
   ON stream_members FOR UPDATE
   TO authenticated
-  USING (
-    -- Only stream owners can update roles
-    EXISTS (
-      SELECT 1 FROM streams 
-      WHERE streams.id = stream_members.stream_id 
-      AND streams.owner_id = auth.uid()
-    )
-  )
-  WITH CHECK (
-    EXISTS (
-      SELECT 1 FROM streams 
-      WHERE streams.id = stream_members.stream_id 
-      AND streams.owner_id = auth.uid()
-    )
-  );
+  USING (is_stream_owner(stream_id, auth.uid()))
+  WITH CHECK (is_stream_owner(stream_id, auth.uid()));
 
 COMMIT;
 
@@ -122,5 +136,9 @@ COMMIT;
 -- WHERE tablename = 'stream_members';
 --
 -- Expected: 4 policies (SELECT, INSERT, DELETE, UPDATE)
+--
+-- Test as authenticated user:
+-- SET ROLE authenticated;
+-- SET request.jwt.claims TO '{"sub": "your-user-id"}';
+-- SELECT * FROM stream_members WHERE stream_id = 'your-stream-id';
 -- ============================================================================
-
