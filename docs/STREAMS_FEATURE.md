@@ -13,6 +13,8 @@
 - ✅ **Contributor Tooltip** - Hover to see who has posted to the stream
 - ✅ **Two-Row Header** - Clean layout with title, metadata, and bookmarks
 - ✅ **Multiple Asset Types** - Images, animated GIFs, and Figma embeds all belong to streams
+- ✅ **Private Stream Members** - Add/remove users to private streams
+- ✅ **Stream Editing** - Edit name, description, and privacy settings
 
 ### Core Concept
 
@@ -86,6 +88,25 @@ CREATE TABLE asset_streams (
   added_by UUID REFERENCES users(id),
   PRIMARY KEY (asset_id, stream_id)
 );
+
+CREATE TABLE stream_members (
+  stream_id UUID REFERENCES streams(id) ON DELETE CASCADE,
+  user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+  role TEXT NOT NULL DEFAULT 'member',  -- 'admin' | 'member'
+  joined_at TIMESTAMP DEFAULT NOW(),
+  PRIMARY KEY (stream_id, user_id)
+);
+```
+
+### Stream Member
+
+```typescript
+interface StreamMember {
+  user_id: string;
+  role: 'owner' | 'admin' | 'member';  // 'owner' is virtual (from stream.owner_id)
+  joined_at: string;
+  user: Pick<User, 'id' | 'username' | 'display_name' | 'avatar_url'>;
+}
 ```
 
 ## Features
@@ -347,6 +368,53 @@ Dialog for adding external links:
   onOpenChange={setOpen}
   onSubmit={(url, title) => addBookmark(url, title)}
 />
+```
+
+### Manage Members Dialog
+
+Dialog for managing private stream members:
+
+```typescript
+// components/streams/manage-members-dialog.tsx
+<ManageMembersDialog
+  open={open}
+  onOpenChange={setOpen}
+  streamId={stream.id}
+  streamOwnerId={stream.owner_id}
+/>
+```
+
+**Features:**
+- Search users to add
+- Display current members with roles (Owner/Admin/Member)
+- Remove members (with permissions)
+- Owner badge and role icons
+
+### Stream Dialog (Create/Edit)
+
+Dual-mode dialog for creating and editing streams:
+
+```typescript
+// components/layout/stream-dialog.tsx
+
+// Create mode
+<StreamDialog open={open} onOpenChange={setOpen} mode="create" />
+
+// Edit mode
+<StreamDialog 
+  open={open} 
+  onOpenChange={setOpen} 
+  mode="edit" 
+  stream={stream}
+  onSuccess={(stream) => router.refresh()}
+/>
+```
+
+**Features:**
+- Name validation with availability check
+- Description with character count
+- Privacy toggle (public/private)
+- Auto-redirect on name change
 
 ## API Routes
 
@@ -438,6 +506,36 @@ Response: { bookmark: StreamBookmark }
 DELETE /api/streams/[id]/bookmarks/[bookmarkId]
 Response: { success: true }
 // Only creator or stream owner can delete
+```
+
+### List Members (Private Streams)
+
+```
+GET /api/streams/[id]/members
+Response: {
+  members: StreamMember[],
+  memberCount: number,
+  currentUserRole: 'owner' | 'admin' | 'member' | null,
+  owner: { id, username, display_name, avatar_url }
+}
+// Returns owner info separately (not in members array)
+```
+
+### Add Member (Owner/Admin Only)
+
+```
+POST /api/streams/[id]/members
+Body: { user_id: string, role?: 'admin' | 'member' }
+Response: { member: StreamMember }
+// Idempotent - returns existing member if already added
+```
+
+### Remove Member (Owner/Admin Only)
+
+```
+DELETE /api/streams/[id]/members?user_id=xxx
+Response: { success: true }
+// Users can remove themselves; admins can't remove other admins
 ```
 
 ## Real-World Examples
@@ -587,7 +685,29 @@ Assets remain visible, but stream shows as archived on stream page.
 
 ### Private Streams
 
-Visible only to owner. Assets in private streams are still publicly visible (privacy is per-stream, not per-asset).
+Private streams have restricted access with member management:
+
+**Access Control:**
+- Owner has full access (view, edit, delete, manage members)
+- Members (added via Manage Members) can view and contribute
+- Admins can add/remove regular members
+- Non-members cannot see the stream exists (404)
+
+**Member Roles:**
+- `owner` - Stream creator, cannot be removed
+- `admin` - Can add/remove members (except other admins)
+- `member` - Can view and contribute to the stream
+
+**Note:** Assets in private streams are still accessible via direct link. Privacy is per-stream membership, not per-asset.
+
+### Stream Editing
+
+Stream owners can edit their streams:
+- **Name** - Updates URL (auto-redirects to new slug)
+- **Description** - Update stream description
+- **Privacy** - Toggle between public and private
+
+Access via stream header dropdown menu → "Edit Stream"
 
 ### Removed Pending Streams
 
@@ -624,19 +744,38 @@ SELECT * FROM streams WHERE name = 'stream-slug';
 
 ## Resources
 
-- Database schema: `scripts/migrations/001_initial_schema.sql`
-- Stream follows migration: `scripts/migrations/003_stream_follows.sql`
-- Stream bookmarks migration: `scripts/migrations/004_stream_bookmarks.sql`
-- Stream types: `lib/types/database.ts` (includes StreamFollow, StreamBookmark)
-- Stream picker: `components/streams/stream-picker.tsx`
-- Stream header: `components/streams/stream-header.tsx`
-- Bookmark dialog: `components/streams/add-bookmark-dialog.tsx`
-- Stream follow hook: `lib/hooks/use-stream-follow.ts`
-- Stream bookmarks hook: `lib/hooks/use-stream-bookmarks.ts`
-- Stream mentions hook: `lib/hooks/use-stream-mentions.ts`
-- Dropdown options hook: `lib/hooks/use-stream-dropdown-options.ts`
-- API routes: `app/api/streams/`
+### Database
+- Schema: `scripts/migrations/001_initial_schema.sql`
+- Stream follows: `scripts/migrations/003_stream_follows.sql`
+- Stream bookmarks: `scripts/migrations/004_stream_bookmarks.sql`
+- Stream members RLS: `scripts/migrations/032_stream_members_rls_policies.sql`
+- Streams RLS for members: `scripts/migrations/033_fix_streams_rls_for_members.sql`
+
+### Types
+- `lib/types/database.ts` - StreamFollow, StreamBookmark, StreamMember
+
+### Hooks
+- `lib/hooks/use-stream-follow.ts` - Follow/unfollow streams
+- `lib/hooks/use-stream-bookmarks.ts` - CRUD for bookmarks
+- `lib/hooks/use-stream-members.ts` - Member management with optimistic updates
+- `lib/hooks/use-stream-mentions.ts` - Parse hashtags
+- `lib/hooks/use-stream-dropdown-options.ts` - Shared dropdown logic
+
+### Components
+- `components/streams/stream-picker.tsx` - Select streams during upload
+- `components/streams/stream-header.tsx` - Stream page header
+- `components/streams/add-bookmark-dialog.tsx` - Add external links
+- `components/streams/manage-members-dialog.tsx` - Add/remove members
+- `components/layout/stream-dialog.tsx` - Create/edit streams (dual-mode)
+
+### API Routes
+- `app/api/streams/` - CRUD operations
+- `app/api/streams/[id]/follow/` - Follow/unfollow
+- `app/api/streams/[id]/bookmarks/` - Bookmark management
+- `app/api/streams/[id]/members/` - Member management
+- `app/api/streams/[id]/assets/` - Asset access control
+- `app/api/streams/[id]/bookmarks/` - Bookmark access control
 
 ---
 
-**Summary:** Streams provide flexible, multi-dimensional organization for assets. They combine the structure of projects with the flexibility of tags, supporting many-to-many relationships and semantic URLs. Users can follow streams to see their posts in the Following feed, and streams can have external bookmarks linking to tools like Jira, Figma, and Notion.
+**Summary:** Streams provide flexible, multi-dimensional organization for assets. They combine the structure of projects with the flexibility of tags, supporting many-to-many relationships and semantic URLs. Users can follow streams to see their posts in the Following feed. Private streams support member management with role-based access control (owner/admin/member).

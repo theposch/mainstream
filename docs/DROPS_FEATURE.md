@@ -14,8 +14,15 @@ A Drop is a curated collection of posts (design assets) organized into a newslet
 - **Blocks**: Content organized in a Notion-like block structure
 
 ### Drop Statuses
-- `draft` - Being edited, only visible to creator
+- `draft` - Being edited, only visible to creator (deletable)
 - `published` - Finalized and shareable, can be sent as email
+
+### Deleting Drafts
+Drafts can be deleted from two places:
+- **Drop Card** - Three-dot menu on draft cards in `/drops?tab=drafts`
+- **Drop Editor** - Three-dot menu in the editor header
+
+Both use optimistic updates for instant UI feedback with rollback on error.
 
 ---
 
@@ -369,8 +376,9 @@ components/drops/blocks/
 ```
 components/drops/
   create-drop-dialog.tsx   # New drop creation form
-  drop-card.tsx            # Grid card preview
+  drop-card.tsx            # Grid card preview with delete menu
   drop-publish-dialog.tsx  # Publish confirmation
+  delete-drop-dialog.tsx   # Delete confirmation with error handling
   drop-view.tsx            # Classic layout view
   drops-grid.tsx           # Grid container
 ```
