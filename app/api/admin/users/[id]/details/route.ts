@@ -181,7 +181,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         `)
         .eq('uploader_id', userId)
         .order('created_at', { ascending: false })
-        .limit(12),
+        .limit(20),
       
       // Recent likes (for activity timeline)
       supabase
@@ -196,7 +196,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         `)
         .eq('user_id', userId)
         .order('created_at', { ascending: false })
-        .limit(10),
+        .limit(20),
       
       // Recent comments (for activity timeline)
       supabase
@@ -212,7 +212,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         `)
         .eq('user_id', userId)
         .order('created_at', { ascending: false })
-        .limit(10),
+        .limit(20),
       
       // Recent streams created (for activity timeline)
       supabase
@@ -226,7 +226,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         .eq('owner_id', userId)
         .eq('owner_type', 'user')
         .order('created_at', { ascending: false })
-        .limit(10),
+        .limit(20),
     ]);
 
     // Calculate storage
@@ -288,7 +288,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     const activities: UserActivity[] = [];
 
     // Add uploads to timeline
-    (recentUploadsResult.data || []).slice(0, 5).forEach(upload => {
+    (recentUploadsResult.data || []).forEach(upload => {
       activities.push({
         type: 'upload',
         timestamp: upload.created_at,
@@ -374,7 +374,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         streamsOwned: streamsOwnedResult.count || 0,
         streamsMember: streamsMemberResult.count || 0,
       },
-      recentActivity: activities.slice(0, 20),
+      recentActivity: activities.slice(0, 30),
       recentUploads,
     };
 
