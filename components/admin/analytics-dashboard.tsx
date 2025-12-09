@@ -193,7 +193,7 @@ export function AnalyticsDashboard() {
           </div>
           
           {/* Bar Chart */}
-          <div className="h-44 flex items-end gap-[2px]">
+          <div className="h-44 flex items-end gap-[2px] bg-muted/20 rounded-lg p-2 pb-0">
             {data.activityOverTime.map((point) => {
               const value = point[selectedActivity];
               const height = maxActivity > 0 ? (value / maxActivity) * 100 : 0;
@@ -203,7 +203,8 @@ export function AnalyticsDashboard() {
               return (
                 <div
                   key={point.date}
-                  className="flex-1 group relative"
+                  className="flex-1 group relative min-w-[4px]"
+                  style={{ height: '100%' }}
                 >
                   {/* Tooltip */}
                   <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 rounded-lg bg-popover border border-border text-xs whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 shadow-lg">
@@ -218,15 +219,23 @@ export function AnalyticsDashboard() {
                     </div>
                   </div>
                   
-                  {/* Bar */}
-                  <div
-                    className={`w-full rounded-sm transition-all duration-150 cursor-pointer ${
-                      isToday 
-                        ? activityConfig[selectedActivity].color
-                        : `${activityConfig[selectedActivity].bgColor} hover:opacity-80`
-                    }`}
-                    style={{ height: `${Math.max(height, value > 0 ? 4 : 1)}%` }}
-                  />
+                  {/* Bar container - full height, bar at bottom */}
+                  <div className="absolute bottom-0 left-0 right-0">
+                    <div
+                      className={`w-full rounded-sm transition-all duration-150 cursor-pointer ${
+                        value > 0
+                          ? isToday 
+                            ? activityConfig[selectedActivity].color
+                            : `${activityConfig[selectedActivity].color} opacity-60 hover:opacity-100`
+                          : 'bg-muted-foreground/10'
+                      }`}
+                      style={{ 
+                        height: value > 0 
+                          ? `${Math.max((height / 100) * 160, 8)}px`
+                          : '2px'
+                      }}
+                    />
+                  </div>
                 </div>
               );
             })}
