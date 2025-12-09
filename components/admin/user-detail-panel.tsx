@@ -166,6 +166,7 @@ export function UserDetailPanel({
   const [details, setDetails] = React.useState<UserDetails | null>(null);
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+  const [actionError, setActionError] = React.useState<string | null>(null);
   const [activeTab, setActiveTab] = React.useState("overview");
   const [copied, setCopied] = React.useState(false);
   const [actionLoading, setActionLoading] = React.useState(false);
@@ -182,6 +183,7 @@ export function UserDetailPanel({
     if (!open || !user) {
       setDetails(null);
       setActiveTab("overview");
+      setActionError(null); // Clear any previous action errors
       return;
     }
 
@@ -216,6 +218,7 @@ export function UserDetailPanel({
   const handleRoleChange = async (newRole: PlatformRole) => {
     if (!user || !details) return;
     setActionLoading(true);
+    setActionError(null); // Clear previous errors
 
     try {
       const response = await fetch(`/api/admin/users/${user.id}`, {
@@ -236,7 +239,7 @@ export function UserDetailPanel({
       });
       onUserUpdated?.();
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Failed to update role");
+      setActionError(err instanceof Error ? err.message : "Failed to update role");
     } finally {
       setActionLoading(false);
     }
@@ -246,6 +249,7 @@ export function UserDetailPanel({
   const handleDeleteUser = async () => {
     if (!user) return;
     setActionLoading(true);
+    setActionError(null); // Clear previous errors
 
     try {
       const response = await fetch(`/api/admin/users/${user.id}`, {
@@ -260,7 +264,7 @@ export function UserDetailPanel({
       onUserUpdated?.();
       onOpenChange(false);
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Failed to delete user");
+      setActionError(err instanceof Error ? err.message : "Failed to delete user");
     } finally {
       setActionLoading(false);
       setDeleteDialogOpen(false);
@@ -380,6 +384,7 @@ export function UserDetailPanel({
                         canDelete={canDelete}
                         isCurrentUser={isCurrentUser}
                         actionLoading={actionLoading}
+                        actionError={actionError}
                         onRoleChange={handleRoleChange}
                         onDeleteClick={() => setDeleteDialogOpen(true)}
                         onCopyEmail={handleCopyEmail}
@@ -565,10 +570,18 @@ function ActivityTab({
   const [displayCount, setDisplayCount] = React.useState(30);
   const [loading, setLoading] = React.useState(false);
   const [hasFetchedAll, setHasFetchedAll] = React.useState(false);
+  
+  // Track which user we last fetched for to prevent unnecessary re-fetches
+  const lastFetchedUserId = React.useRef<string | null>(null);
 
   // Fetch all activities when component mounts or userId changes
   React.useEffect(() => {
-    // Reset state
+    // Skip if we've already fetched for this user
+    if (lastFetchedUserId.current === userId) {
+      return;
+    }
+    
+    // Reset state for new user
     setAllActivities(initialActivities);
     setDisplayCount(30);
     setHasFetchedAll(false);
@@ -584,6 +597,7 @@ function ActivityTab({
           const data = await response.json();
           setAllActivities(data.activities);
           setHasFetchedAll(true);
+          lastFetchedUserId.current = userId; // Mark as fetched
         } catch (error) {
           console.error('Error loading activity:', error);
         } finally {
@@ -593,6 +607,7 @@ function ActivityTab({
       fetchAllActivities();
     } else {
       setHasFetchedAll(true);
+      lastFetchedUserId.current = userId; // Mark as fetched
     }
   }, [userId, initialActivities]);
 
@@ -814,6 +829,7 @@ function ManageTab({
   canDelete,
   isCurrentUser,
   actionLoading,
+  actionError,
   onRoleChange,
   onDeleteClick,
   onCopyEmail,
@@ -824,6 +840,7 @@ function ManageTab({
   canDelete: boolean;
   isCurrentUser: boolean;
   actionLoading: boolean;
+  actionError: string | null;
   onRoleChange: (role: PlatformRole) => void;
   onDeleteClick: () => void;
   onCopyEmail: () => void;
@@ -834,6 +851,14 @@ function ManageTab({
 
   return (
     <>
+      {/* Action Error Display */}
+      {actionError && (
+        <div className="flex items-center gap-2 p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-sm mb-4">
+          <AlertCircle className="h-4 w-4 shrink-0" />
+          <span>{actionError}</span>
+        </div>
+      )}
+
       {/* Role */}
       <section>
         <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Role</h3>

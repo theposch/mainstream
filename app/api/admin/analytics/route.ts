@@ -7,7 +7,7 @@
 import { NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/server';
 import { getAdminUser } from '@/lib/auth/require-admin';
-import type { AnalyticsApiResponse } from '@/lib/types/admin';
+import type { AnalyticsApiResponse, TopContributor } from '@/lib/types/admin';
 
 export const dynamic = 'force-dynamic';
 

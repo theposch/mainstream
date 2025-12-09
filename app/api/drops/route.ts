@@ -269,7 +269,7 @@ export async function POST(request: NextRequest) {
     // Add blocks for each stream group
     // When filter_stream_ids is provided, maintain their order
     const streamOrder = filter_stream_ids?.length 
-      ? filter_stream_ids.filter(id => assetsByStream[id]) // Only include streams with assets
+      ? filter_stream_ids.filter((id: string) => assetsByStream[id]) // Only include streams with assets
       : Object.keys(assetsByStream); // Default order
     
     // Add any streams not in filter (shouldn't happen, but just in case)
