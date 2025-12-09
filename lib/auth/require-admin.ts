@@ -5,7 +5,7 @@
  */
 
 import { createClient } from "@/lib/supabase/server";
-import type { PlatformRole } from "./get-user";
+import type { PlatformRole } from "@/lib/types/database";
 
 export interface AdminUser {
   id: string;

@@ -7,45 +7,9 @@
 import { NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/server';
 import { getAdminUser } from '@/lib/auth/require-admin';
+import type { AnalyticsApiResponse } from '@/lib/types/admin';
 
 export const dynamic = 'force-dynamic';
-
-interface RawActivityData {
-  uploads: string[];  // ISO timestamps
-  likes: string[];
-  comments: string[];
-  views: string[];
-}
-
-interface TopContributor {
-  id: string;
-  username: string;
-  display_name: string;
-  avatar_url: string | null;
-  upload_count: number;
-  like_count: number;
-  comment_count: number;
-}
-
-interface AnalyticsResponse {
-  users: {
-    total: number;
-    activeThisWeek: number;
-    newThisMonth: number;
-  };
-  content: {
-    totalUploads: number;
-    totalLikes: number;
-    totalComments: number;
-    totalViews: number;
-  };
-  storage: {
-    totalBytes: number;
-    totalFormatted: string;
-  };
-  rawActivity: RawActivityData;  // Raw timestamps for client-side bucketing
-  topContributors: TopContributor[];
-}
 
 function formatBytes(bytes: number): string {
   if (bytes === 0) return '0 Bytes';
@@ -147,22 +111,6 @@ export async function GET() {
         .select('viewed_at')
         .gte('viewed_at', twentyNineDaysAgo.toISOString()),
     ]);
-
-    // DEBUG: Log server time and sample timestamps
-    console.log('[ANALYTICS DEBUG] Server time:', {
-      now: now.toISOString(),
-      nowLocal: now.toString(),
-      twentyNineDaysAgo: twentyNineDaysAgo.toISOString(),
-    });
-    
-    // DEBUG: Log first few raw timestamps from Supabase
-    const sampleUploads = (recentUploads.data || []).slice(-5);
-    console.log('[ANALYTICS DEBUG] Recent upload timestamps from Supabase:', 
-      sampleUploads.map(u => ({
-        raw: u.created_at,
-        type: typeof u.created_at,
-      }))
-    );
 
     // Return raw timestamps for client-side bucketing by local timezone
     const rawActivity = {
@@ -275,7 +223,7 @@ export async function GET() {
 
     // === BUILD RESPONSE ===
     
-    const analytics: AnalyticsResponse = {
+    const analytics: AnalyticsApiResponse = {
       users: {
         total: totalUsers || 0,
         activeThisWeek,

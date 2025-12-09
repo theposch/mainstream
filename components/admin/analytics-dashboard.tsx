@@ -16,71 +16,12 @@ import {
   Activity,
   Trophy,
 } from "lucide-react";
-
-interface ActivityDataPoint {
-  date: string;
-  uploads: number;
-  likes: number;
-  comments: number;
-  views: number;
-}
-
-interface RawActivityData {
-  uploads: string[];  // ISO timestamps
-  likes: string[];
-  comments: string[];
-  views: string[];
-}
-
-interface TopContributor {
-  id: string;
-  username: string;
-  display_name: string;
-  avatar_url: string | null;
-  upload_count: number;
-  like_count: number;
-  comment_count: number;
-}
-
-interface AnalyticsApiResponse {
-  users: {
-    total: number;
-    activeThisWeek: number;
-    newThisMonth: number;
-  };
-  content: {
-    totalUploads: number;
-    totalLikes: number;
-    totalComments: number;
-    totalViews: number;
-  };
-  storage: {
-    totalBytes: number;
-    totalFormatted: string;
-  };
-  rawActivity: RawActivityData;
-  topContributors: TopContributor[];
-}
-
-interface AnalyticsData {
-  users: {
-    total: number;
-    activeThisWeek: number;
-    newThisMonth: number;
-  };
-  content: {
-    totalUploads: number;
-    totalLikes: number;
-    totalComments: number;
-    totalViews: number;
-  };
-  storage: {
-    totalBytes: number;
-    totalFormatted: string;
-  };
-  activityOverTime: ActivityDataPoint[];
-  topContributors: TopContributor[];
-}
+import type {
+  ActivityDataPoint,
+  RawActivityData,
+  AnalyticsApiResponse,
+  AnalyticsData,
+} from "@/lib/types/admin";
 
 /**
  * Convert ISO timestamp to local date string (YYYY-MM-DD)
@@ -90,25 +31,12 @@ function toLocalDateString(isoTimestamp: string): string {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 }
 
-// DEBUG flag - set to true to see timestamp debugging in console
-const DEBUG_TIMESTAMPS = true;
-
 /**
  * Bucket raw timestamps by local date
  */
 function bucketActivityByLocalDate(rawActivity: RawActivityData): ActivityDataPoint[] {
   const now = new Date();
   const activityByDate = new Map<string, ActivityDataPoint>();
-  
-  // DEBUG: Log client time info
-  if (DEBUG_TIMESTAMPS) {
-    console.log('[CLIENT DEBUG] Client time info:', {
-      now: now.toISOString(),
-      nowLocal: now.toString(),
-      timezoneOffset: now.getTimezoneOffset(),
-      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-    });
-  }
   
   // Generate 30 days of local dates (29 days ago to today)
   for (let i = 29; i >= 0; i--) {
@@ -117,54 +45,26 @@ function bucketActivityByLocalDate(rawActivity: RawActivityData): ActivityDataPo
     const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
     activityByDate.set(dateStr, { date: dateStr, uploads: 0, likes: 0, comments: 0, views: 0 });
   }
-  
-  // DEBUG: Log date range
-  if (DEBUG_TIMESTAMPS) {
-    const dates = Array.from(activityByDate.keys());
-    console.log('[CLIENT DEBUG] Date range:', {
-      first: dates[0],
-      last: dates[dates.length - 1],
-      totalDays: dates.length,
-    });
-  }
 
-  // DEBUG: Log sample upload timestamps and their parsing
-  if (DEBUG_TIMESTAMPS && rawActivity.uploads.length > 0) {
-    const sampleUploads = rawActivity.uploads.slice(-5);
-    console.log('[CLIENT DEBUG] Parsing upload timestamps:');
-    sampleUploads.forEach(timestamp => {
-      const date = new Date(timestamp);
-      const localDateStr = toLocalDateString(timestamp);
-      console.log('  Raw:', timestamp);
-      console.log('  Parsed Date object:', date.toString());
-      console.log('  Local date string:', localDateStr);
-      console.log('  Date bucket exists:', activityByDate.has(localDateStr));
-      console.log('---');
-    });
-  }
-
-  // Bucket uploads by local date
+  // Bucket activity by local date
   rawActivity.uploads.forEach(timestamp => {
     const dateStr = toLocalDateString(timestamp);
     const activity = activityByDate.get(dateStr);
     if (activity) activity.uploads++;
   });
 
-  // Bucket likes by local date
   rawActivity.likes.forEach(timestamp => {
     const dateStr = toLocalDateString(timestamp);
     const activity = activityByDate.get(dateStr);
     if (activity) activity.likes++;
   });
 
-  // Bucket comments by local date
   rawActivity.comments.forEach(timestamp => {
     const dateStr = toLocalDateString(timestamp);
     const activity = activityByDate.get(dateStr);
     if (activity) activity.comments++;
   });
 
-  // Bucket views by local date
   rawActivity.views.forEach(timestamp => {
     const dateStr = toLocalDateString(timestamp);
     const activity = activityByDate.get(dateStr);

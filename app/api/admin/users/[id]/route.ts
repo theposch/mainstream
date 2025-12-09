@@ -8,7 +8,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/server';
 import { getAdminUser, isOwner } from '@/lib/auth/require-admin';
-import type { PlatformRole } from '@/lib/auth/get-user';
+import type { PlatformRole } from '@/lib/types/database';
 
 export const dynamic = 'force-dynamic';
 
