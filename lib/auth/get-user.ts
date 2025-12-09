@@ -7,6 +7,10 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { cache } from "react";
+import type { PlatformRole } from "@/lib/types/database";
+
+// Re-export for backwards compatibility
+export type { PlatformRole };
 
 export interface User {
   id: string;
@@ -19,6 +23,7 @@ export interface User {
   location?: string;
   teamId?: string;
   createdAt: string;
+  platformRole?: PlatformRole;
 }
 
 /**
@@ -58,6 +63,7 @@ export const getCurrentUser = cache(async (): Promise<User | null> => {
         jobTitle: undefined,
         teamId: undefined,
         createdAt: authUser.created_at,
+        platformRole: 'user',
       };
     }
 
@@ -73,6 +79,7 @@ export const getCurrentUser = cache(async (): Promise<User | null> => {
       location: userProfile.location,
       teamId: userProfile.team_id,
       createdAt: userProfile.created_at,
+      platformRole: userProfile.platform_role || 'user',
     };
   } catch (error) {
     console.error('Error getting current user:', error);

@@ -1,0 +1,254 @@
+/**
+ * Admin Analytics API Route
+ * 
+ * GET /api/admin/analytics - Get platform analytics data
+ */
+
+import { NextResponse } from 'next/server';
+import { createAdminClient } from '@/lib/supabase/server';
+import { getAdminUser } from '@/lib/auth/require-admin';
+import type { AnalyticsApiResponse } from '@/lib/types/admin';
+
+export const dynamic = 'force-dynamic';
+
+function formatBytes(bytes: number): string {
+  if (bytes === 0) return '0 Bytes';
+  if (bytes < 0) return 'Invalid size';
+  const k = 1024;
+  const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB'];
+  const i = Math.min(
+    Math.floor(Math.log(bytes) / Math.log(k)),
+    sizes.length - 1
+  );
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+}
+
+/**
+ * GET /api/admin/analytics
+ * 
+ * Returns platform analytics data including:
+ * - User stats (total, active this week, new this month)
+ * - Content stats (uploads, likes, comments, views)
+ * - Storage usage
+ * - Activity over time (last 30 days)
+ * - Top contributors
+ */
+export async function GET() {
+  try {
+    // Check admin access
+    const admin = await getAdminUser();
+    if (!admin) {
+      return NextResponse.json(
+        { error: 'Admin access required' },
+        { status: 403 }
+      );
+    }
+
+    const supabase = await createAdminClient();
+    const now = new Date();
+    const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    // Use 29 days ago so the 30-day range is [29 days ago ... today] inclusive
+    const twentyNineDaysAgo = new Date(now.getTime() - 29 * 24 * 60 * 60 * 1000);
+
+    // === USER STATS ===
+    
+    // Total users
+    const { count: totalUsers } = await supabase
+      .from('users')
+      .select('*', { count: 'exact', head: true });
+
+    // New users this month
+    const { count: newThisMonth } = await supabase
+      .from('users')
+      .select('*', { count: 'exact', head: true })
+      .gte('created_at', twentyNineDaysAgo.toISOString());
+
+    // Active users this week (users who uploaded, liked, commented, or viewed)
+    const [uploaders, likers, commenters, viewers] = await Promise.all([
+      supabase
+        .from('assets')
+        .select('uploader_id')
+        .gte('created_at', oneWeekAgo.toISOString()),
+      supabase
+        .from('asset_likes')
+        .select('user_id')
+        .gte('created_at', oneWeekAgo.toISOString()),
+      supabase
+        .from('asset_comments')
+        .select('user_id')
+        .gte('created_at', oneWeekAgo.toISOString()),
+      supabase
+        .from('asset_views')
+        .select('user_id')
+        .gte('viewed_at', oneWeekAgo.toISOString()),
+    ]);
+
+    const activeUserIds = new Set<string>();
+    (uploaders.data || []).forEach(r => activeUserIds.add(r.uploader_id));
+    (likers.data || []).forEach(r => activeUserIds.add(r.user_id));
+    (commenters.data || []).forEach(r => activeUserIds.add(r.user_id));
+    (viewers.data || []).forEach(r => r.user_id && activeUserIds.add(r.user_id));
+    const activeThisWeek = activeUserIds.size;
+
+    // === ACTIVITY OVER TIME (last 30 days) ===
+    // Return raw timestamps - client will bucket by local timezone
+    
+    const [recentUploads, recentLikes, recentComments, recentViews] = await Promise.all([
+      supabase
+        .from('assets')
+        .select('created_at')
+        .gte('created_at', twentyNineDaysAgo.toISOString()),
+      supabase
+        .from('asset_likes')
+        .select('created_at')
+        .gte('created_at', twentyNineDaysAgo.toISOString()),
+      supabase
+        .from('asset_comments')
+        .select('created_at')
+        .gte('created_at', twentyNineDaysAgo.toISOString()),
+      supabase
+        .from('asset_views')
+        .select('viewed_at')
+        .gte('viewed_at', twentyNineDaysAgo.toISOString()),
+    ]);
+
+    // Return raw timestamps for client-side bucketing by local timezone
+    const rawActivity = {
+      uploads: (recentUploads.data || []).map(item => item.created_at),
+      likes: (recentLikes.data || []).map(item => item.created_at),
+      comments: (recentComments.data || []).map(item => item.created_at),
+      views: (recentViews.data || []).map(item => item.viewed_at),
+    };
+
+    // === CONTENT STATS ===
+    
+    const [
+      { count: totalUploads },
+      { count: totalLikes },
+      { count: totalComments },
+      { data: viewsData },
+    ] = await Promise.all([
+      supabase.from('assets').select('*', { count: 'exact', head: true }),
+      supabase.from('asset_likes').select('*', { count: 'exact', head: true }),
+      supabase.from('asset_comments').select('*', { count: 'exact', head: true }),
+      supabase.from('assets').select('view_count'),
+    ]);
+
+    // Sum up all view counts
+    const totalViews = (viewsData || []).reduce((sum, asset) => sum + (asset.view_count || 0), 0);
+
+    // === STORAGE USAGE ===
+    
+    const { data: storageData } = await supabase
+      .from('assets')
+      .select('file_size');
+
+    const totalBytes = (storageData || []).reduce((sum, asset) => sum + (asset.file_size || 0), 0);
+
+    // === TOP CONTRIBUTORS ===
+    
+    // Get top 10 users by upload count
+    const { data: allUsers } = await supabase
+      .from('users')
+      .select('id, username, display_name, avatar_url');
+
+    if (!allUsers) {
+      return NextResponse.json(
+        { error: 'Failed to fetch users' },
+        { status: 500 }
+      );
+    }
+
+    // Get upload counts per user
+    const { data: uploadCounts } = await supabase
+      .from('assets')
+      .select('uploader_id');
+
+    // Get like counts per user (likes received on their assets)
+    const { data: assetLikes } = await supabase
+      .from('asset_likes')
+      .select('asset_id, assets!inner(uploader_id)')
+      
+    // Get comment counts per user
+    const { data: commentCounts } = await supabase
+      .from('asset_comments')
+      .select('user_id');
+
+    // Aggregate stats per user
+    const userStats = new Map<string, { uploads: number; likes: number; comments: number }>();
+    
+    // Initialize all users
+    allUsers.forEach(user => {
+      userStats.set(user.id, { uploads: 0, likes: 0, comments: 0 });
+    });
+
+    // Count uploads
+    (uploadCounts || []).forEach(asset => {
+      const stats = userStats.get(asset.uploader_id);
+      if (stats) stats.uploads++;
+    });
+
+    // Count likes received (on user's assets)
+    (assetLikes || []).forEach((like: any) => {
+      const uploaderId = like.assets?.uploader_id;
+      if (uploaderId) {
+        const stats = userStats.get(uploaderId);
+        if (stats) stats.likes++;
+      }
+    });
+
+    // Count comments made
+    (commentCounts || []).forEach(comment => {
+      const stats = userStats.get(comment.user_id);
+      if (stats) stats.comments++;
+    });
+
+    // Build top contributors list sorted by uploads
+    const topContributors: TopContributor[] = allUsers
+      .map(user => {
+        const stats = userStats.get(user.id) || { uploads: 0, likes: 0, comments: 0 };
+        return {
+          id: user.id,
+          username: user.username,
+          display_name: user.display_name,
+          avatar_url: user.avatar_url,
+          upload_count: stats.uploads,
+          like_count: stats.likes,
+          comment_count: stats.comments,
+        };
+      })
+      .filter(user => user.upload_count > 0 || user.like_count > 0 || user.comment_count > 0)
+      .sort((a, b) => b.upload_count - a.upload_count)
+      .slice(0, 10);
+
+    // === BUILD RESPONSE ===
+    
+    const analytics: AnalyticsApiResponse = {
+      users: {
+        total: totalUsers || 0,
+        activeThisWeek,
+        newThisMonth: newThisMonth || 0,
+      },
+      content: {
+        totalUploads: totalUploads || 0,
+        totalLikes: totalLikes || 0,
+        totalComments: totalComments || 0,
+        totalViews,
+      },
+      storage: {
+        totalBytes,
+        totalFormatted: formatBytes(totalBytes),
+      },
+      rawActivity,
+      topContributors,
+    };
+
+    return NextResponse.json(analytics);
+  } catch (error) {
+    console.error('[GET /api/admin/analytics] Error:', error);
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
+  }
+}
