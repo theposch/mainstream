@@ -365,7 +365,10 @@ export function UserDetailPanel({
                     <UploadsTab uploads={details.recentUploads} stats={details.stats} />
                   )}
                   {activeTab === "activity" && (
-                    <ActivityTab activities={details.recentActivity} />
+                    <ActivityTab 
+                      initialActivities={details.recentActivity} 
+                      userId={details.user.id}
+                    />
                   )}
                   {activeTab === "manage" && (
                     <div className="space-y-6">
@@ -547,7 +550,47 @@ function UploadsTab({ uploads, stats }: { uploads: UserUpload[]; stats: UserDeta
 // ACTIVITY TAB
 // ============================================================================
 
-function ActivityTab({ activities }: { activities: UserActivity[] }) {
+function ActivityTab({ 
+  initialActivities, 
+  userId 
+}: { 
+  initialActivities: UserActivity[]; 
+  userId: string;
+}) {
+  const [activities, setActivities] = React.useState<UserActivity[]>(initialActivities);
+  const [loading, setLoading] = React.useState(false);
+  const [hasMore, setHasMore] = React.useState(initialActivities.length >= 30);
+  const [total, setTotal] = React.useState<number | null>(null);
+
+  const loadMore = async () => {
+    if (loading || !hasMore) return;
+    
+    setLoading(true);
+    try {
+      const response = await fetch(
+        `/api/admin/users/${userId}/activity?offset=${activities.length}&limit=30`
+      );
+      
+      if (!response.ok) throw new Error('Failed to load activity');
+      
+      const data = await response.json();
+      setActivities(prev => [...prev, ...data.activities]);
+      setHasMore(data.hasMore);
+      setTotal(data.total);
+    } catch (error) {
+      console.error('Error loading more activity:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Reset when userId changes
+  React.useEffect(() => {
+    setActivities(initialActivities);
+    setHasMore(initialActivities.length >= 30);
+    setTotal(null);
+  }, [userId, initialActivities]);
+
   if (activities.length === 0) {
     return (
       <div className="text-center py-12 text-muted-foreground">
@@ -598,6 +641,42 @@ function ActivityTab({ activities }: { activities: UserActivity[] }) {
           </div>
         </section>
       ))}
+
+      {/* Load More */}
+      {hasMore && (
+        <div className="pt-4 text-center">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={loadMore}
+            disabled={loading}
+            className="gap-2"
+          >
+            {loading ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Loading...
+              </>
+            ) : (
+              <>
+                Load More
+                {total && (
+                  <span className="text-muted-foreground">
+                    ({activities.length} of {total})
+                  </span>
+                )}
+              </>
+            )}
+          </Button>
+        </div>
+      )}
+
+      {/* All loaded indicator */}
+      {!hasMore && activities.length > 30 && (
+        <div className="pt-4 text-center text-xs text-muted-foreground">
+          All {activities.length} activities loaded
+        </div>
+      )}
     </div>
   );
 }
