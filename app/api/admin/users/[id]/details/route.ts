@@ -74,8 +74,10 @@ interface UserDetailsResponse {
 function formatBytes(bytes: number): string {
   if (bytes === 0) return '0 Bytes';
   if (bytes < 0) return 'Invalid size';
+  // Handle fractional bytes (0 < bytes < 1) - Math.log would return negative index
+  if (bytes < 1) return '< 1 Byte';
   const k = 1024;
-  const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+  const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB'];
   const i = Math.min(Math.floor(Math.log(bytes) / Math.log(k)), sizes.length - 1);
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 }
