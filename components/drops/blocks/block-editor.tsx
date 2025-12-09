@@ -338,7 +338,7 @@ export function BlockEditor({ dropId, blocks, onBlocksChange, availableAssets = 
               </button>
               <button
                 onClick={() => handleDeleteBlock(block.id)}
-                className="p-1 text-zinc-600 hover:text-red-400"
+                className="p-1 text-zinc-600 hover:text-red-400 cursor-pointer"
                 title="Delete block"
               >
                 <Trash2 className="h-4 w-4" />
@@ -441,7 +441,7 @@ function AddBlockButton({
         }}
         transition={{ type: "spring", stiffness: 400, damping: 20 }}
         onClick={onToggleMenu}
-        className="relative z-20 flex items-center justify-center w-6 h-6 rounded-full bg-violet-600 text-white shadow-lg hover:bg-violet-500 transition-colors"
+        className="relative z-20 flex items-center justify-center w-6 h-6 rounded-full bg-violet-600 text-white shadow-lg hover:bg-violet-500 transition-colors cursor-pointer"
       >
         <Plus className="h-4 w-4" />
       </motion.button>
@@ -463,7 +463,7 @@ function AddBlockButton({
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: i * 0.05 }}
                 onClick={() => onSelectType(blockType.type)}
-                className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-zinc-800 transition-colors group relative overflow-hidden"
+                className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-zinc-800 transition-colors group relative overflow-hidden cursor-pointer"
               >
                 {/* Hover gradient background */}
                 <div className="absolute inset-0 bg-gradient-to-r from-violet-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
@@ -635,7 +635,7 @@ function AssetPickerModal({
             <h3 className="text-lg font-semibold text-white">
               {multiSelect ? "Select images for gallery" : "Select a post"}
             </h3>
-            <button onClick={onClose} className="text-zinc-500 hover:text-white">
+            <button onClick={onClose} className="text-zinc-500 hover:text-white cursor-pointer">
               <X className="h-5 w-5" />
             </button>
           </div>
@@ -644,7 +644,7 @@ function AssetPickerModal({
           <div className="flex gap-1 mb-3">
             <button
               onClick={() => setActiveTab("browse")}
-              className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
+              className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors cursor-pointer ${
                 activeTab === "browse"
                   ? "bg-zinc-800 text-white"
                   : "text-zinc-400 hover:text-white hover:bg-zinc-800/50"
@@ -654,7 +654,7 @@ function AssetPickerModal({
             </button>
             <button
               onClick={() => setActiveTab("upload")}
-              className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors flex items-center gap-2 ${
+              className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors flex items-center gap-2 cursor-pointer ${
                 activeTab === "upload"
                   ? "bg-zinc-800 text-white"
                   : "text-zinc-400 hover:text-white hover:bg-zinc-800/50"
@@ -690,7 +690,7 @@ function AssetPickerModal({
                 <p className="text-zinc-500">No posts found</p>
                 <button
                   onClick={() => setActiveTab("upload")}
-                  className="mt-3 text-sm text-violet-400 hover:text-violet-300"
+                  className="mt-3 text-sm text-violet-400 hover:text-violet-300 cursor-pointer"
                 >
                   Upload a new image instead
                 </button>
@@ -710,7 +710,7 @@ function AssetPickerModal({
                           onClose();
                         }
                       }}
-                      className={`group relative aspect-square rounded-lg overflow-hidden bg-zinc-800 transition-all ${
+                      className={`group relative aspect-square rounded-lg overflow-hidden bg-zinc-800 transition-all cursor-pointer ${
                         isSelected ? "ring-2 ring-violet-500" : "hover:ring-2 hover:ring-violet-500/50"
                       }`}
                     >
@@ -784,7 +784,7 @@ function AssetPickerModal({
                     />
                     <button
                       onClick={clearUpload}
-                      className="absolute top-2 right-2 p-1.5 bg-black/60 rounded-full hover:bg-black/80 transition-colors"
+                      className="absolute top-2 right-2 p-1.5 bg-black/60 rounded-full hover:bg-black/80 transition-colors cursor-pointer"
                     >
                       <X className="h-4 w-4 text-white" />
                     </button>
@@ -810,7 +810,7 @@ function AssetPickerModal({
                   <button
                     onClick={handleUpload}
                     disabled={isUploading}
-                    className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-violet-600 text-white rounded-lg hover:bg-violet-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-violet-600 text-white rounded-lg hover:bg-violet-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors cursor-pointer"
                   >
                     {isUploading ? (
                       <>
@@ -835,7 +835,7 @@ function AssetPickerModal({
           <div className="p-4 border-t border-zinc-800 flex justify-end gap-3">
             <button
               onClick={onClose}
-              className="px-4 py-2 text-sm text-zinc-400 hover:text-white transition-colors"
+              className="px-4 py-2 text-sm text-zinc-400 hover:text-white transition-colors cursor-pointer"
             >
               Cancel
             </button>

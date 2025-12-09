@@ -60,7 +60,7 @@ export function Navbar() {
             <NotificationsPopover />
             
             <button 
-              className="p-2 text-muted-foreground hover:text-foreground transition-colors"
+              className="p-2 text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
               aria-label="Bookmarks"
               title="Bookmarks"
             >

@@ -307,7 +307,7 @@ export function StreamPicker({
                 onMouseEnter={() => setSelectedIndex(allOptions.indexOf(option))}
                 disabled={disabled || isMaxReached}
                 className={cn(
-                  "w-full flex items-center gap-3 p-2 rounded-md text-left transition-colors",
+                  "w-full flex items-center gap-3 p-2 rounded-md text-left transition-colors cursor-pointer",
                   "hover:bg-secondary",
                   selectedIndex === allOptions.indexOf(option) && "bg-secondary",
                   isSelected && "bg-secondary/50",
@@ -401,7 +401,7 @@ export function StreamPicker({
             <span>{stream.name}</span>
             <button
                 onClick={() => toggleStream(stream.id, isPendingBool)}
-              className="ml-1 p-0.5 rounded-full hover:bg-background/20 text-muted-foreground hover:text-foreground transition-colors"
+              className="ml-1 p-0.5 rounded-full hover:bg-background/20 text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
               type="button"
             >
               <X className="h-3 w-3" />
@@ -441,7 +441,7 @@ export function StreamPicker({
                   onClick={() => toggleStream(stream.id, isPending)}
                   disabled={disabled}
                 className={cn(
-                  "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm",
+                  "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm cursor-pointer",
                     "bg-primary/10 text-primary",
                   "hover:bg-primary/20 transition-colors",
                     isPending ? "border-2 border-dashed border-blue-500/50" : "border border-primary/20",

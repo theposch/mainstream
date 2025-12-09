@@ -62,7 +62,7 @@ export function ViewersTooltip({ assetId, viewCount, className }: ViewersTooltip
         <TooltipTrigger asChild>
           <button
             onMouseEnter={fetchViewers}
-            className={`flex items-center gap-1.5 text-xs text-zinc-500 hover:text-zinc-400 transition-colors ${className}`}
+            className={`flex items-center gap-1.5 text-xs text-zinc-500 hover:text-zinc-400 transition-colors cursor-pointer ${className}`}
           >
             <Eye className="h-3.5 w-3.5" />
             <span>Seen by {viewCount} {viewCount === 1 ? "person" : "people"}</span>
