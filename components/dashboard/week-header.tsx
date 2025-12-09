@@ -35,12 +35,12 @@ export function WeekHeader({
   return (
     <div
       className={cn(
-        "flex items-center justify-between py-4",
+        "flex items-center gap-4 py-6",
         className
       )}
     >
       <div className="flex items-center gap-2">
-        <span className="text-sm text-muted-foreground">
+        <span className="text-sm font-medium text-muted-foreground">
           <span className="font-semibold text-foreground">{postCount}</span>
           {" "}
           {postCount === 1 ? "post" : "posts"}
