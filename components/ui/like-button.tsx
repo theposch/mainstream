@@ -108,7 +108,7 @@ export function LikeButton({
         </AnimatePresence>
       </div>
 
-      {(likeCount > 0 || variant === "solid") && (
+      {likeCount > 0 && (
         <span 
           className={cn(
             "font-medium tabular-nums",
@@ -116,7 +116,7 @@ export function LikeButton({
             variant === "ghost" && isLiked && "text-red-500"
           )}
         >
-          {likeCount > 0 ? likeCount : ""}
+          {likeCount}
         </span>
       )}
     </button>
