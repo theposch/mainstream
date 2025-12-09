@@ -67,6 +67,15 @@ export async function POST(request: NextRequest) {
     const sourceStream = streams.find(s => s.id === sourceId);
     const targetStream = streams.find(s => s.id === targetId);
 
+    // Additional safety check - find() can return undefined even if length is 2
+    // (e.g., if query returned duplicates due to a bug)
+    if (!sourceStream || !targetStream) {
+      return NextResponse.json(
+        { error: 'Failed to identify source or target stream' },
+        { status: 500 }
+      );
+    }
+
     // Step 1: Get assets already in target stream (to avoid duplicates)
     const { data: targetAssets } = await supabase
       .from('asset_streams')
