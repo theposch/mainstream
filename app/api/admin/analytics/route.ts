@@ -10,9 +10,12 @@ import { getAdminUser } from '@/lib/auth/require-admin';
 
 export const dynamic = 'force-dynamic';
 
-interface SignupDataPoint {
+interface ActivityDataPoint {
   date: string;
-  count: number;
+  uploads: number;
+  likes: number;
+  comments: number;
+  views: number;
 }
 
 interface TopContributor {
@@ -29,7 +32,7 @@ interface AnalyticsResponse {
   users: {
     total: number;
     activeThisWeek: number;
-    signupsOverTime: SignupDataPoint[];
+    newThisMonth: number;
   };
   content: {
     totalUploads: number;
@@ -41,6 +44,7 @@ interface AnalyticsResponse {
     totalBytes: number;
     totalFormatted: string;
   };
+  activityOverTime: ActivityDataPoint[];
   topContributors: TopContributor[];
 }
 
@@ -56,9 +60,10 @@ function formatBytes(bytes: number): string {
  * GET /api/admin/analytics
  * 
  * Returns platform analytics data including:
- * - User stats (total, active this week, signups over time)
+ * - User stats (total, active this week, new this month)
  * - Content stats (uploads, likes, comments, views)
  * - Storage usage
+ * - Activity over time (last 30 days)
  * - Top contributors
  */
 export async function GET() {
@@ -84,8 +89,13 @@ export async function GET() {
       .from('users')
       .select('*', { count: 'exact', head: true });
 
+    // New users this month
+    const { count: newThisMonth } = await supabase
+      .from('users')
+      .select('*', { count: 'exact', head: true })
+      .gte('created_at', thirtyDaysAgo.toISOString());
+
     // Active users this week (users who uploaded, liked, commented, or viewed)
-    // Get unique user IDs from various activity tables
     const [uploaders, likers, commenters, viewers] = await Promise.all([
       supabase
         .from('assets')
@@ -109,32 +119,68 @@ export async function GET() {
     (uploaders.data || []).forEach(r => activeUserIds.add(r.uploader_id));
     (likers.data || []).forEach(r => activeUserIds.add(r.user_id));
     (commenters.data || []).forEach(r => activeUserIds.add(r.user_id));
-    (viewers.data || []).forEach(r => activeUserIds.add(r.user_id));
+    (viewers.data || []).forEach(r => r.user_id && activeUserIds.add(r.user_id));
     const activeThisWeek = activeUserIds.size;
 
-    // Signups over time (last 30 days, grouped by day)
-    const { data: recentUsers } = await supabase
-      .from('users')
-      .select('created_at')
-      .gte('created_at', thirtyDaysAgo.toISOString())
-      .order('created_at', { ascending: true });
+    // === ACTIVITY OVER TIME (last 30 days) ===
+    
+    // Get all activity data for the last 30 days
+    const [recentUploads, recentLikes, recentComments, recentViews] = await Promise.all([
+      supabase
+        .from('assets')
+        .select('created_at')
+        .gte('created_at', thirtyDaysAgo.toISOString()),
+      supabase
+        .from('asset_likes')
+        .select('created_at')
+        .gte('created_at', thirtyDaysAgo.toISOString()),
+      supabase
+        .from('asset_comments')
+        .select('created_at')
+        .gte('created_at', thirtyDaysAgo.toISOString()),
+      supabase
+        .from('asset_views')
+        .select('viewed_at')
+        .gte('viewed_at', thirtyDaysAgo.toISOString()),
+    ]);
 
-    // Group by date
-    const signupsByDate = new Map<string, number>();
-    // Initialize all dates in range with 0
+    // Initialize activity map for all 30 days
+    const activityByDate = new Map<string, ActivityDataPoint>();
     for (let i = 0; i < 30; i++) {
       const date = new Date(thirtyDaysAgo.getTime() + i * 24 * 60 * 60 * 1000);
       const dateStr = date.toISOString().split('T')[0];
-      signupsByDate.set(dateStr, 0);
+      activityByDate.set(dateStr, { date: dateStr, uploads: 0, likes: 0, comments: 0, views: 0 });
     }
-    // Count actual signups
-    (recentUsers || []).forEach(user => {
-      const dateStr = user.created_at.split('T')[0];
-      signupsByDate.set(dateStr, (signupsByDate.get(dateStr) || 0) + 1);
+
+    // Count uploads per day
+    (recentUploads.data || []).forEach(item => {
+      const dateStr = item.created_at.split('T')[0];
+      const activity = activityByDate.get(dateStr);
+      if (activity) activity.uploads++;
     });
-    
-    const signupsOverTime: SignupDataPoint[] = Array.from(signupsByDate.entries())
-      .map(([date, count]) => ({ date, count }))
+
+    // Count likes per day
+    (recentLikes.data || []).forEach(item => {
+      const dateStr = item.created_at.split('T')[0];
+      const activity = activityByDate.get(dateStr);
+      if (activity) activity.likes++;
+    });
+
+    // Count comments per day
+    (recentComments.data || []).forEach(item => {
+      const dateStr = item.created_at.split('T')[0];
+      const activity = activityByDate.get(dateStr);
+      if (activity) activity.comments++;
+    });
+
+    // Count views per day
+    (recentViews.data || []).forEach(item => {
+      const dateStr = item.viewed_at.split('T')[0];
+      const activity = activityByDate.get(dateStr);
+      if (activity) activity.views++;
+    });
+
+    const activityOverTime = Array.from(activityByDate.values())
       .sort((a, b) => a.date.localeCompare(b.date));
 
     // === CONTENT STATS ===
@@ -244,7 +290,7 @@ export async function GET() {
       users: {
         total: totalUsers || 0,
         activeThisWeek,
-        signupsOverTime,
+        newThisMonth: newThisMonth || 0,
       },
       content: {
         totalUploads: totalUploads || 0,
@@ -256,6 +302,7 @@ export async function GET() {
         totalBytes,
         totalFormatted: formatBytes(totalBytes),
       },
+      activityOverTime,
       topContributors,
     };
 
@@ -268,4 +315,3 @@ export async function GET() {
     );
   }
 }
-

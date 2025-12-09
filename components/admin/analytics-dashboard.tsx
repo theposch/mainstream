@@ -14,13 +14,15 @@ import {
   Loader2,
   AlertCircle,
   Activity,
-  Image,
   Trophy,
 } from "lucide-react";
 
-interface SignupDataPoint {
+interface ActivityDataPoint {
   date: string;
-  count: number;
+  uploads: number;
+  likes: number;
+  comments: number;
+  views: number;
 }
 
 interface TopContributor {
@@ -37,7 +39,7 @@ interface AnalyticsData {
   users: {
     total: number;
     activeThisWeek: number;
-    signupsOverTime: SignupDataPoint[];
+    newThisMonth: number;
   };
   content: {
     totalUploads: number;
@@ -49,13 +51,24 @@ interface AnalyticsData {
     totalBytes: number;
     totalFormatted: string;
   };
+  activityOverTime: ActivityDataPoint[];
   topContributors: TopContributor[];
 }
+
+type ActivityType = 'uploads' | 'likes' | 'comments' | 'views';
+
+const activityConfig: Record<ActivityType, { label: string; color: string; bgColor: string }> = {
+  uploads: { label: 'Uploads', color: 'bg-amber-500', bgColor: 'bg-amber-500/20' },
+  likes: { label: 'Likes', color: 'bg-rose-500', bgColor: 'bg-rose-500/20' },
+  comments: { label: 'Comments', color: 'bg-cyan-500', bgColor: 'bg-cyan-500/20' },
+  views: { label: 'Views', color: 'bg-blue-500', bgColor: 'bg-blue-500/20' },
+};
 
 export function AnalyticsDashboard() {
   const [data, setData] = React.useState<AnalyticsData | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
+  const [selectedActivity, setSelectedActivity] = React.useState<ActivityType>('views');
 
   React.useEffect(() => {
     const fetchAnalytics = async () => {
@@ -96,9 +109,18 @@ export function AnalyticsDashboard() {
     );
   }
 
-  // Calculate max signups for chart scaling
-  const maxSignups = Math.max(...data.users.signupsOverTime.map(d => d.count), 1);
-  const newUsersCount = data.users.signupsOverTime.reduce((sum, d) => sum + d.count, 0);
+  // Get max value for the selected activity type for scaling
+  const maxActivity = Math.max(
+    ...data.activityOverTime.map(d => d[selectedActivity]),
+    1
+  );
+  
+  // Calculate total activity for selected type in last 30 days
+  const totalSelectedActivity = data.activityOverTime.reduce(
+    (sum, d) => sum + d[selectedActivity],
+    0
+  );
+
   const engagementRate = data.users.total > 0 
     ? Math.round((data.users.activeThisWeek / data.users.total) * 100) 
     : 0;
@@ -124,7 +146,7 @@ export function AnalyticsDashboard() {
         />
         <MetricCard
           label="New Users (30d)"
-          value={newUsersCount}
+          value={data.users.newThisMonth}
           icon={TrendingUp}
           iconColor="text-violet-400"
           iconBg="bg-violet-500/10"
@@ -139,29 +161,44 @@ export function AnalyticsDashboard() {
         />
       </div>
 
-      {/* Middle Row: Chart + Content Stats */}
+      {/* Middle Row: Activity Chart + Content Stats */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Signups Chart - Takes 2 columns */}
+        {/* Activity Chart - Takes 2 columns */}
         <Card className="lg:col-span-2 p-6 bg-card/50 border-border">
-          <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center justify-between mb-4">
             <div>
-              <h3 className="text-base font-semibold text-foreground">User Growth</h3>
-              <p className="text-sm text-muted-foreground">New signups over the last 30 days</p>
+              <h3 className="text-base font-semibold text-foreground">Platform Activity</h3>
+              <p className="text-sm text-muted-foreground">Last 30 days</p>
             </div>
-            {newUsersCount > 0 && (
-              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-500/10 text-emerald-400 text-sm font-medium">
-                <TrendingUp className="h-3.5 w-3.5" />
-                +{newUsersCount}
-              </div>
-            )}
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-muted text-muted-foreground text-sm font-medium">
+              {totalSelectedActivity.toLocaleString()} {activityConfig[selectedActivity].label.toLowerCase()}
+            </div>
           </div>
           
-          <div className="h-40 flex items-end gap-[3px]">
-            {data.users.signupsOverTime.map((point) => {
-              const height = maxSignups > 0 ? (point.count / maxSignups) * 100 : 0;
+          {/* Activity Type Selector */}
+          <div className="flex gap-2 mb-5">
+            {(Object.keys(activityConfig) as ActivityType[]).map((type) => (
+              <button
+                key={type}
+                onClick={() => setSelectedActivity(type)}
+                className={`px-3 py-1.5 text-xs font-medium rounded-full transition-all ${
+                  selectedActivity === type
+                    ? `${activityConfig[type].color} text-white`
+                    : 'bg-muted text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                {activityConfig[type].label}
+              </button>
+            ))}
+          </div>
+          
+          {/* Bar Chart */}
+          <div className="h-44 flex items-end gap-[2px]">
+            {data.activityOverTime.map((point) => {
+              const value = point[selectedActivity];
+              const height = maxActivity > 0 ? (value / maxActivity) * 100 : 0;
               const date = new Date(point.date);
               const isToday = point.date === new Date().toISOString().split('T')[0];
-              const isWeekend = date.getDay() === 0 || date.getDay() === 6;
               
               return (
                 <div
@@ -169,21 +206,26 @@ export function AnalyticsDashboard() {
                   className="flex-1 group relative"
                 >
                   {/* Tooltip */}
-                  <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 rounded bg-popover border border-border text-xs whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 shadow-lg">
-                    <p className="font-medium text-foreground">{date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</p>
-                    <p className="text-muted-foreground">{point.count} signup{point.count !== 1 ? 's' : ''}</p>
+                  <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 rounded-lg bg-popover border border-border text-xs whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 shadow-lg">
+                    <p className="font-medium text-foreground mb-1">
+                      {date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+                    </p>
+                    <div className="space-y-0.5 text-muted-foreground">
+                      <p><span className="inline-block w-2 h-2 rounded-full bg-amber-500 mr-1.5"></span>{point.uploads} uploads</p>
+                      <p><span className="inline-block w-2 h-2 rounded-full bg-rose-500 mr-1.5"></span>{point.likes} likes</p>
+                      <p><span className="inline-block w-2 h-2 rounded-full bg-cyan-500 mr-1.5"></span>{point.comments} comments</p>
+                      <p><span className="inline-block w-2 h-2 rounded-full bg-blue-500 mr-1.5"></span>{point.views} views</p>
+                    </div>
                   </div>
                   
                   {/* Bar */}
                   <div
                     className={`w-full rounded-sm transition-all duration-150 cursor-pointer ${
                       isToday 
-                        ? 'bg-emerald-500' 
-                        : isWeekend
-                          ? 'bg-muted-foreground/20 hover:bg-muted-foreground/30'
-                          : 'bg-primary/50 hover:bg-primary/70'
+                        ? activityConfig[selectedActivity].color
+                        : `${activityConfig[selectedActivity].bgColor} hover:opacity-80`
                     }`}
-                    style={{ height: `${Math.max(height, 3)}%` }}
+                    style={{ height: `${Math.max(height, value > 0 ? 4 : 1)}%` }}
                   />
                 </div>
               );
@@ -199,8 +241,8 @@ export function AnalyticsDashboard() {
         {/* Content Stats - Right Column */}
         <Card className="p-6 bg-card/50 border-border">
           <div className="flex items-center gap-2 mb-5">
-            <Image className="h-4 w-4 text-primary" />
-            <h3 className="text-base font-semibold text-foreground">Content</h3>
+            <Activity className="h-4 w-4 text-primary" />
+            <h3 className="text-base font-semibold text-foreground">All-Time Stats</h3>
           </div>
           
           <div className="space-y-4">
@@ -228,6 +270,15 @@ export function AnalyticsDashboard() {
               value={data.content.totalComments}
               color="text-cyan-500"
             />
+          </div>
+          
+          {/* Storage Usage */}
+          <div className="mt-6 pt-5 border-t border-border">
+            <div className="flex items-center gap-2 mb-3">
+              <HardDrive className="h-4 w-4 text-emerald-500" />
+              <span className="text-sm text-muted-foreground">Storage</span>
+            </div>
+            <p className="text-2xl font-bold text-foreground">{data.storage.totalFormatted}</p>
           </div>
         </Card>
       </div>
