@@ -8,7 +8,7 @@ import {
   Sheet,
   SheetContent,
 } from "@/components/ui/sheet";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -319,71 +319,65 @@ export function UserDetailPanel({
                   </div>
                 </div>
 
-                {/* Tabs */}
-                <Tabs value={activeTab} onValueChange={setActiveTab}>
-                  <TabsList className="w-full justify-start h-10 bg-transparent p-0 border-b-0">
-                    <TabsTrigger
-                      value="overview"
-                      className="data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-4"
-                    >
-                      Overview
-                    </TabsTrigger>
-                    <TabsTrigger
-                      value="uploads"
-                      className="data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-4"
-                    >
-                      Uploads
-                    </TabsTrigger>
-                    <TabsTrigger
-                      value="activity"
-                      className="data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-4"
-                    >
-                      Activity
-                    </TabsTrigger>
-                    <TabsTrigger
-                      value="manage"
-                      className="data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-4"
-                    >
-                      <Settings className="h-3.5 w-3.5 mr-1" />
-                      Manage
-                    </TabsTrigger>
-                  </TabsList>
-                </Tabs>
+                {/* Tabs - matching admin page style */}
+                <nav className="flex gap-1">
+                  {[
+                    { id: "overview", label: "Overview", icon: null },
+                    { id: "uploads", label: "Uploads", icon: LayoutGrid },
+                    { id: "activity", label: "Activity", icon: Activity },
+                    { id: "manage", label: "Manage", icon: Settings },
+                  ].map((tab) => {
+                    const isActive = activeTab === tab.id;
+                    const Icon = tab.icon;
+                    return (
+                      <button
+                        key={tab.id}
+                        onClick={() => setActiveTab(tab.id)}
+                        className={cn(
+                          "px-4 py-3 text-sm font-medium flex items-center gap-1.5 border-b-2 transition-colors",
+                          isActive
+                            ? "text-foreground border-primary"
+                            : "text-muted-foreground border-transparent hover:text-foreground hover:border-border"
+                        )}
+                      >
+                        {Icon && <Icon className="h-3.5 w-3.5" />}
+                        {tab.label}
+                      </button>
+                    );
+                  })}
+                </nav>
               </div>
 
               {/* Tab Content */}
               <ScrollArea className="flex-1">
-                <Tabs value={activeTab} className="p-6">
-                  {/* Overview Tab */}
-                  <TabsContent value="overview" className="m-0 space-y-6">
-                    <OverviewTab details={details} />
-                  </TabsContent>
-
-                  {/* Uploads Tab */}
-                  <TabsContent value="uploads" className="m-0">
+                <div className="p-6">
+                  {activeTab === "overview" && (
+                    <div className="space-y-6">
+                      <OverviewTab details={details} />
+                    </div>
+                  )}
+                  {activeTab === "uploads" && (
                     <UploadsTab uploads={details.recentUploads} stats={details.stats} />
-                  </TabsContent>
-
-                  {/* Activity Tab */}
-                  <TabsContent value="activity" className="m-0">
+                  )}
+                  {activeTab === "activity" && (
                     <ActivityTab activities={details.recentActivity} />
-                  </TabsContent>
-
-                  {/* Manage Tab */}
-                  <TabsContent value="manage" className="m-0 space-y-6">
-                    <ManageTab
-                      details={details}
-                      canChangeRole={canChangeRole}
-                      canDelete={canDelete}
-                      isCurrentUser={isCurrentUser}
-                      actionLoading={actionLoading}
-                      onRoleChange={handleRoleChange}
-                      onDeleteClick={() => setDeleteDialogOpen(true)}
-                      onCopyEmail={handleCopyEmail}
-                      copied={copied}
-                    />
-                  </TabsContent>
-                </Tabs>
+                  )}
+                  {activeTab === "manage" && (
+                    <div className="space-y-6">
+                      <ManageTab
+                        details={details}
+                        canChangeRole={canChangeRole}
+                        canDelete={canDelete}
+                        isCurrentUser={isCurrentUser}
+                        actionLoading={actionLoading}
+                        onRoleChange={handleRoleChange}
+                        onDeleteClick={() => setDeleteDialogOpen(true)}
+                        onCopyEmail={handleCopyEmail}
+                        copied={copied}
+                      />
+                    </div>
+                  )}
+                </div>
               </ScrollArea>
             </>
           ) : null}
