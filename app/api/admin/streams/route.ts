@@ -98,12 +98,14 @@ export async function GET(request: NextRequest) {
     }
 
     if (!streams || streams.length === 0) {
+      // Use actual count from query, not 0 - there may be streams on other pages
+      const total = count || 0;
       return NextResponse.json({
         streams: [],
-        total: 0,
+        total,
         page,
         limit,
-        totalPages: 0,
+        totalPages: Math.ceil(total / limit),
       });
     }
 

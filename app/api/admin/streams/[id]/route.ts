@@ -173,42 +173,40 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    if (deleteAssets) {
-      // Get all asset IDs in this stream
-      const { data: assetLinks } = await supabase
-        .from('asset_streams')
-        .select('asset_id')
-        .eq('stream_id', streamId);
+    // Always explicitly delete asset_streams first for consistency
+    // Don't rely solely on CASCADE - be explicit to avoid orphaned records
+    const { data: assetLinks } = await supabase
+      .from('asset_streams')
+      .select('asset_id')
+      .eq('stream_id', streamId);
 
-      const assetIds = (assetLinks || []).map(link => link.asset_id);
+    const assetIds = (assetLinks || []).map(link => link.asset_id);
 
-      if (assetIds.length > 0) {
-        // Delete assets (this will cascade to asset_streams, asset_likes, asset_comments)
-        const { error: deleteAssetsError } = await supabase
-          .from('assets')
-          .delete()
-          .in('id', assetIds);
+    // Delete asset_streams links explicitly
+    const { error: unlinkError } = await supabase
+      .from('asset_streams')
+      .delete()
+      .eq('stream_id', streamId);
 
-        if (deleteAssetsError) {
-          console.error('[DELETE /api/admin/streams/[id]] Delete assets error:', deleteAssetsError);
-          return NextResponse.json(
-            { error: 'Failed to delete assets' },
-            { status: 500 }
-          );
-        }
-      }
-    } else {
-      // When keeping assets, explicitly delete asset_streams links first
-      // Don't rely solely on CASCADE - be explicit to avoid orphaned records
-      const { error: unlinkError } = await supabase
-        .from('asset_streams')
+    if (unlinkError) {
+      console.error('[DELETE /api/admin/streams/[id]] Unlink assets error:', unlinkError);
+      return NextResponse.json(
+        { error: 'Failed to unlink assets from stream' },
+        { status: 500 }
+      );
+    }
+
+    // If deleteAssets is true, also delete the actual assets
+    if (deleteAssets && assetIds.length > 0) {
+      const { error: deleteAssetsError } = await supabase
+        .from('assets')
         .delete()
-        .eq('stream_id', streamId);
+        .in('id', assetIds);
 
-      if (unlinkError) {
-        console.error('[DELETE /api/admin/streams/[id]] Unlink assets error:', unlinkError);
+      if (deleteAssetsError) {
+        console.error('[DELETE /api/admin/streams/[id]] Delete assets error:', deleteAssetsError);
         return NextResponse.json(
-          { error: 'Failed to unlink assets from stream' },
+          { error: 'Failed to delete assets' },
           { status: 500 }
         );
       }
