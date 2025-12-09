@@ -411,6 +411,8 @@ export function UserTable({ currentUser }: UserTableProps) {
         user={selectedUser}
         open={detailPanelOpen}
         onOpenChange={setDetailPanelOpen}
+        currentUser={currentUser}
+        onUserUpdated={fetchUsers}
       />
     </div>
   );
