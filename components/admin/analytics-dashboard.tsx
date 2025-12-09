@@ -25,6 +25,13 @@ interface ActivityDataPoint {
   views: number;
 }
 
+interface RawActivityData {
+  uploads: string[];  // ISO timestamps
+  likes: string[];
+  comments: string[];
+  views: string[];
+}
+
 interface TopContributor {
   id: string;
   username: string;
@@ -33,6 +40,26 @@ interface TopContributor {
   upload_count: number;
   like_count: number;
   comment_count: number;
+}
+
+interface AnalyticsApiResponse {
+  users: {
+    total: number;
+    activeThisWeek: number;
+    newThisMonth: number;
+  };
+  content: {
+    totalUploads: number;
+    totalLikes: number;
+    totalComments: number;
+    totalViews: number;
+  };
+  storage: {
+    totalBytes: number;
+    totalFormatted: string;
+  };
+  rawActivity: RawActivityData;
+  topContributors: TopContributor[];
 }
 
 interface AnalyticsData {
@@ -53,6 +80,60 @@ interface AnalyticsData {
   };
   activityOverTime: ActivityDataPoint[];
   topContributors: TopContributor[];
+}
+
+/**
+ * Convert ISO timestamp to local date string (YYYY-MM-DD)
+ */
+function toLocalDateString(isoTimestamp: string): string {
+  const date = new Date(isoTimestamp);
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+}
+
+/**
+ * Bucket raw timestamps by local date
+ */
+function bucketActivityByLocalDate(rawActivity: RawActivityData): ActivityDataPoint[] {
+  const now = new Date();
+  const activityByDate = new Map<string, ActivityDataPoint>();
+  
+  // Generate 30 days of local dates (29 days ago to today)
+  for (let i = 29; i >= 0; i--) {
+    const date = new Date(now);
+    date.setDate(date.getDate() - i);
+    const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+    activityByDate.set(dateStr, { date: dateStr, uploads: 0, likes: 0, comments: 0, views: 0 });
+  }
+
+  // Bucket uploads by local date
+  rawActivity.uploads.forEach(timestamp => {
+    const dateStr = toLocalDateString(timestamp);
+    const activity = activityByDate.get(dateStr);
+    if (activity) activity.uploads++;
+  });
+
+  // Bucket likes by local date
+  rawActivity.likes.forEach(timestamp => {
+    const dateStr = toLocalDateString(timestamp);
+    const activity = activityByDate.get(dateStr);
+    if (activity) activity.likes++;
+  });
+
+  // Bucket comments by local date
+  rawActivity.comments.forEach(timestamp => {
+    const dateStr = toLocalDateString(timestamp);
+    const activity = activityByDate.get(dateStr);
+    if (activity) activity.comments++;
+  });
+
+  // Bucket views by local date
+  rawActivity.views.forEach(timestamp => {
+    const dateStr = toLocalDateString(timestamp);
+    const activity = activityByDate.get(dateStr);
+    if (activity) activity.views++;
+  });
+
+  return Array.from(activityByDate.values()).sort((a, b) => a.date.localeCompare(b.date));
 }
 
 type ActivityType = 'uploads' | 'likes' | 'comments' | 'views';
@@ -77,7 +158,20 @@ export function AnalyticsDashboard() {
         if (!response.ok) {
           throw new Error('Failed to fetch analytics');
         }
-        const analyticsData = await response.json();
+        const apiData: AnalyticsApiResponse = await response.json();
+        
+        // Process raw timestamps into local date buckets
+        const activityOverTime = bucketActivityByLocalDate(apiData.rawActivity);
+        
+        // Convert API response to client data structure
+        const analyticsData: AnalyticsData = {
+          users: apiData.users,
+          content: apiData.content,
+          storage: apiData.storage,
+          activityOverTime,
+          topContributors: apiData.topContributors,
+        };
+        
         setData(analyticsData);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load analytics');
