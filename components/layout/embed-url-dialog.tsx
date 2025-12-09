@@ -34,6 +34,7 @@ import {
   type EmbedProvider,
 } from "@/lib/utils/embed-providers";
 import { Badge } from "@/components/ui/badge";
+import { triggerSmallConfetti } from "@/lib/utils/confetti";
 
 interface EmbedUrlDialogProps {
   open: boolean;
@@ -178,6 +179,7 @@ export function EmbedUrlDialog({ open, onOpenChange, initialStreamId }: EmbedUrl
 
       // Success!
       onOpenChange(false);
+      triggerSmallConfetti();
       
       // Notify other components
       window.dispatchEvent(new CustomEvent('asset-uploaded', { detail: { asset: data.asset } }));
