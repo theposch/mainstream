@@ -124,6 +124,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       likesResult,
       commentsResult,
       storageResult,
+      totalViewsResult,
       streamsOwnedResult,
       streamsMemberResult,
       recentUploadsResult,
@@ -153,6 +154,12 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       supabase
         .from('assets')
         .select('file_size')
+        .eq('uploader_id', userId),
+      
+      // Total views across ALL uploads (not just recent)
+      supabase
+        .from('assets')
+        .select('view_count')
         .eq('uploader_id', userId),
       
       // Streams owned
@@ -272,9 +279,9 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       });
     }
 
-    // Calculate total views from user's uploads
-    const totalViews = (recentUploadsResult.data || []).reduce(
-      (sum, upload) => sum + (upload.view_count || 0),
+    // Calculate total views from ALL user's uploads (not just recent 20)
+    const totalViews = (totalViewsResult.data || []).reduce(
+      (sum, asset) => sum + (asset.view_count || 0),
       0
     );
 
