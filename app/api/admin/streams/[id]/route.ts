@@ -197,9 +197,24 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
           );
         }
       }
+    } else {
+      // When keeping assets, explicitly delete asset_streams links first
+      // Don't rely solely on CASCADE - be explicit to avoid orphaned records
+      const { error: unlinkError } = await supabase
+        .from('asset_streams')
+        .delete()
+        .eq('stream_id', streamId);
+
+      if (unlinkError) {
+        console.error('[DELETE /api/admin/streams/[id]] Unlink assets error:', unlinkError);
+        return NextResponse.json(
+          { error: 'Failed to unlink assets from stream' },
+          { status: 500 }
+        );
+      }
     }
 
-    // Delete the stream (cascades to asset_streams, stream_members, stream_resources)
+    // Delete the stream (also cascades to stream_members, stream_resources)
     const { error: deleteError } = await supabase
       .from('streams')
       .delete()
