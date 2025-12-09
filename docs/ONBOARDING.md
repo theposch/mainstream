@@ -24,7 +24,7 @@ A Pinterest-style design sharing platform with:
 - TypeScript
 - Tailwind CSS + shadcn/ui
 - Supabase (PostgreSQL + Auth + Storage)
-- Framer Motion
+- Framer Motion + canvas-confetti
 
 ## Quick Setup
 
@@ -154,6 +154,11 @@ Home page has two tabs:
 - Notification badges update live
 - Typing indicators ("X is typing...")
 - Supabase Realtime subscriptions
+
+### Micro-animations
+- Confetti celebrations on publish/upload
+- Animated like button with floating hearts
+- Smooth transitions throughout the UI
 
 ### Figma Integration
 - Paste Figma URLs to embed designs

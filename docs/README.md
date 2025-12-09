@@ -19,6 +19,7 @@ Design collaboration platform for internal teams to share work and organize into
 - **shadcn/ui** - Component library
 - **Supabase** - PostgreSQL database + Auth + Storage
 - **Framer Motion** - Animations
+- **canvas-confetti** - Celebration animations
 - **LiteLLM** - AI integration (Gemini 2.5 Flash)
 - **React Email** - Email-compatible components
 - **Resend** - Email delivery
@@ -51,6 +52,7 @@ Design collaboration platform for internal teams to share work and organize into
 ✅ **Complete** - Unlisted assets (drop-only images hidden from feed)  
 ✅ **Complete** - Notification settings (toggle by type: likes, comments, follows, mentions)  
 ✅ **Complete** - View tracking improvements (atomic RPC, real-time count updates)  
+✅ **Complete** - Micro-animations and delightful interactions (confetti, animated like button)  
 
 ## Project Structure
 
@@ -79,7 +81,7 @@ mainstream/
 │   ├── auth/            # Auth utilities
 │   ├── hooks/           # Custom React hooks
 │   ├── contexts/        # React contexts
-│   ├── utils/           # Utilities (AI, encryption, etc.)
+│   ├── utils/           # Utilities (AI, encryption, confetti, etc.)
 │   └── types/           # TypeScript types
 └── docs/                # Documentation
 ```
