@@ -106,7 +106,15 @@ export function StreamsTab() {
   const [mergeTarget, setMergeTarget] = React.useState<{ id: string; name: string } | null>(null);
   const [actionLoading, setActionLoading] = React.useState(false);
 
-  const searchTimeoutRef = React.useRef<NodeJS.Timeout>();
+  const searchTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
+  
+  // Use ref for search to avoid dependency issues in fetchStreams
+  const searchRef = React.useRef(search);
+  searchRef.current = search;
+  
+  // Use ref for page to allow manual fetch calls
+  const pageRef = React.useRef(page);
+  pageRef.current = page;
 
   const fetchStreams = React.useCallback(async () => {
     setLoading(true);
@@ -114,10 +122,10 @@ export function StreamsTab() {
 
     try {
       const params = new URLSearchParams({
-        page: page.toString(),
+        page: pageRef.current.toString(),
         limit: "20",
       });
-      if (search) params.set("search", search);
+      if (searchRef.current) params.set("search", searchRef.current);
 
       const response = await fetch(`/api/admin/streams?${params}`);
       if (!response.ok) throw new Error("Failed to fetch streams");
@@ -131,20 +139,35 @@ export function StreamsTab() {
     } finally {
       setLoading(false);
     }
-  }, [page, search]);
+  }, []); // No dependencies - uses refs
 
+  // Track if this is the initial mount
+  const isInitialMount = React.useRef(true);
+
+  // Initial fetch on mount
   React.useEffect(() => {
     fetchStreams();
   }, [fetchStreams]);
+  
+  // Refetch when page changes (immediate, no debounce needed)
+  // Skip initial mount since that's handled above
+  React.useEffect(() => {
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      return;
+    }
+    fetchStreams();
+  }, [page, fetchStreams]);
 
+  // Debounced search - only triggers fetch after user stops typing
   const handleSearchChange = (value: string) => {
     setSearch(value);
-    setPage(1);
+    setPage(1); // Reset to page 1 on search
     if (searchTimeoutRef.current) {
       clearTimeout(searchTimeoutRef.current);
     }
     searchTimeoutRef.current = setTimeout(() => {
-      // Search is already set, useEffect will trigger fetch
+      fetchStreams(); // Actually call fetch after debounce
     }, 300);
   };
 
