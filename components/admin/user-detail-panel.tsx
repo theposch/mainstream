@@ -787,7 +787,7 @@ function StreamTags({ streams, maxShow = 2 }: { streams: Array<{ id: string; nam
         <span key={stream.id}>
           {idx > 0 && " "}
           <Link
-            href={`/streams/${stream.name}`}
+            href={`/stream/${stream.name}`}
             target="_blank"
             className="text-primary hover:underline font-medium"
           >
@@ -1033,7 +1033,7 @@ function ActivityItem({ activity, compact = false }: { activity: UserActivity; c
           <span className="text-muted-foreground">
             {" → "}
             <Link
-              href={`/streams/${activity.details.streams[0].name}`}
+              href={`/stream/${activity.details.streams[0].name}`}
               target="_blank"
               className="text-primary hover:underline"
             >
