@@ -16,7 +16,7 @@ import { SettingsDialog } from "@/components/layout/settings-dialog";
 import { createClient } from "@/lib/supabase/client";
 import { useUser } from "@/lib/auth/use-user";
 import { Button } from "@/components/ui/button";
-import { User, Settings, LogOut } from "lucide-react";
+import { User, Settings, LogOut, Shield } from "lucide-react";
 
 export function UserMenu() {
   const [settingsOpen, setSettingsOpen] = React.useState(false);
@@ -83,6 +83,14 @@ export function UserMenu() {
           <Settings className="mr-2 h-4 w-4" />
           <span>Settings</span>
         </DropdownMenuItem>
+        {user.platformRole && ['admin', 'owner'].includes(user.platformRole) && (
+          <DropdownMenuItem asChild className="focus:bg-zinc-900 focus:text-white cursor-pointer">
+            <Link href="/admin">
+              <Shield className="mr-2 h-4 w-4" />
+              <span>Admin</span>
+            </Link>
+          </DropdownMenuItem>
+        )}
         <DropdownMenuSeparator className="bg-zinc-800" />
         <DropdownMenuItem 
           className="focus:bg-zinc-900 focus:text-white cursor-pointer text-red-500 focus:text-red-400"
