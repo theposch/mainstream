@@ -4,10 +4,11 @@ import * as React from "react";
 import { useUser } from "@/lib/auth/use-user";
 import { UserTable } from "@/components/admin/user-table";
 import { AnalyticsDashboard } from "@/components/admin/analytics-dashboard";
-import { Loader2, Shield, Users, BarChart3 } from "lucide-react";
+import { StreamsTab } from "@/components/admin/streams-tab";
+import { Loader2, Shield, Users, BarChart3, Layers } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-type AdminTab = "users" | "analytics";
+type AdminTab = "users" | "analytics" | "streams";
 
 export default function AdminPage() {
   const { user, loading } = useUser();
@@ -38,6 +39,7 @@ export default function AdminPage() {
 
   const tabs = [
     { id: "users" as const, label: "Users", icon: Users },
+    { id: "streams" as const, label: "Streams", icon: Layers },
     { id: "analytics" as const, label: "Analytics", icon: BarChart3 },
   ];
 
@@ -85,6 +87,7 @@ export default function AdminPage() {
 
       {/* Tab Content */}
       {activeTab === "users" && <UserTable currentUser={user} />}
+      {activeTab === "streams" && <StreamsTab />}
       {activeTab === "analytics" && <AnalyticsDashboard />}
     </div>
   );
