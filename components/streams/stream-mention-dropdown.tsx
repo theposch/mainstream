@@ -117,7 +117,7 @@ export function StreamMentionDropdown({
               onClick={() => onSelect(streamName, isNew)}
               onMouseEnter={() => setSelectedIndex(index)}
               className={cn(
-                "w-full flex items-center gap-3 px-3 py-2 text-left transition-colors",
+                "w-full flex items-center gap-3 px-3 py-2 text-left transition-colors cursor-pointer",
                 selectedIndex === index && "bg-zinc-800",
                 "hover:bg-zinc-800"
               )}

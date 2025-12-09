@@ -66,7 +66,7 @@ export function MoreMenuSheet({
               onOpenChange(false);
             }}
             className={cn(
-              "w-full flex items-center gap-4 p-4 rounded-xl transition-colors bg-zinc-900/50 active:bg-zinc-800",
+              "w-full flex items-center gap-4 p-4 rounded-xl transition-colors bg-zinc-900/50 active:bg-zinc-800 cursor-pointer",
               item.variant === "destructive" ? "text-red-500" : "text-zinc-200"
             )}
           >
@@ -77,7 +77,7 @@ export function MoreMenuSheet({
         
         <button
           onClick={() => onOpenChange(false)}
-          className="w-full flex items-center justify-center gap-2 p-4 rounded-xl bg-zinc-900 text-zinc-400 mt-4 font-medium active:bg-zinc-800"
+          className="w-full flex items-center justify-center gap-2 p-4 rounded-xl bg-zinc-900 text-zinc-400 mt-4 font-medium active:bg-zinc-800 cursor-pointer"
         >
           Cancel
         </button>
