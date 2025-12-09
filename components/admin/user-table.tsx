@@ -31,12 +31,11 @@ import {
   Trash2,
   Loader2,
   UserX,
+  ChevronUp,
   ChevronDown,
-  ExternalLink,
 } from "lucide-react";
 import type { User } from "@/lib/auth/get-user";
 import type { PlatformRole } from "@/lib/types/database";
-import { UserDetailsSheet } from "./user-details-sheet";
 
 interface AdminUser {
   id: string;
@@ -65,18 +64,20 @@ export function UserTable({ currentUser }: UserTableProps) {
   const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false);
   const [userToDelete, setUserToDelete] = React.useState<AdminUser | null>(null);
   const [actionLoading, setActionLoading] = React.useState<string | null>(null);
-  const [selectedUserId, setSelectedUserId] = React.useState<string | null>(null);
-  const [detailsSheetOpen, setDetailsSheetOpen] = React.useState(false);
 
   const isOwner = currentUser.platformRole === "owner";
 
-  // Fetch users
+  // Use ref for search to avoid dependency issues in fetchUsers
+  const searchRef = React.useRef(search);
+  searchRef.current = search;
+
+  // Fetch users - uses ref to avoid recreating on every search change
   const fetchUsers = React.useCallback(async () => {
     setLoading(true);
     try {
       const params = new URLSearchParams({ limit: "100" });
-      if (search) {
-        params.set("search", search);
+      if (searchRef.current) {
+        params.set("search", searchRef.current);
       }
 
       const response = await fetch(`/api/admin/users?${params}`);
@@ -90,13 +91,14 @@ export function UserTable({ currentUser }: UserTableProps) {
     } finally {
       setLoading(false);
     }
-  }, [search]);
+  }, []); // No dependencies - uses ref for search
 
+  // Initial fetch on mount
   React.useEffect(() => {
     fetchUsers();
   }, [fetchUsers]);
 
-  // Debounced search
+  // Debounced search - only triggers fetch after user stops typing
   const searchTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
   const handleSearchChange = (value: string) => {
     setSearch(value);
@@ -234,11 +236,7 @@ export function UserTable({ currentUser }: UserTableProps) {
                 return (
                   <tr
                     key={user.id}
-                    className="border-b border-border last:border-b-0 hover:bg-muted/30 transition-colors cursor-pointer group"
-                    onClick={() => {
-                      setSelectedUserId(user.id);
-                      setDetailsSheetOpen(true);
-                    }}
+                    className="border-b border-border last:border-b-0 hover:bg-muted/30 transition-colors"
                   >
                     {/* User */}
                     <td className="py-3 px-4">
@@ -250,12 +248,11 @@ export function UserTable({ currentUser }: UserTableProps) {
                           </AvatarFallback>
                         </Avatar>
                         <div>
-                          <p className="text-sm font-medium text-foreground flex items-center gap-1">
+                          <p className="text-sm font-medium text-foreground">
                             {user.display_name}
                             {isCurrentUser && (
-                              <span className="text-xs text-muted-foreground">(you)</span>
+                              <span className="ml-2 text-xs text-muted-foreground">(you)</span>
                             )}
-                            <ExternalLink className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
                           </p>
                           <p className="text-xs text-muted-foreground">@{user.username}</p>
                         </div>
@@ -268,7 +265,7 @@ export function UserTable({ currentUser }: UserTableProps) {
                     </td>
 
                     {/* Role */}
-                    <td className="py-3 px-4" onClick={(e) => e.stopPropagation()}>
+                    <td className="py-3 px-4">
                       {canChangeRole ? (
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
@@ -330,7 +327,7 @@ export function UserTable({ currentUser }: UserTableProps) {
                     </td>
 
                     {/* Actions */}
-                    <td className="py-3 px-4 text-right" onClick={(e) => e.stopPropagation()}>
+                    <td className="py-3 px-4 text-right">
                       {canDelete && (
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
@@ -400,13 +397,6 @@ export function UserTable({ currentUser }: UserTableProps) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-
-      {/* User Details Sheet */}
-      <UserDetailsSheet
-        userId={selectedUserId}
-        open={detailsSheetOpen}
-        onOpenChange={setDetailsSheetOpen}
-      />
     </div>
   );
 }
