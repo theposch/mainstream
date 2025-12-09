@@ -79,9 +79,11 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    // If promoting someone to owner, demote current owner to admin
-    if (newRole === 'owner' && targetUser.platform_role !== 'owner') {
-      // Demote current owner to admin
+    // Handle ownership transfer with rollback support
+    const isOwnershipTransfer = newRole === 'owner' && targetUser.platform_role !== 'owner';
+    
+    if (isOwnershipTransfer) {
+      // Step 1: Demote current owner to admin
       const { error: demoteError } = await supabase
         .from('users')
         .update({ platform_role: 'admin' })
@@ -90,14 +92,47 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       if (demoteError) {
         console.error('[PATCH /api/admin/users] Error demoting owner:', demoteError);
         return NextResponse.json(
-          { error: 'Failed to transfer ownership' },
+          { error: 'Failed to transfer ownership: could not demote current owner' },
           { status: 500 }
         );
       }
+
+      // Step 2: Promote target user to owner
+      const { data: updatedUser, error: promoteError } = await supabase
+        .from('users')
+        .update({ platform_role: 'owner' })
+        .eq('id', targetUserId)
+        .select('id, username, display_name, email, avatar_url, platform_role, created_at')
+        .single();
+
+      if (promoteError) {
+        console.error('[PATCH /api/admin/users] Error promoting new owner:', promoteError);
+        
+        // ROLLBACK: Restore original owner's role
+        const { error: rollbackError } = await supabase
+          .from('users')
+          .update({ platform_role: 'owner' })
+          .eq('id', admin.id);
+
+        if (rollbackError) {
+          // Critical error: system is in inconsistent state
+          console.error('[PATCH /api/admin/users] CRITICAL: Failed to rollback owner demotion:', rollbackError);
+          return NextResponse.json(
+            { error: 'Critical error during ownership transfer. Please contact support immediately.' },
+            { status: 500 }
+          );
+        }
+
+        return NextResponse.json(
+          { error: 'Failed to transfer ownership: could not promote new owner. Changes rolled back.' },
+          { status: 500 }
+        );
+      }
+
+      return NextResponse.json({ user: updatedUser });
     }
 
-    // Update target user's role
-    console.log('[PATCH /api/admin/users] Updating user:', targetUserId, 'to role:', newRole);
+    // Standard role update (not ownership transfer)
     const { data: updatedUser, error: updateError } = await supabase
       .from('users')
       .update({ platform_role: newRole })
@@ -107,14 +142,11 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
     if (updateError) {
       console.error('[PATCH /api/admin/users] Error updating user:', updateError);
-      console.error('[PATCH /api/admin/users] Error details:', JSON.stringify(updateError, null, 2));
       return NextResponse.json(
         { error: `Failed to update user role: ${updateError.message}` },
         { status: 500 }
       );
     }
-    
-    console.log('[PATCH /api/admin/users] Updated user:', updatedUser);
 
     return NextResponse.json({ user: updatedUser });
   } catch (error) {
