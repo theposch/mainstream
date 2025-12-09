@@ -184,26 +184,33 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    // Delete the user from public.users (will cascade to related data)
+    // Delete from auth.users FIRST to prevent orphaned auth records
+    // If this fails, we haven't touched the profile yet, so the user remains intact
+    const { error: authDeleteError } = await supabase.auth.admin.deleteUser(targetUserId);
+
+    if (authDeleteError) {
+      console.error('[DELETE /api/admin/users] Error deleting auth user:', authDeleteError);
+      return NextResponse.json(
+        { error: 'Failed to delete user authentication. User was not deleted.' },
+        { status: 500 }
+      );
+    }
+
+    // Now delete from public.users (will cascade to related data)
+    // Auth is already deleted, so even if this fails, user can't authenticate
     const { error: deleteError } = await supabase
       .from('users')
       .delete()
       .eq('id', targetUserId);
 
     if (deleteError) {
-      console.error('[DELETE /api/admin/users] Error deleting user:', deleteError);
+      console.error('[DELETE /api/admin/users] Error deleting user profile:', deleteError);
+      // Auth was deleted but profile remains - log this serious error
+      // User can't login but has orphaned data
       return NextResponse.json(
-        { error: 'Failed to delete user' },
+        { error: 'User authentication deleted but profile deletion failed. Please contact support.' },
         { status: 500 }
       );
-    }
-
-    // Also delete from auth.users using admin client
-    const { error: authDeleteError } = await supabase.auth.admin.deleteUser(targetUserId);
-
-    if (authDeleteError) {
-      console.error('[DELETE /api/admin/users] Error deleting auth user:', authDeleteError);
-      // User is already deleted from public.users, so we just log the error
     }
 
     return NextResponse.json({ 
