@@ -10,12 +10,24 @@ import { getAdminUser } from '@/lib/auth/require-admin';
 
 export const dynamic = 'force-dynamic';
 
-interface ActivityDataPoint {
-  date: string;
+interface WeeklyActivity {
+  week: number; // 1-4, where 4 is current week
+  label: string; // "This Week", "Last Week", etc.
+  startDate: string;
+  endDate: string;
   uploads: number;
   likes: number;
   comments: number;
   views: number;
+  total: number;
+}
+
+interface PeriodComparison {
+  uploads: { current: number; previous: number; change: number; };
+  likes: { current: number; previous: number; change: number; };
+  comments: { current: number; previous: number; change: number; };
+  views: { current: number; previous: number; change: number; };
+  total: { current: number; previous: number; change: number; };
 }
 
 interface TopContributor {
@@ -44,7 +56,8 @@ interface AnalyticsResponse {
     totalBytes: number;
     totalFormatted: string;
   };
-  activityOverTime: ActivityDataPoint[];
+  weeklyActivity: WeeklyActivity[];
+  comparison: PeriodComparison;
   topContributors: TopContributor[];
 }
 
@@ -56,19 +69,38 @@ function formatBytes(bytes: number): string {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 }
 
+function getWeekBounds(weeksAgo: number): { start: Date; end: Date; label: string } {
+  const now = new Date();
+  const currentDay = now.getDay(); // 0 = Sunday
+  
+  // Get start of current week (Sunday)
+  const startOfCurrentWeek = new Date(now);
+  startOfCurrentWeek.setDate(now.getDate() - currentDay);
+  startOfCurrentWeek.setHours(0, 0, 0, 0);
+  
+  // Calculate start and end of target week
+  const start = new Date(startOfCurrentWeek);
+  start.setDate(start.getDate() - (weeksAgo * 7));
+  
+  const end = new Date(start);
+  end.setDate(end.getDate() + 6);
+  end.setHours(23, 59, 59, 999);
+  
+  const labels = ['This Week', 'Last Week', '2 Weeks Ago', '3 Weeks Ago'];
+  
+  return { start, end, label: labels[weeksAgo] || `${weeksAgo} Weeks Ago` };
+}
+
+function calculateChange(current: number, previous: number): number {
+  if (previous === 0) return current > 0 ? 100 : 0;
+  return Math.round(((current - previous) / previous) * 100);
+}
+
 /**
  * GET /api/admin/analytics
- * 
- * Returns platform analytics data including:
- * - User stats (total, active this week, new this month)
- * - Content stats (uploads, likes, comments, views)
- * - Storage usage
- * - Activity over time (last 30 days)
- * - Top contributors
  */
 export async function GET() {
   try {
-    // Check admin access
     const admin = await getAdminUser();
     if (!admin) {
       return NextResponse.json(
@@ -83,36 +115,21 @@ export async function GET() {
     const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
 
     // === USER STATS ===
-    
-    // Total users
     const { count: totalUsers } = await supabase
       .from('users')
       .select('*', { count: 'exact', head: true });
 
-    // New users this month
     const { count: newThisMonth } = await supabase
       .from('users')
       .select('*', { count: 'exact', head: true })
       .gte('created_at', thirtyDaysAgo.toISOString());
 
-    // Active users this week (users who uploaded, liked, commented, or viewed)
+    // Active users this week
     const [uploaders, likers, commenters, viewers] = await Promise.all([
-      supabase
-        .from('assets')
-        .select('uploader_id')
-        .gte('created_at', oneWeekAgo.toISOString()),
-      supabase
-        .from('asset_likes')
-        .select('user_id')
-        .gte('created_at', oneWeekAgo.toISOString()),
-      supabase
-        .from('asset_comments')
-        .select('user_id')
-        .gte('created_at', oneWeekAgo.toISOString()),
-      supabase
-        .from('asset_views')
-        .select('user_id')
-        .gte('viewed_at', oneWeekAgo.toISOString()),
+      supabase.from('assets').select('uploader_id').gte('created_at', oneWeekAgo.toISOString()),
+      supabase.from('asset_likes').select('user_id').gte('created_at', oneWeekAgo.toISOString()),
+      supabase.from('asset_comments').select('user_id').gte('created_at', oneWeekAgo.toISOString()),
+      supabase.from('asset_views').select('user_id').gte('viewed_at', oneWeekAgo.toISOString()),
     ]);
 
     const activeUserIds = new Set<string>();
@@ -122,69 +139,88 @@ export async function GET() {
     (viewers.data || []).forEach(r => r.user_id && activeUserIds.add(r.user_id));
     const activeThisWeek = activeUserIds.size;
 
-    // === ACTIVITY OVER TIME (last 30 days) ===
+    // === WEEKLY ACTIVITY (last 4 weeks) ===
+    const fourWeeksAgo = new Date(now.getTime() - 28 * 24 * 60 * 60 * 1000);
     
-    // Get all activity data for the last 30 days
-    const [recentUploads, recentLikes, recentComments, recentViews] = await Promise.all([
-      supabase
-        .from('assets')
-        .select('created_at')
-        .gte('created_at', thirtyDaysAgo.toISOString()),
-      supabase
-        .from('asset_likes')
-        .select('created_at')
-        .gte('created_at', thirtyDaysAgo.toISOString()),
-      supabase
-        .from('asset_comments')
-        .select('created_at')
-        .gte('created_at', thirtyDaysAgo.toISOString()),
-      supabase
-        .from('asset_views')
-        .select('viewed_at')
-        .gte('viewed_at', thirtyDaysAgo.toISOString()),
+    const [allUploads, allLikes, allComments, allViews] = await Promise.all([
+      supabase.from('assets').select('created_at').gte('created_at', fourWeeksAgo.toISOString()),
+      supabase.from('asset_likes').select('created_at').gte('created_at', fourWeeksAgo.toISOString()),
+      supabase.from('asset_comments').select('created_at').gte('created_at', fourWeeksAgo.toISOString()),
+      supabase.from('asset_views').select('viewed_at').gte('viewed_at', fourWeeksAgo.toISOString()),
     ]);
 
-    // Initialize activity map for all 30 days
-    const activityByDate = new Map<string, ActivityDataPoint>();
-    for (let i = 0; i < 30; i++) {
-      const date = new Date(thirtyDaysAgo.getTime() + i * 24 * 60 * 60 * 1000);
-      const dateStr = date.toISOString().split('T')[0];
-      activityByDate.set(dateStr, { date: dateStr, uploads: 0, likes: 0, comments: 0, views: 0 });
+    // Build weekly activity for last 4 weeks
+    const weeklyActivity: WeeklyActivity[] = [];
+    
+    for (let weeksAgo = 3; weeksAgo >= 0; weeksAgo--) {
+      const { start, end, label } = getWeekBounds(weeksAgo);
+      
+      const uploads = (allUploads.data || []).filter(r => {
+        const d = new Date(r.created_at);
+        return d >= start && d <= end;
+      }).length;
+      
+      const likes = (allLikes.data || []).filter(r => {
+        const d = new Date(r.created_at);
+        return d >= start && d <= end;
+      }).length;
+      
+      const comments = (allComments.data || []).filter(r => {
+        const d = new Date(r.created_at);
+        return d >= start && d <= end;
+      }).length;
+      
+      const views = (allViews.data || []).filter(r => {
+        const d = new Date(r.viewed_at);
+        return d >= start && d <= end;
+      }).length;
+      
+      weeklyActivity.push({
+        week: 4 - weeksAgo,
+        label,
+        startDate: start.toISOString().split('T')[0],
+        endDate: end.toISOString().split('T')[0],
+        uploads,
+        likes,
+        comments,
+        views,
+        total: uploads + likes + comments + views,
+      });
     }
 
-    // Count uploads per day
-    (recentUploads.data || []).forEach(item => {
-      const dateStr = item.created_at.split('T')[0];
-      const activity = activityByDate.get(dateStr);
-      if (activity) activity.uploads++;
-    });
-
-    // Count likes per day
-    (recentLikes.data || []).forEach(item => {
-      const dateStr = item.created_at.split('T')[0];
-      const activity = activityByDate.get(dateStr);
-      if (activity) activity.likes++;
-    });
-
-    // Count comments per day
-    (recentComments.data || []).forEach(item => {
-      const dateStr = item.created_at.split('T')[0];
-      const activity = activityByDate.get(dateStr);
-      if (activity) activity.comments++;
-    });
-
-    // Count views per day
-    (recentViews.data || []).forEach(item => {
-      const dateStr = item.viewed_at.split('T')[0];
-      const activity = activityByDate.get(dateStr);
-      if (activity) activity.views++;
-    });
-
-    const activityOverTime = Array.from(activityByDate.values())
-      .sort((a, b) => a.date.localeCompare(b.date));
-
-    // === CONTENT STATS ===
+    // === PERIOD COMPARISON (This week vs Last week) ===
+    const thisWeek = weeklyActivity.find(w => w.week === 4) || { uploads: 0, likes: 0, comments: 0, views: 0, total: 0 };
+    const lastWeek = weeklyActivity.find(w => w.week === 3) || { uploads: 0, likes: 0, comments: 0, views: 0, total: 0 };
     
+    const comparison: PeriodComparison = {
+      uploads: {
+        current: thisWeek.uploads,
+        previous: lastWeek.uploads,
+        change: calculateChange(thisWeek.uploads, lastWeek.uploads),
+      },
+      likes: {
+        current: thisWeek.likes,
+        previous: lastWeek.likes,
+        change: calculateChange(thisWeek.likes, lastWeek.likes),
+      },
+      comments: {
+        current: thisWeek.comments,
+        previous: lastWeek.comments,
+        change: calculateChange(thisWeek.comments, lastWeek.comments),
+      },
+      views: {
+        current: thisWeek.views,
+        previous: lastWeek.views,
+        change: calculateChange(thisWeek.views, lastWeek.views),
+      },
+      total: {
+        current: thisWeek.total,
+        previous: lastWeek.total,
+        change: calculateChange(thisWeek.total, lastWeek.total),
+      },
+    };
+
+    // === CONTENT STATS (All time) ===
     const [
       { count: totalUploads },
       { count: totalLikes },
@@ -197,61 +233,35 @@ export async function GET() {
       supabase.from('assets').select('view_count'),
     ]);
 
-    // Sum up all view counts
     const totalViews = (viewsData || []).reduce((sum, asset) => sum + (asset.view_count || 0), 0);
 
     // === STORAGE USAGE ===
-    
-    const { data: storageData } = await supabase
-      .from('assets')
-      .select('file_size');
-
+    const { data: storageData } = await supabase.from('assets').select('file_size');
     const totalBytes = (storageData || []).reduce((sum, asset) => sum + (asset.file_size || 0), 0);
 
     // === TOP CONTRIBUTORS ===
-    
-    // Get top 10 users by upload count
     const { data: allUsers } = await supabase
       .from('users')
       .select('id, username, display_name, avatar_url');
 
     if (!allUsers) {
-      return NextResponse.json(
-        { error: 'Failed to fetch users' },
-        { status: 500 }
-      );
+      return NextResponse.json({ error: 'Failed to fetch users' }, { status: 500 });
     }
 
-    // Get upload counts per user
-    const { data: uploadCounts } = await supabase
-      .from('assets')
-      .select('uploader_id');
-
-    // Get like counts per user (likes received on their assets)
+    const { data: uploadCounts } = await supabase.from('assets').select('uploader_id');
     const { data: assetLikes } = await supabase
       .from('asset_likes')
-      .select('asset_id, assets!inner(uploader_id)')
-      
-    // Get comment counts per user
-    const { data: commentCounts } = await supabase
-      .from('asset_comments')
-      .select('user_id');
+      .select('asset_id, assets!inner(uploader_id)');
+    const { data: commentCounts } = await supabase.from('asset_comments').select('user_id');
 
-    // Aggregate stats per user
     const userStats = new Map<string, { uploads: number; likes: number; comments: number }>();
-    
-    // Initialize all users
-    allUsers.forEach(user => {
-      userStats.set(user.id, { uploads: 0, likes: 0, comments: 0 });
-    });
+    allUsers.forEach(user => userStats.set(user.id, { uploads: 0, likes: 0, comments: 0 }));
 
-    // Count uploads
     (uploadCounts || []).forEach(asset => {
       const stats = userStats.get(asset.uploader_id);
       if (stats) stats.uploads++;
     });
 
-    // Count likes received (on user's assets)
     (assetLikes || []).forEach((like: any) => {
       const uploaderId = like.assets?.uploader_id;
       if (uploaderId) {
@@ -260,13 +270,11 @@ export async function GET() {
       }
     });
 
-    // Count comments made
     (commentCounts || []).forEach(comment => {
       const stats = userStats.get(comment.user_id);
       if (stats) stats.comments++;
     });
 
-    // Build top contributors list sorted by uploads
     const topContributors: TopContributor[] = allUsers
       .map(user => {
         const stats = userStats.get(user.id) || { uploads: 0, likes: 0, comments: 0 };
@@ -285,7 +293,6 @@ export async function GET() {
       .slice(0, 10);
 
     // === BUILD RESPONSE ===
-    
     const analytics: AnalyticsResponse = {
       users: {
         total: totalUsers || 0,
@@ -302,16 +309,14 @@ export async function GET() {
         totalBytes,
         totalFormatted: formatBytes(totalBytes),
       },
-      activityOverTime,
+      weeklyActivity,
+      comparison,
       topContributors,
     };
 
     return NextResponse.json(analytics);
   } catch (error) {
     console.error('[GET /api/admin/analytics] Error:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
