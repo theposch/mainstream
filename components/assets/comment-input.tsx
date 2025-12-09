@@ -187,7 +187,7 @@ export const CommentInput = React.memo(function CommentInput({
                   key={user.id}
                   onClick={() => insertMention(user)}
                   className={cn(
-                    "w-full flex items-center gap-3 px-3 py-2 text-sm transition-colors text-left",
+                    "w-full flex items-center gap-3 px-3 py-2 text-sm transition-colors text-left cursor-pointer",
                     index === selectedMentionIndex 
                       ? "bg-zinc-800 text-white" 
                       : "text-zinc-300 hover:bg-zinc-800/50 hover:text-white"

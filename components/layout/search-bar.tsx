@@ -113,7 +113,7 @@ export function SearchBar() {
             <button
               type="button"
               onClick={handleClear}
-              className="p-1.5 rounded-full hover:bg-accent text-muted-foreground hover:text-foreground transition-colors mr-1"
+              className="p-1.5 rounded-full hover:bg-accent text-muted-foreground hover:text-foreground transition-colors mr-1 cursor-pointer"
               aria-label="Clear search"
             >
               <X className="h-3.5 w-3.5" />

@@ -55,7 +55,7 @@ export function UserMenu() {
       <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <button className="relative h-9 w-9 rounded-full overflow-hidden ring-2 ring-transparent hover:ring-border transition-all outline-none">
+        <button className="relative h-9 w-9 rounded-full overflow-hidden ring-2 ring-transparent hover:ring-border transition-all outline-none cursor-pointer">
           <Avatar className="h-full w-full">
             <AvatarImage src={user.avatarUrl} alt={user.username} />
             <AvatarFallback>{user.username.substring(0, 2).toUpperCase()}</AvatarFallback>

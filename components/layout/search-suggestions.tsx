@@ -253,7 +253,7 @@ export function SearchSuggestions({
                   aria-selected={selectedIndex === index}
                   onClick={() => handleSelectSuggestion(suggestion)}
                   className={cn(
-                    "w-full flex items-center gap-3 px-3 py-2 text-sm text-left transition-colors",
+                    "w-full flex items-center gap-3 px-3 py-2 text-sm text-left transition-colors cursor-pointer",
                     "hover:bg-accent",
                     selectedIndex === index && "bg-accent"
                   )}
@@ -291,7 +291,7 @@ export function SearchSuggestions({
                 aria-selected={selectedIndex === index}
                 onClick={() => handleSelectSuggestion(suggestion)}
                 className={cn(
-                  "w-full flex items-center gap-3 px-3 py-2 text-sm text-left transition-colors",
+                  "w-full flex items-center gap-3 px-3 py-2 text-sm text-left transition-colors cursor-pointer",
                   "hover:bg-accent",
                   selectedIndex === index && "bg-accent"
                 )}
@@ -327,7 +327,7 @@ export function SearchSuggestions({
               aria-selected={selectedIndex === index}
               onClick={() => handleSelectSuggestion(suggestion)}
               className={cn(
-                "w-full flex items-center gap-3 px-3 py-2 text-sm text-left transition-colors",
+                "w-full flex items-center gap-3 px-3 py-2 text-sm text-left transition-colors cursor-pointer",
                 "hover:bg-accent",
                 selectedIndex === index && "bg-accent"
               )}

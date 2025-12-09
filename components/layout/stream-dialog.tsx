@@ -502,7 +502,7 @@ export function StreamDialog({
                 type="button"
                 onClick={() => setIsPrivate(!isPrivate)}
                 disabled={isLoading || (!isEditMode && isLoadingUser)}
-                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 ${
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50 ${
                   isPrivate ? "bg-primary" : "bg-muted"
                 }`}
                 role="switch"

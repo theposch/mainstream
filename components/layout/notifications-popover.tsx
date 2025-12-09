@@ -102,7 +102,7 @@ export function NotificationsPopover() {
           {unreadCount > 0 && (
             <button 
               onClick={handleMarkAllAsRead}
-              className="text-xs text-zinc-500 hover:text-white transition-colors"
+              className="text-xs text-zinc-500 hover:text-white transition-colors cursor-pointer"
             >
               Mark all read
             </button>

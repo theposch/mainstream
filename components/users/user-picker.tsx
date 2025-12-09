@@ -260,7 +260,7 @@ export function UserPicker({
                 onMouseEnter={() => setSelectedIndex(index)}
                 disabled={disabled || isMaxReached}
                 className={cn(
-                  "w-full flex items-center gap-3 p-2 rounded-md text-left transition-colors",
+                  "w-full flex items-center gap-3 p-2 rounded-md text-left transition-colors cursor-pointer",
                   "hover:bg-secondary",
                   selectedIndex === index && "bg-secondary",
                   isSelected && "bg-secondary/50",
@@ -377,7 +377,7 @@ export function UserPicker({
             </span>
             <button
               onClick={() => toggleUser(user)}
-              className="ml-0.5 p-0.5 rounded-full hover:bg-background/20 text-muted-foreground hover:text-foreground transition-colors"
+              className="ml-0.5 p-0.5 rounded-full hover:bg-background/20 text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
               type="button"
             >
               <X className="h-3 w-3" />
@@ -412,7 +412,7 @@ export function UserPicker({
                 onClick={() => toggleUser(user)}
                 disabled={disabled}
                 className={cn(
-                  "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm",
+                  "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm cursor-pointer",
                   "bg-primary/10 text-primary",
                   "hover:bg-primary/20 transition-colors",
                   "border border-primary/20",
