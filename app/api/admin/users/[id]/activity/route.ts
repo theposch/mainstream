@@ -25,6 +25,8 @@ interface UserActivity {
     streamId?: string;
     streamName?: string;
     streamCoverUrl?: string;
+    // Streams the asset was uploaded to (for upload activities)
+    streams?: Array<{ id: string; name: string }>;
   };
 }
 
@@ -86,10 +88,21 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       commentsResult,
       streamsResult,
     ] = await Promise.all([
-      // Uploads
+      // Uploads with streams
       supabase
         .from('assets')
-        .select('id, title, thumbnail_url, created_at')
+        .select(`
+          id,
+          title,
+          thumbnail_url,
+          created_at,
+          asset_streams (
+            stream:streams (
+              id,
+              name
+            )
+          )
+        `)
         .eq('uploader_id', userId)
         .order('created_at', { ascending: false })
         .limit(fetchLimit),
@@ -139,7 +152,13 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     const activities: UserActivity[] = [];
 
     // Add uploads
-    (uploadsResult.data || []).forEach(upload => {
+    (uploadsResult.data || []).forEach((upload: any) => {
+      // Extract streams from nested asset_streams relation
+      const streams = (upload.asset_streams || [])
+        .map((as: any) => as.stream)
+        .filter((s: any) => s !== null)
+        .map((s: any) => ({ id: s.id, name: s.name }));
+
       activities.push({
         type: 'upload',
         timestamp: upload.created_at,
@@ -147,6 +166,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
           assetId: upload.id,
           assetTitle: upload.title,
           assetThumbnail: upload.thumbnail_url || undefined,
+          streams: streams.length > 0 ? streams : undefined,
         },
       });
     });

@@ -74,6 +74,8 @@ interface UserActivity {
     streamId?: string;
     streamName?: string;
     streamCoverUrl?: string;
+    // Streams the asset was uploaded to (for upload activities)
+    streams?: Array<{ id: string; name: string }>;
   };
 }
 
@@ -725,6 +727,13 @@ function TimelineItem({ activity, isLast }: { activity: UserActivity; isLast: bo
               >
                 {title}
               </Link>
+              {/* Show streams for uploads */}
+              {activity.type === "upload" && activity.details.streams && activity.details.streams.length > 0 && (
+                <span className="text-muted-foreground">
+                  {" to "}
+                  <StreamTags streams={activity.details.streams} />
+                </span>
+              )}
             </p>
             {activity.type === "comment" && activity.details.commentContent && (
               <p className="text-xs text-muted-foreground mt-1 line-clamp-2 bg-muted/50 rounded px-2 py-1">
@@ -754,6 +763,34 @@ function TimelineItem({ activity, isLast }: { activity: UserActivity; isLast: bo
         <p className="text-xs text-muted-foreground mt-1">{time}</p>
       </div>
     </div>
+  );
+}
+
+// Stream tags component for showing which streams an asset belongs to
+function StreamTags({ streams, maxShow = 2 }: { streams: Array<{ id: string; name: string }>; maxShow?: number }) {
+  const visibleStreams = streams.slice(0, maxShow);
+  const hiddenCount = streams.length - maxShow;
+
+  return (
+    <>
+      {visibleStreams.map((stream, idx) => (
+        <span key={stream.id}>
+          {idx > 0 && " "}
+          <Link
+            href={`/streams/${stream.name}`}
+            target="_blank"
+            className="text-primary hover:underline font-medium"
+          >
+            #{stream.name}
+          </Link>
+        </span>
+      ))}
+      {hiddenCount > 0 && (
+        <span className="text-muted-foreground text-xs ml-1">
+          +{hiddenCount} more
+        </span>
+      )}
+    </>
   );
 }
 
@@ -981,6 +1018,22 @@ function ActivityItem({ activity, compact = false }: { activity: UserActivity; c
         >
           {title}
         </Link>
+        {/* Show streams for uploads (compact: show only first one) */}
+        {activity.type === "upload" && activity.details.streams && activity.details.streams.length > 0 && (
+          <span className="text-muted-foreground">
+            {" → "}
+            <Link
+              href={`/streams/${activity.details.streams[0].name}`}
+              target="_blank"
+              className="text-primary hover:underline"
+            >
+              #{activity.details.streams[0].name}
+            </Link>
+            {activity.details.streams.length > 1 && (
+              <span className="text-xs ml-0.5">+{activity.details.streams.length - 1}</span>
+            )}
+          </span>
+        )}
       </div>
       <span className="text-xs text-muted-foreground shrink-0">
         {compact 
