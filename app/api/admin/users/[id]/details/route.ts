@@ -220,7 +220,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         .select(`
           id,
           name,
-          cover_url,
+          cover_image_url,
           created_at
         `)
         .eq('owner_id', userId)
@@ -339,7 +339,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         details: {
           streamId: stream.id,
           streamName: stream.name,
-          streamCoverUrl: stream.cover_url || undefined,
+          streamCoverUrl: stream.cover_image_url || undefined,
         },
       });
     });

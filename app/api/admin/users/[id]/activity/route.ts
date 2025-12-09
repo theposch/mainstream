@@ -128,7 +128,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       // Streams created
       supabase
         .from('streams')
-        .select('id, name, cover_url, created_at')
+        .select('id, name, cover_image_url, created_at')
         .eq('owner_id', userId)
         .eq('owner_type', 'user')
         .order('created_at', { ascending: false })
@@ -190,7 +190,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         details: {
           streamId: stream.id,
           streamName: stream.name,
-          streamCoverUrl: stream.cover_url || undefined,
+          streamCoverUrl: stream.cover_image_url || undefined,
         },
       });
     });
