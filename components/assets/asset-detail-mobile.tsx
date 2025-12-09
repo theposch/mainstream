@@ -5,7 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import useEmblaCarousel from "embla-carousel-react";
-import { X, Reply, Heart, MessageCircle, Loader2, ExternalLink } from "lucide-react";
+import { X, Reply, MessageCircle, Loader2, ExternalLink } from "lucide-react";
 import { getFigmaEmbedUrl, getLoomEmbedUrl, getProviderInfo, type EmbedProvider } from "@/lib/utils/embed-providers";
 import { Badge } from "@/components/ui/badge";
 import { useAssetView } from "@/lib/hooks/use-asset-view";
@@ -13,6 +13,8 @@ import { ViewersTooltip } from "./viewers-tooltip";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { IMAGE_SIZES } from "@/lib/constants";
+import { LikeButton } from "@/components/ui/like-button";
+
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { MobileActionBar } from "./mobile-action-bar";
 import { CommentList } from "./comment-list";
@@ -517,13 +519,14 @@ export function AssetDetailMobile({ asset, allAssets: allAssetsProp, onClose, on
 
               {/* Engagement Row */}
               <div className="flex items-center gap-4 pt-2">
-                <button 
-                  onClick={handleAssetLike}
-                  className="flex items-center gap-1.5 text-zinc-400 hover:text-white transition-colors group"
-                >
-                  <Heart className={`h-5 w-5 ${isLiked ? "fill-red-500 text-red-500" : "group-hover:text-white"}`} />
-                  <span className={`text-sm font-medium ${isLiked ? "text-red-500" : ""}`}>{likeCount}</span>
-                </button>
+                <LikeButton
+                  isLiked={isLiked}
+                  likeCount={likeCount}
+                  onLike={handleAssetLike}
+                  variant="ghost"
+                  size="default"
+                />
+
                 <div className="flex items-center gap-1.5 text-zinc-400">
                   <MessageCircle className="h-5 w-5" />
                   <span className="text-sm font-medium">{comments.length}</span>

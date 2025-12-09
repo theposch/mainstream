@@ -630,13 +630,14 @@ export function AssetDetailDesktop({ asset, previousAsset = null, nextAsset = nu
 
               {/* 5. Engagement Row */}
               <div className="flex items-center gap-4 py-3 border-y border-zinc-900">
-                <button 
-                  onClick={handleAssetLike}
-                  className="flex items-center gap-1.5 text-zinc-400 hover:text-white transition-colors group"
-                >
-                  <Heart className={`h-5 w-5 ${isLiked ? "fill-red-500 text-red-500" : "group-hover:text-white"}`} />
-                  <span className={`text-sm font-medium ${isLiked ? "text-red-500" : ""}`}>{likeCount}</span>
-                </button>
+                <LikeButton 
+                  isLiked={isLiked} 
+                  likeCount={likeCount} 
+                  onLike={handleAssetLike}
+                  variant="ghost"
+                  size="default"
+                />
+                
                 <button 
                   onClick={scrollToComments}
                   className="flex items-center gap-1.5 text-zinc-400 hover:text-white transition-colors"
