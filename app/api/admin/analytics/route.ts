@@ -148,6 +148,22 @@ export async function GET() {
         .gte('viewed_at', twentyNineDaysAgo.toISOString()),
     ]);
 
+    // DEBUG: Log server time and sample timestamps
+    console.log('[ANALYTICS DEBUG] Server time:', {
+      now: now.toISOString(),
+      nowLocal: now.toString(),
+      twentyNineDaysAgo: twentyNineDaysAgo.toISOString(),
+    });
+    
+    // DEBUG: Log first few raw timestamps from Supabase
+    const sampleUploads = (recentUploads.data || []).slice(-5);
+    console.log('[ANALYTICS DEBUG] Recent upload timestamps from Supabase:', 
+      sampleUploads.map(u => ({
+        raw: u.created_at,
+        type: typeof u.created_at,
+      }))
+    );
+
     // Return raw timestamps for client-side bucketing by local timezone
     const rawActivity = {
       uploads: (recentUploads.data || []).map(item => item.created_at),
