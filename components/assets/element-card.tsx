@@ -142,7 +142,11 @@ export const ElementCard = React.memo(
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3 }}
-      className={cn("relative group break-inside-avoid w-full", className)}
+      className={cn(
+        "relative group break-inside-avoid w-full",
+        layout === 'detailed' && "flex flex-col gap-3 p-3 rounded-2xl border border-border bg-card/50 hover:bg-card hover:border-border/80 transition-colors",
+        className
+      )}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
     >
@@ -336,7 +340,7 @@ export const ElementCard = React.memo(
       </Link>
 
       {layout === 'detailed' && (
-        <div className="flex flex-col gap-1.5 px-1 pt-3">
+        <div className="flex flex-col gap-1.5 px-1">
            <Link href={`/e/${asset.id}`} onClick={handleCardClick} className="group/title">
               <h3 className="font-semibold text-base leading-tight group-hover/title:underline decoration-1 underline-offset-2">
                 {asset.title}
