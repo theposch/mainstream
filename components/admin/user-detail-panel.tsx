@@ -280,9 +280,9 @@ export function UserDetailPanel({
               <p className="text-sm text-muted-foreground">{error}</p>
             </div>
           ) : details ? (
-            <>
+            <div className="flex flex-col h-full overflow-hidden">
               {/* Fixed Header */}
-              <div className="p-6 pb-0 border-b border-border">
+              <div className="p-6 pb-0 border-b border-border shrink-0">
                 <div className="flex items-start gap-4 mb-4">
                   <Avatar className="h-14 w-14 border-2 border-border">
                     <AvatarImage src={details.user.avatar_url || undefined} alt={details.user.username} />
@@ -348,9 +348,9 @@ export function UserDetailPanel({
                 </nav>
               </div>
 
-              {/* Tab Content */}
-              <ScrollArea className="flex-1">
-                <div className="p-6">
+              {/* Tab Content - Scrollable */}
+              <ScrollArea className="flex-1 min-h-0">
+                <div className="p-6 pb-12">
                   {activeTab === "overview" && (
                     <div className="space-y-6">
                       <OverviewTab details={details} />
@@ -379,7 +379,7 @@ export function UserDetailPanel({
                   )}
                 </div>
               </ScrollArea>
-            </>
+            </div>
           ) : null}
         </SheetContent>
       </Sheet>
