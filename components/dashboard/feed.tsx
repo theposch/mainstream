@@ -5,6 +5,7 @@ import { X, Upload, Loader2, Users } from "lucide-react";
 import { useQueryState } from "nuqs";
 import { useQuery } from "@tanstack/react-query";
 import { FeedTabs } from "./feed-tabs";
+import { WeekHeader } from "./week-header";
 import { MasonryGrid } from "@/components/assets/masonry-grid";
 import { AssetDetail } from "@/components/assets/asset-detail";
 import { useSearch } from "@/lib/contexts/search-context";
@@ -14,6 +15,7 @@ import { useAssetsInfinite } from "@/lib/hooks/use-assets-infinite";
 import { useFollowingAssets } from "@/lib/hooks/use-following-assets";
 import { assetKeys, fetchAssetById } from "@/lib/queries/asset-queries";
 import { UploadDialog } from "@/components/layout/upload-dialog";
+import { groupAssetsByWeek } from "@/lib/utils/week-grouping";
 import type { Asset } from "@/lib/types/database";
 
 interface DashboardFeedProps {
@@ -133,6 +135,12 @@ export const DashboardFeed = React.memo(function DashboardFeed({ initialAssets }
     [debouncedQuery, searchResults, baseAssets]
   );
 
+  // Group assets by week for display (only when not searching)
+  const weekGroups = React.useMemo(
+    () => debouncedQuery.trim() ? [] : groupAssetsByWeek(baseAssets),
+    [debouncedQuery, baseAssets]
+  );
+
   // Show search result info
   const isSearching = debouncedQuery.trim().length > 0;
   const hasResults = displayedAssets.length > 0;
@@ -247,10 +255,30 @@ export const DashboardFeed = React.memo(function DashboardFeed({ initialAssets }
           )
         ) : hasResults ? (
           <>
-          <MasonryGrid 
-            assets={displayedAssets} 
-            onAssetClick={handleAssetClick}
-          />
+            {/* Search results - no weekly grouping */}
+            {isSearching ? (
+              <MasonryGrid 
+                assets={displayedAssets} 
+                onAssetClick={handleAssetClick}
+              />
+            ) : (
+              /* Weekly grouped feed */
+              <div className="space-y-1">
+                {weekGroups.map((week) => (
+                  <div key={week.key}>
+                    <WeekHeader
+                      label={week.label}
+                      postCount={week.postCount}
+                      contributors={week.contributors}
+                    />
+                    <MasonryGrid 
+                      assets={week.assets} 
+                      onAssetClick={handleAssetClick}
+                    />
+                  </div>
+                ))}
+              </div>
+            )}
             
             {/* Infinite scroll sentinel - only show for non-search queries */}
             {!isSearching && (
