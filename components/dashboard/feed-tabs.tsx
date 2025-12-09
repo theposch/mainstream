@@ -18,7 +18,7 @@ export const FeedTabs = React.memo(function FeedTabs({ activeTab, onTabChange }:
         <button
           onClick={() => onTabChange("recent")}
           className={cn(
-            "relative px-6 py-2 rounded-full text-sm font-medium transition-colors z-10",
+            "relative px-6 py-2 rounded-full text-sm font-medium transition-colors z-10 cursor-pointer",
             activeTab === "recent" ? "text-foreground" : "text-muted-foreground"
           )}
         >
@@ -35,7 +35,7 @@ export const FeedTabs = React.memo(function FeedTabs({ activeTab, onTabChange }:
         <button
           onClick={() => onTabChange("following")}
           className={cn(
-            "relative px-6 py-2 rounded-full text-sm font-medium transition-colors z-10",
+            "relative px-6 py-2 rounded-full text-sm font-medium transition-colors z-10 cursor-pointer",
             activeTab === "following" ? "text-foreground" : "text-muted-foreground"
           )}
         >

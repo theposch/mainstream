@@ -65,7 +65,7 @@ export const UserProfileTabs = React.memo(function UserProfileTabs({
             aria-controls={`${tab.id}-panel`}
             onClick={(e) => handleTabChange(tab.id, e)}
             className={cn(
-              "relative px-8 py-2.5 rounded-full text-sm font-semibold transition-colors z-10",
+              "relative px-8 py-2.5 rounded-full text-sm font-semibold transition-colors z-10 cursor-pointer",
               activeTab === tab.id ? "text-foreground" : "text-muted-foreground hover:text-foreground"
             )}
           >

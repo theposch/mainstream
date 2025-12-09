@@ -9,7 +9,10 @@ import { StreamBadge } from "@/components/streams/stream-badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import { useAssetLike } from "@/lib/hooks/use-asset-like";
+import { useAssetPrefetch } from "@/lib/hooks/use-asset-prefetch";
+import { getProviderInfo, type EmbedProvider } from "@/lib/utils/embed-providers";
 import { LikeButton } from "@/components/ui/like-button";
+import { Badge } from "@/components/ui/badge";
 
 interface ElementCardProps {
   asset: Asset;

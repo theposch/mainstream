@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { Plus, GripVertical, Trash2, Type, Heading1, Minus, Quote, Image, Star, Images, Check, Upload, Loader2, X } from "lucide-react";
 import { BlockRenderer } from "./block-renderer";
 import type { DropBlock, DropBlockType, Asset, GalleryLayout } from "@/lib/types/database";
@@ -396,7 +397,7 @@ export function BlockEditor({ dropId, blocks, onBlocksChange, availableAssets = 
   );
 }
 
-// Add Block Button Component
+// Add Block Button Component with delightful expansion animation
 function AddBlockButton({
   position,
   showMenu,
@@ -408,33 +409,81 @@ function AddBlockButton({
   onToggleMenu: () => void;
   onSelectType: (type: DropBlockType) => void;
 }) {
+  const [isHovered, setIsHovered] = React.useState(false);
+
   return (
-    <div className="relative my-2">
-      <button
+    <div 
+      className="relative my-2 h-8 flex items-center justify-center z-10"
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+    >
+      {/* Invisible hover area */}
+      <div className="absolute inset-0 w-full h-full cursor-pointer" onClick={onToggleMenu} />
+
+      {/* Expanding Line */}
+      <motion.div
+        initial={{ width: "0%", opacity: 0 }}
+        animate={{ 
+          width: isHovered || showMenu ? "100%" : "0%", 
+          opacity: isHovered || showMenu ? 1 : 0 
+        }}
+        transition={{ duration: 0.3, ease: "easeOut" }}
+        className="absolute h-[1px] bg-gradient-to-r from-transparent via-violet-500/50 to-transparent"
+      />
+
+      {/* Button */}
+      <motion.button
+        initial={{ scale: 0, opacity: 0 }}
+        animate={{ 
+          scale: isHovered || showMenu ? 1 : 0.8, 
+          opacity: isHovered || showMenu ? 1 : 0,
+          rotate: showMenu ? 45 : 0
+        }}
+        transition={{ type: "spring", stiffness: 400, damping: 20 }}
         onClick={onToggleMenu}
-        className="w-full flex items-center justify-center gap-2 py-2 text-zinc-600 hover:text-zinc-400 hover:bg-zinc-900/50 rounded-lg transition-colors group"
+        className="relative z-20 flex items-center justify-center w-6 h-6 rounded-full bg-violet-600 text-white shadow-lg hover:bg-violet-500 transition-colors"
       >
         <Plus className="h-4 w-4" />
-        <span className="text-sm opacity-0 group-hover:opacity-100 transition-opacity">Add block</span>
-      </button>
+      </motion.button>
 
-      {showMenu && (
-        <div className="absolute left-1/2 -translate-x-1/2 top-full mt-2 z-50 w-64 bg-zinc-900 border border-zinc-800 rounded-lg shadow-xl overflow-hidden">
-          {BLOCK_TYPES.map((blockType) => (
-            <button
-              key={blockType.type}
-              onClick={() => onSelectType(blockType.type)}
-              className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-zinc-800 transition-colors"
-            >
-              <span className="text-zinc-400">{blockType.icon}</span>
-              <div>
-                <div className="text-sm font-medium text-white">{blockType.label}</div>
-                <div className="text-xs text-zinc-500">{blockType.description}</div>
-              </div>
-            </button>
-          ))}
-        </div>
-      )}
+      {/* Menu */}
+      <AnimatePresence>
+        {showMenu && (
+          <motion.div
+            initial={{ opacity: 0, y: 10, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 10, scale: 0.95 }}
+            transition={{ duration: 0.2, ease: "easeOut" }}
+            className="absolute left-1/2 -translate-x-1/2 top-full mt-2 z-50 w-64 bg-zinc-900 border border-zinc-800 rounded-lg shadow-xl overflow-hidden backdrop-blur-xl"
+          >
+            {BLOCK_TYPES.map((blockType, i) => (
+              <motion.button
+                key={blockType.type}
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: i * 0.05 }}
+                onClick={() => onSelectType(blockType.type)}
+                className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-zinc-800 transition-colors group relative overflow-hidden"
+              >
+                {/* Hover gradient background */}
+                <div className="absolute inset-0 bg-gradient-to-r from-violet-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                
+                <span className="text-zinc-400 group-hover:text-violet-400 transition-colors relative z-10">
+                  {blockType.icon}
+                </span>
+                <div className="relative z-10">
+                  <div className="text-sm font-medium text-white group-hover:text-violet-100 transition-colors">
+                    {blockType.label}
+                  </div>
+                  <div className="text-xs text-zinc-500 group-hover:text-zinc-400 transition-colors">
+                    {blockType.description}
+                  </div>
+                </div>
+              </motion.button>
+            ))}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

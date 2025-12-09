@@ -28,7 +28,7 @@ export const MobileActionBar = React.memo(function MobileActionBar({
       {/* Like Button */}
       <button 
         onClick={onLike}
-        className="flex flex-col items-center gap-0.5 p-2 text-zinc-400 active:scale-95 transition-transform"
+        className="flex flex-col items-center gap-0.5 p-2 text-zinc-400 active:scale-95 transition-transform cursor-pointer"
       >
         <Heart 
           className={cn(
@@ -51,7 +51,7 @@ export const MobileActionBar = React.memo(function MobileActionBar({
       {/* Comments Button (Primary Action) */}
       <button 
         onClick={onCommentsTap}
-        className="flex-1 h-10 bg-zinc-800 hover:bg-zinc-700 active:bg-zinc-600 rounded-full flex items-center px-4 gap-2 transition-colors"
+        className="flex-1 h-10 bg-zinc-800 hover:bg-zinc-700 active:bg-zinc-600 rounded-full flex items-center px-4 gap-2 transition-colors cursor-pointer"
       >
         <MessageCircle className="h-4 w-4 text-zinc-400" />
         <span className="text-sm font-medium text-zinc-300">
@@ -63,7 +63,7 @@ export const MobileActionBar = React.memo(function MobileActionBar({
       {onMoreTap && (
         <button 
           onClick={onMoreTap}
-          className="flex flex-col items-center gap-1 p-2 text-zinc-400 active:scale-95 transition-transform"
+          className="flex flex-col items-center gap-1 p-2 text-zinc-400 active:scale-95 transition-transform cursor-pointer"
         >
           <MoreHorizontal className="h-6 w-6 text-white" />
         </button>

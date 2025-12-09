@@ -34,7 +34,7 @@ export function SearchResultsTabs({
             key={tab.id}
             onClick={() => onTabChange(tab.id)}
             className={cn(
-              "relative px-1 py-3 text-sm font-medium transition-colors",
+              "relative px-1 py-3 text-sm font-medium transition-colors cursor-pointer",
               "hover:text-foreground",
               activeTab === tab.id
                 ? "text-foreground"

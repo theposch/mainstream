@@ -12,6 +12,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useCommentLike } from "@/lib/hooks/use-comment-like";
+import { LikeButton } from "@/components/ui/like-button";
 
 // Database types
 interface Comment {
@@ -174,7 +175,7 @@ export const CommentItem = React.memo(function CommentItem({
           {!comment.parent_id && (
             <button 
               onClick={() => onReply(comment.id)}
-              className="text-xs font-medium text-zinc-500 hover:text-white transition-colors flex items-center gap-1"
+              className="text-xs font-medium text-zinc-500 hover:text-white transition-colors flex items-center gap-1 cursor-pointer"
             >
               Reply
             </button>

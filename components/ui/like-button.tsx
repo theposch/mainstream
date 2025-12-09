@@ -46,7 +46,7 @@ export function LikeButton({
       onClick={handleClick}
       disabled={isLoading}
       className={cn(
-        "relative group flex items-center gap-1.5 transition-colors focus:outline-none",
+        "relative group flex items-center gap-1.5 transition-colors focus:outline-none cursor-pointer",
         variant === "solid" && "p-2.5 rounded-full backdrop-blur-md shadow-lg",
         variant === "solid" && (isLiked ? "bg-red-500 text-white" : "bg-white/90 hover:bg-white text-black"),
         variant === "ghost" && "text-zinc-400 hover:text-white",
@@ -56,7 +56,7 @@ export function LikeButton({
     >
       <div className="relative">
         <motion.div
-          animate={isLiked ? { scale: [1, 1.4, 1] } : { scale: 1 }}
+          animate={isLiked ? { scale: 1.2 } : { scale: 1 }}
           transition={{ duration: 0.3, type: "spring", stiffness: 300, damping: 15 }}
         >
           <Heart 
@@ -73,23 +73,36 @@ export function LikeButton({
         <AnimatePresence>
           {showParticles && (
             <>
-              {[...Array(3)].map((_, i) => (
+              {[...Array(6)].map((_, i) => (
                 <motion.div
                   key={i}
-                  initial={{ opacity: 0, scale: 0, y: 0, x: 0 }}
+                  initial={{ opacity: 0, scale: 0, x: 0, y: 0 }}
                   animate={{ 
                     opacity: [0, 1, 0], 
-                    scale: 1, 
-                    y: -20 - Math.random() * 20, 
-                    x: (Math.random() - 0.5) * 20 
+                    scale: [0, 1.2, 0], 
+                    x: (Math.random() - 0.5) * 40,
+                    y: -20 - Math.random() * 30
                   }}
-                  exit={{ opacity: 0 }}
-                  transition={{ duration: 0.8, ease: "easeOut", delay: i * 0.1 }}
+                  transition={{ 
+                    duration: 0.8, 
+                    ease: "easeOut",
+                    delay: Math.random() * 0.1
+                  }}
                   className="absolute inset-0 flex items-center justify-center pointer-events-none"
                 >
-                  <Heart className={cn("h-3 w-3 fill-red-500 text-red-500")} />
+                  <Heart className={cn("fill-red-500 text-red-500", i % 2 === 0 ? "h-4 w-4" : "h-3 w-3")} />
                 </motion.div>
               ))}
+              
+              {/* Center burst circle */}
+              <motion.div
+                initial={{ opacity: 0, scale: 0.5 }}
+                animate={{ opacity: [0, 0.5, 0], scale: 2 }}
+                transition={{ duration: 0.4 }}
+                className="absolute inset-0 flex items-center justify-center pointer-events-none"
+              >
+                <div className="w-10 h-10 bg-red-500/20 rounded-full blur-md" />
+              </motion.div>
             </>
           )}
         </AnimatePresence>
