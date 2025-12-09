@@ -249,6 +249,8 @@ Generates HTML preview of how the drop will appear in email.
 
 When publishing, drops can be sent via Resend email API (requires `RESEND_API_KEY`).
 
+**Celebration:** A confetti animation plays when publishing is successful (via `triggerConfetti()`).
+
 ---
 
 ## Database Schema

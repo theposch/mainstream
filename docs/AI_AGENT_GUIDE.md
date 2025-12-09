@@ -12,11 +12,13 @@ Quick onboarding guide for AI assistants working on the Mainstream codebase.
 ## Critical Context
 
 ### Recent Major Changes
-- ✅ **Create Drop Filters** - Multi-select streams and users when creating drops (NEW)
-- ✅ **shadcn DatePicker** - Replace native date inputs with shadcn DatePicker component (NEW)
-- ✅ **UserPicker Component** - Multi-select user picker with search and keyboard navigation (NEW)
-- ✅ **Date Range Display** - Show date range in drop editor, preview, published view, and email (NEW)
-- ✅ **Timezone-safe Dates** - Dates stored/displayed correctly regardless of user timezone (NEW)
+- ✅ **Micro-animations & Delight** - Confetti celebrations, animated like button with particles (NEW)
+- ✅ **Cursor Consistency** - All interactive elements now show pointer cursor (NEW)
+- ✅ **Create Drop Filters** - Multi-select streams and users when creating drops
+- ✅ **shadcn DatePicker** - Replace native date inputs with shadcn DatePicker component
+- ✅ **UserPicker Component** - Multi-select user picker with search and keyboard navigation
+- ✅ **Date Range Display** - Show date range in drop editor, preview, published view, and email
+- ✅ **Timezone-safe Dates** - Dates stored/displayed correctly regardless of user timezone
 - ✅ **Private Stream Members** - Add/remove users to private streams with roles (owner/admin/member)
 - ✅ **Stream Editing** - Edit stream name, description, privacy from dropdown menu
 - ✅ **Draft Deletion** - Delete drafts from drop cards and editor with optimistic UI
@@ -178,8 +180,10 @@ drops/
     email-drop-view.tsx     - Full email template (with date range)
 
 ui/ (shadcn components)
+  button.tsx                - Base button with cursor-pointer (all variants)
   calendar.tsx              - Calendar component (react-day-picker v9)
   date-picker.tsx           - Reusable date picker (Popover + Calendar)
+  like-button.tsx           - Animated like button with heartbeat and particles
 
 users/
   user-profile-header.tsx   - Profile header with follow button
@@ -241,6 +245,7 @@ database.ts - TypeScript interfaces for all DB entities:
 ### Utils (`lib/utils/`)
 ```
 ai.ts                 - LiteLLM integration (isAIConfigured, AIError)
+confetti.ts           - Celebration animations (triggerConfetti, triggerSmallConfetti)
 embed-providers.ts    - Figma URL detection, oEmbed/API integration
 encryption.ts         - AES-256-GCM token encryption utilities
 image-processing.ts   - Sharp-based image/GIF processing
@@ -699,6 +704,62 @@ ALTER TABLE notifications REPLICA IDENTITY FULL;
 ALTER TABLE asset_comments REPLICA IDENTITY FULL;
 ALTER TABLE comment_likes REPLICA IDENTITY FULL;
 ```
+
+## Micro-animations & Delight
+
+### Confetti Celebrations
+Trigger confetti animations on key "posting" moments:
+
+```typescript
+import { triggerConfetti, triggerSmallConfetti } from "@/lib/utils/confetti";
+
+// Big celebration - Drop publish
+triggerConfetti();
+
+// Small celebration - Image upload, embed creation
+triggerSmallConfetti();
+```
+
+**Where used:**
+- `drop-publish-dialog.tsx` - Publishing a drop
+- `upload-dialog.tsx` - Successful image upload
+- `embed-url-dialog.tsx` - Creating an embed
+- `block-editor.tsx` - Uploading an asset in the block editor
+
+### Animated Like Button
+Reusable component with heartbeat animation and floating particles:
+
+```typescript
+import { LikeButton } from "@/components/ui/like-button";
+
+<LikeButton
+  isLiked={isLiked}
+  likeCount={likeCount}
+  onLike={handleLike}
+  size="default"       // "sm" | "default" | "lg"
+  variant="ghost"      // "ghost" | "solid"
+/>
+```
+
+**Features:**
+- Spring animation on like
+- Floating heart particles
+- Background glow effect
+- Respects `prefers-reduced-motion`
+
+**Used in:**
+- `element-card.tsx` - Feed cards (solid variant)
+- `asset-detail-desktop.tsx` - Desktop modal
+- `asset-detail-mobile.tsx` - Mobile view
+- `comment-item.tsx` - Comment likes (ghost variant)
+
+### Cursor Consistency
+All interactive elements use `cursor-pointer` for clear affordance:
+- Base `Button` component includes it in variants
+- Custom buttons add it explicitly
+- Disabled states use `cursor-not-allowed`
+
+---
 
 ## Git Workflow
 
