@@ -14,6 +14,8 @@ import {
   Loader2,
   AlertCircle,
   Activity,
+  Image,
+  Trophy,
 } from "lucide-react";
 
 interface SignupDataPoint {
@@ -96,241 +98,270 @@ export function AnalyticsDashboard() {
 
   // Calculate max signups for chart scaling
   const maxSignups = Math.max(...data.users.signupsOverTime.map(d => d.count), 1);
+  const newUsersCount = data.users.signupsOverTime.reduce((sum, d) => sum + d.count, 0);
+  const engagementRate = data.users.total > 0 
+    ? Math.round((data.users.activeThisWeek / data.users.total) * 100) 
+    : 0;
 
   return (
-    <div className="space-y-8">
-      {/* User Stats */}
-      <section>
-        <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
-          <Users className="h-5 w-5 text-primary" />
-          User Statistics
-        </h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          <StatCard
-            title="Total Users"
-            value={data.users.total}
-            icon={Users}
-            color="text-blue-500"
-            bgColor="bg-blue-500/10"
-          />
-          <StatCard
-            title="Active This Week"
-            value={data.users.activeThisWeek}
-            icon={Activity}
-            color="text-green-500"
-            bgColor="bg-green-500/10"
-            subtitle={`${Math.round((data.users.activeThisWeek / data.users.total) * 100) || 0}% of users`}
-          />
-          <StatCard
-            title="New (30 days)"
-            value={data.users.signupsOverTime.reduce((sum, d) => sum + d.count, 0)}
-            icon={TrendingUp}
-            color="text-purple-500"
-            bgColor="bg-purple-500/10"
-          />
-        </div>
+    <div className="space-y-6">
+      {/* Top Row: Key Metrics */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <MetricCard
+          label="Total Users"
+          value={data.users.total}
+          icon={Users}
+          iconColor="text-blue-400"
+          iconBg="bg-blue-500/10"
+        />
+        <MetricCard
+          label="Active This Week"
+          value={data.users.activeThisWeek}
+          subtitle={`${engagementRate}% engagement`}
+          icon={Activity}
+          iconColor="text-emerald-400"
+          iconBg="bg-emerald-500/10"
+        />
+        <MetricCard
+          label="New Users (30d)"
+          value={newUsersCount}
+          icon={TrendingUp}
+          iconColor="text-violet-400"
+          iconBg="bg-violet-500/10"
+        />
+        <MetricCard
+          label="Storage Used"
+          value={data.storage.totalFormatted}
+          isString
+          icon={HardDrive}
+          iconColor="text-amber-400"
+          iconBg="bg-amber-500/10"
+        />
+      </div>
 
-        {/* Signups Chart */}
-        <Card className="mt-4 p-4 bg-card border-border">
-          <h4 className="text-sm font-medium text-muted-foreground mb-4">Signups (Last 30 Days)</h4>
-          <div className="h-32 flex items-end gap-1">
-            {data.users.signupsOverTime.map((point, index) => {
+      {/* Middle Row: Chart + Content Stats */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Signups Chart - Takes 2 columns */}
+        <Card className="lg:col-span-2 p-6 bg-card/50 border-border">
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h3 className="text-base font-semibold text-foreground">User Growth</h3>
+              <p className="text-sm text-muted-foreground">New signups over the last 30 days</p>
+            </div>
+            {newUsersCount > 0 && (
+              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-500/10 text-emerald-400 text-sm font-medium">
+                <TrendingUp className="h-3.5 w-3.5" />
+                +{newUsersCount}
+              </div>
+            )}
+          </div>
+          
+          <div className="h-40 flex items-end gap-[3px]">
+            {data.users.signupsOverTime.map((point) => {
               const height = maxSignups > 0 ? (point.count / maxSignups) * 100 : 0;
               const date = new Date(point.date);
               const isToday = point.date === new Date().toISOString().split('T')[0];
+              const isWeekend = date.getDay() === 0 || date.getDay() === 6;
               
               return (
                 <div
                   key={point.date}
                   className="flex-1 group relative"
-                  title={`${date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}: ${point.count} signup${point.count !== 1 ? 's' : ''}`}
                 >
+                  {/* Tooltip */}
+                  <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 rounded bg-popover border border-border text-xs whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 shadow-lg">
+                    <p className="font-medium text-foreground">{date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</p>
+                    <p className="text-muted-foreground">{point.count} signup{point.count !== 1 ? 's' : ''}</p>
+                  </div>
+                  
+                  {/* Bar */}
                   <div
-                    className={`w-full rounded-t transition-all ${
-                      isToday ? 'bg-primary' : 'bg-primary/40 group-hover:bg-primary/60'
+                    className={`w-full rounded-sm transition-all duration-150 cursor-pointer ${
+                      isToday 
+                        ? 'bg-emerald-500' 
+                        : isWeekend
+                          ? 'bg-muted-foreground/20 hover:bg-muted-foreground/30'
+                          : 'bg-primary/50 hover:bg-primary/70'
                     }`}
-                    style={{ height: `${Math.max(height, 2)}%` }}
+                    style={{ height: `${Math.max(height, 3)}%` }}
                   />
                 </div>
               );
             })}
           </div>
-          <div className="flex justify-between mt-2 text-xs text-muted-foreground">
+          
+          <div className="flex justify-between mt-3 text-xs text-muted-foreground">
             <span>30 days ago</span>
             <span>Today</span>
           </div>
         </Card>
-      </section>
 
-      {/* Content Stats */}
-      <section>
-        <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
-          <Upload className="h-5 w-5 text-primary" />
-          Content Statistics
-        </h3>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <StatCard
-            title="Total Uploads"
-            value={data.content.totalUploads}
-            icon={Upload}
-            color="text-amber-500"
-            bgColor="bg-amber-500/10"
-          />
-          <StatCard
-            title="Total Likes"
-            value={data.content.totalLikes}
-            icon={Heart}
-            color="text-red-500"
-            bgColor="bg-red-500/10"
-          />
-          <StatCard
-            title="Total Comments"
-            value={data.content.totalComments}
-            icon={MessageSquare}
-            color="text-cyan-500"
-            bgColor="bg-cyan-500/10"
-          />
-          <StatCard
-            title="Total Views"
-            value={data.content.totalViews}
-            icon={Eye}
-            color="text-indigo-500"
-            bgColor="bg-indigo-500/10"
-          />
-        </div>
-      </section>
-
-      {/* Storage Usage */}
-      <section>
-        <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
-          <HardDrive className="h-5 w-5 text-primary" />
-          Storage Usage
-        </h3>
-        <Card className="p-6 bg-card border-border">
-          <div className="flex items-center gap-4">
-            <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-emerald-500/10">
-              <HardDrive className="h-7 w-7 text-emerald-500" />
-            </div>
-            <div>
-              <p className="text-3xl font-bold text-foreground">{data.storage.totalFormatted}</p>
-              <p className="text-sm text-muted-foreground">Total storage used</p>
-            </div>
+        {/* Content Stats - Right Column */}
+        <Card className="p-6 bg-card/50 border-border">
+          <div className="flex items-center gap-2 mb-5">
+            <Image className="h-4 w-4 text-primary" />
+            <h3 className="text-base font-semibold text-foreground">Content</h3>
+          </div>
+          
+          <div className="space-y-4">
+            <ContentStatRow
+              icon={Upload}
+              label="Uploads"
+              value={data.content.totalUploads}
+              color="text-amber-500"
+            />
+            <ContentStatRow
+              icon={Eye}
+              label="Views"
+              value={data.content.totalViews}
+              color="text-blue-500"
+            />
+            <ContentStatRow
+              icon={Heart}
+              label="Likes"
+              value={data.content.totalLikes}
+              color="text-rose-500"
+            />
+            <ContentStatRow
+              icon={MessageSquare}
+              label="Comments"
+              value={data.content.totalComments}
+              color="text-cyan-500"
+            />
           </div>
         </Card>
-      </section>
+      </div>
 
-      {/* Top Contributors */}
-      <section>
-        <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
-          <TrendingUp className="h-5 w-5 text-primary" />
-          Top Contributors
-        </h3>
+      {/* Bottom Row: Top Contributors */}
+      <Card className="p-6 bg-card/50 border-border">
+        <div className="flex items-center gap-2 mb-5">
+          <Trophy className="h-4 w-4 text-amber-500" />
+          <h3 className="text-base font-semibold text-foreground">Top Contributors</h3>
+        </div>
+        
         {data.topContributors.length === 0 ? (
-          <Card className="p-8 bg-card border-border text-center">
-            <Users className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-            <p className="text-muted-foreground">No contributors yet</p>
-          </Card>
+          <div className="py-8 text-center">
+            <Users className="h-10 w-10 text-muted-foreground/50 mx-auto mb-3" />
+            <p className="text-muted-foreground text-sm">No contributors yet</p>
+          </div>
         ) : (
-          <Card className="bg-card border-border overflow-hidden">
-            <table className="w-full">
-              <thead className="bg-muted/50">
-                <tr className="border-b border-border">
-                  <th className="text-left py-3 px-4 text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                    User
-                  </th>
-                  <th className="text-center py-3 px-4 text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                    Uploads
-                  </th>
-                  <th className="text-center py-3 px-4 text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                    Likes Received
-                  </th>
-                  <th className="text-center py-3 px-4 text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                    Comments
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.topContributors.map((contributor, index) => (
-                  <tr
-                    key={contributor.id}
-                    className="border-b border-border last:border-b-0 hover:bg-muted/30 transition-colors"
-                  >
-                    <td className="py-3 px-4">
-                      <div className="flex items-center gap-3">
-                        <span className="text-sm font-medium text-muted-foreground w-6">
-                          {index + 1}.
-                        </span>
-                        <Avatar className="h-8 w-8">
-                          <AvatarImage src={contributor.avatar_url || undefined} />
-                          <AvatarFallback>
-                            {contributor.display_name.substring(0, 2).toUpperCase()}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div>
-                          <p className="text-sm font-medium text-foreground">
-                            {contributor.display_name}
-                          </p>
-                          <p className="text-xs text-muted-foreground">@{contributor.username}</p>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="py-3 px-4 text-center">
-                      <span className="inline-flex items-center gap-1 text-sm text-foreground">
-                        <Upload className="h-3.5 w-3.5 text-amber-500" />
-                        {contributor.upload_count}
-                      </span>
-                    </td>
-                    <td className="py-3 px-4 text-center">
-                      <span className="inline-flex items-center gap-1 text-sm text-foreground">
-                        <Heart className="h-3.5 w-3.5 text-red-500" />
-                        {contributor.like_count}
-                      </span>
-                    </td>
-                    <td className="py-3 px-4 text-center">
-                      <span className="inline-flex items-center gap-1 text-sm text-foreground">
-                        <MessageSquare className="h-3.5 w-3.5 text-cyan-500" />
-                        {contributor.comment_count}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </Card>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+            {data.topContributors.slice(0, 5).map((contributor, index) => (
+              <ContributorCard
+                key={contributor.id}
+                contributor={contributor}
+                rank={index + 1}
+              />
+            ))}
+          </div>
         )}
-      </section>
+      </Card>
     </div>
   );
 }
 
-// Stat Card Component
-interface StatCardProps {
-  title: string;
-  value: number;
-  icon: React.ElementType;
-  color: string;
-  bgColor: string;
+// Metric Card Component
+interface MetricCardProps {
+  label: string;
+  value: number | string;
   subtitle?: string;
+  icon: React.ElementType;
+  iconColor: string;
+  iconBg: string;
+  isString?: boolean;
 }
 
-function StatCard({ title, value, icon: Icon, color, bgColor, subtitle }: StatCardProps) {
+function MetricCard({ label, value, subtitle, icon: Icon, iconColor, iconBg, isString }: MetricCardProps) {
   return (
-    <Card className="p-4 bg-card border-border">
+    <Card className="p-4 bg-card/50 border-border hover:bg-card/80 transition-colors">
       <div className="flex items-start justify-between">
-        <div>
-          <p className="text-sm text-muted-foreground">{title}</p>
-          <p className="text-2xl font-bold text-foreground mt-1">
-            {value.toLocaleString()}
+        <div className="space-y-1">
+          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{label}</p>
+          <p className="text-2xl font-bold text-foreground">
+            {isString ? value : (value as number).toLocaleString()}
           </p>
           {subtitle && (
-            <p className="text-xs text-muted-foreground mt-1">{subtitle}</p>
+            <p className="text-xs text-muted-foreground">{subtitle}</p>
           )}
         </div>
-        <div className={`flex h-10 w-10 items-center justify-center rounded-lg ${bgColor}`}>
-          <Icon className={`h-5 w-5 ${color}`} />
+        <div className={`flex h-9 w-9 items-center justify-center rounded-lg ${iconBg}`}>
+          <Icon className={`h-4 w-4 ${iconColor}`} />
         </div>
       </div>
     </Card>
   );
 }
 
+// Content Stat Row Component
+interface ContentStatRowProps {
+  icon: React.ElementType;
+  label: string;
+  value: number;
+  color: string;
+}
+
+function ContentStatRow({ icon: Icon, label, value, color }: ContentStatRowProps) {
+  return (
+    <div className="flex items-center justify-between py-2">
+      <div className="flex items-center gap-3">
+        <Icon className={`h-4 w-4 ${color}`} />
+        <span className="text-sm text-muted-foreground">{label}</span>
+      </div>
+      <span className="text-lg font-semibold text-foreground tabular-nums">
+        {value.toLocaleString()}
+      </span>
+    </div>
+  );
+}
+
+// Contributor Card Component
+interface ContributorCardProps {
+  contributor: TopContributor;
+  rank: number;
+}
+
+function ContributorCard({ contributor, rank }: ContributorCardProps) {
+  const getRankStyle = (r: number) => {
+    if (r === 1) return "bg-amber-500/20 text-amber-400 border-amber-500/30";
+    if (r === 2) return "bg-zinc-400/20 text-zinc-300 border-zinc-400/30";
+    if (r === 3) return "bg-orange-600/20 text-orange-400 border-orange-500/30";
+    return "bg-muted text-muted-foreground border-border";
+  };
+
+  return (
+    <div className="flex flex-col items-center p-4 rounded-xl bg-muted/30 hover:bg-muted/50 transition-colors">
+      {/* Rank Badge */}
+      <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold mb-3 border ${getRankStyle(rank)}`}>
+        {rank}
+      </div>
+      
+      {/* Avatar */}
+      <Avatar className="h-12 w-12 mb-2 ring-2 ring-border">
+        <AvatarImage src={contributor.avatar_url || undefined} />
+        <AvatarFallback className="bg-muted text-sm">
+          {contributor.display_name.substring(0, 2).toUpperCase()}
+        </AvatarFallback>
+      </Avatar>
+      
+      {/* Name */}
+      <p className="text-sm font-medium text-foreground text-center truncate w-full">
+        {contributor.display_name}
+      </p>
+      <p className="text-xs text-muted-foreground truncate w-full text-center">
+        @{contributor.username}
+      </p>
+      
+      {/* Stats */}
+      <div className="flex items-center gap-3 mt-3 text-xs">
+        <span className="flex items-center gap-1 text-muted-foreground">
+          <Upload className="h-3 w-3 text-amber-500" />
+          {contributor.upload_count}
+        </span>
+        <span className="flex items-center gap-1 text-muted-foreground">
+          <Heart className="h-3 w-3 text-rose-500" />
+          {contributor.like_count}
+        </span>
+      </div>
+    </div>
+  );
+}
