@@ -64,13 +64,16 @@ import type { User } from "@/lib/auth/get-user";
 // ============================================================================
 
 interface UserActivity {
-  type: "upload" | "like" | "comment";
+  type: "upload" | "like" | "comment" | "stream";
   timestamp: string;
   details: {
-    assetId: string;
-    assetTitle: string;
+    assetId?: string;
+    assetTitle?: string;
     assetThumbnail?: string;
     commentContent?: string;
+    streamId?: string;
+    streamName?: string;
+    streamCoverUrl?: string;
   };
 }
 
@@ -137,12 +140,14 @@ const activityIcons = {
   upload: Upload,
   like: Heart,
   comment: MessageSquare,
+  stream: Layers,
 };
 
 const activityColors = {
   upload: "text-emerald-500 bg-emerald-500/10",
   like: "text-rose-500 bg-rose-500/10",
   comment: "text-cyan-500 bg-cyan-500/10",
+  stream: "text-violet-500 bg-violet-500/10",
 };
 
 // ============================================================================
@@ -601,6 +606,18 @@ function TimelineItem({ activity, isLast }: { activity: UserActivity; isLast: bo
   const ActivityIcon = activityIcons[activity.type];
   const time = format(new Date(activity.timestamp), "h:mm a");
   
+  // Determine the link and title based on activity type
+  const isStreamActivity = activity.type === "stream";
+  const linkHref = isStreamActivity 
+    ? `/streams/${activity.details.streamId}` 
+    : `/shots/${activity.details.assetId}`;
+  const title = isStreamActivity 
+    ? activity.details.streamName 
+    : activity.details.assetTitle;
+  const thumbnailUrl = isStreamActivity 
+    ? activity.details.streamCoverUrl 
+    : activity.details.assetThumbnail;
+  
   return (
     <div className="flex gap-3 relative">
       {/* Icon node on timeline */}
@@ -620,13 +637,14 @@ function TimelineItem({ activity, isLast }: { activity: UserActivity; isLast: bo
                 {activity.type === "upload" && "Uploaded "}
                 {activity.type === "like" && "Liked "}
                 {activity.type === "comment" && "Commented on "}
+                {activity.type === "stream" && "Created stream "}
               </span>
               <Link
-                href={`/shots/${activity.details.assetId}`}
+                href={linkHref}
                 target="_blank"
                 className="font-medium text-foreground hover:underline"
               >
-                {activity.details.assetTitle}
+                {title}
               </Link>
             </p>
             {activity.type === "comment" && activity.details.commentContent && (
@@ -637,14 +655,14 @@ function TimelineItem({ activity, isLast }: { activity: UserActivity; isLast: bo
           </div>
           
           {/* Thumbnail */}
-          {activity.details.assetThumbnail && (
+          {thumbnailUrl && (
             <Link
-              href={`/shots/${activity.details.assetId}`}
+              href={linkHref}
               target="_blank"
               className="relative h-10 w-10 rounded overflow-hidden bg-muted shrink-0 border border-border hover:border-primary/50 transition-colors"
             >
               <Image
-                src={activity.details.assetThumbnail}
+                src={thumbnailUrl}
                 alt=""
                 fill
                 className="object-cover"
@@ -857,6 +875,13 @@ function UploadThumbnail({ upload, showStats = false }: { upload: UserUpload; sh
 
 function ActivityItem({ activity, compact = false }: { activity: UserActivity; compact?: boolean }) {
   const ActivityIcon = activityIcons[activity.type];
+  const isStreamActivity = activity.type === "stream";
+  const linkHref = isStreamActivity 
+    ? `/streams/${activity.details.streamId}` 
+    : `/shots/${activity.details.assetId}`;
+  const title = isStreamActivity 
+    ? activity.details.streamName 
+    : activity.details.assetTitle;
   
   return (
     <div className="flex items-center gap-2 text-sm">
@@ -868,13 +893,14 @@ function ActivityItem({ activity, compact = false }: { activity: UserActivity; c
           {activity.type === "upload" && "Uploaded "}
           {activity.type === "like" && "Liked "}
           {activity.type === "comment" && "Commented on "}
+          {activity.type === "stream" && "Created "}
         </span>
         <Link
-          href={`/shots/${activity.details.assetId}`}
+          href={linkHref}
           target="_blank"
           className="font-medium text-foreground hover:underline truncate"
         >
-          {activity.details.assetTitle}
+          {title}
         </Link>
       </div>
       <span className="text-xs text-muted-foreground shrink-0">

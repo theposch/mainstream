@@ -15,13 +15,16 @@ interface RouteParams {
 }
 
 interface UserActivity {
-  type: 'upload' | 'like' | 'comment';
+  type: 'upload' | 'like' | 'comment' | 'stream';
   timestamp: string;
   details: {
-    assetId: string;
-    assetTitle: string;
+    assetId?: string;
+    assetTitle?: string;
     assetThumbnail?: string;
     commentContent?: string;
+    streamId?: string;
+    streamName?: string;
+    streamCoverUrl?: string;
   };
 }
 
@@ -124,6 +127,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       recentUploadsResult,
       recentLikesResult,
       recentCommentsResult,
+      recentStreamsResult,
     ] = await Promise.all([
       // Total uploads count
       supabase
@@ -207,6 +211,20 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
           )
         `)
         .eq('user_id', userId)
+        .order('created_at', { ascending: false })
+        .limit(10),
+      
+      // Recent streams created (for activity timeline)
+      supabase
+        .from('streams')
+        .select(`
+          id,
+          name,
+          cover_url,
+          created_at
+        `)
+        .eq('owner_id', userId)
+        .eq('owner_type', 'user')
         .order('created_at', { ascending: false })
         .limit(10),
     ]);
@@ -311,6 +329,19 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
           },
         });
       }
+    });
+
+    // Add stream creations to timeline
+    (recentStreamsResult.data || []).forEach((stream: any) => {
+      activities.push({
+        type: 'stream',
+        timestamp: stream.created_at,
+        details: {
+          streamId: stream.id,
+          streamName: stream.name,
+          streamCoverUrl: stream.cover_url || undefined,
+        },
+      });
     });
 
     // Sort activities by timestamp (newest first)
