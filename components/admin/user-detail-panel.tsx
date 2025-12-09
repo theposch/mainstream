@@ -566,17 +566,96 @@ function ActivityTab({ activities }: { activities: UserActivity[] }) {
   }, {} as Record<string, UserActivity[]>);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       {Object.entries(groupedActivities).map(([day, dayActivities]) => (
         <section key={day}>
-          <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">{day}</h3>
-          <div className="space-y-2 bg-muted/30 rounded-lg p-3 border border-border">
-            {dayActivities.map((activity, idx) => (
-              <ActivityItem key={`${activity.type}-${activity.timestamp}-${idx}`} activity={activity} />
-            ))}
+          {/* Day header with line */}
+          <div className="flex items-center gap-3 mb-4">
+            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{day}</span>
+            <div className="flex-1 h-px bg-border" />
+          </div>
+          
+          {/* Timeline */}
+          <div className="relative">
+            {/* Vertical timeline line */}
+            <div className="absolute left-[11px] top-2 bottom-2 w-px bg-border" />
+            
+            {/* Activity items */}
+            <div className="space-y-4">
+              {dayActivities.map((activity, idx) => (
+                <TimelineItem 
+                  key={`${activity.type}-${activity.timestamp}-${idx}`} 
+                  activity={activity}
+                  isLast={idx === dayActivities.length - 1}
+                />
+              ))}
+            </div>
           </div>
         </section>
       ))}
+    </div>
+  );
+}
+
+function TimelineItem({ activity, isLast }: { activity: UserActivity; isLast: boolean }) {
+  const ActivityIcon = activityIcons[activity.type];
+  const time = format(new Date(activity.timestamp), "h:mm a");
+  
+  return (
+    <div className="flex gap-3 relative">
+      {/* Icon node on timeline */}
+      <div className={cn(
+        "relative z-10 flex items-center justify-center w-6 h-6 rounded-full border-2 border-background",
+        activityColors[activity.type]
+      )}>
+        <ActivityIcon className="h-3 w-3" />
+      </div>
+      
+      {/* Content */}
+      <div className="flex-1 min-w-0 pb-1">
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0">
+            <p className="text-sm">
+              <span className="text-muted-foreground">
+                {activity.type === "upload" && "Uploaded "}
+                {activity.type === "like" && "Liked "}
+                {activity.type === "comment" && "Commented on "}
+              </span>
+              <Link
+                href={`/shots/${activity.details.assetId}`}
+                target="_blank"
+                className="font-medium text-foreground hover:underline"
+              >
+                {activity.details.assetTitle}
+              </Link>
+            </p>
+            {activity.type === "comment" && activity.details.commentContent && (
+              <p className="text-xs text-muted-foreground mt-1 line-clamp-2 bg-muted/50 rounded px-2 py-1">
+                "{activity.details.commentContent}"
+              </p>
+            )}
+          </div>
+          
+          {/* Thumbnail */}
+          {activity.details.assetThumbnail && (
+            <Link
+              href={`/shots/${activity.details.assetId}`}
+              target="_blank"
+              className="relative h-10 w-10 rounded overflow-hidden bg-muted shrink-0 border border-border hover:border-primary/50 transition-colors"
+            >
+              <Image
+                src={activity.details.assetThumbnail}
+                alt=""
+                fill
+                className="object-cover"
+              />
+            </Link>
+          )}
+        </div>
+        
+        {/* Time */}
+        <p className="text-xs text-muted-foreground mt-1">{time}</p>
+      </div>
     </div>
   );
 }
