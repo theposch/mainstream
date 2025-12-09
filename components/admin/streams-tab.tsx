@@ -34,8 +34,7 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Switch } from "@/components/ui/switch";
-import { Textarea } from "@/components/ui/textarea";
+import { StreamDialog } from "@/components/layout/stream-dialog";
 import {
   Search,
   MoreHorizontal,
@@ -262,11 +261,12 @@ export function StreamsTab() {
         </div>
       )}
 
-      {/* Create Dialog */}
-      <CreateStreamDialog
+      {/* Create Dialog - reuse existing StreamDialog component */}
+      <StreamDialog
         open={createDialogOpen}
         onOpenChange={setCreateDialogOpen}
-        onSuccess={fetchStreams}
+        mode="create"
+        onSuccess={() => fetchStreams()}
       />
 
       {/* Edit Dialog */}
@@ -413,158 +413,6 @@ function StreamRow({
         </DropdownMenu>
       </td>
     </tr>
-  );
-}
-
-// ============================================================================
-// CREATE STREAM DIALOG
-// ============================================================================
-
-function CreateStreamDialog({
-  open,
-  onOpenChange,
-  onSuccess,
-}: {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  onSuccess: () => void;
-}) {
-  const [name, setName] = React.useState("");
-  const [description, setDescription] = React.useState("");
-  const [isPrivate, setIsPrivate] = React.useState(false);
-  const [loading, setLoading] = React.useState(false);
-  const [error, setError] = React.useState<string | null>(null);
-
-  // Reset form when dialog opens
-  React.useEffect(() => {
-    if (open) {
-      setName("");
-      setDescription("");
-      setIsPrivate(false);
-      setError(null);
-    }
-  }, [open]);
-
-  const normalizedName = name
-    .toLowerCase()
-    .trim()
-    .replace(/\s+/g, "-")
-    .replace(/[^a-z0-9-]/g, "")
-    .replace(/-+/g, "-")
-    .replace(/^-|-$/g, "");
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!normalizedName) return;
-
-    setLoading(true);
-    setError(null);
-
-    try {
-      const response = await fetch("/api/streams", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: normalizedName,
-          description: description.trim() || null,
-          is_private: isPrivate,
-        }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || "Failed to create stream");
-      }
-
-      onOpenChange(false);
-      onSuccess();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to create stream");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Create Stream</DialogTitle>
-          <DialogDescription>
-            Create a new stream to organize assets.
-          </DialogDescription>
-        </DialogHeader>
-
-        <form onSubmit={handleSubmit}>
-          <div className="space-y-4 py-4">
-            {/* Name */}
-            <div className="space-y-2">
-              <Label htmlFor="new-stream-name">Stream name</Label>
-              <div className="flex items-center">
-                <span className="text-muted-foreground mr-1">#</span>
-                <Input
-                  id="new-stream-name"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="my-stream"
-                  className="flex-1"
-                />
-              </div>
-              {name && normalizedName !== name.toLowerCase().trim() && (
-                <p className="text-xs text-muted-foreground">
-                  Will be created as: #{normalizedName}
-                </p>
-              )}
-            </div>
-
-            {/* Description */}
-            <div className="space-y-2">
-              <Label htmlFor="new-stream-description">Description (optional)</Label>
-              <Textarea
-                id="new-stream-description"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder="What is this stream for?"
-                rows={2}
-              />
-            </div>
-
-            {/* Private */}
-            <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <Label htmlFor="new-stream-private">Private stream</Label>
-                <p className="text-xs text-muted-foreground">
-                  Only invited members can see this stream
-                </p>
-              </div>
-              <Switch
-                id="new-stream-private"
-                checked={isPrivate}
-                onCheckedChange={setIsPrivate}
-              />
-            </div>
-
-            {error && (
-              <div className="flex items-center gap-2 text-sm text-destructive">
-                <AlertCircle className="h-4 w-4" />
-                {error}
-              </div>
-            )}
-          </div>
-
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-              Cancel
-            </Button>
-            <Button type="submit" disabled={loading || !normalizedName || normalizedName.length < 2}>
-              {loading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-              Create Stream
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
   );
 }
 
