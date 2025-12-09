@@ -326,14 +326,13 @@ export function AnalyticsDashboard() {
           
           {/* Bar Chart */}
           <div className="h-44 flex items-end gap-[2px] bg-muted/20 rounded-lg p-2 pb-0">
-            {data.activityOverTime.map((point) => {
+            {data.activityOverTime.map((point, index) => {
               const value = point[selectedActivity];
               const height = maxActivity > 0 ? (value / maxActivity) * 100 : 0;
-              const date = new Date(point.date);
-              // Use local timezone for "today" comparison (matches user expectation)
-              const now = new Date();
-              const todayLocal = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-              const isToday = point.date === todayLocal;
+              // Parse date string as LOCAL time by adding T00:00:00 (avoids UTC interpretation)
+              const date = new Date(point.date + 'T00:00:00');
+              // The last bar is always "today" since we generate 30 days ending at today
+              const isToday = index === data.activityOverTime.length - 1;
               
               return (
                 <div
