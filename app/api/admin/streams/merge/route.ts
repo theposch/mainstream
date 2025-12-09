@@ -49,6 +49,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Validate UUID format to prevent database errors
+    const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!UUID_REGEX.test(sourceId) || !UUID_REGEX.test(targetId)) {
+      return NextResponse.json(
+        { error: 'Invalid stream ID format' },
+        { status: 400 }
+      );
+    }
+
     const supabase = await createAdminClient();
 
     // Verify both streams exist

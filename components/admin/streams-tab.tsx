@@ -150,6 +150,15 @@ export function StreamsTab() {
   React.useEffect(() => {
     fetchStreams();
   }, [fetchStreams]);
+
+  // Cleanup timeout on unmount to prevent memory leaks
+  React.useEffect(() => {
+    return () => {
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+      }
+    };
+  }, []);
   
   // Refetch when page changes (immediate, no debounce needed)
   // Skip initial mount and search-triggered page changes

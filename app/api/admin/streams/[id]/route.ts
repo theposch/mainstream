@@ -196,19 +196,34 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    // If deleteAssets is true, also delete the actual assets
+    // If deleteAssets is true, delete assets that are ONLY in this stream
+    // (don't delete assets that are shared with other streams)
     if (deleteAssets && assetIds.length > 0) {
-      const { error: deleteAssetsError } = await supabase
-        .from('assets')
-        .delete()
-        .in('id', assetIds);
+      // Check which assets are in other streams (after we've unlinked from this stream)
+      const { data: sharedAssets } = await supabase
+        .from('asset_streams')
+        .select('asset_id')
+        .in('asset_id', assetIds);
 
-      if (deleteAssetsError) {
-        console.error('[DELETE /api/admin/streams/[id]] Delete assets error:', deleteAssetsError);
-        return NextResponse.json(
-          { error: 'Failed to delete assets' },
-          { status: 500 }
-        );
+      // Assets that still have entries in asset_streams are shared with other streams
+      const sharedAssetIds = new Set((sharedAssets || []).map(a => a.asset_id));
+      
+      // Only delete assets that are NOT in any other stream
+      const exclusiveAssetIds = assetIds.filter(id => !sharedAssetIds.has(id));
+
+      if (exclusiveAssetIds.length > 0) {
+        const { error: deleteAssetsError } = await supabase
+          .from('assets')
+          .delete()
+          .in('id', exclusiveAssetIds);
+
+        if (deleteAssetsError) {
+          console.error('[DELETE /api/admin/streams/[id]] Delete assets error:', deleteAssetsError);
+          return NextResponse.json(
+            { error: 'Failed to delete assets' },
+            { status: 500 }
+          );
+        }
       }
     }
 

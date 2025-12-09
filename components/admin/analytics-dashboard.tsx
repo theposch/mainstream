@@ -21,6 +21,7 @@ import type {
   RawActivityData,
   AnalyticsApiResponse,
   AnalyticsData,
+  TopContributor,
 } from "@/lib/types/admin";
 
 /**
