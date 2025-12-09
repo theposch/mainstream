@@ -146,11 +146,16 @@ export async function POST(request: NextRequest) {
 
       if (addMembersError) {
         console.error('[POST /api/admin/streams/merge] Add members error:', addMembersError);
-        // Non-fatal, continue with merge
+        // CRITICAL: Do NOT delete source members if we failed to add them to target
+        // This would orphan them from the merge operation
+        return NextResponse.json(
+          { error: 'Failed to add members to target stream. Merge aborted to prevent data loss.' },
+          { status: 500 }
+        );
       }
     }
 
-    // Delete source stream members
+    // Delete source stream members (safe now - we've either added them to target or aborted)
     const { error: deleteMembersError } = await supabase
       .from('stream_members')
       .delete()
