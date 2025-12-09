@@ -11,32 +11,18 @@ import {
   Eye,
   HardDrive,
   TrendingUp,
-  TrendingDown,
   Loader2,
   AlertCircle,
   Activity,
   Trophy,
-  Minus,
 } from "lucide-react";
 
-interface WeeklyActivity {
-  week: number;
-  label: string;
-  startDate: string;
-  endDate: string;
+interface ActivityDataPoint {
+  date: string;
   uploads: number;
   likes: number;
   comments: number;
   views: number;
-  total: number;
-}
-
-interface PeriodComparison {
-  uploads: { current: number; previous: number; change: number };
-  likes: { current: number; previous: number; change: number };
-  comments: { current: number; previous: number; change: number };
-  views: { current: number; previous: number; change: number };
-  total: { current: number; previous: number; change: number };
 }
 
 interface TopContributor {
@@ -65,22 +51,24 @@ interface AnalyticsData {
     totalBytes: number;
     totalFormatted: string;
   };
-  weeklyActivity: WeeklyActivity[];
-  comparison: PeriodComparison;
+  activityOverTime: ActivityDataPoint[];
   topContributors: TopContributor[];
 }
 
-const activityColors = {
-  uploads: { bg: 'bg-amber-500', label: 'Uploads' },
-  likes: { bg: 'bg-rose-500', label: 'Likes' },
-  comments: { bg: 'bg-cyan-500', label: 'Comments' },
-  views: { bg: 'bg-blue-500', label: 'Views' },
+type ActivityType = 'uploads' | 'likes' | 'comments' | 'views';
+
+const activityConfig: Record<ActivityType, { label: string; color: string; bgColor: string }> = {
+  uploads: { label: 'Uploads', color: 'bg-amber-500', bgColor: 'bg-amber-500/20' },
+  likes: { label: 'Likes', color: 'bg-rose-500', bgColor: 'bg-rose-500/20' },
+  comments: { label: 'Comments', color: 'bg-cyan-500', bgColor: 'bg-cyan-500/20' },
+  views: { label: 'Views', color: 'bg-blue-500', bgColor: 'bg-blue-500/20' },
 };
 
 export function AnalyticsDashboard() {
   const [data, setData] = React.useState<AnalyticsData | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
+  const [selectedActivity, setSelectedActivity] = React.useState<ActivityType>('views');
 
   React.useEffect(() => {
     const fetchAnalytics = async () => {
@@ -121,12 +109,25 @@ export function AnalyticsDashboard() {
     );
   }
 
-  // Calculate max total for chart scaling
-  const maxTotal = Math.max(...data.weeklyActivity.map(w => w.total), 1);
+  // Get max value for the selected activity type for scaling
+  const maxActivity = Math.max(
+    ...data.activityOverTime.map(d => d[selectedActivity]),
+    1
+  );
+  
+  // Calculate total activity for selected type in last 30 days
+  const totalSelectedActivity = data.activityOverTime.reduce(
+    (sum, d) => sum + d[selectedActivity],
+    0
+  );
+
+  const engagementRate = data.users.total > 0 
+    ? Math.round((data.users.activeThisWeek / data.users.total) * 100) 
+    : 0;
 
   return (
     <div className="space-y-6">
-      {/* Top Row: User Metrics */}
+      {/* Top Row: Key Metrics */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <MetricCard
           label="Total Users"
@@ -138,6 +139,7 @@ export function AnalyticsDashboard() {
         <MetricCard
           label="Active This Week"
           value={data.users.activeThisWeek}
+          subtitle={`${engagementRate}% engagement`}
           icon={Activity}
           iconColor="text-emerald-400"
           iconBg="bg-emerald-500/10"
@@ -159,146 +161,139 @@ export function AnalyticsDashboard() {
         />
       </div>
 
-      {/* Period Comparison Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <ComparisonCard
-          label="Uploads"
-          icon={Upload}
-          color="text-amber-500"
-          bgColor="bg-amber-500/10"
-          current={data.comparison.uploads.current}
-          change={data.comparison.uploads.change}
-        />
-        <ComparisonCard
-          label="Likes"
-          icon={Heart}
-          color="text-rose-500"
-          bgColor="bg-rose-500/10"
-          current={data.comparison.likes.current}
-          change={data.comparison.likes.change}
-        />
-        <ComparisonCard
-          label="Comments"
-          icon={MessageSquare}
-          color="text-cyan-500"
-          bgColor="bg-cyan-500/10"
-          current={data.comparison.comments.current}
-          change={data.comparison.comments.change}
-        />
-        <ComparisonCard
-          label="Views"
-          icon={Eye}
-          color="text-blue-500"
-          bgColor="bg-blue-500/10"
-          current={data.comparison.views.current}
-          change={data.comparison.views.change}
-        />
-      </div>
-
-      {/* Weekly Activity Chart */}
-      <Card className="p-6 bg-card/50 border-border">
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h3 className="text-base font-semibold text-foreground">Weekly Activity</h3>
-            <p className="text-sm text-muted-foreground">Platform engagement over the last 4 weeks</p>
+      {/* Middle Row: Activity Chart + Content Stats */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Activity Chart - Takes 2 columns */}
+        <Card className="lg:col-span-2 p-6 bg-card/50 border-border">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h3 className="text-base font-semibold text-foreground">Platform Activity</h3>
+              <p className="text-sm text-muted-foreground">Last 30 days</p>
+            </div>
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-muted text-muted-foreground text-sm font-medium">
+              {totalSelectedActivity.toLocaleString()} {activityConfig[selectedActivity].label.toLowerCase()}
+            </div>
           </div>
           
-          {/* Legend */}
-          <div className="flex items-center gap-4 text-xs">
-            {Object.entries(activityColors).map(([key, { bg, label }]) => (
-              <div key={key} className="flex items-center gap-1.5">
-                <div className={`w-2.5 h-2.5 rounded-sm ${bg}`} />
-                <span className="text-muted-foreground">{label}</span>
-              </div>
+          {/* Activity Type Selector */}
+          <div className="flex gap-2 mb-5">
+            {(Object.keys(activityConfig) as ActivityType[]).map((type) => (
+              <button
+                key={type}
+                onClick={() => setSelectedActivity(type)}
+                className={`px-3 py-1.5 text-xs font-medium rounded-full transition-all ${
+                  selectedActivity === type
+                    ? `${activityConfig[type].color} text-white`
+                    : 'bg-muted text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                {activityConfig[type].label}
+              </button>
             ))}
           </div>
-        </div>
-
-        {/* Stacked Bar Chart */}
-        <div className="flex items-end gap-4 h-52">
-          {data.weeklyActivity.map((week) => {
-            const totalHeight = maxTotal > 0 ? (week.total / maxTotal) * 100 : 0;
-            const uploadsHeight = week.total > 0 ? (week.uploads / week.total) * totalHeight : 0;
-            const likesHeight = week.total > 0 ? (week.likes / week.total) * totalHeight : 0;
-            const commentsHeight = week.total > 0 ? (week.comments / week.total) * totalHeight : 0;
-            const viewsHeight = week.total > 0 ? (week.views / week.total) * totalHeight : 0;
-            
-            return (
-              <div key={week.week} className="flex-1 flex flex-col items-center gap-3">
-                {/* Stacked Bar */}
-                <div className="w-full flex flex-col-reverse items-stretch group relative" style={{ height: '180px' }}>
+          
+          {/* Bar Chart */}
+          <div className="h-44 flex items-end gap-[2px] bg-muted/20 rounded-lg p-2 pb-0">
+            {data.activityOverTime.map((point) => {
+              const value = point[selectedActivity];
+              const height = maxActivity > 0 ? (value / maxActivity) * 100 : 0;
+              const date = new Date(point.date);
+              // Use local timezone for "today" comparison (matches user expectation)
+              const now = new Date();
+              const todayLocal = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+              const isToday = point.date === todayLocal;
+              
+              return (
+                <div
+                  key={point.date}
+                  className="flex-1 group relative min-w-[4px]"
+                  style={{ height: '100%' }}
+                >
                   {/* Tooltip */}
-                  <div className="absolute -top-2 left-1/2 -translate-x-1/2 -translate-y-full px-3 py-2 rounded-lg bg-popover border border-border text-xs whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 shadow-lg">
-                    <p className="font-medium text-foreground mb-2">{week.label}</p>
-                    <div className="space-y-1 text-muted-foreground">
-                      <p className="flex items-center gap-2">
-                        <span className="w-2 h-2 rounded-sm bg-amber-500"></span>
-                        {week.uploads} uploads
-                      </p>
-                      <p className="flex items-center gap-2">
-                        <span className="w-2 h-2 rounded-sm bg-rose-500"></span>
-                        {week.likes} likes
-                      </p>
-                      <p className="flex items-center gap-2">
-                        <span className="w-2 h-2 rounded-sm bg-cyan-500"></span>
-                        {week.comments} comments
-                      </p>
-                      <p className="flex items-center gap-2">
-                        <span className="w-2 h-2 rounded-sm bg-blue-500"></span>
-                        {week.views} views
-                      </p>
-                      <p className="pt-1 border-t border-border font-medium text-foreground">
-                        {week.total} total
-                      </p>
+                  <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 rounded-lg bg-popover border border-border text-xs whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 shadow-lg">
+                    <p className="font-medium text-foreground mb-1">
+                      {date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+                    </p>
+                    <div className="space-y-0.5 text-muted-foreground">
+                      <p><span className="inline-block w-2 h-2 rounded-full bg-amber-500 mr-1.5"></span>{point.uploads} uploads</p>
+                      <p><span className="inline-block w-2 h-2 rounded-full bg-rose-500 mr-1.5"></span>{point.likes} likes</p>
+                      <p><span className="inline-block w-2 h-2 rounded-full bg-cyan-500 mr-1.5"></span>{point.comments} comments</p>
+                      <p><span className="inline-block w-2 h-2 rounded-full bg-blue-500 mr-1.5"></span>{point.views} views</p>
                     </div>
                   </div>
                   
-                  {/* Empty state */}
-                  {week.total === 0 && (
-                    <div className="w-full bg-muted/30 rounded-lg" style={{ height: '8px' }} />
-                  )}
-                  
-                  {/* Stacked segments */}
-                  {week.total > 0 && (
-                    <div className="w-full flex flex-col-reverse rounded-lg overflow-hidden cursor-pointer transition-transform hover:scale-[1.02]">
-                      {viewsHeight > 0 && (
-                        <div 
-                          className="w-full bg-blue-500 transition-all"
-                          style={{ height: `${(viewsHeight / 100) * 180}px` }}
-                        />
-                      )}
-                      {commentsHeight > 0 && (
-                        <div 
-                          className="w-full bg-cyan-500 transition-all"
-                          style={{ height: `${(commentsHeight / 100) * 180}px` }}
-                        />
-                      )}
-                      {likesHeight > 0 && (
-                        <div 
-                          className="w-full bg-rose-500 transition-all"
-                          style={{ height: `${(likesHeight / 100) * 180}px` }}
-                        />
-                      )}
-                      {uploadsHeight > 0 && (
-                        <div 
-                          className="w-full bg-amber-500 transition-all"
-                          style={{ height: `${(uploadsHeight / 100) * 180}px` }}
-                        />
-                      )}
-                    </div>
-                  )}
+                  {/* Bar container - full height, bar at bottom */}
+                  <div className="absolute bottom-0 left-0 right-0">
+                    <div
+                      className={`w-full rounded-sm transition-all duration-150 cursor-pointer ${
+                        value > 0
+                          ? isToday 
+                            ? activityConfig[selectedActivity].color
+                            : `${activityConfig[selectedActivity].color} opacity-60 hover:opacity-100`
+                          : 'bg-muted-foreground/10'
+                      }`}
+                      style={{ 
+                        height: value > 0 
+                          ? `${Math.max((height / 100) * 160, 8)}px`
+                          : '2px'
+                      }}
+                    />
+                  </div>
                 </div>
-                
-                {/* Week Label */}
-                <div className="text-center">
-                  <p className="text-sm font-medium text-foreground">{week.label}</p>
-                  <p className="text-xs text-muted-foreground">{week.total} total</p>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </Card>
+              );
+            })}
+          </div>
+          
+          <div className="flex justify-between mt-3 text-xs text-muted-foreground">
+            <span>30 days ago</span>
+            <span>Today</span>
+          </div>
+        </Card>
+
+        {/* Content Stats - Right Column */}
+        <Card className="p-6 bg-card/50 border-border">
+          <div className="flex items-center gap-2 mb-5">
+            <Activity className="h-4 w-4 text-primary" />
+            <h3 className="text-base font-semibold text-foreground">All-Time Stats</h3>
+          </div>
+          
+          <div className="space-y-4">
+            <ContentStatRow
+              icon={Upload}
+              label="Uploads"
+              value={data.content.totalUploads}
+              color="text-amber-500"
+            />
+            <ContentStatRow
+              icon={Eye}
+              label="Views"
+              value={data.content.totalViews}
+              color="text-blue-500"
+            />
+            <ContentStatRow
+              icon={Heart}
+              label="Likes"
+              value={data.content.totalLikes}
+              color="text-rose-500"
+            />
+            <ContentStatRow
+              icon={MessageSquare}
+              label="Comments"
+              value={data.content.totalComments}
+              color="text-cyan-500"
+            />
+          </div>
+          
+          {/* Storage Usage */}
+          <div className="mt-6 pt-5 border-t border-border">
+            <div className="flex items-center gap-2 mb-3">
+              <HardDrive className="h-4 w-4 text-emerald-500" />
+              <span className="text-sm text-muted-foreground">Storage</span>
+            </div>
+            <p className="text-2xl font-bold text-foreground">{data.storage.totalFormatted}</p>
+          </div>
+        </Card>
+      </div>
 
       {/* Bottom Row: Top Contributors */}
       <Card className="p-6 bg-card/50 border-border">
@@ -332,21 +327,25 @@ export function AnalyticsDashboard() {
 interface MetricCardProps {
   label: string;
   value: number | string;
+  subtitle?: string;
   icon: React.ElementType;
   iconColor: string;
   iconBg: string;
   isString?: boolean;
 }
 
-function MetricCard({ label, value, icon: Icon, iconColor, iconBg, isString }: MetricCardProps) {
+function MetricCard({ label, value, subtitle, icon: Icon, iconColor, iconBg, isString }: MetricCardProps) {
   return (
-    <Card className="p-4 bg-card/50 border-border">
+    <Card className="p-4 bg-card/50 border-border hover:bg-card/80 transition-colors">
       <div className="flex items-start justify-between">
         <div className="space-y-1">
           <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{label}</p>
           <p className="text-2xl font-bold text-foreground">
             {isString ? value : (value as number).toLocaleString()}
           </p>
+          {subtitle && (
+            <p className="text-xs text-muted-foreground">{subtitle}</p>
+          )}
         </div>
         <div className={`flex h-9 w-9 items-center justify-center rounded-lg ${iconBg}`}>
           <Icon className={`h-4 w-4 ${iconColor}`} />
@@ -356,40 +355,25 @@ function MetricCard({ label, value, icon: Icon, iconColor, iconBg, isString }: M
   );
 }
 
-// Comparison Card Component
-interface ComparisonCardProps {
-  label: string;
+// Content Stat Row Component
+interface ContentStatRowProps {
   icon: React.ElementType;
+  label: string;
+  value: number;
   color: string;
-  bgColor: string;
-  current: number;
-  change: number;
 }
 
-function ComparisonCard({ label, icon: Icon, color, bgColor, current, change }: ComparisonCardProps) {
-  const isPositive = change > 0;
-  const isNegative = change < 0;
-  const isNeutral = change === 0;
-  
+function ContentStatRow({ icon: Icon, label, value, color }: ContentStatRowProps) {
   return (
-    <Card className="p-4 bg-card/50 border-border">
-      <div className="flex items-start justify-between mb-2">
-        <div className={`flex h-8 w-8 items-center justify-center rounded-lg ${bgColor}`}>
-          <Icon className={`h-4 w-4 ${color}`} />
-        </div>
-        <div className={`flex items-center gap-1 text-xs font-medium ${
-          isPositive ? 'text-emerald-500' : isNegative ? 'text-red-500' : 'text-muted-foreground'
-        }`}>
-          {isPositive && <TrendingUp className="h-3 w-3" />}
-          {isNegative && <TrendingDown className="h-3 w-3" />}
-          {isNeutral && <Minus className="h-3 w-3" />}
-          {isPositive && '+'}
-          {change}%
-        </div>
+    <div className="flex items-center justify-between py-2">
+      <div className="flex items-center gap-3">
+        <Icon className={`h-4 w-4 ${color}`} />
+        <span className="text-sm text-muted-foreground">{label}</span>
       </div>
-      <p className="text-2xl font-bold text-foreground">{current}</p>
-      <p className="text-xs text-muted-foreground">{label} this week</p>
-    </Card>
+      <span className="text-lg font-semibold text-foreground tabular-nums">
+        {value.toLocaleString()}
+      </span>
+    </div>
   );
 }
 
@@ -409,10 +393,12 @@ function ContributorCard({ contributor, rank }: ContributorCardProps) {
 
   return (
     <div className="flex flex-col items-center p-4 rounded-xl bg-muted/30 hover:bg-muted/50 transition-colors">
+      {/* Rank Badge */}
       <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold mb-3 border ${getRankStyle(rank)}`}>
         {rank}
       </div>
       
+      {/* Avatar */}
       <Avatar className="h-12 w-12 mb-2 ring-2 ring-border">
         <AvatarImage src={contributor.avatar_url || undefined} />
         <AvatarFallback className="bg-muted text-sm">
@@ -420,6 +406,7 @@ function ContributorCard({ contributor, rank }: ContributorCardProps) {
         </AvatarFallback>
       </Avatar>
       
+      {/* Name */}
       <p className="text-sm font-medium text-foreground text-center truncate w-full">
         {contributor.display_name}
       </p>
@@ -427,6 +414,7 @@ function ContributorCard({ contributor, rank }: ContributorCardProps) {
         @{contributor.username}
       </p>
       
+      {/* Stats */}
       <div className="flex items-center gap-3 mt-3 text-xs">
         <span className="flex items-center gap-1 text-muted-foreground">
           <Upload className="h-3 w-3 text-amber-500" />
