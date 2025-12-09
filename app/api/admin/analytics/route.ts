@@ -84,7 +84,8 @@ export async function GET() {
     const supabase = await createAdminClient();
     const now = new Date();
     const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-    const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+    // Use 29 days ago so the 30-day range is [29 days ago ... today] inclusive
+    const twentyNineDaysAgo = new Date(now.getTime() - 29 * 24 * 60 * 60 * 1000);
 
     // === USER STATS ===
     
@@ -97,7 +98,7 @@ export async function GET() {
     const { count: newThisMonth } = await supabase
       .from('users')
       .select('*', { count: 'exact', head: true })
-      .gte('created_at', thirtyDaysAgo.toISOString());
+      .gte('created_at', twentyNineDaysAgo.toISOString());
 
     // Active users this week (users who uploaded, liked, commented, or viewed)
     const [uploaders, likers, commenters, viewers] = await Promise.all([
@@ -133,25 +134,25 @@ export async function GET() {
       supabase
         .from('assets')
         .select('created_at')
-        .gte('created_at', thirtyDaysAgo.toISOString()),
+        .gte('created_at', twentyNineDaysAgo.toISOString()),
       supabase
         .from('asset_likes')
         .select('created_at')
-        .gte('created_at', thirtyDaysAgo.toISOString()),
+        .gte('created_at', twentyNineDaysAgo.toISOString()),
       supabase
         .from('asset_comments')
         .select('created_at')
-        .gte('created_at', thirtyDaysAgo.toISOString()),
+        .gte('created_at', twentyNineDaysAgo.toISOString()),
       supabase
         .from('asset_views')
         .select('viewed_at')
-        .gte('viewed_at', thirtyDaysAgo.toISOString()),
+        .gte('viewed_at', twentyNineDaysAgo.toISOString()),
     ]);
 
     // Initialize activity map for all 30 days
     const activityByDate = new Map<string, ActivityDataPoint>();
     for (let i = 0; i < 30; i++) {
-      const date = new Date(thirtyDaysAgo.getTime() + i * 24 * 60 * 60 * 1000);
+      const date = new Date(twentyNineDaysAgo.getTime() + i * 24 * 60 * 60 * 1000);
       const dateStr = date.toISOString().split('T')[0];
       activityByDate.set(dateStr, { date: dateStr, uploads: 0, likes: 0, comments: 0, views: 0 });
     }
