@@ -214,7 +214,7 @@ export function AnalyticsDashboard() {
               <button
                 key={type}
                 onClick={() => setSelectedActivity(type)}
-                className={`px-3 py-1.5 text-xs font-medium rounded-full transition-all ${
+                className={`px-3 py-1.5 text-xs font-medium rounded-full transition-all cursor-pointer ${
                   selectedActivity === type
                     ? `${activityConfig[type].color} text-white`
                     : 'bg-muted text-muted-foreground hover:text-foreground'

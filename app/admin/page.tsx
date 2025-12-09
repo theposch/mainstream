@@ -71,7 +71,7 @@ export default function AdminPage() {
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
                 className={cn(
-                  "px-4 py-3 text-sm font-medium flex items-center gap-2 border-b-2 transition-colors",
+                  "px-4 py-3 text-sm font-medium flex items-center gap-2 border-b-2 transition-colors cursor-pointer",
                   isActive
                     ? "text-foreground border-primary"
                     : "text-muted-foreground border-transparent hover:text-foreground hover:border-border"

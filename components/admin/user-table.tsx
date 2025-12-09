@@ -271,7 +271,7 @@ export function UserTable({ currentUser }: UserTableProps) {
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <button
-                              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium border ${role.color} hover:opacity-80 transition-opacity`}
+                              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium border ${role.color} hover:opacity-80 transition-opacity cursor-pointer`}
                               disabled={actionLoading === user.id}
                             >
                               {actionLoading === user.id ? (
