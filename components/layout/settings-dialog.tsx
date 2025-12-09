@@ -924,7 +924,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                   aria-controls={`${tab.id}-panel`}
                   onClick={() => setActiveTab(tab.id)}
                   className={cn(
-                    "relative px-4 py-3 text-sm font-medium transition-colors rounded-t-md",
+                    "relative px-4 py-3 text-sm font-medium transition-colors rounded-t-md cursor-pointer",
                     "focus:outline-none focus-visible:outline-none",
                     activeTab === tab.id 
                       ? "text-foreground" 

@@ -12,6 +12,7 @@ import { useAssetView } from "@/lib/hooks/use-asset-view";
 import { useUserFollow } from "@/lib/hooks/use-user-follow";
 import { ViewersTooltip } from "./viewers-tooltip";
 import { StreamBadge } from "@/components/streams/stream-badge";
+import { LikeButton } from "@/components/ui/like-button";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { KEYS } from "@/lib/constants";
