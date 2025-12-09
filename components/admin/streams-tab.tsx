@@ -333,8 +333,7 @@ function StreamRow({
           </div>
           <div>
             <Link
-              href={`/streams/${stream.name}`}
-              target="_blank"
+              href={`/stream/${stream.name}`}
               className="font-medium text-foreground hover:underline"
             >
               #{stream.name}
