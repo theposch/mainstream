@@ -3,12 +3,10 @@
 import * as React from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { formatDistanceToNow } from "date-fns";
+import { formatDistanceToNow, format } from "date-fns";
 import {
   Sheet,
   SheetContent,
-  SheetHeader,
-  SheetTitle,
 } from "@/components/ui/sheet";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -21,9 +19,6 @@ import {
   Eye,
   HardDrive,
   Calendar,
-  Mail,
-  Briefcase,
-  MapPin,
   ExternalLink,
   Loader2,
   AlertCircle,
@@ -31,7 +26,7 @@ import {
   ShieldCheck,
   Shield,
   Layers,
-  Clock,
+  ChevronRight,
 } from "lucide-react";
 import type { PlatformRole } from "@/lib/types/database";
 import type { AdminUser } from "@/lib/types/admin";
@@ -135,11 +130,13 @@ export function UserDetailPanel({
   const [details, setDetails] = React.useState<UserDetails | null>(null);
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+  const [showAllActivity, setShowAllActivity] = React.useState(false);
 
   // Fetch user details when panel opens
   React.useEffect(() => {
     if (!open || !user) {
       setDetails(null);
+      setShowAllActivity(false);
       return;
     }
 
@@ -167,6 +164,18 @@ export function UserDetailPanel({
   const role = (user?.platform_role || "user") as PlatformRole;
   const RoleIcon = roleConfig[role].icon;
 
+  // Count activity by type
+  const activitySummary = React.useMemo(() => {
+    if (!details) return { uploads: 0, likes: 0, comments: 0 };
+    return details.recentActivity.reduce(
+      (acc, activity) => {
+        acc[activity.type === "upload" ? "uploads" : activity.type === "like" ? "likes" : "comments"]++;
+        return acc;
+      },
+      { uploads: 0, likes: 0, comments: 0 }
+    );
+  }, [details]);
+
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
@@ -184,152 +193,95 @@ export function UserDetailPanel({
           </div>
         ) : details ? (
           <ScrollArea className="h-full">
-            <div className="p-6">
-              {/* Header */}
-              <SheetHeader className="p-0 mb-6">
-                <div className="flex items-start gap-4">
-                  <Avatar className="h-16 w-16 border-2 border-border">
-                    <AvatarImage
-                      src={details.user.avatar_url || undefined}
-                      alt={details.user.username}
-                    />
-                    <AvatarFallback className="text-lg">
-                      {details.user.username.substring(0, 2).toUpperCase()}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <SheetTitle className="text-xl truncate">
-                        {details.user.display_name}
-                      </SheetTitle>
-                      <Badge
-                        variant="outline"
-                        className={`${roleConfig[role].color} shrink-0`}
-                      >
-                        <RoleIcon className="h-3 w-3 mr-1" />
-                        {roleConfig[role].label}
-                      </Badge>
-                    </div>
-                    <p className="text-sm text-muted-foreground">
-                      @{details.user.username}
-                    </p>
-                    {details.user.bio && (
-                      <p className="text-sm text-foreground/80 mt-2 line-clamp-2">
-                        {details.user.bio}
-                      </p>
+            {/* Hero Section */}
+            <div className="bg-gradient-to-b from-muted/50 to-background p-6 pb-4">
+              <div className="flex items-start gap-4">
+                <Avatar className="h-14 w-14 border-2 border-background shadow-lg">
+                  <AvatarImage
+                    src={details.user.avatar_url || undefined}
+                    alt={details.user.username}
+                  />
+                  <AvatarFallback className="text-lg bg-primary/10">
+                    {details.user.username.substring(0, 2).toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-0.5">
+                    <h2 className="text-lg font-semibold truncate">
+                      {details.user.display_name}
+                    </h2>
+                    <Badge
+                      variant="outline"
+                      className={`${roleConfig[role].color} shrink-0 text-[10px] px-1.5 py-0`}
+                    >
+                      <RoleIcon className="h-2.5 w-2.5 mr-0.5" />
+                      {roleConfig[role].label}
+                    </Badge>
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    @{details.user.username}
+                    {details.user.job_title && (
+                      <span className="mx-1.5">•</span>
                     )}
-                  </div>
-                </div>
-
-                {/* User Meta */}
-                <div className="flex flex-wrap gap-x-4 gap-y-2 mt-4 text-sm text-muted-foreground">
-                  <div className="flex items-center gap-1.5">
-                    <Mail className="h-4 w-4" />
-                    <span className="truncate max-w-[200px]">
-                      {details.user.email}
-                    </span>
-                  </div>
-                  {details.user.job_title && (
-                    <div className="flex items-center gap-1.5">
-                      <Briefcase className="h-4 w-4" />
+                    {details.user.job_title && (
                       <span>{details.user.job_title}</span>
-                    </div>
+                    )}
+                  </p>
+                  {details.user.bio && (
+                    <p className="text-sm text-foreground/70 mt-1.5 line-clamp-1">
+                      {details.user.bio}
+                    </p>
                   )}
-                  {details.user.location && (
-                    <div className="flex items-center gap-1.5">
-                      <MapPin className="h-4 w-4" />
-                      <span>{details.user.location}</span>
-                    </div>
-                  )}
-                  <div className="flex items-center gap-1.5">
-                    <Calendar className="h-4 w-4" />
-                    <span>
-                      Joined{" "}
-                      {formatDistanceToNow(new Date(details.user.created_at), {
-                        addSuffix: true,
-                      })}
-                    </span>
-                  </div>
                 </div>
-              </SheetHeader>
-
-              {/* Stats Grid */}
-              <div className="grid grid-cols-4 gap-3 mb-6">
-                <StatCard
-                  icon={Upload}
-                  label="Uploads"
-                  value={details.stats.totalUploads}
-                  color="text-emerald-500"
-                />
-                <StatCard
-                  icon={Heart}
-                  label="Likes"
-                  value={details.stats.totalLikes}
-                  color="text-rose-500"
-                />
-                <StatCard
-                  icon={MessageSquare}
-                  label="Comments"
-                  value={details.stats.totalComments}
-                  color="text-cyan-500"
-                />
-                <StatCard
-                  icon={Eye}
-                  label="Views"
-                  value={details.stats.totalViews}
-                  color="text-blue-500"
-                />
+                <Button variant="outline" size="sm" asChild className="shrink-0">
+                  <Link href={`/u/${details.user.username}`} target="_blank">
+                    <ExternalLink className="h-3.5 w-3.5" />
+                  </Link>
+                </Button>
               </div>
 
-              {/* Storage & Streams */}
-              <div className="grid grid-cols-2 gap-3 mb-6">
-                <div className="bg-muted/30 rounded-lg p-4 border border-border">
-                  <div className="flex items-center gap-2 mb-1">
-                    <HardDrive className="h-4 w-4 text-purple-500" />
-                    <span className="text-sm font-medium">Storage Used</span>
-                  </div>
-                  <p className="text-2xl font-bold">
-                    {details.stats.storageFormatted}
-                  </p>
-                </div>
-                <div className="bg-muted/30 rounded-lg p-4 border border-border">
-                  <div className="flex items-center gap-2 mb-1">
-                    <Layers className="h-4 w-4 text-amber-500" />
-                    <span className="text-sm font-medium">Streams</span>
-                  </div>
-                  <p className="text-2xl font-bold">
-                    {details.stats.streamsOwned + details.stats.streamsMember}
-                    <span className="text-sm font-normal text-muted-foreground ml-2">
-                      ({details.stats.streamsOwned} owned)
-                    </span>
-                  </p>
-                </div>
+              {/* Quick Info Bar */}
+              <div className="flex items-center gap-4 mt-4 text-xs text-muted-foreground">
+                <span className="flex items-center gap-1">
+                  <Calendar className="h-3 w-3" />
+                  {format(new Date(details.user.created_at), "MMM d, yyyy")}
+                </span>
+                <span className="truncate">{details.user.email}</span>
               </div>
+            </div>
 
-              {/* Recent Uploads */}
+            {/* Stats Row - Unified */}
+            <div className="px-6 py-4 border-b border-border">
+              <div className="grid grid-cols-6 gap-2">
+                <StatPill icon={Upload} value={details.stats.totalUploads} label="Uploads" color="text-emerald-500" />
+                <StatPill icon={Heart} value={details.stats.totalLikes} label="Likes" color="text-rose-500" />
+                <StatPill icon={MessageSquare} value={details.stats.totalComments} label="Comments" color="text-cyan-500" />
+                <StatPill icon={Eye} value={details.stats.totalViews} label="Views" color="text-blue-500" />
+                <StatPill icon={HardDrive} value={details.stats.storageFormatted} label="Storage" color="text-purple-500" isText />
+                <StatPill icon={Layers} value={details.stats.streamsOwned + details.stats.streamsMember} label="Streams" color="text-amber-500" />
+              </div>
+            </div>
+
+            {/* Content Area */}
+            <div className="p-6 space-y-6">
+              {/* Recent Uploads - 6 columns */}
               {details.recentUploads.length > 0 && (
-                <div className="mb-6">
+                <div>
                   <div className="flex items-center justify-between mb-3">
-                    <h3 className="text-sm font-semibold text-foreground">
-                      Recent Uploads
+                    <h3 className="text-sm font-medium text-foreground">
+                      Uploads
                     </h3>
-                    <Button variant="ghost" size="sm" asChild>
-                      <Link
-                        href={`/u/${details.user.username}`}
-                        target="_blank"
-                      >
-                        View Profile
-                        <ExternalLink className="h-3 w-3 ml-1" />
-                      </Link>
-                    </Button>
+                    <span className="text-xs text-muted-foreground">
+                      {details.stats.totalUploads} total
+                    </span>
                   </div>
-                  <div className="grid grid-cols-4 gap-2">
-                    {details.recentUploads.slice(0, 8).map((upload) => (
+                  <div className="grid grid-cols-6 gap-1.5">
+                    {details.recentUploads.slice(0, 12).map((upload) => (
                       <Link
                         key={upload.id}
                         href={`/shots/${upload.id}`}
                         target="_blank"
-                        className="group relative aspect-square rounded-lg overflow-hidden bg-muted border border-border hover:border-primary/50 transition-colors"
+                        className="group relative aspect-square rounded-md overflow-hidden bg-muted hover:ring-2 hover:ring-primary/50 transition-all"
                       >
                         {upload.thumbnail_url ? (
                           <Image
@@ -339,21 +291,15 @@ export function UserDetailPanel({
                             className="object-cover"
                           />
                         ) : (
-                          <div className="w-full h-full flex items-center justify-center">
-                            <Upload className="h-6 w-6 text-muted-foreground" />
+                          <div className="w-full h-full flex items-center justify-center bg-muted">
+                            <Upload className="h-4 w-4 text-muted-foreground" />
                           </div>
                         )}
-                        {/* Hover overlay */}
-                        <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-2">
-                          <div className="flex items-center gap-2 text-white text-xs">
-                            <span className="flex items-center gap-0.5">
-                              <Heart className="h-3 w-3" />
-                              {upload.like_count}
-                            </span>
-                            <span className="flex items-center gap-0.5">
-                              <Eye className="h-3 w-3" />
-                              {upload.view_count}
-                            </span>
+                        {/* Minimal hover overlay */}
+                        <div className="absolute inset-0 bg-black/70 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                          <div className="flex items-center gap-1.5 text-white text-[10px]">
+                            <Heart className="h-2.5 w-2.5" />
+                            <span>{upload.like_count}</span>
                           </div>
                         </div>
                       </Link>
@@ -362,76 +308,89 @@ export function UserDetailPanel({
                 </div>
               )}
 
-              {/* Activity Timeline */}
+              {/* Activity Summary - Compact */}
               {details.recentActivity.length > 0 && (
                 <div>
-                  <h3 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
-                    <Clock className="h-4 w-4" />
-                    Recent Activity
-                  </h3>
-                  <div className="space-y-3">
-                    {details.recentActivity.slice(0, 10).map((activity, idx) => {
-                      const ActivityIcon = activityIcons[activity.type];
-                      return (
-                        <div
-                          key={`${activity.type}-${activity.timestamp}-${idx}`}
-                          className="flex items-start gap-3"
-                        >
+                  <button
+                    onClick={() => setShowAllActivity(!showAllActivity)}
+                    className="w-full flex items-center justify-between p-3 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors group"
+                  >
+                    <div className="flex items-center gap-4">
+                      <span className="text-sm font-medium">Recent Activity</span>
+                      <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                        {activitySummary.uploads > 0 && (
+                          <span className="flex items-center gap-1">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                            {activitySummary.uploads} uploads
+                          </span>
+                        )}
+                        {activitySummary.likes > 0 && (
+                          <span className="flex items-center gap-1">
+                            <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
+                            {activitySummary.likes} likes
+                          </span>
+                        )}
+                        {activitySummary.comments > 0 && (
+                          <span className="flex items-center gap-1">
+                            <span className="w-1.5 h-1.5 rounded-full bg-cyan-500" />
+                            {activitySummary.comments} comments
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <ChevronRight className={`h-4 w-4 text-muted-foreground transition-transform ${showAllActivity ? "rotate-90" : ""}`} />
+                  </button>
+
+                  {/* Expanded Activity List */}
+                  {showAllActivity && (
+                    <div className="mt-3 space-y-2 pl-1">
+                      {details.recentActivity.slice(0, 15).map((activity, idx) => {
+                        const ActivityIcon = activityIcons[activity.type];
+                        return (
                           <div
-                            className={`p-1.5 rounded-full ${activityColors[activity.type]}`}
+                            key={`${activity.type}-${activity.timestamp}-${idx}`}
+                            className="flex items-center gap-3 py-1.5"
                           >
-                            <ActivityIcon className="h-3.5 w-3.5" />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm text-foreground">
-                              {activity.type === "upload" && "Uploaded "}
-                              {activity.type === "like" && "Liked "}
-                              {activity.type === "comment" && "Commented on "}
+                            <div className={`p-1 rounded ${activityColors[activity.type]}`}>
+                              <ActivityIcon className="h-3 w-3" />
+                            </div>
+                            <div className="flex-1 min-w-0 flex items-center gap-2">
                               <Link
                                 href={`/shots/${activity.details.assetId}`}
                                 target="_blank"
-                                className="font-medium hover:underline"
+                                className="text-sm truncate hover:underline"
                               >
                                 {activity.details.assetTitle}
                               </Link>
-                            </p>
-                            {activity.type === "comment" &&
-                              activity.details.commentContent && (
-                                <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">
-                                  "{activity.details.commentContent}"
-                                </p>
-                              )}
-                            <p className="text-xs text-muted-foreground mt-0.5">
-                              {formatDistanceToNow(
-                                new Date(activity.timestamp),
-                                { addSuffix: true }
-                              )}
-                            </p>
-                          </div>
-                          {activity.details.assetThumbnail && (
-                            <div className="relative h-10 w-10 rounded overflow-hidden bg-muted shrink-0">
-                              <Image
-                                src={activity.details.assetThumbnail}
-                                alt=""
-                                fill
-                                className="object-cover"
-                              />
+                              <span className="text-[10px] text-muted-foreground shrink-0">
+                                {formatDistanceToNow(new Date(activity.timestamp), { addSuffix: true })}
+                              </span>
                             </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
+                            {activity.details.assetThumbnail && (
+                              <div className="relative h-7 w-7 rounded overflow-hidden bg-muted shrink-0">
+                                <Image
+                                  src={activity.details.assetThumbnail}
+                                  alt=""
+                                  fill
+                                  className="object-cover"
+                                />
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               )}
 
               {/* Empty state */}
-              {details.recentActivity.length === 0 &&
-                details.recentUploads.length === 0 && (
-                  <div className="text-center py-8 text-muted-foreground">
-                    <p>No activity yet</p>
-                  </div>
-                )}
+              {details.recentActivity.length === 0 && details.recentUploads.length === 0 && (
+                <div className="text-center py-12 text-muted-foreground">
+                  <Upload className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                  <p className="text-sm">No activity yet</p>
+                </div>
+              )}
             </div>
           </ScrollArea>
         ) : null}
@@ -440,22 +399,28 @@ export function UserDetailPanel({
   );
 }
 
-function StatCard({
+function StatPill({
   icon: Icon,
-  label,
   value,
+  label,
   color,
+  isText = false,
 }: {
   icon: React.ElementType;
+  value: number | string;
   label: string;
-  value: number;
   color: string;
+  isText?: boolean;
 }) {
   return (
-    <div className="bg-muted/30 rounded-lg p-3 border border-border text-center">
-      <Icon className={`h-4 w-4 mx-auto mb-1 ${color}`} />
-      <p className="text-lg font-bold">{value.toLocaleString()}</p>
-      <p className="text-xs text-muted-foreground">{label}</p>
+    <div className="text-center">
+      <div className="flex items-center justify-center gap-1 mb-0.5">
+        <Icon className={`h-3 w-3 ${color}`} />
+        <span className="text-sm font-semibold">
+          {isText ? value : (typeof value === 'number' ? value.toLocaleString() : value)}
+        </span>
+      </div>
+      <p className="text-[10px] text-muted-foreground">{label}</p>
     </div>
   );
 }
