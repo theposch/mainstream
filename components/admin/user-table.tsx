@@ -33,10 +33,12 @@ import {
   UserX,
   ChevronUp,
   ChevronDown,
+  Eye,
 } from "lucide-react";
 import type { User } from "@/lib/auth/get-user";
 import type { PlatformRole } from "@/lib/types/database";
 import type { AdminUser } from "@/lib/types/admin";
+import { UserDetailPanel } from "./user-detail-panel";
 
 interface UserTableProps {
   currentUser: User;
@@ -55,8 +57,15 @@ export function UserTable({ currentUser }: UserTableProps) {
   const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false);
   const [userToDelete, setUserToDelete] = React.useState<AdminUser | null>(null);
   const [actionLoading, setActionLoading] = React.useState<string | null>(null);
+  const [selectedUser, setSelectedUser] = React.useState<AdminUser | null>(null);
+  const [detailPanelOpen, setDetailPanelOpen] = React.useState(false);
 
   const isOwner = currentUser.platformRole === "owner";
+
+  const handleViewUser = (user: AdminUser) => {
+    setSelectedUser(user);
+    setDetailPanelOpen(true);
+  };
 
   // Use ref for search to avoid dependency issues in fetchUsers
   const searchRef = React.useRef(search);
@@ -227,7 +236,8 @@ export function UserTable({ currentUser }: UserTableProps) {
                 return (
                   <tr
                     key={user.id}
-                    className="border-b border-border last:border-b-0 hover:bg-muted/30 transition-colors"
+                    className="border-b border-border last:border-b-0 hover:bg-muted/30 transition-colors cursor-pointer"
+                    onClick={() => handleViewUser(user)}
                   >
                     {/* User */}
                     <td className="py-3 px-4">
@@ -256,7 +266,7 @@ export function UserTable({ currentUser }: UserTableProps) {
                     </td>
 
                     {/* Role */}
-                    <td className="py-3 px-4">
+                    <td className="py-3 px-4" onClick={(e) => e.stopPropagation()}>
                       {canChangeRole ? (
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
@@ -318,37 +328,44 @@ export function UserTable({ currentUser }: UserTableProps) {
                     </td>
 
                     {/* Actions */}
-                    <td className="py-3 px-4 text-right">
-                      {canDelete && (
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-8 w-8 p-0"
-                              disabled={actionLoading === user.id}
-                            >
-                              {actionLoading === user.id ? (
-                                <Loader2 className="h-4 w-4 animate-spin" />
-                              ) : (
-                                <MoreHorizontal className="h-4 w-4" />
-                              )}
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem
-                              onClick={() => {
-                                setUserToDelete(user);
-                                setDeleteDialogOpen(true);
-                              }}
-                              className="text-destructive focus:text-destructive"
-                            >
-                              <Trash2 className="h-4 w-4 mr-2" />
-                              Delete User
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      )}
+                    <td className="py-3 px-4 text-right" onClick={(e) => e.stopPropagation()}>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 w-8 p-0"
+                            disabled={actionLoading === user.id}
+                          >
+                            {actionLoading === user.id ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <MoreHorizontal className="h-4 w-4" />
+                            )}
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => handleViewUser(user)}>
+                            <Eye className="h-4 w-4 mr-2" />
+                            View Details
+                          </DropdownMenuItem>
+                          {canDelete && (
+                            <>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                onClick={() => {
+                                  setUserToDelete(user);
+                                  setDeleteDialogOpen(true);
+                                }}
+                                className="text-destructive focus:text-destructive"
+                              >
+                                <Trash2 className="h-4 w-4 mr-2" />
+                                Delete User
+                              </DropdownMenuItem>
+                            </>
+                          )}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </td>
                   </tr>
                 );
@@ -388,6 +405,15 @@ export function UserTable({ currentUser }: UserTableProps) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* User Detail Panel */}
+      <UserDetailPanel
+        user={selectedUser}
+        open={detailPanelOpen}
+        onOpenChange={setDetailPanelOpen}
+        currentUser={currentUser}
+        onUserUpdated={fetchUsers}
+      />
     </div>
   );
 }
