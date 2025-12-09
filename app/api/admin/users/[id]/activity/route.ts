@@ -1,0 +1,224 @@
+/**
+ * Admin User Activity API Route
+ * 
+ * GET /api/admin/users/[id]/activity - Get paginated user activity
+ */
+
+import { NextRequest, NextResponse } from 'next/server';
+import { createAdminClient } from '@/lib/supabase/server';
+import { getAdminUser } from '@/lib/auth/require-admin';
+
+export const dynamic = 'force-dynamic';
+
+interface RouteParams {
+  params: Promise<{ id: string }>;
+}
+
+interface UserActivity {
+  type: 'upload' | 'like' | 'comment' | 'stream';
+  timestamp: string;
+  details: {
+    assetId?: string;
+    assetTitle?: string;
+    assetThumbnail?: string;
+    commentContent?: string;
+    streamId?: string;
+    streamName?: string;
+    streamCoverUrl?: string;
+  };
+}
+
+interface ActivityResponse {
+  activities: UserActivity[];
+  hasMore: boolean;
+  total: number;
+}
+
+/**
+ * GET /api/admin/users/[id]/activity
+ * 
+ * Query params:
+ * - offset: number (default 0)
+ * - limit: number (default 30, max 100)
+ * 
+ * Returns paginated activity for a user
+ */
+export async function GET(request: NextRequest, { params }: RouteParams) {
+  try {
+    const { id: userId } = await params;
+    const { searchParams } = new URL(request.url);
+    
+    const offset = Math.max(0, parseInt(searchParams.get('offset') || '0', 10));
+    const limit = Math.min(100, Math.max(1, parseInt(searchParams.get('limit') || '30', 10)));
+    
+    // Check admin access
+    const admin = await getAdminUser();
+    if (!admin) {
+      return NextResponse.json(
+        { error: 'Admin access required' },
+        { status: 403 }
+      );
+    }
+
+    const supabase = await createAdminClient();
+
+    // Verify user exists
+    const { data: user, error: userError } = await supabase
+      .from('users')
+      .select('id')
+      .eq('id', userId)
+      .single();
+
+    if (userError || !user) {
+      return NextResponse.json(
+        { error: 'User not found' },
+        { status: 404 }
+      );
+    }
+
+    // Fetch all activity types in parallel (we need all to sort by timestamp)
+    // We fetch more than needed to handle pagination properly
+    const fetchLimit = offset + limit + 1; // +1 to check if there's more
+    
+    const [
+      uploadsResult,
+      likesResult,
+      commentsResult,
+      streamsResult,
+    ] = await Promise.all([
+      // Uploads
+      supabase
+        .from('assets')
+        .select('id, title, thumbnail_url, created_at')
+        .eq('uploader_id', userId)
+        .order('created_at', { ascending: false })
+        .limit(fetchLimit),
+      
+      // Likes
+      supabase
+        .from('asset_likes')
+        .select(`
+          created_at,
+          asset:assets (
+            id,
+            title,
+            thumbnail_url
+          )
+        `)
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false })
+        .limit(fetchLimit),
+      
+      // Comments
+      supabase
+        .from('asset_comments')
+        .select(`
+          created_at,
+          content,
+          asset:assets (
+            id,
+            title,
+            thumbnail_url
+          )
+        `)
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false })
+        .limit(fetchLimit),
+      
+      // Streams created
+      supabase
+        .from('streams')
+        .select('id, name, cover_url, created_at')
+        .eq('owner_id', userId)
+        .eq('owner_type', 'user')
+        .order('created_at', { ascending: false })
+        .limit(fetchLimit),
+    ]);
+
+    // Build combined activity list
+    const activities: UserActivity[] = [];
+
+    // Add uploads
+    (uploadsResult.data || []).forEach(upload => {
+      activities.push({
+        type: 'upload',
+        timestamp: upload.created_at,
+        details: {
+          assetId: upload.id,
+          assetTitle: upload.title,
+          assetThumbnail: upload.thumbnail_url || undefined,
+        },
+      });
+    });
+
+    // Add likes
+    (likesResult.data || []).forEach((like: any) => {
+      if (like.asset) {
+        activities.push({
+          type: 'like',
+          timestamp: like.created_at,
+          details: {
+            assetId: like.asset.id,
+            assetTitle: like.asset.title,
+            assetThumbnail: like.asset.thumbnail_url || undefined,
+          },
+        });
+      }
+    });
+
+    // Add comments
+    (commentsResult.data || []).forEach((comment: any) => {
+      if (comment.asset) {
+        activities.push({
+          type: 'comment',
+          timestamp: comment.created_at,
+          details: {
+            assetId: comment.asset.id,
+            assetTitle: comment.asset.title,
+            assetThumbnail: comment.asset.thumbnail_url || undefined,
+            commentContent: comment.content,
+          },
+        });
+      }
+    });
+
+    // Add stream creations
+    (streamsResult.data || []).forEach((stream: any) => {
+      activities.push({
+        type: 'stream',
+        timestamp: stream.created_at,
+        details: {
+          streamId: stream.id,
+          streamName: stream.name,
+          streamCoverUrl: stream.cover_url || undefined,
+        },
+      });
+    });
+
+    // Sort by timestamp (newest first)
+    activities.sort((a, b) => 
+      new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+    );
+
+    const total = activities.length;
+    const hasMore = activities.length > offset + limit;
+    
+    // Apply pagination
+    const paginatedActivities = activities.slice(offset, offset + limit);
+
+    const response: ActivityResponse = {
+      activities: paginatedActivities,
+      hasMore,
+      total,
+    };
+
+    return NextResponse.json(response);
+  } catch (error) {
+    console.error('[GET /api/admin/users/[id]/activity] Error:', error);
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
+  }
+}
+
