@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { X, Upload, Loader2, Users } from "lucide-react";
+import { X, Upload, Loader2, Users, LayoutGrid, Rows } from "lucide-react";
 import { useQueryState } from "nuqs";
 import { useQuery } from "@tanstack/react-query";
 import { FeedTabs } from "./feed-tabs";
@@ -29,6 +29,7 @@ export const DashboardFeed = React.memo(function DashboardFeed({ initialAssets }
   const [searchResults, setSearchResults] = React.useState<Asset[]>([]);
   const [searching, setSearching] = React.useState(false);
   const [uploadDialogOpen, setUploadDialogOpen] = React.useState(false);
+  const [layout, setLayout] = React.useState<"grid" | "detailed">("grid");
   
   // Modal state with URL sync via nuqs
   // shallow: true = URL updates without server re-render (client-side only)
@@ -184,7 +185,34 @@ export const DashboardFeed = React.memo(function DashboardFeed({ initialAssets }
 
   return (
     <div className="w-full min-h-screen">
-      <FeedTabs activeTab={activeTab} onTabChange={setActiveTab} />
+      <div className="relative mb-8 flex items-center justify-center">
+        <FeedTabs activeTab={activeTab} onTabChange={setActiveTab} />
+        
+        <div className="absolute right-0 top-1/2 -translate-y-1/2 hidden md:flex items-center gap-1 bg-muted/50 p-1 rounded-lg border border-border">
+          <button
+            onClick={() => setLayout("grid")}
+            className={`p-1.5 rounded-md transition-all ${
+              layout === "grid" 
+                ? "bg-background shadow-sm text-foreground" 
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+            title="Grid view"
+          >
+            <LayoutGrid className="w-4 h-4" />
+          </button>
+          <button
+            onClick={() => setLayout("detailed")}
+            className={`p-1.5 rounded-md transition-all ${
+              layout === "detailed" 
+                ? "bg-background shadow-sm text-foreground" 
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+            title="Detailed view"
+          >
+            <Rows className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
       
       {isSearching && (
         <div className="mt-6 flex items-center justify-between bg-muted/30 rounded-lg px-4 py-3 border border-border">
@@ -259,6 +287,7 @@ export const DashboardFeed = React.memo(function DashboardFeed({ initialAssets }
             {isSearching ? (
               <MasonryGrid 
                 assets={displayedAssets} 
+                layout={layout}
                 onAssetClick={handleAssetClick}
               />
             ) : (
@@ -273,6 +302,7 @@ export const DashboardFeed = React.memo(function DashboardFeed({ initialAssets }
                     />
                     <MasonryGrid 
                       assets={week.assets} 
+                      layout={layout}
                       onAssetClick={handleAssetClick}
                     />
                   </div>

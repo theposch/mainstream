@@ -14,9 +14,13 @@ import { getProviderInfo, type EmbedProvider } from "@/lib/utils/embed-providers
 import { LikeButton } from "@/components/ui/like-button";
 import { Badge } from "@/components/ui/badge";
 
+import { formatDistanceToNow } from "date-fns";
+
 interface ElementCardProps {
   asset: Asset;
   className?: string;
+  /** Layout mode: 'grid' (default) has overlay metadata, 'detailed' has metadata below */
+  layout?: "grid" | "detailed";
   /** Callback when like status changes - receives assetId and new isLiked state */
   onLikeChange?: (assetId: string, isLiked: boolean) => void;
   /** Callback when card is clicked - for modal overlay mode */
@@ -24,7 +28,7 @@ interface ElementCardProps {
 }
 
 export const ElementCard = React.memo(
-  function ElementCard({ asset, className, onLikeChange, onClick }: ElementCardProps) {
+  function ElementCard({ asset, className, layout = "grid", onLikeChange, onClick }: ElementCardProps) {
   const [isHovered, setIsHovered] = React.useState(false);
   const [imageLoaded, setImageLoaded] = React.useState(false);
   
@@ -278,6 +282,7 @@ export const ElementCard = React.memo(
             </div>
 
             {/* Bottom Section */}
+            {layout === 'grid' && (
             <div className="absolute bottom-0 left-0 right-0 p-4 flex flex-col gap-2" onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}>
               {/* Streams - Show on hover (clickable=false to avoid nested <a> tags) */}
               {streams.length > 0 && (
@@ -325,9 +330,70 @@ export const ElementCard = React.memo(
               </div>
               </div>
             </div>
+            )}
           </div>
         </div>
       </Link>
+
+      {layout === 'detailed' && (
+        <div className="flex flex-col gap-1.5 px-1 pt-3">
+           <Link href={`/e/${asset.id}`} onClick={handleCardClick} className="group/title">
+              <h3 className="font-semibold text-base leading-tight group-hover/title:underline decoration-1 underline-offset-2">
+                {asset.title}
+              </h3>
+           </Link>
+           
+           {asset.description && (
+             <p className="text-sm text-muted-foreground line-clamp-2 leading-relaxed">
+               {asset.description}
+             </p>
+           )}
+
+           <div className="mt-2 flex items-center justify-between gap-3">
+             <div className="flex items-center gap-2 min-w-0">
+                <Link href={`/u/${uploader?.username}`}>
+                  <Avatar className="h-6 w-6 border border-border/50 shrink-0">
+                    <AvatarImage src={uploader?.avatar_url} />
+                    <AvatarFallback className="text-[10px]">
+                      {uploader?.username?.substring(0, 2).toUpperCase() || 'UN'}
+                    </AvatarFallback>
+                  </Avatar>
+                </Link>
+                <div className="flex items-center gap-1.5 min-w-0 text-xs text-muted-foreground">
+                  <Link href={`/u/${uploader?.username}`} className="font-medium hover:text-foreground truncate">
+                    {uploader?.display_name || uploader?.username}
+                  </Link>
+                  <span>•</span>
+                  <span className="shrink-0">
+                    {formatDistanceToNow(new Date(asset.created_at), { addSuffix: true })}
+                  </span>
+                  {streams.length > 0 && (
+                    <>
+                      <span>•</span>
+                      <div className="flex items-center gap-1 overflow-hidden">
+                        {streams.slice(0, 2).map(stream => (
+                          <Link key={stream.id} href={`/stream/${stream.name}`} className="hover:text-foreground truncate">
+                            #{stream.name}
+                          </Link>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </div>
+             </div>
+
+             <LikeButton
+               isLiked={isLiked}
+               likeCount={likeCount}
+               onLike={handleLikeClick}
+               isLoading={loading}
+               variant="ghost"
+               size="sm"
+               className="h-8 px-2 -mr-2"
+             />
+           </div>
+        </div>
+      )}
     </motion.div>
   );
   }

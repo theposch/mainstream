@@ -13,7 +13,7 @@ interface FeedTabsProps {
 
 export const FeedTabs = React.memo(function FeedTabs({ activeTab, onTabChange }: FeedTabsProps) {
   return (
-    <div className="flex justify-center w-full mb-8">
+    <div className="flex justify-center w-full">
       <div className="flex p-1 bg-muted/80 backdrop-blur-md rounded-full border border-border">
         <button
           onClick={() => onTabChange("recent")}
