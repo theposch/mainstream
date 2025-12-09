@@ -143,6 +143,8 @@ export function StreamsTab() {
 
   // Track if this is the initial mount
   const isInitialMount = React.useRef(true);
+  // Track if page change is from search (to skip immediate fetch)
+  const isSearchTriggeredPageChange = React.useRef(false);
 
   // Initial fetch on mount
   React.useEffect(() => {
@@ -150,10 +152,15 @@ export function StreamsTab() {
   }, [fetchStreams]);
   
   // Refetch when page changes (immediate, no debounce needed)
-  // Skip initial mount since that's handled above
+  // Skip initial mount and search-triggered page changes
   React.useEffect(() => {
     if (isInitialMount.current) {
       isInitialMount.current = false;
+      return;
+    }
+    // Skip if this page change was triggered by search (debounce handles that)
+    if (isSearchTriggeredPageChange.current) {
+      isSearchTriggeredPageChange.current = false;
       return;
     }
     fetchStreams();
@@ -162,6 +169,8 @@ export function StreamsTab() {
   // Debounced search - only triggers fetch after user stops typing
   const handleSearchChange = (value: string) => {
     setSearch(value);
+    // Mark that we're about to change page due to search
+    isSearchTriggeredPageChange.current = true;
     setPage(1); // Reset to page 1 on search
     if (searchTimeoutRef.current) {
       clearTimeout(searchTimeoutRef.current);
