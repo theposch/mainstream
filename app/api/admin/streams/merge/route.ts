@@ -104,10 +104,18 @@ export async function POST(request: NextRequest) {
     }
 
     // Delete remaining asset_streams entries for source (duplicates)
-    await supabase
+    const { error: deleteAssetStreamsError } = await supabase
       .from('asset_streams')
       .delete()
       .eq('stream_id', sourceId);
+
+    if (deleteAssetStreamsError) {
+      console.error('[POST /api/admin/streams/merge] Delete asset_streams error:', deleteAssetStreamsError);
+      return NextResponse.json(
+        { error: 'Failed to clean up source stream asset links' },
+        { status: 500 }
+      );
+    }
 
     // Step 4: Get members already in target stream (to avoid duplicates)
     const { data: targetMembers } = await supabase
@@ -143,10 +151,18 @@ export async function POST(request: NextRequest) {
     }
 
     // Delete source stream members
-    await supabase
+    const { error: deleteMembersError } = await supabase
       .from('stream_members')
       .delete()
       .eq('stream_id', sourceId);
+
+    if (deleteMembersError) {
+      console.error('[POST /api/admin/streams/merge] Delete stream_members error:', deleteMembersError);
+      return NextResponse.json(
+        { error: 'Failed to clean up source stream members' },
+        { status: 500 }
+      );
+    }
 
     // Step 7: Move resources from source to target
     const { error: moveResourcesError } = await supabase
