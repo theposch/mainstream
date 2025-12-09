@@ -9,10 +9,7 @@ import { StreamBadge } from "@/components/streams/stream-badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import { useAssetLike } from "@/lib/hooks/use-asset-like";
-import { useAssetPrefetch } from "@/lib/hooks/use-asset-prefetch";
-import { getProviderInfo, type EmbedProvider } from "@/lib/utils/embed-providers";
-import { Badge } from "@/components/ui/badge";
-import type { Asset } from "@/lib/types/database";
+import { LikeButton } from "@/components/ui/like-button";
 
 interface ElementCardProps {
   asset: Asset;
@@ -315,24 +312,13 @@ export const ElementCard = React.memo(
 
               {/* Right: Like Button with Real-time Updates */}
               <div className="flex items-center gap-2 shrink-0">
-                {likeCount > 0 && (
-                  <span className="text-sm text-white/90 font-medium">
-                    {likeCount}
-                  </span>
-                )}
-              <button 
-                className={cn(
-                  "p-2.5 rounded-full backdrop-blur-md transition-all shadow-lg",
-                  isLiked 
-                    ? "bg-red-500 text-white" 
-                    : "bg-white/90 hover:bg-white text-black",
-                  loading && "opacity-50 cursor-wait"
-                )}
-                onClick={handleLikeClick}
-                disabled={loading}
-              >
-                <Heart className={cn("w-4 h-4", isLiked && "fill-current")} />
-              </button>
+                <LikeButton
+                  isLiked={isLiked}
+                  likeCount={likeCount}
+                  onLike={handleLikeClick}
+                  isLoading={loading}
+                  variant="solid"
+                />
               </div>
               </div>
             </div>

@@ -180,21 +180,14 @@ export const CommentItem = React.memo(function CommentItem({
             </button>
           )}
           
-          <button 
-            onClick={toggleLike}
-            className={cn(
-              "text-xs font-medium transition-colors flex items-center gap-1 group/like",
-              isLiked ? "text-red-500" : "text-zinc-500 hover:text-white"
-            )}
-          >
-            <Heart 
-                className={cn(
-                    "h-3 w-3 transition-transform group-active/like:scale-75", 
-                    isLiked ? "fill-current" : ""
-                )} 
-            />
-            {likeCount > 0 && <span>{likeCount}</span>}
-          </button>
+          <LikeButton 
+            isLiked={isLiked}
+            likeCount={likeCount}
+            onLike={toggleLike}
+            variant="ghost"
+            size="sm"
+            className={isLiked ? "text-red-500" : "text-zinc-500 hover:text-white"}
+          />
         </div>
       </div>
     </div>
