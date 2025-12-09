@@ -36,16 +36,7 @@ import {
 } from "lucide-react";
 import type { User } from "@/lib/auth/get-user";
 import type { PlatformRole } from "@/lib/types/database";
-
-interface AdminUser {
-  id: string;
-  username: string;
-  display_name: string;
-  email: string;
-  avatar_url: string | null;
-  platform_role: PlatformRole;
-  created_at: string;
-}
+import type { AdminUser } from "@/lib/types/admin";
 
 interface UserTableProps {
   currentUser: User;

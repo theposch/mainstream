@@ -7,9 +7,10 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { cache } from "react";
+import type { PlatformRole } from "@/lib/types/database";
 
-// Platform role type for admin functionality
-export type PlatformRole = 'user' | 'admin' | 'owner';
+// Re-export for backwards compatibility
+export type { PlatformRole };
 
 export interface User {
   id: string;
