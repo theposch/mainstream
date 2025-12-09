@@ -90,6 +90,9 @@ function toLocalDateString(isoTimestamp: string): string {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 }
 
+// DEBUG flag - set to true to see timestamp debugging in console
+const DEBUG_TIMESTAMPS = true;
+
 /**
  * Bucket raw timestamps by local date
  */
@@ -97,12 +100,47 @@ function bucketActivityByLocalDate(rawActivity: RawActivityData): ActivityDataPo
   const now = new Date();
   const activityByDate = new Map<string, ActivityDataPoint>();
   
+  // DEBUG: Log client time info
+  if (DEBUG_TIMESTAMPS) {
+    console.log('[CLIENT DEBUG] Client time info:', {
+      now: now.toISOString(),
+      nowLocal: now.toString(),
+      timezoneOffset: now.getTimezoneOffset(),
+      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    });
+  }
+  
   // Generate 30 days of local dates (29 days ago to today)
   for (let i = 29; i >= 0; i--) {
     const date = new Date(now);
     date.setDate(date.getDate() - i);
     const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
     activityByDate.set(dateStr, { date: dateStr, uploads: 0, likes: 0, comments: 0, views: 0 });
+  }
+  
+  // DEBUG: Log date range
+  if (DEBUG_TIMESTAMPS) {
+    const dates = Array.from(activityByDate.keys());
+    console.log('[CLIENT DEBUG] Date range:', {
+      first: dates[0],
+      last: dates[dates.length - 1],
+      totalDays: dates.length,
+    });
+  }
+
+  // DEBUG: Log sample upload timestamps and their parsing
+  if (DEBUG_TIMESTAMPS && rawActivity.uploads.length > 0) {
+    const sampleUploads = rawActivity.uploads.slice(-5);
+    console.log('[CLIENT DEBUG] Parsing upload timestamps:');
+    sampleUploads.forEach(timestamp => {
+      const date = new Date(timestamp);
+      const localDateStr = toLocalDateString(timestamp);
+      console.log('  Raw:', timestamp);
+      console.log('  Parsed Date object:', date.toString());
+      console.log('  Local date string:', localDateStr);
+      console.log('  Date bucket exists:', activityByDate.has(localDateStr));
+      console.log('---');
+    });
   }
 
   // Bucket uploads by local date
