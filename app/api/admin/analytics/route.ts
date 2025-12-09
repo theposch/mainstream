@@ -10,12 +10,11 @@ import { getAdminUser } from '@/lib/auth/require-admin';
 
 export const dynamic = 'force-dynamic';
 
-interface ActivityDataPoint {
-  date: string;
-  uploads: number;
-  likes: number;
-  comments: number;
-  views: number;
+interface RawActivityData {
+  uploads: string[];  // ISO timestamps
+  likes: string[];
+  comments: string[];
+  views: string[];
 }
 
 interface TopContributor {
@@ -44,7 +43,7 @@ interface AnalyticsResponse {
     totalBytes: number;
     totalFormatted: string;
   };
-  activityOverTime: ActivityDataPoint[];
+  rawActivity: RawActivityData;  // Raw timestamps for client-side bucketing
   topContributors: TopContributor[];
 }
 
@@ -128,8 +127,8 @@ export async function GET() {
     const activeThisWeek = activeUserIds.size;
 
     // === ACTIVITY OVER TIME (last 30 days) ===
+    // Return raw timestamps - client will bucket by local timezone
     
-    // Get all activity data for the last 30 days
     const [recentUploads, recentLikes, recentComments, recentViews] = await Promise.all([
       supabase
         .from('assets')
@@ -149,44 +148,13 @@ export async function GET() {
         .gte('viewed_at', twentyNineDaysAgo.toISOString()),
     ]);
 
-    // Initialize activity map for all 30 days
-    const activityByDate = new Map<string, ActivityDataPoint>();
-    for (let i = 0; i < 30; i++) {
-      const date = new Date(twentyNineDaysAgo.getTime() + i * 24 * 60 * 60 * 1000);
-      const dateStr = date.toISOString().split('T')[0];
-      activityByDate.set(dateStr, { date: dateStr, uploads: 0, likes: 0, comments: 0, views: 0 });
-    }
-
-    // Count uploads per day
-    (recentUploads.data || []).forEach(item => {
-      const dateStr = item.created_at.split('T')[0];
-      const activity = activityByDate.get(dateStr);
-      if (activity) activity.uploads++;
-    });
-
-    // Count likes per day
-    (recentLikes.data || []).forEach(item => {
-      const dateStr = item.created_at.split('T')[0];
-      const activity = activityByDate.get(dateStr);
-      if (activity) activity.likes++;
-    });
-
-    // Count comments per day
-    (recentComments.data || []).forEach(item => {
-      const dateStr = item.created_at.split('T')[0];
-      const activity = activityByDate.get(dateStr);
-      if (activity) activity.comments++;
-    });
-
-    // Count views per day
-    (recentViews.data || []).forEach(item => {
-      const dateStr = item.viewed_at.split('T')[0];
-      const activity = activityByDate.get(dateStr);
-      if (activity) activity.views++;
-    });
-
-    const activityOverTime = Array.from(activityByDate.values())
-      .sort((a, b) => a.date.localeCompare(b.date));
+    // Return raw timestamps for client-side bucketing by local timezone
+    const rawActivity = {
+      uploads: (recentUploads.data || []).map(item => item.created_at),
+      likes: (recentLikes.data || []).map(item => item.created_at),
+      comments: (recentComments.data || []).map(item => item.created_at),
+      views: (recentViews.data || []).map(item => item.viewed_at),
+    };
 
     // === CONTENT STATS ===
     
@@ -307,7 +275,7 @@ export async function GET() {
         totalBytes,
         totalFormatted: formatBytes(totalBytes),
       },
-      activityOverTime,
+      rawActivity,
       topContributors,
     };
 
