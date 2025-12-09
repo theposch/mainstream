@@ -13,6 +13,8 @@ interface MasonryGridProps {
   assets: Asset[];
   className?: string;
   isLoading?: boolean;
+  /** Layout mode: 'grid' (default) has overlay metadata, 'detailed' has metadata below */
+  layout?: "grid" | "detailed";
   /** Callback when like status changes on any card */
   onLikeChange?: (assetId: string, isLiked: boolean) => void;
   /** Callback when an asset card is clicked - for modal overlay mode */
@@ -23,6 +25,7 @@ export const MasonryGrid = React.memo(function MasonryGrid({
   assets, 
   className, 
   isLoading = false,
+  layout = "grid",
   onLikeChange,
   onAssetClick
 }: MasonryGridProps) {
@@ -54,6 +57,7 @@ export const MasonryGrid = React.memo(function MasonryGrid({
           key={asset.id} 
           asset={asset} 
           className="mb-6" 
+          layout={layout}
           onLikeChange={onLikeChange}
           onClick={onAssetClick}
         />
