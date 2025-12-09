@@ -559,39 +559,51 @@ function ActivityTab({
   initialActivities: UserActivity[]; 
   userId: string;
 }) {
-  const [activities, setActivities] = React.useState<UserActivity[]>(initialActivities);
+  // All activities fetched from API
+  const [allActivities, setAllActivities] = React.useState<UserActivity[]>(initialActivities);
+  // How many to currently show
+  const [displayCount, setDisplayCount] = React.useState(30);
   const [loading, setLoading] = React.useState(false);
-  const [hasMore, setHasMore] = React.useState(initialActivities.length >= 30);
-  const [total, setTotal] = React.useState<number | null>(null);
+  const [hasFetchedAll, setHasFetchedAll] = React.useState(false);
 
-  const loadMore = async () => {
-    if (loading || !hasMore) return;
-    
-    setLoading(true);
-    try {
-      const response = await fetch(
-        `/api/admin/users/${userId}/activity?offset=${activities.length}&limit=30`
-      );
-      
-      if (!response.ok) throw new Error('Failed to load activity');
-      
-      const data = await response.json();
-      setActivities(prev => [...prev, ...data.activities]);
-      setHasMore(data.hasMore);
-      setTotal(data.total);
-    } catch (error) {
-      console.error('Error loading more activity:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Reset when userId changes
+  // Fetch all activities when component mounts or userId changes
   React.useEffect(() => {
-    setActivities(initialActivities);
-    setHasMore(initialActivities.length >= 30);
-    setTotal(null);
+    // Reset state
+    setAllActivities(initialActivities);
+    setDisplayCount(30);
+    setHasFetchedAll(false);
+
+    // If initial activities suggest there might be more, fetch all
+    if (initialActivities.length >= 30) {
+      const fetchAllActivities = async () => {
+        setLoading(true);
+        try {
+          const response = await fetch(`/api/admin/users/${userId}/activity`);
+          if (!response.ok) throw new Error('Failed to load activity');
+          
+          const data = await response.json();
+          setAllActivities(data.activities);
+          setHasFetchedAll(true);
+        } catch (error) {
+          console.error('Error loading activity:', error);
+        } finally {
+          setLoading(false);
+        }
+      };
+      fetchAllActivities();
+    } else {
+      setHasFetchedAll(true);
+    }
   }, [userId, initialActivities]);
+
+  // Activities currently displayed
+  const activities = allActivities.slice(0, displayCount);
+  const hasMore = displayCount < allActivities.length;
+  const total = allActivities.length;
+
+  const loadMore = () => {
+    setDisplayCount(prev => Math.min(prev + 30, allActivities.length));
+  };
 
   if (activities.length === 0) {
     return (
@@ -644,37 +656,35 @@ function ActivityTab({
         </section>
       ))}
 
+      {/* Loading indicator */}
+      {loading && (
+        <div className="pt-4 text-center">
+          <Button variant="outline" size="sm" disabled className="gap-2">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Loading all activity...
+          </Button>
+        </div>
+      )}
+
       {/* Load More */}
-      {hasMore && (
+      {!loading && hasMore && (
         <div className="pt-4 text-center">
           <Button
             variant="outline"
             size="sm"
             onClick={loadMore}
-            disabled={loading}
             className="gap-2"
           >
-            {loading ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Loading...
-              </>
-            ) : (
-              <>
-                Load More
-                {total && (
-                  <span className="text-muted-foreground">
-                    ({activities.length} of {total})
-                  </span>
-                )}
-              </>
-            )}
+            Show More
+            <span className="text-muted-foreground">
+              ({displayCount} of {total})
+            </span>
           </Button>
         </div>
       )}
 
       {/* All loaded indicator */}
-      {!hasMore && activities.length > 30 && (
+      {!loading && !hasMore && activities.length > 30 && (
         <div className="pt-4 text-center text-xs text-muted-foreground">
           All {activities.length} activities loaded
         </div>
@@ -690,7 +700,7 @@ function TimelineItem({ activity, isLast }: { activity: UserActivity; isLast: bo
   // Determine the link and title based on activity type
   const isStreamActivity = activity.type === "stream";
   const linkHref = isStreamActivity 
-    ? `/streams/${activity.details.streamId}` 
+    ? `/stream/${activity.details.streamName}` 
     : `/shots/${activity.details.assetId}`;
   const title = isStreamActivity 
     ? activity.details.streamName 
@@ -993,7 +1003,7 @@ function ActivityItem({ activity, compact = false }: { activity: UserActivity; c
   const ActivityIcon = activityIcons[activity.type];
   const isStreamActivity = activity.type === "stream";
   const linkHref = isStreamActivity 
-    ? `/streams/${activity.details.streamId}` 
+    ? `/stream/${activity.details.streamName}` 
     : `/shots/${activity.details.assetId}`;
   const title = isStreamActivity 
     ? activity.details.streamName 

@@ -1,7 +1,10 @@
 /**
  * Admin User Activity API Route
  * 
- * GET /api/admin/users/[id]/activity - Get paginated user activity
+ * GET /api/admin/users/[id]/activity - Get all user activity
+ * 
+ * Note: This fetches all activity types and returns them sorted.
+ * Client-side pagination is handled by the UI component.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -32,26 +35,22 @@ interface UserActivity {
 
 interface ActivityResponse {
   activities: UserActivity[];
-  hasMore: boolean;
   total: number;
 }
+
+// Max activities to fetch per type (200 each = up to 800 total activities)
+const MAX_PER_TYPE = 200;
 
 /**
  * GET /api/admin/users/[id]/activity
  * 
- * Query params:
- * - offset: number (default 0)
- * - limit: number (default 30, max 100)
- * 
- * Returns paginated activity for a user
+ * Returns all activity for a user (up to MAX_PER_TYPE per activity type).
+ * Activities are sorted by timestamp (newest first).
+ * Client handles progressive display ("Load More").
  */
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
     const { id: userId } = await params;
-    const { searchParams } = new URL(request.url);
-    
-    const offset = Math.max(0, parseInt(searchParams.get('offset') || '0', 10));
-    const limit = Math.min(100, Math.max(1, parseInt(searchParams.get('limit') || '30', 10)));
     
     // Check admin access
     const admin = await getAdminUser();
@@ -78,10 +77,8 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    // Fetch all activity types in parallel (we need all to sort by timestamp)
-    // We fetch more than needed to handle pagination properly
-    const fetchLimit = offset + limit + 1; // +1 to check if there's more
-    
+    // Fetch all activity types in parallel
+    // We fetch a generous amount of each type to provide comprehensive history
     const [
       uploadsResult,
       likesResult,
@@ -105,7 +102,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         `)
         .eq('uploader_id', userId)
         .order('created_at', { ascending: false })
-        .limit(fetchLimit),
+        .limit(MAX_PER_TYPE),
       
       // Likes
       supabase
@@ -120,7 +117,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         `)
         .eq('user_id', userId)
         .order('created_at', { ascending: false })
-        .limit(fetchLimit),
+        .limit(MAX_PER_TYPE),
       
       // Comments
       supabase
@@ -136,7 +133,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         `)
         .eq('user_id', userId)
         .order('created_at', { ascending: false })
-        .limit(fetchLimit),
+        .limit(MAX_PER_TYPE),
       
       // Streams created
       supabase
@@ -145,7 +142,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         .eq('owner_id', userId)
         .eq('owner_type', 'user')
         .order('created_at', { ascending: false })
-        .limit(fetchLimit),
+        .limit(MAX_PER_TYPE),
     ]);
 
     // Build combined activity list
@@ -220,16 +217,9 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
     );
 
-    const total = activities.length;
-    const hasMore = activities.length > offset + limit;
-    
-    // Apply pagination
-    const paginatedActivities = activities.slice(offset, offset + limit);
-
     const response: ActivityResponse = {
-      activities: paginatedActivities,
-      hasMore,
-      total,
+      activities,
+      total: activities.length,
     };
 
     return NextResponse.json(response);
