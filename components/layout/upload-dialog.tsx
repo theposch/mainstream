@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Loader2, Upload, X, AlertCircle, Type, Smile, AtSign, Image as ImageIcon, Link as LinkIcon, ChevronDown } from "lucide-react";
 import { PostMetadataForm } from "@/components/assets/post-metadata-form";
 import { useStreamSelection } from "@/lib/hooks/use-stream-selection";
+import { triggerSmallConfetti } from "@/lib/utils/confetti";
 
 interface UploadDialogProps {
   open: boolean;
@@ -211,6 +212,7 @@ export function UploadDialog({ open, onOpenChange, initialStreamId }: UploadDial
 
       // Success! Close dialog and refresh current page
       onOpenChange(false);
+      triggerSmallConfetti();
       
       // Dispatch custom event to notify other components of new upload
       window.dispatchEvent(new CustomEvent('asset-uploaded', { detail: { asset: data.asset } }));

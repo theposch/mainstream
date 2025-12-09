@@ -13,6 +13,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Loader2, Bell, Users } from "lucide-react";
+import { triggerConfetti } from "@/lib/utils/confetti";
 
 interface DropPublishDialogProps {
   open: boolean;
@@ -50,6 +51,7 @@ export function DropPublishDialog({
       }
 
       onOpenChange(false);
+      triggerConfetti();
       router.push(`/drops/${dropId}`);
       router.refresh();
     } catch (err) {
