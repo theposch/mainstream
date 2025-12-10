@@ -82,7 +82,10 @@ export async function GET(request: NextRequest) {
       console.error('[GET /api/assets/following] Error fetching stream follows (continuing with user follows):', streamFollowsResult.error);
     }
 
-    const followingUserIds = userFollowsResult.data?.map(f => f.following_id) || [];
+    // Filter out self-follows - don't show your own posts in the Following feed
+    // (your own posts appear in Recent/profile instead)
+    const followingUserIds = (userFollowsResult.data?.map(f => f.following_id) || [])
+      .filter(id => id !== currentUser.id);
     const followingStreamIds = streamFollowsResult.data?.map(f => f.stream_id) || [];
 
     // If not following anyone or any streams, return empty array
