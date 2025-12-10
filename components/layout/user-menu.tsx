@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
 import {
@@ -17,11 +18,16 @@ import {
   DropdownMenuPortal,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { SettingsDialog } from "@/components/layout/settings-dialog";
 import { createClient } from "@/lib/supabase/client";
 import { useUser } from "@/lib/auth/use-user";
 import { Button } from "@/components/ui/button";
 import { User, Settings, LogOut, Shield, Sun, Moon, Monitor, Check } from "lucide-react";
+
+// Dynamic import for SettingsDialog - only loaded when opened
+const SettingsDialog = dynamic(
+  () => import("@/components/layout/settings-dialog").then((mod) => mod.SettingsDialog),
+  { ssr: false }
+);
 
 export function UserMenu() {
   const [settingsOpen, setSettingsOpen] = React.useState(false);

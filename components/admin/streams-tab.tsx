@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { formatDistanceToNow } from "date-fns";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -34,7 +35,11 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { StreamDialog } from "@/components/layout/stream-dialog";
+// Dynamic import for StreamDialog - only loaded when opened
+const StreamDialog = dynamic(
+  () => import("@/components/layout/stream-dialog").then((mod) => mod.StreamDialog),
+  { ssr: false }
+);
 import {
   Search,
   MoreHorizontal,
