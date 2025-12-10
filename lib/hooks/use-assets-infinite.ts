@@ -21,7 +21,7 @@ import { CACHE_TIMES, PAGE_SIZES } from "@/lib/constants/cache";
 interface AssetsResponse {
   assets: Asset[];
   hasMore: boolean;
-  cursor: string | null; // Composite cursor: "timestamp:id"
+  cursor: string | null; // Composite cursor: "timestamp::id"
 }
 
 interface UseAssetsInfiniteReturn {
@@ -35,10 +35,10 @@ interface UseAssetsInfiniteReturn {
 
 /**
  * Build a composite cursor from an asset for pagination.
- * Format: "timestamp:id" - ensures uniqueness even with identical timestamps.
+ * Format: "timestamp::id" - double colon avoids conflicts with ISO timestamp colons.
  */
 function buildCursor(asset: Asset): string {
-  return `${asset.created_at}:${asset.id}`;
+  return `${asset.created_at}::${asset.id}`;
 }
 
 const fetchRecentAssets = async ({ pageParam }: { pageParam: string | null }): Promise<AssetsResponse> => {

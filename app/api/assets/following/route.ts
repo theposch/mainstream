@@ -15,7 +15,8 @@ export const dynamic = 'force-dynamic';
  * GET /api/assets/following
  * 
  * Query parameters:
- * - cursor: composite cursor "timestamp:id" for pagination (optional)
+ * - cursor: composite cursor "timestamp::id" for pagination (optional)
+ *   Using double colon separator to avoid conflicts with ISO timestamp colons.
  * - limit: number of assets to fetch (default: 20, max: 50)
  * 
  * Returns assets from:
@@ -30,17 +31,23 @@ export async function GET(request: NextRequest) {
     const cursorParam = searchParams.get('cursor');
     const limit = Math.min(parseInt(searchParams.get('limit') || '20'), 50);
     
-    // Parse composite cursor: "timestamp:id"
+    // Parse composite cursor: "timestamp::id" (double colon to avoid ISO timestamp conflicts)
     let cursorTimestamp: string | null = null;
     let cursorId: string | null = null;
     if (cursorParam) {
-      const lastColonIndex = cursorParam.lastIndexOf(':');
-      if (lastColonIndex > 0) {
-        cursorTimestamp = cursorParam.substring(0, lastColonIndex);
-        cursorId = cursorParam.substring(lastColonIndex + 1);
+      const separatorIndex = cursorParam.lastIndexOf('::');
+      if (separatorIndex > 0) {
+        cursorTimestamp = cursorParam.substring(0, separatorIndex);
+        cursorId = cursorParam.substring(separatorIndex + 2);
       } else {
-        // Fallback: treat entire cursor as timestamp (backwards compatibility)
-        cursorTimestamp = cursorParam;
+        // Fallback: treat entire cursor as timestamp (backwards compatibility with single colon)
+        const lastColonIndex = cursorParam.lastIndexOf(':');
+        if (lastColonIndex > 10) { // ISO timestamps have colons at position 13 and 16
+          cursorTimestamp = cursorParam.substring(0, lastColonIndex);
+          cursorId = cursorParam.substring(lastColonIndex + 1);
+        } else {
+          cursorTimestamp = cursorParam;
+        }
       }
     }
 
@@ -272,9 +279,9 @@ export async function GET(request: NextRequest) {
       isLikedByCurrentUser: userLikedAssetIds.has(asset.id),
     }));
 
-    // Build composite cursor: "timestamp:id"
+    // Build composite cursor: "timestamp::id" (double colon to avoid ISO timestamp conflicts)
     const lastAsset = assets[assets.length - 1];
-    const nextCursor = lastAsset ? `${lastAsset.created_at}:${lastAsset.id}` : null;
+    const nextCursor = lastAsset ? `${lastAsset.created_at}::${lastAsset.id}` : null;
     
     return NextResponse.json({
       assets: assets || [],

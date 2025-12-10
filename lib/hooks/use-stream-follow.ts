@@ -120,15 +120,16 @@ export function useStreamFollow(
         throw new Error(data.error || 'Failed to toggle follow');
       }
 
-      // POST returns updated followers in response - no need for separate GET
-      if (!wasFollowing) {
-        const data = await response.json();
-        if (data.followers) {
-          setFollowers(data.followers);
-        }
-        if (typeof data.followerCount === 'number') {
-          setFollowerCount(data.followerCount);
-        }
+      // Both POST and DELETE return updated follower data
+      const data = await response.json();
+      if (data.followers) {
+        setFollowers(data.followers);
+      }
+      if (typeof data.followerCount === 'number') {
+        setFollowerCount(data.followerCount);
+      }
+      if (typeof data.isFollowing === 'boolean') {
+        setIsFollowing(data.isFollowing);
       }
     } catch (err) {
       console.error('[useStreamFollow] Error toggling follow:', err);

@@ -195,9 +195,37 @@ export async function POST(
         user_id: currentUser.id,
       });
 
-    // If already following, return success (idempotent)
+    // If already following, return consistent response format (idempotent)
     if (followError?.code === '23505') {
-      return NextResponse.json({ message: 'Already following' });
+      // Fetch current follower data to return consistent response
+      const [countResult, followersResult] = await Promise.all([
+        supabase
+          .from('stream_follows')
+          .select('*', { count: 'exact', head: true })
+          .eq('stream_id', streamId),
+        supabase
+          .from('stream_follows')
+          .select(`
+            user_id,
+            created_at,
+            users:user_id (
+              id,
+              username,
+              display_name,
+              avatar_url
+            )
+          `)
+          .eq('stream_id', streamId)
+          .order('created_at', { ascending: false })
+          .limit(10),
+      ]);
+      
+      return NextResponse.json({ 
+        success: true,
+        isFollowing: true,
+        followerCount: countResult.count || 0,
+        followers: followersResult.data?.map(f => f.users).filter(Boolean) || [],
+      });
     }
 
     if (followError) {
@@ -306,7 +334,35 @@ export async function DELETE(
       );
     }
 
-    return NextResponse.json({ success: true });
+    // Fetch updated follower data to return (matches POST response format)
+    const [countResult, followersResult] = await Promise.all([
+      supabase
+        .from('stream_follows')
+        .select('*', { count: 'exact', head: true })
+        .eq('stream_id', streamId),
+      supabase
+        .from('stream_follows')
+        .select(`
+          user_id,
+          created_at,
+          users:user_id (
+            id,
+            username,
+            display_name,
+            avatar_url
+          )
+        `)
+        .eq('stream_id', streamId)
+        .order('created_at', { ascending: false })
+        .limit(10),
+    ]);
+
+    return NextResponse.json({ 
+      success: true,
+      isFollowing: false,
+      followerCount: countResult.count || 0,
+      followers: followersResult.data?.map(f => f.users).filter(Boolean) || [],
+    });
   } catch (error) {
     console.error('[DELETE /api/streams/[id]/follow] Error:', error);
     return NextResponse.json(
