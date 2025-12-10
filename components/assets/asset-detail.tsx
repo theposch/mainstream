@@ -13,9 +13,11 @@ interface AssetDetailProps {
   onClose?: () => void;
   /** Callback when navigating to another asset (for modal mode) */
   onNavigate?: (assetId: string) => void;
+  /** Callback when asset is deleted (for feed updates) */
+  onDelete?: (assetId: string) => void;
 }
 
-export function AssetDetail({ asset, allAssets = [], onClose, onNavigate }: AssetDetailProps) {
+export function AssetDetail({ asset, allAssets = [], onClose, onNavigate, onDelete }: AssetDetailProps) {
   // Check mobile on initial render (safe since this is only rendered client-side from feed.tsx)
   const [isMobile, setIsMobile] = React.useState(() => {
     if (typeof window === 'undefined') return false;
@@ -41,6 +43,7 @@ export function AssetDetail({ asset, allAssets = [], onClose, onNavigate }: Asse
         allAssets={allAssets}
         onClose={onClose}
         onNavigate={onNavigate}
+        onDelete={onDelete}
       />
     );
   }
@@ -52,6 +55,7 @@ export function AssetDetail({ asset, allAssets = [], onClose, onNavigate }: Asse
       nextAsset={nextAsset}
       onClose={onClose}
       onNavigate={onNavigate}
+      onDelete={onDelete}
     />
   );
 }

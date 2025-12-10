@@ -46,14 +46,15 @@ export const DashboardFeed = React.memo(function DashboardFeed({ initialAssets }
   }, []);
   
   // Infinite scroll hook for recent feed
-  const { assets, loadMore, hasMore, loading } = useAssetsInfinite(initialAssets);
+  const { assets, loadMore, hasMore, loading, removeAsset } = useAssetsInfinite(initialAssets);
   
   // Hook for following feed
   const { 
     assets: followingAssets, 
     loadMore: loadMoreFollowing,
     hasMore: hasMoreFollowing,
-    loading: loadingFollowing
+    loading: loadingFollowing,
+    removeAsset: removeFollowingAsset
   } = useFollowingAssets();
   
   // Load following assets when tab switches to "following"
@@ -182,6 +183,14 @@ export const DashboardFeed = React.memo(function DashboardFeed({ initialAssets }
   const handleCloseModal = React.useCallback(() => {
     setSelectedAssetId("");
   }, [setSelectedAssetId]);
+
+  // Handle asset deletion - remove from both feeds
+  const handleDeleteAsset = React.useCallback((assetId: string) => {
+    removeAsset(assetId);
+    removeFollowingAsset(assetId);
+    // Also remove from search results
+    setSearchResults((prev) => prev.filter((a) => a.id !== assetId));
+  }, [removeAsset, removeFollowingAsset]);
 
   return (
     <div className="w-full min-h-screen">
@@ -348,6 +357,7 @@ export const DashboardFeed = React.memo(function DashboardFeed({ initialAssets }
           allAssets={displayedAssets}
           onClose={handleCloseModal}
           onNavigate={setSelectedAssetId}
+          onDelete={handleDeleteAsset}
         />
       )}
 
