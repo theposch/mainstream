@@ -21,22 +21,38 @@ export const revalidate = 0;
  * URLs, metadata, and color information.
  * 
  * Query parameters:
- * - cursor: created_at timestamp for pagination (optional)
+ * - cursor: composite cursor "timestamp:id" for pagination (optional)
+ *   Using composite cursor ensures no assets are skipped when multiple
+ *   assets share the same created_at timestamp.
  * - limit: number of assets to fetch (default: 20, max: 50)
  * 
  * Response:
  * {
  *   "assets": [...],
  *   "hasMore": true,
- *   "cursor": "2025-01-01T00:00:00Z"
+ *   "cursor": "2025-01-01T00:00:00Z:asset-id-here"
  * }
  */
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
-    const cursor = searchParams.get('cursor');
+    const cursorParam = searchParams.get('cursor');
     const limit = Math.min(parseInt(searchParams.get('limit') || '20'), 50);
     const fetchLimit = limit + 1; // Fetch one extra to determine hasMore
+    
+    // Parse composite cursor: "timestamp:id"
+    let cursorTimestamp: string | null = null;
+    let cursorId: string | null = null;
+    if (cursorParam) {
+      const lastColonIndex = cursorParam.lastIndexOf(':');
+      if (lastColonIndex > 0) {
+        cursorTimestamp = cursorParam.substring(0, lastColonIndex);
+        cursorId = cursorParam.substring(lastColonIndex + 1);
+      } else {
+        // Fallback: treat entire cursor as timestamp (backwards compatibility)
+        cursorTimestamp = cursorParam;
+      }
+    }
     
     const supabase = await createClient();
     
@@ -60,15 +76,28 @@ export async function GET(request: NextRequest) {
     `;
     
     // Build query with visibility filter
+    // Sort by created_at DESC, then by id DESC for stable ordering
     let query = supabase
       .from('assets')
       .select(baseSelect)
       .or('visibility.is.null,visibility.eq.public')
-      .order('created_at', { ascending: false });
+      .order('created_at', { ascending: false })
+      .order('id', { ascending: false });
     
-    // Apply cursor pagination if provided
-    if (cursor) {
-      query = query.lt('created_at', cursor);
+    // Apply composite cursor pagination if provided
+    // This handles the case where multiple assets have the same created_at
+    if (cursorTimestamp) {
+      if (cursorId) {
+        // Composite cursor: get items that are either:
+        // 1. Before the cursor timestamp, OR
+        // 2. At the same timestamp but with a smaller id
+        query = query.or(
+          `created_at.lt.${cursorTimestamp},and(created_at.eq.${cursorTimestamp},id.lt.${cursorId})`
+        );
+      } else {
+        // Simple timestamp cursor (backwards compatibility)
+        query = query.lt('created_at', cursorTimestamp);
+      }
     }
     
     query = query.limit(fetchLimit);
@@ -81,10 +110,17 @@ export async function GET(request: NextRequest) {
       let fallbackQuery = supabase
         .from('assets')
         .select(baseSelect)
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .order('id', { ascending: false });
       
-      if (cursor) {
-        fallbackQuery = fallbackQuery.lt('created_at', cursor);
+      if (cursorTimestamp) {
+        if (cursorId) {
+          fallbackQuery = fallbackQuery.or(
+            `created_at.lt.${cursorTimestamp},and(created_at.eq.${cursorTimestamp},id.lt.${cursorId})`
+          );
+        } else {
+          fallbackQuery = fallbackQuery.lt('created_at', cursorTimestamp);
+        }
       }
       
       const fallback = await fallbackQuery.limit(fetchLimit);
@@ -132,11 +168,15 @@ export async function GET(request: NextRequest) {
       isLikedByCurrentUser: userLikedAssetIds.has(asset.id),
     }));
     
+    // Build composite cursor: "timestamp:id"
+    const lastAsset = transformedAssets[transformedAssets.length - 1];
+    const nextCursor = lastAsset ? `${lastAsset.created_at}:${lastAsset.id}` : null;
+    
     return NextResponse.json(
       { 
         assets: transformedAssets,
         hasMore,
-        cursor: transformedAssets.length > 0 ? transformedAssets[transformedAssets.length - 1].created_at : null
+        cursor: nextCursor
       },
       { 
         status: 200,
