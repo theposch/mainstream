@@ -281,6 +281,12 @@ export function AssetDetailDesktop({ asset, previousAsset = null, nextAsset = nu
   // - Respects data saver mode and slow connections
   // - Uses requestIdleCallback to avoid blocking main thread
   // - Uses <link rel="prefetch"> for browser cache management
+  // 
+  // Extract URLs to avoid capturing full asset objects in the closure.
+  // This ensures the callback only references the URLs it needs.
+  const previousUrl = previousAsset?.url;
+  const nextUrl = nextAsset?.url;
+  
   React.useEffect(() => {
     // Check Network Information API for data saver and slow connections
     const connection = (navigator as Navigator & {
@@ -313,12 +319,13 @@ export function AssetDetailDesktop({ asset, previousAsset = null, nextAsset = nu
     };
 
     // Schedule preloading during idle time
+    // Uses extracted URL variables (not full asset objects) to avoid stale closure references
     const schedulePreload = () => {
-      if (previousAsset?.url) {
-        cleanupFunctions.push(preloadImage(previousAsset.url));
+      if (previousUrl) {
+        cleanupFunctions.push(preloadImage(previousUrl));
       }
-      if (nextAsset?.url) {
-        cleanupFunctions.push(preloadImage(nextAsset.url));
+      if (nextUrl) {
+        cleanupFunctions.push(preloadImage(nextUrl));
       }
     };
 
@@ -337,7 +344,7 @@ export function AssetDetailDesktop({ asset, previousAsset = null, nextAsset = nu
         cleanupFunctions.forEach(cleanup => cleanup());
       };
     }
-  }, [previousAsset?.url, nextAsset?.url]);
+  }, [previousUrl, nextUrl]);
 
   // Focus management
   React.useEffect(() => {
