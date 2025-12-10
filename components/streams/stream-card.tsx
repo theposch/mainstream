@@ -39,7 +39,7 @@ export const StreamCard = React.memo(function StreamCard({ stream }: StreamCardP
             ))}
           </div>
         ) : (
-          <div className="w-full h-full flex items-center justify-center bg-zinc-900 text-zinc-700">
+          <div className="w-full h-full flex items-center justify-center bg-muted text-muted-foreground/50">
             <Hash className="h-12 w-12" />
           </div>
         )}
@@ -55,12 +55,12 @@ export const StreamCard = React.memo(function StreamCard({ stream }: StreamCardP
         <div className="flex items-center justify-between">
           <h3 className="font-medium text-white truncate pr-2">{stream.name}</h3>
           {stream.is_private ? (
-            <Lock className="h-3.5 w-3.5 text-zinc-500 shrink-0" />
+            <Lock className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
           ) : (
-            <Globe className="h-3.5 w-3.5 text-zinc-500 shrink-0" />
+            <Globe className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
           )}
         </div>
-        <p className="text-sm text-zinc-500">
+        <p className="text-sm text-muted-foreground">
           {assetsCount} {assetsCount === 1 ? "asset" : "assets"}
         </p>
       </div>
