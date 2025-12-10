@@ -220,23 +220,21 @@ export function parseAndValidateCursor(cursor: string | null): {
     return { timestamp, id };
   }
   
-  // Fallback: try single colon (legacy format, be careful with ISO timestamps)
-  const lastColonIndex = cursor.lastIndexOf(':');
-  if (lastColonIndex > 10) { // ISO timestamps have colons at position 13 and 16
-    const timestamp = cursor.substring(0, lastColonIndex);
-    const id = cursor.substring(lastColonIndex + 1);
+  // Fallback: try single colon (legacy format)
+  // IMPORTANT: Can't use lastIndexOf(':') because ISO timestamps with timezone offsets
+  // like +05:30 or +00:00 contain colons. Instead, find the UUID suffix and work backwards.
+  // UUID format: 8-4-4-4-12 hex chars = 36 chars total
+  const UUID_LENGTH = 36;
+  
+  if (cursor.length > UUID_LENGTH + 1) {
+    // Check if the last 36 characters form a valid UUID
+    const potentialId = cursor.substring(cursor.length - UUID_LENGTH);
+    const potentialSeparator = cursor.charAt(cursor.length - UUID_LENGTH - 1);
+    const potentialTimestamp = cursor.substring(0, cursor.length - UUID_LENGTH - 1);
     
-    // Validate both components
-    if (!isValidISOTimestamp(timestamp)) {
-      console.warn('[parseAndValidateCursor] Invalid legacy timestamp in cursor:', timestamp);
-      return null;
+    if (potentialSeparator === ':' && isValidUUID(potentialId) && isValidISOTimestamp(potentialTimestamp)) {
+      return { timestamp: potentialTimestamp, id: potentialId };
     }
-    if (!isValidUUID(id)) {
-      console.warn('[parseAndValidateCursor] Invalid legacy UUID in cursor:', id);
-      return null;
-    }
-    
-    return { timestamp, id };
   }
   
   // Fallback: treat entire cursor as timestamp only

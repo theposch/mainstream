@@ -305,7 +305,10 @@ export function AssetDetailDesktop({ asset, previousAsset = null, nextAsset = nu
       link.href = url;
       document.head.appendChild(link);
       return () => {
-        document.head.removeChild(link);
+        // Check if element is still in DOM before removal to prevent NotFoundError
+        if (link.parentNode) {
+          link.parentNode.removeChild(link);
+        }
       };
     };
 
