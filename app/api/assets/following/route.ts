@@ -8,6 +8,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { parseAndValidateCursor } from '@/lib/api/assets';
 
 export const dynamic = 'force-dynamic';
 
@@ -31,25 +32,11 @@ export async function GET(request: NextRequest) {
     const cursorParam = searchParams.get('cursor');
     const limit = Math.min(parseInt(searchParams.get('limit') || '20'), 50);
     
-    // Parse composite cursor: "timestamp::id" (double colon to avoid ISO timestamp conflicts)
-    let cursorTimestamp: string | null = null;
-    let cursorId: string | null = null;
-    if (cursorParam) {
-      const separatorIndex = cursorParam.lastIndexOf('::');
-      if (separatorIndex > 0) {
-        cursorTimestamp = cursorParam.substring(0, separatorIndex);
-        cursorId = cursorParam.substring(separatorIndex + 2);
-      } else {
-        // Fallback: treat entire cursor as timestamp (backwards compatibility with single colon)
-        const lastColonIndex = cursorParam.lastIndexOf(':');
-        if (lastColonIndex > 10) { // ISO timestamps have colons at position 13 and 16
-          cursorTimestamp = cursorParam.substring(0, lastColonIndex);
-          cursorId = cursorParam.substring(lastColonIndex + 1);
-        } else {
-          cursorTimestamp = cursorParam;
-        }
-      }
-    }
+    // Parse and validate cursor to prevent SQL injection
+    // Returns null for invalid/malicious cursors
+    const validatedCursor = parseAndValidateCursor(cursorParam);
+    const cursorTimestamp = validatedCursor?.timestamp ?? null;
+    const cursorId = validatedCursor?.id ?? null;
 
     const supabase = await createClient();
     
