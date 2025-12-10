@@ -8,7 +8,11 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import { parseAndValidateCursor } from '@/lib/api/assets';
+import { 
+  ASSET_BASE_SELECT, 
+  parseAndValidateCursor, 
+  buildCompositeCursor 
+} from '@/lib/api/assets';
 
 export const dynamic = 'force-dynamic';
 
@@ -113,22 +117,6 @@ export async function GET(request: NextRequest) {
       streamAssetIds = streamAssets?.map(sa => sa.asset_id) || [];
     }
 
-    // Build the base select query for assets
-    const baseSelect = `
-        *,
-        uploader:users!uploader_id(
-          id,
-          username,
-          display_name,
-          avatar_url,
-          email
-        ),
-        asset_streams(
-          streams(*)
-        ),
-        asset_likes(count)
-    `;
-
     // Fetch assets using separate queries to avoid complex OR filter issues with UUIDs
     // Then merge and deduplicate the results
     // Request limit + 1 to accurately detect if more data exists
@@ -142,7 +130,7 @@ export async function GET(request: NextRequest) {
     if (followingUserIds.length > 0) {
       let userAssetsQuery = supabase
         .from('assets')
-        .select(baseSelect)
+        .select(ASSET_BASE_SELECT)
         .order('created_at', { ascending: false })
         .order('id', { ascending: false });
       
@@ -185,7 +173,7 @@ export async function GET(request: NextRequest) {
     if (streamAssetIds.length > 0) {
       let streamAssetsQuery = supabase
         .from('assets')
-        .select(baseSelect)
+        .select(ASSET_BASE_SELECT)
         .order('created_at', { ascending: false })
         .order('id', { ascending: false });
       
@@ -293,9 +281,9 @@ export async function GET(request: NextRequest) {
       isLikedByCurrentUser: userLikedAssetIds.has(asset.id),
     }));
 
-    // Build composite cursor: "timestamp::id" (double colon to avoid ISO timestamp conflicts)
+    // Build composite cursor using shared utility
     const lastAsset = assets[assets.length - 1];
-    const nextCursor = lastAsset ? `${lastAsset.created_at}::${lastAsset.id}` : null;
+    const nextCursor = lastAsset ? buildCompositeCursor(lastAsset) : null;
     
     return NextResponse.json({
       assets: assets || [],

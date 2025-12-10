@@ -168,18 +168,7 @@ export async function GET(
       console.error('[GET /api/streams/[id]/follow] Error getting asset count:', assetCountResult.error);
     }
 
-    // Extract unique contributors with their details
-    interface ContributorItem {
-      assets?: {
-        uploader_id: string;
-        uploader?: {
-          id: string;
-          username: string;
-          display_name: string;
-          avatar_url: string;
-        };
-      };
-    }
+    // Extract unique contributors with their details (uses module-level ContributorItem type)
     const contributorMap = new Map<string, NonNullable<NonNullable<ContributorItem['assets']>['uploader']>>();
     (contributorsResult.data as ContributorItem[] | null)?.forEach((item) => {
       const uploader = item.assets?.uploader;

@@ -168,16 +168,3 @@ function toImmutableGroup(group: MutableWeekGroup): WeekGroup {
     assets: group.assets,
   };
 }
-
-/**
- * Reset the week groups state
- * Call this when you need to clear the cache (e.g., when switching feeds)
- */
-export function createWeekGroupsReset() {
-  return () => {
-    // This is a factory function that creates a reset callback
-    // Usage: const reset = createWeekGroupsReset(); reset();
-    // Note: Due to refs, this needs to be coordinated with hook instances
-  };
-}
-
