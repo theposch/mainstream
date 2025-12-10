@@ -1,11 +1,17 @@
 "use client";
 
 import * as React from "react";
+import dynamic from "next/dynamic";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { useUserFollow } from "@/lib/hooks/use-user-follow";
-import { EditProfileDialog } from "@/components/users/edit-profile-dialog";
 import { Pencil, UserPlus, UserMinus, MapPin, Briefcase } from "lucide-react";
+
+// Dynamic import for EditProfileDialog - only loaded when opened
+const EditProfileDialog = dynamic(
+  () => import("@/components/users/edit-profile-dialog").then((mod) => mod.EditProfileDialog),
+  { ssr: false }
+);
 
 interface UserProfileHeaderProps {
   /** The user whose profile is being displayed */

@@ -1,12 +1,18 @@
 "use client";
 
 import * as React from "react";
+import dynamic from "next/dynamic";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { FolderPlus, Upload, Link as LinkIcon } from "lucide-react";
-import { StreamDialog } from "./stream-dialog";
 import { UploadDialog } from "./upload-dialog";
 import { EmbedUrlDialog } from "./embed-url-dialog";
+
+// Dynamic import for StreamDialog - only loaded when opened
+const StreamDialog = dynamic(
+  () => import("./stream-dialog").then((mod) => mod.StreamDialog),
+  { ssr: false }
+);
 
 export function CreateDialog({ children }: { children: React.ReactNode }) {
   const [mainDialogOpen, setMainDialogOpen] = React.useState(false);
