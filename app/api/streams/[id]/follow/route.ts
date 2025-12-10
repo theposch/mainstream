@@ -229,7 +229,36 @@ export async function POST(
       }
     }
 
-    return NextResponse.json({ success: true });
+    // Fetch updated follower count and followers to return
+    // This eliminates the need for a separate GET request after follow
+    const [countResult, followersResult] = await Promise.all([
+      supabase
+        .from('stream_follows')
+        .select('*', { count: 'exact', head: true })
+        .eq('stream_id', streamId),
+      supabase
+        .from('stream_follows')
+        .select(`
+          user_id,
+          created_at,
+          users:user_id (
+            id,
+            username,
+            display_name,
+            avatar_url
+          )
+        `)
+        .eq('stream_id', streamId)
+        .order('created_at', { ascending: false })
+        .limit(10),
+    ]);
+
+    return NextResponse.json({ 
+      success: true,
+      isFollowing: true,
+      followerCount: countResult.count || 0,
+      followers: followersResult.data?.map(f => f.users).filter(Boolean) || [],
+    });
   } catch (error) {
     console.error('[POST /api/streams/[id]/follow] Error:', error);
     return NextResponse.json(

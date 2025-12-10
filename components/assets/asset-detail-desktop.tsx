@@ -222,10 +222,6 @@ export function AssetDetailDesktop({ asset, previousAsset = null, nextAsset = nu
     await deleteComment(commentId);
   }, [deleteComment]);
 
-  const handleLikeComment = React.useCallback((_commentId: string) => {
-    // Comment likes are handled by useCommentLike hook in CommentItem component
-  }, []);
-
   const handleAssetLike = React.useCallback(async () => {
     await toggleLike();
   }, [toggleLike]);
@@ -281,17 +277,64 @@ export function AssetDetailDesktop({ asset, previousAsset = null, nextAsset = nu
     return () => document.removeEventListener('keydown', handleKeyPress);
   }, [router, previousAsset, nextAsset, onClose, onNavigate]);
 
-  // Preload adjacent images
+  // Smart preload adjacent images with browser optimization
+  // - Respects data saver mode and slow connections
+  // - Uses requestIdleCallback to avoid blocking main thread
+  // - Uses <link rel="prefetch"> for browser cache management
   React.useEffect(() => {
-    if (previousAsset?.url) {
-      const img = new window.Image();
-      img.src = previousAsset.url;
+    // Check Network Information API for data saver and slow connections
+    const connection = (navigator as Navigator & {
+      connection?: {
+        saveData?: boolean;
+        effectiveType?: string;
+      };
+    }).connection;
+    
+    // Skip preloading if user has data saver enabled or very slow connection
+    if (connection?.saveData || connection?.effectiveType === 'slow-2g') {
+      return;
     }
-    if (nextAsset?.url) {
-      const img = new window.Image();
-      img.src = nextAsset.url;
+
+    const cleanupFunctions: (() => void)[] = [];
+
+    // Preload image using <link rel="prefetch"> for proper browser caching
+    const preloadImage = (url: string) => {
+      const link = document.createElement('link');
+      link.rel = 'prefetch';
+      link.as = 'image';
+      link.href = url;
+      document.head.appendChild(link);
+      return () => {
+        document.head.removeChild(link);
+      };
+    };
+
+    // Schedule preloading during idle time
+    const schedulePreload = () => {
+      if (previousAsset?.url) {
+        cleanupFunctions.push(preloadImage(previousAsset.url));
+      }
+      if (nextAsset?.url) {
+        cleanupFunctions.push(preloadImage(nextAsset.url));
+      }
+    };
+
+    // Use requestIdleCallback for non-blocking preload (with fallback)
+    if ('requestIdleCallback' in window) {
+      const idleId = requestIdleCallback(schedulePreload, { timeout: 2000 });
+      return () => {
+        cancelIdleCallback(idleId);
+        cleanupFunctions.forEach(cleanup => cleanup());
+      };
+    } else {
+      // Fallback for Safari (no requestIdleCallback support)
+      const timeoutId = setTimeout(schedulePreload, 200);
+      return () => {
+        clearTimeout(timeoutId);
+        cleanupFunctions.forEach(cleanup => cleanup());
+      };
     }
-  }, [previousAsset, nextAsset]);
+  }, [previousAsset?.url, nextAsset?.url]);
 
   // Focus management
   React.useEffect(() => {
@@ -664,13 +707,13 @@ export function AssetDetailDesktop({ asset, previousAsset = null, nextAsset = nu
                 </h3>
                 
                 <CommentList 
+                  assetId={asset.id}
                   comments={comments}
                   currentUser={currentUser}
                   onReply={setReplyingToId}
                   onEdit={handleEditComment}
                   onStartEdit={setEditingCommentId}
                   onDelete={handleDeleteComment}
-                  onLike={handleLikeComment}
                   editingCommentId={editingCommentId}
                   onCancelEdit={() => setEditingCommentId(null)}
                   highlightedCommentId={highlightedCommentId}

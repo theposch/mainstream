@@ -112,7 +112,6 @@ export function AssetDetailMobile({ asset, allAssets: allAssetsProp, onClose, on
     handleAddComment,
     handleEditComment,
     handleDeleteComment,
-    handleLikeComment,
     handleAssetLike,
     isLiked,
     likeCount,
@@ -550,13 +549,13 @@ export function AssetDetailMobile({ asset, allAssets: allAssetsProp, onClose, on
                 Comments ({comments.length})
               </h3>
               <CommentList 
+                assetId={asset.id}
                 comments={comments}
                 currentUser={currentUser}
                 onReply={setReplyingToId}
                 onEdit={handleEditComment}
                 onStartEdit={setEditingCommentId}
                 onDelete={handleDeleteComment}
-                onLike={handleLikeComment}
                 editingCommentId={editingCommentId}
                 onCancelEdit={() => setEditingCommentId(null)}
                 highlightedCommentId={highlightedCommentId}

@@ -19,9 +19,10 @@ import {
 import { useRouter } from "next/navigation";
 import { useStreamFollow, type InitialFollowData } from "@/lib/hooks/use-stream-follow";
 import { useStreamBookmarks, extractDomain, getFaviconUrl, type BookmarkWithCreator } from "@/lib/hooks/use-stream-bookmarks";
+import { useStreamMembers, type InitialMembersData } from "@/lib/hooks/use-stream-members";
+import { useIsMobile, useIsTablet } from "@/lib/hooks/use-media-query";
 import { UploadDialog } from "@/components/layout/upload-dialog";
 import { AddBookmarkDialog } from "@/components/streams/add-bookmark-dialog";
-import { useStreamMembers, type InitialMembersData } from "@/lib/hooks/use-stream-members";
 
 // Dynamic imports for dialogs - only loaded when opened
 const ManageMembersDialog = dynamic(
@@ -102,48 +103,22 @@ export const StreamHeader = React.memo(function StreamHeader({
     currentUserRole,
   } = useStreamMembers(stream.id, initialMembersData);
 
-  // Track window width for responsive bookmark display
-  // Start with null to avoid SSR hydration mismatch, then set on client
-  const [maxVisibleBookmarks, setMaxVisibleBookmarks] = React.useState<number | null>(null);
+  // Use shared media queries for responsive bookmark display
+  const isMobile = useIsMobile();
+  const isTablet = useIsTablet();
   
-  React.useEffect(() => {
-    const getMaxVisible = (width: number) => {
-      if (width < 640) return 1;      // Mobile
-      if (width < 1024) return 4;     // Tablet
-      return 6;                        // Desktop
-    };
-    
-    // Set initial value
-    setMaxVisibleBookmarks(getMaxVisible(window.innerWidth));
-    
-    // Debounced resize handler
-    let timeoutId: NodeJS.Timeout;
-    const handleResize = () => {
-      clearTimeout(timeoutId);
-      timeoutId = setTimeout(() => {
-        setMaxVisibleBookmarks(getMaxVisible(window.innerWidth));
-      }, 100);
-    };
-    
-    window.addEventListener('resize', handleResize);
-    return () => {
-      clearTimeout(timeoutId);
-      window.removeEventListener('resize', handleResize);
-    };
-  }, []);
-
-  // Memoized bookmark display logic
+  // Memoized bookmark display logic using media queries
   const { visibleBookmarks, overflowBookmarks, hasOverflow } = React.useMemo(() => {
-    // Default to 6 during SSR, actual value set on client
-    const max = maxVisibleBookmarks ?? 6;
-    const visible = bookmarks.slice(0, max);
-    const overflow = bookmarks.slice(max);
+    // Determine max visible based on breakpoint
+    const maxVisible = isMobile ? 1 : isTablet ? 4 : 6;
+    const visible = bookmarks.slice(0, maxVisible);
+    const overflow = bookmarks.slice(maxVisible);
     return {
       visibleBookmarks: visible,
       overflowBookmarks: overflow,
       hasOverflow: overflow.length > 0,
     };
-  }, [bookmarks, maxVisibleBookmarks]);
+  }, [bookmarks, isMobile, isTablet]);
 
 
   // Memoized callbacks
