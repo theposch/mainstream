@@ -71,27 +71,33 @@ export async function GET(request: NextRequest) {
     
     // Build query with visibility filter
     // Sort by created_at DESC, then by id DESC for stable ordering
+    // IMPORTANT: We use a single combined filter to avoid Supabase OR chaining issues
+    // Multiple .or() calls combine with OR logic, not AND, which would break filtering
     let query = supabase
       .from('assets')
       .select(baseSelect)
-      .or('visibility.is.null,visibility.eq.public')
       .order('created_at', { ascending: false })
       .order('id', { ascending: false });
     
-    // Apply composite cursor pagination if provided
-    // This handles the case where multiple assets have the same created_at
+    // Build combined filter for visibility AND cursor pagination
+    // This ensures proper AND semantics between filters
     if (cursorTimestamp) {
       if (cursorId) {
-        // Composite cursor: get items that are either:
-        // 1. Before the cursor timestamp, OR
-        // 2. At the same timestamp but with a smaller id
+        // Combined filter: visibility AND composite cursor
+        // Format: (visibility IS NULL OR public) AND (before cursor OR same-time-lower-id)
         query = query.or(
-          `created_at.lt.${cursorTimestamp},and(created_at.eq.${cursorTimestamp},id.lt.${cursorId})`
+          `and(or(visibility.is.null,visibility.eq.public),created_at.lt.${cursorTimestamp}),` +
+          `and(or(visibility.is.null,visibility.eq.public),created_at.eq.${cursorTimestamp},id.lt.${cursorId})`
         );
       } else {
-        // Simple timestamp cursor (backwards compatibility)
-        query = query.lt('created_at', cursorTimestamp);
+        // Combined filter: visibility AND simple timestamp cursor
+        query = query.or(
+          `and(or(visibility.is.null,visibility.eq.public),created_at.lt.${cursorTimestamp})`
+        );
       }
+    } else {
+      // No cursor - just visibility filter
+      query = query.or('visibility.is.null,visibility.eq.public');
     }
     
     query = query.limit(fetchLimit);
