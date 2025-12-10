@@ -181,7 +181,7 @@ export const ElementCard = React.memo(
                     embedNeedsCrop 
                       ? "object-cover object-top" 
                       : asset.width && asset.height 
-                        ? "object-contain bg-zinc-900" 
+                        ? "object-contain bg-muted" 
                         : "object-cover"
                   )}
                   sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
@@ -190,14 +190,14 @@ export const ElementCard = React.memo(
               </>
             ) : isEmbed && providerInfo ? (
               // Embed placeholder (no thumbnail available)
-              <div className="absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-br from-zinc-900 via-zinc-800 to-zinc-900">
+              <div className="absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-br from-muted via-muted/80 to-muted">
                 <div className={cn(
                   "flex items-center justify-center w-16 h-16 rounded-2xl mb-3 shadow-lg",
                   providerInfo.bgColor
                 )}>
                   <span className="text-3xl">{providerInfo.icon}</span>
                 </div>
-                <span className="text-sm font-medium text-zinc-400">{providerInfo.name}</span>
+                <span className="text-sm font-medium text-muted-foreground">{providerInfo.name}</span>
               </div>
             ) : isGif && isHovered ? (
               // Animated GIF on hover - use img tag to ensure animation plays

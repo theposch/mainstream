@@ -177,9 +177,9 @@ export const CommentInput = React.memo(function CommentInput({
     <div className="flex gap-3 relative">
         {/* Mention Popover */}
         {showMentions && filteredUsers.length > 0 && (
-          <div className="absolute bottom-full left-10 mb-2 w-64 bg-zinc-900 border border-zinc-800 rounded-lg shadow-xl overflow-hidden z-50 animate-in fade-in slide-in-from-bottom-2 duration-100">
+          <div className="absolute bottom-full left-10 mb-2 w-64 bg-popover border border-border rounded-lg shadow-xl overflow-hidden z-50 animate-in fade-in slide-in-from-bottom-2 duration-100">
             <div className="py-1">
-              <div className="px-2 py-1.5 text-xs font-medium text-zinc-500 uppercase tracking-wider bg-zinc-900/50 border-b border-zinc-800/50">
+              <div className="px-2 py-1.5 text-xs font-medium text-muted-foreground uppercase tracking-wider bg-muted/50 border-b border-border/50">
                 Mention
               </div>
               {filteredUsers.map((user, index) => (
@@ -189,8 +189,8 @@ export const CommentInput = React.memo(function CommentInput({
                   className={cn(
                     "w-full flex items-center gap-3 px-3 py-2 text-sm transition-colors text-left cursor-pointer",
                     index === selectedMentionIndex 
-                      ? "bg-zinc-800 text-white" 
-                      : "text-zinc-300 hover:bg-zinc-800/50 hover:text-white"
+                      ? "bg-accent text-accent-foreground" 
+                      : "text-popover-foreground hover:bg-accent/50 hover:text-accent-foreground"
                   )}
                 >
                   <Avatar className="h-6 w-6 border border-border">
@@ -199,7 +199,7 @@ export const CommentInput = React.memo(function CommentInput({
                   </Avatar>
                   <div className="flex flex-col overflow-hidden">
                     <span className="truncate font-medium">{user.display_name}</span>
-                    <span className="truncate text-xs text-zinc-500">@{user.username}</span>
+                    <span className="truncate text-xs text-muted-foreground">@{user.username}</span>
                   </div>
                 </button>
               ))}
@@ -224,7 +224,7 @@ export const CommentInput = React.memo(function CommentInput({
                     maxLength={MAX_CHARS}
                     rows={1}
                     className={cn(
-                        "w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2.5 text-sm text-white placeholder:text-zinc-600 transition-all resize-none min-h-[40px] max-h-[120px] focus:outline-none focus:border-zinc-700 focus:ring-1 focus:ring-zinc-700 disabled:opacity-50 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
+                        "w-full bg-muted border border-border rounded-lg px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground transition-all resize-none min-h-[40px] max-h-[120px] focus:outline-none focus:border-ring focus:ring-1 focus:ring-ring disabled:opacity-50 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
                     )}
                 />
                 
@@ -235,7 +235,7 @@ export const CommentInput = React.memo(function CommentInput({
                         <button 
                             type="button" 
                             disabled 
-                            className="p-1.5 text-zinc-600 hover:text-zinc-500 transition-colors cursor-not-allowed"
+                            className="p-1.5 text-muted-foreground/50 hover:text-muted-foreground transition-colors cursor-not-allowed"
                             title="Formatting (coming soon)"
                         >
                             <Type className="h-4 w-4" />
@@ -243,7 +243,7 @@ export const CommentInput = React.memo(function CommentInput({
                         <button 
                             type="button" 
                             disabled 
-                            className="p-1.5 text-zinc-600 hover:text-zinc-500 transition-colors cursor-not-allowed"
+                            className="p-1.5 text-muted-foreground/50 hover:text-muted-foreground transition-colors cursor-not-allowed"
                             title="Emoji (coming soon)"
                         >
                             <Smile className="h-4 w-4" />
@@ -251,7 +251,7 @@ export const CommentInput = React.memo(function CommentInput({
                         <button 
                             type="button" 
                             disabled 
-                            className="p-1.5 text-zinc-600 hover:text-zinc-500 transition-colors cursor-not-allowed"
+                            className="p-1.5 text-muted-foreground/50 hover:text-muted-foreground transition-colors cursor-not-allowed"
                             title="Mention (coming soon)"
                         >
                             <AtSign className="h-4 w-4" />

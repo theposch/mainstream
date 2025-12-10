@@ -347,7 +347,7 @@ export const RichTextArea = React.forwardRef<HTMLDivElement, RichTextAreaProps>(
         />
         {showPlaceholder && (
           <div
-            className="absolute inset-0 pointer-events-none text-zinc-600"
+            className="absolute inset-0 pointer-events-none text-muted-foreground"
             aria-hidden="true"
           >
             {placeholder}

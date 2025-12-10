@@ -49,7 +49,7 @@ export function LikeButton({
         "relative group flex items-center gap-1.5 transition-colors focus:outline-none cursor-pointer",
         variant === "solid" && "p-2.5 rounded-full backdrop-blur-md shadow-lg",
         variant === "solid" && (isLiked ? "bg-red-500 text-white" : "bg-white/90 hover:bg-white text-black"),
-        variant === "ghost" && "text-zinc-400 hover:text-white",
+        variant === "ghost" && "text-muted-foreground hover:text-foreground",
         isLoading && "opacity-50 cursor-wait",
         className
       )}
@@ -64,7 +64,7 @@ export function LikeButton({
               iconSize,
               isLiked 
                 ? (variant === "solid" ? "fill-current" : "fill-red-500 text-red-500") 
-                : (variant === "solid" ? "" : "group-hover:text-white")
+                : (variant === "solid" ? "" : "group-hover:text-foreground")
             )} 
           />
         </motion.div>

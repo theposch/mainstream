@@ -57,7 +57,7 @@ export function BottomSheet({
             dragElastic={0.1}
             onDragEnd={handleDragEnd}
             className={cn(
-              "fixed bottom-0 left-0 right-0 z-[120] bg-zinc-950 border-t border-zinc-800 rounded-t-3xl max-h-[85vh] flex flex-col shadow-2xl",
+              "fixed bottom-0 left-0 right-0 z-[120] bg-background border-t border-border rounded-t-3xl max-h-[85vh] flex flex-col shadow-2xl",
               className
             )}
             role="dialog"
@@ -66,13 +66,13 @@ export function BottomSheet({
           >
             {/* Drag Handle */}
             <div className="w-full py-4 flex items-center justify-center cursor-grab active:cursor-grabbing shrink-0 touch-none">
-              <div className="w-12 h-1.5 bg-zinc-800 rounded-full" />
+              <div className="w-12 h-1.5 bg-muted-foreground/30 rounded-full" />
             </div>
 
             {/* Header (Optional) */}
             {title && (
-              <div className="px-6 pb-4 border-b border-zinc-900 shrink-0">
-                <h2 className="text-lg font-semibold text-white">{title}</h2>
+              <div className="px-6 pb-4 border-b border-border shrink-0">
+                <h2 className="text-lg font-semibold text-foreground">{title}</h2>
               </div>
             )}
 

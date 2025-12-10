@@ -124,14 +124,14 @@ export const CommentItem = React.memo(function CommentItem({
       <div className="flex-1 min-w-0">
         <div className="flex items-baseline justify-between gap-2">
           <div className="flex items-baseline gap-2">
-            <span className="text-sm font-medium text-white hover:underline cursor-pointer">
+            <span className="text-sm font-medium text-foreground hover:underline cursor-pointer">
               {author?.display_name || "Unknown User"}
             </span>
-            <span className="text-xs text-zinc-500">
+            <span className="text-xs text-muted-foreground">
               {formatRelativeTime(comment.created_at)}
             </span>
             {comment.is_edited && (
-              <span className="text-xs text-zinc-600 italic">(edited)</span>
+              <span className="text-xs text-muted-foreground/70 italic">(edited)</span>
             )}
           </div>
           
@@ -143,14 +143,14 @@ export const CommentItem = React.memo(function CommentItem({
                   variant="ghost" 
                   size="icon-sm" 
                   className={cn(
-                    "h-6 w-6 text-zinc-500 hover:text-white opacity-0 group-hover:opacity-100 transition-opacity focus:opacity-100 data-[state=open]:opacity-100"
+                    "h-6 w-6 text-muted-foreground hover:text-foreground opacity-0 group-hover:opacity-100 transition-opacity focus:opacity-100 data-[state=open]:opacity-100"
                   )}
                 >
                   <MoreHorizontal className="h-4 w-4" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-32 bg-zinc-950 border border-zinc-700 text-zinc-200 shadow-xl z-[100]">
-                <DropdownMenuItem onClick={() => onStartEdit(comment.id)} className="cursor-pointer hover:bg-zinc-800 hover:text-white focus:bg-zinc-800 focus:text-white">
+              <DropdownMenuContent align="end" className="w-32 bg-popover border border-border text-popover-foreground shadow-xl z-[100]">
+                <DropdownMenuItem onClick={() => onStartEdit(comment.id)} className="cursor-pointer hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground">
                   <Edit2 className="mr-2 h-3.5 w-3.5" />
                   <span>Edit</span>
                 </DropdownMenuItem>
@@ -166,7 +166,7 @@ export const CommentItem = React.memo(function CommentItem({
           )}
         </div>
 
-        <p className="text-sm text-zinc-300 mt-0.5 whitespace-pre-wrap leading-relaxed break-words">
+        <p className="text-sm text-foreground/90 mt-0.5 whitespace-pre-wrap leading-relaxed break-words">
           {comment.content}
         </p>
 
@@ -175,7 +175,7 @@ export const CommentItem = React.memo(function CommentItem({
           {!comment.parent_id && (
             <button 
               onClick={() => onReply(comment.id)}
-              className="text-xs font-medium text-zinc-500 hover:text-white transition-colors flex items-center gap-1 cursor-pointer"
+              className="text-xs font-medium text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1 cursor-pointer"
             >
               Reply
             </button>
@@ -187,8 +187,8 @@ export const CommentItem = React.memo(function CommentItem({
             onLike={toggleLike}
             variant="ghost"
             size="sm"
-            className={isLiked ? "text-red-500" : "text-zinc-500 hover:text-white"}
-          />
+            className={isLiked ? "text-red-500" : "text-muted-foreground hover:text-foreground"}
+            />
         </div>
       </div>
     </div>

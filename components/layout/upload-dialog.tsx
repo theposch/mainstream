@@ -228,7 +228,7 @@ export function UploadDialog({ open, onOpenChange, initialStreamId }: UploadDial
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className={`sm:max-w-[650px] ${file ? 'p-0 gap-0 bg-zinc-950 border-zinc-800' : 'sm:max-w-[500px]'}`}>
+      <DialogContent className={`sm:max-w-[650px] ${file ? 'p-0 gap-0 bg-background border-border' : 'sm:max-w-[500px]'}`}>
         {/* Initial Upload State */}
         {!file && (
           <>
@@ -300,7 +300,7 @@ export function UploadDialog({ open, onOpenChange, initialStreamId }: UploadDial
           <form onSubmit={handleSubmit} className="flex flex-col">
             {/* Preview Area */}
             <div className="p-6 pb-0">
-              <div className="relative w-full aspect-[1.85/1] rounded-t-xl overflow-hidden bg-zinc-900 border border-zinc-800 border-b-0">
+              <div className="relative w-full aspect-[1.85/1] rounded-t-xl overflow-hidden bg-muted border border-border border-b-0">
                 {file?.type === 'video/webm' ? (
                   <video
                     src={preview}
@@ -331,7 +331,7 @@ export function UploadDialog({ open, onOpenChange, initialStreamId }: UploadDial
             </div>
 
             {/* Content Area */}
-            <div className="px-6 pt-4 pb-6 space-y-6 bg-zinc-950 rounded-b-xl relative">
+            <div className="px-6 pt-4 pb-6 space-y-6 bg-background rounded-b-xl relative">
               {/* Error Message */}
               {error && (
                 <div className="flex items-start gap-2 p-3 bg-destructive/10 border border-destructive/20 rounded-md">
@@ -352,14 +352,14 @@ export function UploadDialog({ open, onOpenChange, initialStreamId }: UploadDial
               />
 
               {/* Footer */}
-              <div className="pt-4 border-t border-zinc-800 flex items-center justify-between">
+              <div className="pt-4 border-t border-border flex items-center justify-between">
                 {/* Left Actions */}
-                <div className="flex items-center gap-5 text-zinc-500">
-                  <Type className="h-5 w-5 hover:text-white cursor-pointer transition-colors" />
-                  <Smile className="h-5 w-5 hover:text-white cursor-pointer transition-colors" />
-                  <AtSign className="h-5 w-5 hover:text-white cursor-pointer transition-colors" />
-                  <ImageIcon className="h-5 w-5 hover:text-white cursor-pointer transition-colors" />
-                  <LinkIcon className="h-5 w-5 hover:text-white cursor-pointer transition-colors" />
+                <div className="flex items-center gap-5 text-muted-foreground">
+                  <Type className="h-5 w-5 hover:text-foreground cursor-pointer transition-colors" />
+                  <Smile className="h-5 w-5 hover:text-foreground cursor-pointer transition-colors" />
+                  <AtSign className="h-5 w-5 hover:text-foreground cursor-pointer transition-colors" />
+                  <ImageIcon className="h-5 w-5 hover:text-foreground cursor-pointer transition-colors" />
+                  <LinkIcon className="h-5 w-5 hover:text-foreground cursor-pointer transition-colors" />
                 </div>
 
                 {/* Right Actions */}
@@ -367,7 +367,7 @@ export function UploadDialog({ open, onOpenChange, initialStreamId }: UploadDial
                   <Button 
                     type="button" 
                     variant="outline" 
-                    className="bg-zinc-900 border-zinc-800 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-300 h-9 px-3 text-sm"
+                    className="h-9 px-3 text-sm"
                   >
                     <div className="w-4 h-4 mr-2 rounded-sm bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 flex items-center justify-center">
                       <span className="text-[8px] font-bold text-white">#</span>
@@ -379,7 +379,7 @@ export function UploadDialog({ open, onOpenChange, initialStreamId }: UploadDial
                   <Button 
                     type="submit" 
                     disabled={isLoading}
-                    className="bg-white text-black hover:bg-zinc-200 h-9 px-4 font-medium"
+                    className="h-9 px-4 font-medium"
                   >
                     {isLoading ? (
                       <Loader2 className="h-4 w-4 animate-spin" />

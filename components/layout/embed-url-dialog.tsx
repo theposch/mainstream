@@ -196,7 +196,7 @@ export function EmbedUrlDialog({ open, onOpenChange, initialStreamId }: EmbedUrl
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className={`sm:max-w-[600px] ${isValidUrl ? 'p-0 gap-0 bg-zinc-950 border-zinc-800' : ''}`}>
+      <DialogContent className={`sm:max-w-[600px] ${isValidUrl ? 'p-0 gap-0 bg-background border-border' : ''}`}>
         {/* Initial URL Input State */}
         {!isValidUrl && (
           <>
@@ -259,7 +259,7 @@ export function EmbedUrlDialog({ open, onOpenChange, initialStreamId }: EmbedUrl
           <form onSubmit={handleSubmit} className="flex flex-col">
             {/* Preview Area */}
             <div className="p-6 pb-0">
-              <div className="relative w-full aspect-video rounded-t-xl overflow-hidden bg-zinc-900 border border-zinc-800 border-b-0">
+              <div className="relative w-full aspect-video rounded-t-xl overflow-hidden bg-muted border border-border border-b-0">
                 {provider === 'figma' && (
                   <iframe
                     src={getFigmaEmbedUrl(url)}
@@ -299,7 +299,7 @@ export function EmbedUrlDialog({ open, onOpenChange, initialStreamId }: EmbedUrl
             </div>
 
             {/* Content Area */}
-            <div className="px-6 pt-4 pb-6 space-y-6 bg-zinc-950 rounded-b-xl">
+            <div className="px-6 pt-4 pb-6 space-y-6 bg-background rounded-b-xl">
               {/* Success indicator */}
               <div className="flex items-center gap-2 text-sm text-green-400">
                 <CheckCircle2 className="h-4 w-4" />
@@ -322,7 +322,6 @@ export function EmbedUrlDialog({ open, onOpenChange, initialStreamId }: EmbedUrl
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                   placeholder="Give your post a title"
-                  className="bg-zinc-900 border-zinc-800"
                 />
               </div>
 
@@ -336,7 +335,7 @@ export function EmbedUrlDialog({ open, onOpenChange, initialStreamId }: EmbedUrl
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   placeholder="Add a description..."
-                  className="bg-zinc-900 border-zinc-800 resize-none"
+                  className="resize-none"
                   rows={3}
                 />
               </div>
@@ -354,7 +353,7 @@ export function EmbedUrlDialog({ open, onOpenChange, initialStreamId }: EmbedUrl
               />
 
               {/* Footer */}
-              <div className="pt-4 border-t border-zinc-800 flex items-center justify-end gap-3">
+              <div className="pt-4 border-t border-border flex items-center justify-end gap-3">
                 <Button 
                   type="button" 
                   variant="outline" 
@@ -363,7 +362,6 @@ export function EmbedUrlDialog({ open, onOpenChange, initialStreamId }: EmbedUrl
                     setIsValidUrl(false);
                     setProvider(null);
                   }}
-                  className="bg-zinc-900 border-zinc-800"
                   disabled={isLoading}
                 >
                   Change URL
@@ -372,7 +370,7 @@ export function EmbedUrlDialog({ open, onOpenChange, initialStreamId }: EmbedUrl
                 <Button 
                   type="submit" 
                   disabled={isLoading || !title.trim()}
-                  className="bg-white text-black hover:bg-zinc-200 font-medium"
+                  className="font-medium"
                 >
                   {isLoading ? (
                     <Loader2 className="h-4 w-4 animate-spin" />

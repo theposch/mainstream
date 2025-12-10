@@ -448,7 +448,7 @@ function AddBlockButton({
 
       {/* Menu */}
       <AnimatePresence>
-        {showMenu && (
+      {showMenu && (
           <motion.div
             initial={{ opacity: 0, y: 10, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -458,13 +458,13 @@ function AddBlockButton({
           >
             {BLOCK_TYPES.map((blockType, i) => (
               <motion.button
-                key={blockType.type}
+              key={blockType.type}
                 initial={{ opacity: 0, x: -10 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: i * 0.05 }}
-                onClick={() => onSelectType(blockType.type)}
+              onClick={() => onSelectType(blockType.type)}
                 className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-zinc-800 transition-colors group relative overflow-hidden cursor-pointer"
-              >
+            >
                 {/* Hover gradient background */}
                 <div className="absolute inset-0 bg-gradient-to-r from-violet-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                 
@@ -478,11 +478,11 @@ function AddBlockButton({
                   <div className="text-xs text-zinc-500 group-hover:text-zinc-400 transition-colors">
                     {blockType.description}
                   </div>
-                </div>
+              </div>
               </motion.button>
-            ))}
+          ))}
           </motion.div>
-        )}
+      )}
       </AnimatePresence>
     </div>
   );
