@@ -153,7 +153,7 @@ export function PostMetadataForm({
         {!hideTextFields && (
           <>
             {showLabels && (
-              <Label htmlFor="title" className="text-zinc-300">
+              <Label htmlFor="title" className="text-foreground/80">
                 Title <span className="text-red-500">*</span>
               </Label>
             )}
@@ -163,8 +163,8 @@ export function PostMetadataForm({
               onChange={(e) => onTitleChange(e.target.value)}
               placeholder={titlePlaceholder}
               className={isUploadVariant 
-                ? "border-none shadow-none bg-transparent !text-[19px] font-bold text-white px-0 h-auto focus-visible:ring-0 placeholder:text-zinc-600 leading-snug"
-                : "bg-zinc-900 border-zinc-800 text-white placeholder:text-zinc-600"
+                ? "border-none shadow-none bg-transparent !text-[19px] font-bold text-foreground px-0 h-auto focus-visible:ring-0 placeholder:text-muted-foreground leading-snug"
+                : "bg-muted border-border text-foreground placeholder:text-muted-foreground"
               }
               required
               autoFocus={isUploadVariant}
@@ -179,10 +179,10 @@ export function PostMetadataForm({
           <>
             {showLabels && (
               <div className="flex items-center justify-between">
-                <Label htmlFor="description" className="text-zinc-300">
+                <Label htmlFor="description" className="text-foreground/80">
                   Description
                 </Label>
-                <p className="text-xs text-zinc-600">
+                <p className="text-xs text-muted-foreground">
                   {description.length}/2000 characters
                 </p>
               </div>
@@ -195,12 +195,12 @@ export function PostMetadataForm({
               onHashtagComplete={handleHashtagComplete}
               disabled={disabled}
               className={isUploadVariant
-                ? "border-none shadow-none bg-transparent px-0 min-h-[40px] !text-[15px] text-zinc-400"
-                : "bg-zinc-900 border-zinc-800 text-white placeholder:text-zinc-600 min-h-[100px] px-3 py-2 rounded-md"
+                ? "border-none shadow-none bg-transparent px-0 min-h-[40px] !text-[15px] text-muted-foreground"
+                : "bg-muted border-border text-foreground placeholder:text-muted-foreground min-h-[100px] px-3 py-2 rounded-md"
               }
             />
             {!showLabels && !isUploadVariant && (
-              <p className="text-xs text-zinc-600">
+              <p className="text-xs text-muted-foreground">
                 {description.length}/2000 characters
               </p>
             )}
@@ -210,7 +210,7 @@ export function PostMetadataForm({
         {/* Stream Picker */}
         <div className="pt-1">
           {showLabels && (
-            <Label className="text-zinc-300 mb-2 block">Streams</Label>
+            <Label className="text-foreground/80 mb-2 block">Streams</Label>
           )}
           <StreamPicker
             selectedStreamIds={streamIds}
@@ -224,7 +224,7 @@ export function PostMetadataForm({
             popoverClassName="z-[130]"
           />
           {showLabels && (
-            <p className="text-xs text-zinc-600 mt-1">
+            <p className="text-xs text-muted-foreground mt-1">
               Add to streams or create new ones. Use #streamname in description.
             </p>
           )}

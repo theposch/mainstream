@@ -393,7 +393,7 @@ export function AssetDetailMobile({ asset, allAssets: allAssetsProp, onClose, on
                             <div className={`flex items-center justify-center w-20 h-20 rounded-2xl mb-4 ${providerInfo.bgColor}`}>
                               <span className="text-4xl">{providerInfo.icon}</span>
                             </div>
-                            <p className="text-base font-medium text-zinc-400 mb-4">{providerInfo.name}</p>
+                            <p className="text-base font-medium text-muted-foreground mb-4">{providerInfo.name}</p>
                             <a
                               href={carouselAsset.embed_url}
                               target="_blank"
@@ -458,7 +458,7 @@ export function AssetDetailMobile({ asset, allAssets: allAssetsProp, onClose, on
           {/* Scrollable content */}
           <div className="flex-1 overflow-y-auto pb-4">
             {/* Header Info */}
-            <div className="px-4 pt-2 pb-4 border-b border-zinc-900 space-y-4">
+            <div className="px-4 pt-2 pb-4 border-b border-border space-y-4">
               {/* Title */}
               <h1 className="text-xl font-bold text-white">{currentAsset.title}</h1>
               
@@ -466,7 +466,7 @@ export function AssetDetailMobile({ asset, allAssets: allAssetsProp, onClose, on
               <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
                   <Link href={`/u/${uploader?.username}`}>
-                    <Avatar className="h-10 w-10 border border-zinc-800 hover:opacity-80 transition-opacity">
+                    <Avatar className="h-10 w-10 border border-border hover:opacity-80 transition-opacity">
                       <AvatarImage src={uploader?.avatar_url} />
                       <AvatarFallback>{uploader?.username?.charAt(0).toUpperCase() || 'U'}</AvatarFallback>
                     </Avatar>
@@ -478,7 +478,7 @@ export function AssetDetailMobile({ asset, allAssets: allAssetsProp, onClose, on
                     >
                       {uploader?.display_name || 'Unknown User'}
                     </Link>
-                    <span className="text-xs text-zinc-500">
+                    <span className="text-xs text-muted-foreground">
                       {formatRelativeTime(currentAsset.created_at)}
                     </span>
                   </div>
@@ -503,7 +503,7 @@ export function AssetDetailMobile({ asset, allAssets: allAssetsProp, onClose, on
 
               {/* Description */}
               {currentAsset.description && (
-                <p className="text-sm text-zinc-400 leading-relaxed">
+                <p className="text-sm text-muted-foreground leading-relaxed">
                   {currentAsset.description}
                 </p>
               )}
@@ -527,7 +527,7 @@ export function AssetDetailMobile({ asset, allAssets: allAssetsProp, onClose, on
                   size="default"
                 />
 
-                <div className="flex items-center gap-1.5 text-zinc-400">
+                <div className="flex items-center gap-1.5 text-muted-foreground">
                   <MessageCircle className="h-5 w-5" />
                   <span className="text-sm font-medium">{comments.length}</span>
                 </div>
@@ -560,16 +560,16 @@ export function AssetDetailMobile({ asset, allAssets: allAssetsProp, onClose, on
           </div>
 
           {/* Sticky comment input at bottom of sheet */}
-          <div className="sticky bottom-0 bg-zinc-950 border-t border-zinc-900 p-4 pb-[max(16px,env(safe-area-inset-bottom))] z-10 shrink-0">
+          <div className="sticky bottom-0 bg-background border-t border-border p-4 pb-[max(16px,env(safe-area-inset-bottom))] z-10 shrink-0">
              {replyingToId && (
-               <div className="flex items-center justify-between bg-zinc-900 rounded-t-lg px-3 py-1.5 mb-2 text-xs border border-zinc-800">
-                 <span className="text-zinc-400 flex items-center gap-1">
+               <div className="flex items-center justify-between bg-muted rounded-t-lg px-3 py-1.5 mb-2 text-xs border border-border">
+                 <span className="text-muted-foreground flex items-center gap-1">
                    <Reply className="h-3 w-3" />
-                   Replying to <span className="font-medium text-zinc-300">@{replyingToUser?.username || 'unknown'}</span>
+                   Replying to <span className="font-medium text-foreground">@{replyingToUser?.username || 'unknown'}</span>
                  </span>
                  <button 
                    onClick={() => setReplyingToId(null)}
-                   className="text-zinc-500 hover:text-white p-0.5"
+                   className="text-muted-foreground hover:text-foreground p-0.5"
                  >
                    <X className="h-3 w-3" />
                  </button>
