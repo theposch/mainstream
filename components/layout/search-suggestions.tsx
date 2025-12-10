@@ -1,7 +1,6 @@
 "use client";
 
 import * as React from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Clock, Search, Image as ImageIcon, Hash, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
