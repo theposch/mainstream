@@ -373,18 +373,28 @@ export const ElementCard = React.memo(
            )}
 
            <div className="flex items-center gap-2 mt-1">
-              <Link href={`/u/${uploader?.username}`}>
-                <Avatar className="h-5 w-5 border border-border/50 shrink-0">
-                  <AvatarImage src={uploader?.avatar_url} />
-                  <AvatarFallback className="text-[10px]">
-                    {uploader?.username?.substring(0, 2).toUpperCase() || 'UN'}
-                  </AvatarFallback>
-                </Avatar>
-              </Link>
-              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                <Link href={`/u/${uploader?.username}`} className="font-medium hover:text-foreground">
-                  {uploader?.display_name || uploader?.username}
+              {uploader ? (
+                <Link href={`/u/${uploader.username}`}>
+                  <Avatar className="h-5 w-5 border border-border/50 shrink-0">
+                    <AvatarImage src={uploader.avatar_url} />
+                    <AvatarFallback className="text-[10px]">
+                      {uploader.username?.substring(0, 2).toUpperCase() || 'UN'}
+                    </AvatarFallback>
+                  </Avatar>
                 </Link>
+              ) : (
+                <Avatar className="h-5 w-5 border border-border/50 shrink-0">
+                  <AvatarFallback className="text-[10px]">UN</AvatarFallback>
+                </Avatar>
+              )}
+              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                {uploader ? (
+                  <Link href={`/u/${uploader.username}`} className="font-medium hover:text-foreground">
+                    {uploader.display_name || uploader.username}
+                  </Link>
+                ) : (
+                  <span className="font-medium">Unknown</span>
+                )}
                 <span>•</span>
                 <span>
                   {formatDistanceToNow(new Date(asset.created_at), { addSuffix: true })}
