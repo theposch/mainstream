@@ -92,64 +92,74 @@ export function NotificationsPopover() {
     setIsOpen(false);
   }, []);
 
-  const getNotificationContent = (notification: Notification) => {
-    const actor = notification.actor;
-    const asset = notification.asset;
+  // Memoize notification content data to prevent unnecessary re-renders of NotificationItem
+  const notificationDataMap = React.useMemo(() => {
+    const map = new Map<string, NotificationData | null>();
     
-    if (!actor) return null;
-
-    let content = "";
-    let link = "#";
-    let preview: string | null | undefined = null;
-
     // Helper to build link with optional comment highlight
     const buildAssetLink = (assetId: string | null, commentId?: string | null) => {
       if (!assetId) return "#";
       return commentId ? `/e/${assetId}?comment=${commentId}` : `/e/${assetId}`;
     };
 
-    switch (notification.type) {
-      case 'like_asset':
-        content = asset?.title 
-          ? `liked your post "${asset.title}"`
-          : "liked your post";
-        link = buildAssetLink(notification.resource_id);
-        break;
-      case 'comment':
-        content = asset?.title
-          ? `commented on "${asset.title}"`
-          : "commented on your post";
-        link = buildAssetLink(notification.resource_id, notification.comment_id);
-        preview = notification.content;
-        break;
-      case 'like_comment':
-        content = asset?.title
-          ? `liked your comment on "${asset.title}"`
-          : "liked your comment";
-        link = buildAssetLink(notification.resource_id, notification.comment_id);
-        break;
-      case 'reply_comment':
-        content = asset?.title
-          ? `replied to your comment on "${asset.title}"`
-          : "replied to your comment";
-        link = buildAssetLink(notification.resource_id, notification.comment_id);
-        preview = notification.content;
-        break;
-      case 'follow':
-        content = "started following you";
-        link = `/u/${actor.username}`;
-        break;
-      case 'mention':
-        content = asset?.title
-          ? `mentioned you on "${asset.title}"`
-          : "mentioned you";
-        link = buildAssetLink(notification.resource_id, notification.comment_id);
-        preview = notification.content;
-        break;
-    }
+    for (const notification of notifications) {
+      const actor = notification.actor;
+      const asset = notification.asset;
+      
+      if (!actor) {
+        map.set(notification.id, null);
+        continue;
+      }
 
-    return { actor, content, link, preview };
-  };
+      let content = "";
+      let link = "#";
+      let preview: string | null | undefined = null;
+
+      switch (notification.type) {
+        case 'like_asset':
+          content = asset?.title 
+            ? `liked your post "${asset.title}"`
+            : "liked your post";
+          link = buildAssetLink(notification.resource_id);
+          break;
+        case 'comment':
+          content = asset?.title
+            ? `commented on "${asset.title}"`
+            : "commented on your post";
+          link = buildAssetLink(notification.resource_id, notification.comment_id);
+          preview = notification.content;
+          break;
+        case 'like_comment':
+          content = asset?.title
+            ? `liked your comment on "${asset.title}"`
+            : "liked your comment";
+          link = buildAssetLink(notification.resource_id, notification.comment_id);
+          break;
+        case 'reply_comment':
+          content = asset?.title
+            ? `replied to your comment on "${asset.title}"`
+            : "replied to your comment";
+          link = buildAssetLink(notification.resource_id, notification.comment_id);
+          preview = notification.content;
+          break;
+        case 'follow':
+          content = "started following you";
+          link = `/u/${actor.username}`;
+          break;
+        case 'mention':
+          content = asset?.title
+            ? `mentioned you on "${asset.title}"`
+            : "mentioned you";
+          link = buildAssetLink(notification.resource_id, notification.comment_id);
+          preview = notification.content;
+          break;
+      }
+
+      map.set(notification.id, { actor, content, link, preview });
+    }
+    
+    return map;
+  }, [notifications]);
 
   return (
     <Popover open={isOpen} onOpenChange={setIsOpen}>
@@ -186,7 +196,7 @@ export function NotificationsPopover() {
           ) : (
             <div className="divide-y divide-border/50">
               {notifications.map((notification) => {
-                const data = getNotificationContent(notification);
+                const data = notificationDataMap.get(notification.id);
                 if (!data) return null;
 
                 return (
