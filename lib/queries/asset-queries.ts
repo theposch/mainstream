@@ -19,6 +19,9 @@ export const assetKeys = {
   details: () => [...assetKeys.all, "detail"] as const,
   detail: (id: string) => [...assetKeys.details(), id] as const,
   comments: (id: string) => [...assetKeys.all, "comments", id] as const,
+  // Feed-specific keys for infinite queries
+  recent: () => [...assetKeys.all, "recent"] as const,
+  following: () => [...assetKeys.all, "following"] as const,
 };
 
 // ============================================================================
