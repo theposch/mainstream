@@ -17,6 +17,7 @@ import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
 import type { Asset } from "@/lib/types/database";
 import { assetKeys } from "@/lib/queries/asset-queries";
 import { CACHE_TIMES, PAGE_SIZES } from "@/lib/constants/cache";
+import { buildCompositeCursor } from "@/lib/api/assets";
 
 interface AssetsResponse {
   assets: Asset[];
@@ -31,14 +32,6 @@ interface UseAssetsInfiniteReturn {
   loading: boolean;
   /** Remove an asset from the cache (for optimistic updates after deletion) */
   removeAsset: (assetId: string) => void;
-}
-
-/**
- * Build a composite cursor from an asset for pagination.
- * Format: "timestamp::id" - double colon avoids conflicts with ISO timestamp colons.
- */
-function buildCursor(asset: Asset): string {
-  return `${asset.created_at}::${asset.id}`;
 }
 
 const fetchRecentAssets = async ({ pageParam }: { pageParam: string | null }): Promise<AssetsResponse> => {
@@ -82,7 +75,7 @@ export function useAssetsInfinite(
       pages: [{
         assets: initialAssets,
         hasMore: initialAssets.length >= PAGE_SIZES.SSR_INITIAL,
-        cursor: initialAssets.length > 0 ? buildCursor(initialAssets[initialAssets.length - 1]) : null,
+        cursor: initialAssets.length > 0 ? buildCompositeCursor(initialAssets[initialAssets.length - 1]) : null,
       }],
       pageParams: [null],
     } : undefined,

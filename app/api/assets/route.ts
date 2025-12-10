@@ -8,7 +8,12 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import { parseAndValidateCursor } from '@/lib/api/assets';
+import { 
+  ASSET_BASE_SELECT, 
+  parseAndValidateCursor, 
+  buildCompositeCursor,
+  NO_CACHE_HEADERS 
+} from '@/lib/api/assets';
 
 // Force dynamic rendering to prevent caching
 export const dynamic = 'force-dynamic';
@@ -53,29 +58,13 @@ export async function GET(request: NextRequest) {
     // Get current user for like status (optional - won't fail if not authenticated)
     const { data: { user: currentUser } } = await supabase.auth.getUser();
     
-    // Build base query with all relations
-    const baseSelect = `
-      *,
-      uploader:users!uploader_id(
-        id,
-        username,
-        display_name,
-        avatar_url,
-        email
-      ),
-      asset_streams(
-        streams(*)
-      ),
-      asset_likes(count)
-    `;
-    
     // Build query with visibility filter
     // Sort by created_at DESC, then by id DESC for stable ordering
     // IMPORTANT: We use a single combined filter to avoid Supabase OR chaining issues
     // Multiple .or() calls combine with OR logic, not AND, which would break filtering
     let query = supabase
       .from('assets')
-      .select(baseSelect)
+      .select(ASSET_BASE_SELECT)
       .order('created_at', { ascending: false })
       .order('id', { ascending: false });
     
@@ -109,7 +98,7 @@ export async function GET(request: NextRequest) {
     if (error && isColumnNotFoundError) {
       let fallbackQuery = supabase
         .from('assets')
-        .select(baseSelect)
+        .select(ASSET_BASE_SELECT)
         .order('created_at', { ascending: false })
         .order('id', { ascending: false });
       
@@ -168,9 +157,9 @@ export async function GET(request: NextRequest) {
       isLikedByCurrentUser: userLikedAssetIds.has(asset.id),
     }));
     
-    // Build composite cursor: "timestamp::id" (double colon to avoid ISO timestamp conflicts)
+    // Build composite cursor using shared utility
     const lastAsset = transformedAssets[transformedAssets.length - 1];
-    const nextCursor = lastAsset ? `${lastAsset.created_at}::${lastAsset.id}` : null;
+    const nextCursor = lastAsset ? buildCompositeCursor(lastAsset) : null;
     
     return NextResponse.json(
       { 
@@ -180,11 +169,7 @@ export async function GET(request: NextRequest) {
       },
       { 
         status: 200,
-        headers: {
-          'Cache-Control': 'no-store, must-revalidate',
-          'Pragma': 'no-cache',
-          'Expires': '0',
-        }
+        headers: NO_CACHE_HEADERS
       }
     );
   } catch (error) {
