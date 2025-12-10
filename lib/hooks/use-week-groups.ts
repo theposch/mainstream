@@ -61,20 +61,29 @@ export function useWeekGroups(assets: Asset[]): WeekGroup[] {
   // Update only when week boundary changes to avoid label flicker
   const nowRef = useRef<Date>(new Date());
   
-  // Track the asset array identity to detect feed switches
-  // When the array reference changes completely (e.g., switching from recent to following),
+  // Track the asset array reference to detect feed switches
+  // When the array reference changes (e.g., switching from recent to following),
   // we need to clear the cache to avoid mixing data from different feeds
   const prevAssetsRef = useRef<Asset[]>([]);
 
   return useMemo(() => {
     // Detect if the asset array has been completely replaced (feed switch)
-    // If first asset ID differs from what we've cached, clear and start fresh
-    const prevFirstId = prevAssetsRef.current[0]?.id;
-    const currFirstId = assets[0]?.id;
+    // Compare by reference - if it's a different array, it's a different feed
+    const isNewFeed = prevAssetsRef.current !== assets && (
+      // Array is empty (clear for fresh start)
+      assets.length === 0 ||
+      // Array has different length (definitely different data)
+      prevAssetsRef.current.length !== assets.length ||
+      // First asset is different (different feed source)
+      prevAssetsRef.current[0]?.id !== assets[0]?.id ||
+      // First few assets don't match (handles reordering edge cases)
+      (assets.length >= 3 && (
+        prevAssetsRef.current[1]?.id !== assets[1]?.id ||
+        prevAssetsRef.current[2]?.id !== assets[2]?.id
+      ))
+    );
     
-    // Check if this is a completely different dataset (feed switch)
-    // Also check if array is now empty (clear cache for fresh start)
-    if (assets.length === 0 || (currFirstId && prevFirstId && currFirstId !== prevFirstId && !processedIdsRef.current.has(currFirstId))) {
+    if (isNewFeed) {
       // Clear caches for fresh dataset
       processedIdsRef.current.clear();
       weekGroupsRef.current.clear();
