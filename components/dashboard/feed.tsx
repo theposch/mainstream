@@ -15,7 +15,7 @@ import { useAssetsInfinite } from "@/lib/hooks/use-assets-infinite";
 import { useFollowingAssets } from "@/lib/hooks/use-following-assets";
 import { assetKeys, fetchAssetById } from "@/lib/queries/asset-queries";
 import { UploadDialog } from "@/components/layout/upload-dialog";
-import { useWeekGroups } from "@/lib/hooks/use-week-groups";
+import { groupAssetsByWeek } from "@/lib/utils/week-grouping";
 import type { Asset } from "@/lib/types/database";
 
 interface DashboardFeedProps {
@@ -137,11 +137,12 @@ export const DashboardFeed = React.memo(function DashboardFeed({ initialAssets }
     [debouncedQuery, searchResults, baseAssets]
   );
 
-  // Group assets by week for display using incremental grouping
-  // The hook optimizes by only processing new assets as they're loaded
-  const allWeekGroups = useWeekGroups(baseAssets);
-  // Only show week groups when not searching
-  const weekGroups = debouncedQuery.trim() ? [] : allWeekGroups;
+  // Group assets by week for display (only when not searching)
+  // Using simple pure function - reliable and predictable
+  const weekGroups = React.useMemo(
+    () => debouncedQuery.trim() ? [] : groupAssetsByWeek(baseAssets),
+    [debouncedQuery, baseAssets]
+  );
 
   // Show search result info
   const isSearching = debouncedQuery.trim().length > 0;
