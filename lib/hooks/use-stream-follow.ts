@@ -120,7 +120,7 @@ export function useStreamFollow(
         throw new Error(data.error || 'Failed to toggle follow');
       }
 
-      // Both POST and DELETE return updated follower data
+      // Both POST and DELETE return updated follower data and stream stats
       const data = await response.json();
       if (data.followers) {
         setFollowers(data.followers);
@@ -130,6 +130,17 @@ export function useStreamFollow(
       }
       if (typeof data.isFollowing === 'boolean') {
         setIsFollowing(data.isFollowing);
+      }
+      // Update stream stats (these don't change on follow/unfollow but are
+      // included for API consistency and to handle any data drift)
+      if (typeof data.contributorCount === 'number') {
+        setContributorCount(data.contributorCount);
+      }
+      if (data.contributors) {
+        setContributors(data.contributors);
+      }
+      if (typeof data.assetCount === 'number') {
+        setAssetCount(data.assetCount);
       }
     } catch (err) {
       console.error('[useStreamFollow] Error toggling follow:', err);
