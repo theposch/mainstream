@@ -137,30 +137,41 @@ export async function GET(request: NextRequest) {
     
     // Query for assets from followed users
     // Filter by visibility (exclude unlisted drop-only images)
-    // Use compound OR to ensure AND semantics with IN filter
+    // IMPORTANT: Build single combined filter to avoid Supabase OR chaining issues
+    // Multiple .or() calls combine with OR logic, not AND
     if (followingUserIds.length > 0) {
-      // Build visibility filter for each uploader_id
-      // Format: (uploader_id = X AND (visibility IS NULL OR visibility = public))
-      const userVisibilityFilter = followingUserIds
-        .map(id => `and(uploader_id.eq.${id},or(visibility.is.null,visibility.eq.public))`)
-        .join(',');
-      
       let userAssetsQuery = supabase
         .from('assets')
         .select(baseSelect)
-        .or(userVisibilityFilter)
         .order('created_at', { ascending: false })
         .order('id', { ascending: false });
       
-      // Apply composite cursor pagination if provided
+      // Build combined filter: (uploader IN followed AND visibility OK) AND cursor
       if (cursorTimestamp) {
         if (cursorId) {
-          userAssetsQuery = userAssetsQuery.or(
-            `created_at.lt.${cursorTimestamp},and(created_at.eq.${cursorTimestamp},id.lt.${cursorId})`
-          );
+          // Combined filter with composite cursor
+          // Each uploader filter includes visibility AND cursor conditions
+          const userCursorFilter = followingUserIds
+            .map(id => 
+              `and(uploader_id.eq.${id},or(visibility.is.null,visibility.eq.public),or(created_at.lt.${cursorTimestamp},and(created_at.eq.${cursorTimestamp},id.lt.${cursorId})))`
+            )
+            .join(',');
+          userAssetsQuery = userAssetsQuery.or(userCursorFilter);
         } else {
-          userAssetsQuery = userAssetsQuery.lt('created_at', cursorTimestamp);
+          // Combined filter with simple timestamp cursor
+          const userCursorFilter = followingUserIds
+            .map(id => 
+              `and(uploader_id.eq.${id},or(visibility.is.null,visibility.eq.public),created_at.lt.${cursorTimestamp})`
+            )
+            .join(',');
+          userAssetsQuery = userAssetsQuery.or(userCursorFilter);
         }
+      } else {
+        // No cursor - just uploader + visibility filter
+        const userVisibilityFilter = followingUserIds
+          .map(id => `and(uploader_id.eq.${id},or(visibility.is.null,visibility.eq.public))`)
+          .join(',');
+        userAssetsQuery = userAssetsQuery.or(userVisibilityFilter);
       }
       
       userAssetsQuery = userAssetsQuery.limit(fetchLimit);
@@ -170,29 +181,39 @@ export async function GET(request: NextRequest) {
     
     // Query for assets from followed streams
     // Filter by visibility (exclude unlisted drop-only images)
+    // IMPORTANT: Build single combined filter to avoid Supabase OR chaining issues
     if (streamAssetIds.length > 0) {
-      // Build visibility filter for each asset_id
-      // Format: (id = X AND (visibility IS NULL OR visibility = public))
-      const streamVisibilityFilter = streamAssetIds
-        .map(id => `and(id.eq.${id},or(visibility.is.null,visibility.eq.public))`)
-        .join(',');
-      
       let streamAssetsQuery = supabase
         .from('assets')
         .select(baseSelect)
-        .or(streamVisibilityFilter)
         .order('created_at', { ascending: false })
         .order('id', { ascending: false });
       
-      // Apply composite cursor pagination if provided
+      // Build combined filter: (id IN stream assets AND visibility OK) AND cursor
       if (cursorTimestamp) {
         if (cursorId) {
-          streamAssetsQuery = streamAssetsQuery.or(
-            `created_at.lt.${cursorTimestamp},and(created_at.eq.${cursorTimestamp},id.lt.${cursorId})`
-          );
+          // Combined filter with composite cursor
+          const streamCursorFilter = streamAssetIds
+            .map(id => 
+              `and(id.eq.${id},or(visibility.is.null,visibility.eq.public),or(created_at.lt.${cursorTimestamp},and(created_at.eq.${cursorTimestamp},id.lt.${cursorId})))`
+            )
+            .join(',');
+          streamAssetsQuery = streamAssetsQuery.or(streamCursorFilter);
         } else {
-          streamAssetsQuery = streamAssetsQuery.lt('created_at', cursorTimestamp);
+          // Combined filter with simple timestamp cursor
+          const streamCursorFilter = streamAssetIds
+            .map(id => 
+              `and(id.eq.${id},or(visibility.is.null,visibility.eq.public),created_at.lt.${cursorTimestamp})`
+            )
+            .join(',');
+          streamAssetsQuery = streamAssetsQuery.or(streamCursorFilter);
         }
+      } else {
+        // No cursor - just asset id + visibility filter
+        const streamVisibilityFilter = streamAssetIds
+          .map(id => `and(id.eq.${id},or(visibility.is.null,visibility.eq.public))`)
+          .join(',');
+        streamAssetsQuery = streamAssetsQuery.or(streamVisibilityFilter);
       }
 
       streamAssetsQuery = streamAssetsQuery.limit(fetchLimit);
