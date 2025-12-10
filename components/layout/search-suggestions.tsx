@@ -9,6 +9,134 @@ import { Avatar } from "@/components/ui/avatar";
 import { SEARCH_CONSTANTS } from "@/lib/constants/search";
 import type { Asset, Stream, User } from "@/lib/types/database";
 
+// Suggestion item type
+type SuggestionItem = {
+  type: "recent" | "asset" | "stream" | "user" | "viewAll";
+  id: string;
+  label: string;
+  href?: string;
+  icon?: React.ReactNode;
+  thumbnail?: string;
+  subtitle?: string;
+  data?: Asset | Stream | User;
+};
+
+// Memoized suggestion item components
+interface SuggestionItemProps {
+  suggestion: SuggestionItem;
+  isSelected: boolean;
+  onSelect: () => void;
+}
+
+const AssetSuggestionItem = React.memo(function AssetSuggestionItem({
+  suggestion,
+  isSelected,
+  onSelect,
+}: SuggestionItemProps) {
+  return (
+    <button
+      role="option"
+      aria-selected={isSelected}
+      onClick={onSelect}
+      className={cn(
+        "w-full flex items-center gap-3 px-3 py-2 text-sm text-left transition-colors cursor-pointer",
+        "hover:bg-accent",
+        isSelected && "bg-accent"
+      )}
+    >
+      <div className="relative w-12 h-12 rounded overflow-hidden flex-shrink-0 bg-muted">
+        <img 
+          src={suggestion.thumbnail} 
+          alt={suggestion.label}
+          className="w-full h-full object-cover"
+          onError={(e) => {
+            e.currentTarget.style.display = 'none';
+          }}
+        />
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="font-medium truncate">{suggestion.label}</div>
+        {suggestion.subtitle && (
+          <div className="text-xs text-muted-foreground truncate">
+            by {suggestion.subtitle}
+          </div>
+        )}
+      </div>
+      <ImageIcon className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+    </button>
+  );
+});
+
+const UserSuggestionItem = React.memo(function UserSuggestionItem({
+  suggestion,
+  isSelected,
+  onSelect,
+}: SuggestionItemProps) {
+  return (
+    <button
+      role="option"
+      aria-selected={isSelected}
+      onClick={onSelect}
+      className={cn(
+        "w-full flex items-center gap-3 px-3 py-2 text-sm text-left transition-colors cursor-pointer",
+        "hover:bg-accent",
+        isSelected && "bg-accent"
+      )}
+    >
+      <Avatar className="w-8 h-8 flex-shrink-0">
+        <img 
+          src={suggestion.thumbnail} 
+          alt={suggestion.label}
+          onError={(e) => {
+            e.currentTarget.style.display = 'none';
+          }}
+        />
+      </Avatar>
+      <div className="flex-1 min-w-0">
+        <div className="font-medium truncate">{suggestion.label}</div>
+        {suggestion.subtitle && (
+          <div className="text-xs text-muted-foreground truncate">
+            {suggestion.subtitle}
+          </div>
+        )}
+      </div>
+      <Users className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+    </button>
+  );
+});
+
+const DefaultSuggestionItem = React.memo(function DefaultSuggestionItem({
+  suggestion,
+  isSelected,
+  onSelect,
+}: SuggestionItemProps) {
+  return (
+    <button
+      role="option"
+      aria-selected={isSelected}
+      onClick={onSelect}
+      className={cn(
+        "w-full flex items-center gap-3 px-3 py-2 text-sm text-left transition-colors cursor-pointer",
+        "hover:bg-accent",
+        isSelected && "bg-accent"
+      )}
+    >
+      <span className="text-muted-foreground flex-shrink-0">{suggestion.icon}</span>
+      <div className="flex-1 min-w-0">
+        <div className="truncate">{suggestion.label}</div>
+        {suggestion.subtitle && (
+          <div className="text-xs text-muted-foreground truncate line-clamp-1">
+            {suggestion.subtitle}
+          </div>
+        )}
+      </div>
+      {suggestion.type === "viewAll" && (
+        <span className="text-xs text-muted-foreground flex-shrink-0">→</span>
+      )}
+    </button>
+  );
+});
+
 interface SearchSuggestionsProps {
   query: string;
   isOpen: boolean;
@@ -77,16 +205,7 @@ export function SearchSuggestions({
 
   // Build suggestions list with full data for rendering
   const suggestions = React.useMemo(() => {
-    const items: Array<{
-      type: "recent" | "asset" | "stream" | "user" | "viewAll";
-      id: string;
-      label: string;
-      href?: string;
-      icon?: React.ReactNode;
-      thumbnail?: string;
-      subtitle?: string;
-      data?: Asset | Stream | User;
-    }> = [];
+    const items: SuggestionItem[] = [];
 
     // Show recent searches if no query
     if (!query.trim() && recentSearches.length > 0) {
@@ -247,106 +366,37 @@ export function SearchSuggestions({
             // Render asset with thumbnail
             if (suggestion.type === "asset" && suggestion.thumbnail) {
               return (
-                <button
+                <AssetSuggestionItem
                   key={suggestion.id}
-                  role="option"
-                  aria-selected={selectedIndex === index}
-                  onClick={() => handleSelectSuggestion(suggestion)}
-                  className={cn(
-                    "w-full flex items-center gap-3 px-3 py-2 text-sm text-left transition-colors cursor-pointer",
-                    "hover:bg-accent",
-                    selectedIndex === index && "bg-accent"
-                  )}
-                >
-                <div className="relative w-12 h-12 rounded overflow-hidden flex-shrink-0 bg-muted">
-                  <img 
-                    src={suggestion.thumbnail} 
-                    alt={suggestion.label}
-                    className="w-full h-full object-cover"
-                    onError={(e) => {
-                      // Fallback if image fails to load
-                      e.currentTarget.style.display = 'none';
-                    }}
-                  />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="font-medium truncate">{suggestion.label}</div>
-                  {suggestion.subtitle && (
-                    <div className="text-xs text-muted-foreground truncate">
-                      by {suggestion.subtitle}
-                    </div>
-                  )}
-                </div>
-                <ImageIcon className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-              </button>
-            );
-          }
+                  suggestion={suggestion}
+                  isSelected={selectedIndex === index}
+                  onSelect={() => handleSelectSuggestion(suggestion)}
+                />
+              );
+            }
 
-          // Render user with avatar
-          if (suggestion.type === "user" && suggestion.thumbnail) {
+            // Render user with avatar
+            if (suggestion.type === "user" && suggestion.thumbnail) {
+              return (
+                <UserSuggestionItem
+                  key={suggestion.id}
+                  suggestion={suggestion}
+                  isSelected={selectedIndex === index}
+                  onSelect={() => handleSelectSuggestion(suggestion)}
+                />
+              );
+            }
+
+            // Render other types (recent, stream, viewAll)
             return (
-              <button
+              <DefaultSuggestionItem
                 key={suggestion.id}
-                role="option"
-                aria-selected={selectedIndex === index}
-                onClick={() => handleSelectSuggestion(suggestion)}
-                className={cn(
-                  "w-full flex items-center gap-3 px-3 py-2 text-sm text-left transition-colors cursor-pointer",
-                  "hover:bg-accent",
-                  selectedIndex === index && "bg-accent"
-                )}
-              >
-                <Avatar className="w-8 h-8 flex-shrink-0">
-                  <img 
-                    src={suggestion.thumbnail} 
-                    alt={suggestion.label}
-                    onError={(e) => {
-                      // Fallback if image fails to load
-                      e.currentTarget.style.display = 'none';
-                    }}
-                  />
-                </Avatar>
-                <div className="flex-1 min-w-0">
-                  <div className="font-medium truncate">{suggestion.label}</div>
-                  {suggestion.subtitle && (
-                    <div className="text-xs text-muted-foreground truncate">
-                      {suggestion.subtitle}
-                    </div>
-                  )}
-                </div>
-                  <Users className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-              </button>
+                suggestion={suggestion}
+                isSelected={selectedIndex === index}
+                onSelect={() => handleSelectSuggestion(suggestion)}
+              />
             );
-          }
-
-          // Render other types (recent, stream, viewAll)
-          return (
-            <button
-              key={suggestion.id}
-              role="option"
-              aria-selected={selectedIndex === index}
-              onClick={() => handleSelectSuggestion(suggestion)}
-              className={cn(
-                "w-full flex items-center gap-3 px-3 py-2 text-sm text-left transition-colors cursor-pointer",
-                "hover:bg-accent",
-                selectedIndex === index && "bg-accent"
-              )}
-            >
-              <span className="text-muted-foreground flex-shrink-0">{suggestion.icon}</span>
-              <div className="flex-1 min-w-0">
-                <div className="truncate">{suggestion.label}</div>
-                {suggestion.subtitle && (
-                  <div className="text-xs text-muted-foreground truncate line-clamp-1">
-                    {suggestion.subtitle}
-                  </div>
-                )}
-              </div>
-              {suggestion.type === "viewAll" && (
-                <span className="text-xs text-muted-foreground flex-shrink-0">→</span>
-              )}
-            </button>
-          );
-        })
+          })
         )}
       </div>
     </div>

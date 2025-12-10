@@ -15,17 +15,82 @@ import { formatRelativeTime } from "@/lib/utils/time";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
 
+// Notification content data type
+interface NotificationData {
+  actor: { username: string; display_name: string; avatar_url?: string };
+  content: string;
+  link: string;
+  preview?: string | null;
+}
+
+// Memoized notification item component
+interface NotificationItemProps {
+  notification: Notification;
+  data: NotificationData;
+  onRead: (id: string) => void;
+  onClose: () => void;
+}
+
+const NotificationItem = React.memo(function NotificationItem({
+  notification,
+  data,
+  onRead,
+  onClose,
+}: NotificationItemProps) {
+  const handleClick = React.useCallback(() => {
+    onRead(notification.id);
+    onClose();
+  }, [onRead, onClose, notification.id]);
+
+  return (
+    <Link
+      href={data.link}
+      onClick={handleClick}
+      className={cn(
+        "flex items-start gap-3 px-4 py-3 hover:bg-accent/50 transition-colors",
+        !notification.is_read && "bg-accent/30"
+      )}
+    >
+      <Avatar className="h-8 w-8 border border-border mt-0.5">
+        <AvatarImage src={data.actor.avatar_url} />
+        <AvatarFallback>{data.actor.username.charAt(0).toUpperCase()}</AvatarFallback>
+      </Avatar>
+      <div className="flex-1 space-y-1">
+        <p className="text-sm text-muted-foreground leading-snug">
+          <span className="font-medium text-foreground">{data.actor.display_name}</span>{" "}
+          {data.content}
+        </p>
+        {data.preview && (
+          <p className="text-sm text-muted-foreground/80 line-clamp-2 italic">
+            &quot;{data.preview}&quot;
+          </p>
+        )}
+        <p className="text-xs text-muted-foreground">
+          {formatRelativeTime(notification.created_at)}
+        </p>
+      </div>
+      {!notification.is_read && (
+        <div className="h-2 w-2 rounded-full bg-blue-500 mt-2 shrink-0" />
+      )}
+    </Link>
+  );
+});
+
 export function NotificationsPopover() {
   const { notifications, unreadCount, markAsRead, markAllAsRead, loading } = useNotifications();
   const [isOpen, setIsOpen] = React.useState(false);
 
-  const handleMarkAsRead = async (id: string) => {
+  const handleMarkAsRead = React.useCallback(async (id: string) => {
     await markAsRead(id);
-  };
+  }, [markAsRead]);
 
-  const handleMarkAllAsRead = async () => {
+  const handleMarkAllAsRead = React.useCallback(async () => {
     await markAllAsRead();
-  };
+  }, [markAllAsRead]);
+
+  const handleClosePopover = React.useCallback(() => {
+    setIsOpen(false);
+  }, []);
 
   const getNotificationContent = (notification: Notification) => {
     const actor = notification.actor;
@@ -125,40 +190,13 @@ export function NotificationsPopover() {
                 if (!data) return null;
 
                 return (
-                  <Link
+                  <NotificationItem
                     key={notification.id}
-                    href={data.link}
-                    onClick={() => {
-                        handleMarkAsRead(notification.id);
-                        setIsOpen(false);
-                    }}
-                    className={cn(
-                      "flex items-start gap-3 px-4 py-3 hover:bg-accent/50 transition-colors",
-                      !notification.is_read && "bg-accent/30"
-                    )}
-                  >
-                    <Avatar className="h-8 w-8 border border-border mt-0.5">
-                      <AvatarImage src={data.actor.avatar_url} />
-                      <AvatarFallback>{data.actor.username.charAt(0).toUpperCase()}</AvatarFallback>
-                    </Avatar>
-                    <div className="flex-1 space-y-1">
-                      <p className="text-sm text-muted-foreground leading-snug">
-                        <span className="font-medium text-foreground">{data.actor.display_name}</span>{" "}
-                        {data.content}
-                      </p>
-                      {data.preview && (
-                        <p className="text-sm text-muted-foreground/80 line-clamp-2 italic">
-                          "{data.preview}"
-                        </p>
-                      )}
-                      <p className="text-xs text-muted-foreground">
-                        {formatRelativeTime(notification.created_at)}
-                      </p>
-                    </div>
-                    {!notification.is_read && (
-                      <div className="h-2 w-2 rounded-full bg-blue-500 mt-2 shrink-0" />
-                    )}
-                  </Link>
+                    notification={notification}
+                    data={data}
+                    onRead={handleMarkAsRead}
+                    onClose={handleClosePopover}
+                  />
                 );
               })}
             </div>

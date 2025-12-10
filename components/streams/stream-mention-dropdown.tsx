@@ -7,6 +7,78 @@ import type { Stream } from "@/lib/types/database";
 import { cn } from "@/lib/utils";
 import { useStreamDropdownOptions } from "@/lib/hooks/use-stream-dropdown-options";
 
+// Memoized dropdown option to prevent unnecessary re-renders
+interface DropdownOptionProps {
+  option: { id: string; name: string } | { name: string; isNew: true };
+  index: number;
+  selectedIndex: number;
+  isSelected: boolean;
+  onSelect: (streamName: string, isNew: boolean) => void;
+  onHover: (index: number) => void;
+}
+
+const DropdownOption = React.memo(function DropdownOption({
+  option,
+  index,
+  selectedIndex,
+  isSelected,
+  onSelect,
+  onHover,
+}: DropdownOptionProps) {
+  const isNew = 'isNew' in option;
+  const streamName = option.name;
+
+  const handleClick = React.useCallback(() => {
+    onSelect(streamName, isNew);
+  }, [onSelect, streamName, isNew]);
+
+  const handleMouseEnter = React.useCallback(() => {
+    onHover(index);
+  }, [onHover, index]);
+
+  return (
+    <button
+      onClick={handleClick}
+      onMouseEnter={handleMouseEnter}
+      className={cn(
+        "w-full flex items-center gap-3 px-3 py-2 text-left transition-colors cursor-pointer",
+        selectedIndex === index && "bg-accent",
+        "hover:bg-accent"
+      )}
+    >
+      <div className={cn(
+        "flex items-center justify-center w-8 h-8 rounded-md shrink-0",
+        isNew ? "bg-blue-500/20" : "bg-muted"
+      )}>
+        {isNew ? (
+          <Plus className="h-4 w-4 text-blue-400" />
+        ) : (
+          <Hash className="h-4 w-4 text-muted-foreground" />
+        )}
+      </div>
+      
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2">
+          <span className={cn(
+            "text-sm font-medium truncate",
+            isNew ? "text-blue-400" : "text-foreground"
+          )}>
+            #{streamName}
+          </span>
+          {isSelected && (
+            <Check className="h-3 w-3 text-green-500 shrink-0" />
+          )}
+        </div>
+        {isNew && (
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Create new stream
+          </p>
+        )}
+      </div>
+    </button>
+  );
+});
+
 interface StreamMentionDropdownProps {
   query: string;
   streams: Stream[];
@@ -108,50 +180,18 @@ export function StreamMentionDropdown({
       <div className="max-h-[240px] overflow-y-auto py-1">
         {allOptions.map((option, index) => {
           const isNew = 'isNew' in option;
-          const streamName = option.name; // Stream names are already slugs
           const isSelected = !isNew && selectedStreamIds.includes(option.id);
 
           return (
-            <button
+            <DropdownOption
               key={isNew ? '__create__' : option.id}
-              onClick={() => onSelect(streamName, isNew)}
-              onMouseEnter={() => setSelectedIndex(index)}
-              className={cn(
-                "w-full flex items-center gap-3 px-3 py-2 text-left transition-colors cursor-pointer",
-                selectedIndex === index && "bg-accent",
-                "hover:bg-accent"
-              )}
-            >
-              <div className={cn(
-                "flex items-center justify-center w-8 h-8 rounded-md shrink-0",
-                isNew ? "bg-blue-500/20" : "bg-muted"
-              )}>
-                {isNew ? (
-                  <Plus className="h-4 w-4 text-blue-400" />
-                ) : (
-                  <Hash className="h-4 w-4 text-muted-foreground" />
-                )}
-              </div>
-              
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <span className={cn(
-                    "text-sm font-medium truncate",
-                    isNew ? "text-blue-400" : "text-foreground"
-                  )}>
-                    #{streamName}
-                  </span>
-                  {isSelected && (
-                    <Check className="h-3 w-3 text-green-500 shrink-0" />
-                  )}
-                </div>
-                {isNew && (
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    Create new stream
-                  </p>
-                )}
-              </div>
-            </button>
+              option={option}
+              index={index}
+              selectedIndex={selectedIndex}
+              isSelected={isSelected}
+              onSelect={onSelect}
+              onHover={setSelectedIndex}
+            />
           );
         })}
       </div>
