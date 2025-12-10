@@ -142,11 +142,11 @@ export function DropBlocksEditorClient({
   return (
     <div className="min-h-screen pb-20">
       {/* Header */}
-      <div className="sticky top-0 z-40 bg-black/80 backdrop-blur-xl border-b border-zinc-800">
+      <div className="sticky top-0 z-40 bg-background/80 backdrop-blur-xl border-b border-border">
         <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
           <Link
             href="/drops?tab=drafts"
-            className="flex items-center gap-2 text-zinc-400 hover:text-white transition-colors"
+            className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors"
           >
             <ArrowLeft className="h-4 w-4" />
             <span>Back</span>
@@ -158,7 +158,7 @@ export function DropBlocksEditorClient({
               className={`flex items-center gap-2 px-3 py-1.5 text-sm rounded-lg transition-colors ${
                 showPreview 
                   ? "bg-violet-500/20 text-violet-400" 
-                  : "text-zinc-400 hover:text-white hover:bg-zinc-800"
+                  : "text-muted-foreground hover:text-foreground hover:bg-accent"
               }`}
             >
               {showPreview ? (
@@ -175,7 +175,7 @@ export function DropBlocksEditorClient({
             </button>
             <button
               onClick={() => window.open(`/api/drops/${drop.id}/email-preview`, '_blank')}
-              className="flex items-center gap-2 px-3 py-1.5 text-sm rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors"
+              className="flex items-center gap-2 px-3 py-1.5 text-sm rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
               title="Preview as email"
             >
               <Mail className="h-4 w-4" />
@@ -230,16 +230,16 @@ export function DropBlocksEditorClient({
         <div className="max-w-3xl mx-auto py-10 px-4">
           {/* Title */}
           <div className="text-center mb-8">
-            <p className="text-xs text-zinc-500 uppercase tracking-wider mb-4">Mainstream</p>
+            <p className="text-xs text-muted-foreground uppercase tracking-wider mb-4">Mainstream</p>
             <input
               type="text"
               value={title}
               onChange={(e) => handleTitleChange(e.target.value)}
               placeholder="Enter title..."
-              className="w-full text-3xl font-bold text-white bg-transparent border-none text-center outline-none placeholder:text-zinc-700"
+              className="w-full text-3xl font-bold text-foreground bg-transparent border-none text-center outline-none placeholder:text-muted-foreground/50"
             />
             {drop.date_range_start && drop.date_range_end && (
-              <p className="text-sm text-zinc-500 mt-2">
+              <p className="text-sm text-muted-foreground mt-2">
                 {/* Extract date portion to avoid timezone shifts */}
                 {new Date(`${drop.date_range_start.substring(0, 10)}T12:00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
                 {" – "}
@@ -247,13 +247,13 @@ export function DropBlocksEditorClient({
               </p>
             )}
             {isSaving && (
-              <p className="text-xs text-zinc-500 mt-2">Saving...</p>
+              <p className="text-xs text-muted-foreground mt-2">Saving...</p>
             )}
           </div>
 
           {/* Description field - always visible, can't be removed */}
           <div className="mb-6">
-            <div className="border border-zinc-800 rounded-xl overflow-hidden">
+            <div className="border border-border rounded-xl overflow-hidden">
               <textarea
                 value={description}
                 onChange={(e) => {
@@ -269,9 +269,9 @@ export function DropBlocksEditorClient({
                   }
                 }}
                 placeholder="Add a description for your drop..."
-                className="w-full min-h-[80px] bg-transparent border-none p-5 text-base leading-relaxed text-zinc-300 placeholder:text-zinc-600 resize-none outline-none text-center"
+                className="w-full min-h-[80px] bg-transparent border-none p-5 text-base leading-relaxed text-muted-foreground placeholder:text-muted-foreground/50 resize-none outline-none text-center"
               />
-              <div className="flex justify-end px-4 py-2 border-t border-zinc-800/50">
+              <div className="flex justify-end px-4 py-2 border-t border-border/50">
                 <button
                   onClick={handleGenerateDescription}
                   disabled={isGenerating || postCount === 0}
@@ -313,7 +313,7 @@ export function DropBlocksEditorClient({
                         className="w-12 h-12 object-cover"
                       />
                     ) : (
-                      <div className="w-12 h-12 bg-zinc-700 flex items-center justify-center text-white text-sm font-medium">
+                      <div className="w-12 h-12 bg-muted flex items-center justify-center text-foreground text-sm font-medium">
                         {contributor.display_name.charAt(0).toUpperCase()}
                       </div>
                     )}
@@ -321,7 +321,7 @@ export function DropBlocksEditorClient({
                 ))}
                 {contributors.length > 5 && (
                   <div
-                    className="relative w-12 h-12 rounded-full border-2 border-black bg-zinc-800 flex items-center justify-center text-zinc-400 text-sm font-medium"
+                    className="relative w-12 h-12 rounded-full border-2 border-background bg-muted flex items-center justify-center text-muted-foreground text-sm font-medium"
                     style={{ zIndex: 0 }}
                   >
                     +{contributors.length - 5}
@@ -331,7 +331,7 @@ export function DropBlocksEditorClient({
             )}
             
             {/* Post count and contributor names */}
-            <p className="text-zinc-500 text-sm">
+            <p className="text-muted-foreground text-sm">
               {postCount > 0 ? (
                 <>
                   {postCount} post{postCount !== 1 ? "s" : ""} from{" "}
@@ -352,7 +352,7 @@ export function DropBlocksEditorClient({
           </div>
 
           {/* Fixed divider - can't be removed */}
-          <hr className="border-zinc-800 mb-8" />
+          <hr className="border-border mb-8" />
 
           {/* Block editor */}
           <BlockEditor
@@ -364,7 +364,7 @@ export function DropBlocksEditorClient({
 
           {/* Empty state */}
           {blocks.length === 0 && (
-            <div className="text-center py-16 text-zinc-500">
+            <div className="text-center py-16 text-muted-foreground">
               <p className="mb-2">Your drop is empty</p>
               <p className="text-sm">Click the + button above to add content</p>
             </div>

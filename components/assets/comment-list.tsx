@@ -69,7 +69,7 @@ export const CommentList = React.memo(function CommentList({
 
   if (comments.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-10 text-center text-zinc-500">
+      <div className="flex flex-col items-center justify-center py-10 text-center text-muted-foreground">
         <p className="text-sm">No comments yet.</p>
         <p className="text-xs mt-1">Be the first to share your thoughts!</p>
       </div>
@@ -99,7 +99,7 @@ export const CommentList = React.memo(function CommentList({
 
             {/* Replies */}
             {replies.length > 0 && (
-              <div className="pl-11 space-y-3 relative before:absolute before:left-[22px] before:top-0 before:bottom-4 before:w-px before:bg-zinc-800">
+              <div className="pl-11 space-y-3 relative before:absolute before:left-[22px] before:top-0 before:bottom-4 before:w-px before:bg-border">
                 {replies.map((reply) => (
                   <CommentItem
                     key={reply.id}

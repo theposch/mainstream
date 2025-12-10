@@ -342,7 +342,7 @@ export function UserPicker({
                 type="button"
                 variant="outline"
                 size="sm"
-                className="h-8 border rounded-full px-3 text-xs font-medium bg-zinc-900/50 border-zinc-700 hover:bg-zinc-900 hover:text-white hover:border-zinc-600 text-zinc-400"
+                className="h-8 border rounded-full px-3 text-xs font-medium bg-muted/50 border-border hover:bg-muted hover:text-foreground hover:border-border text-muted-foreground"
                 disabled={disabled}
               >
                 <UserIcon className="mr-1.5 h-3.5 w-3.5" />

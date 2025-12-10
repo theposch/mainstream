@@ -135,7 +135,7 @@ interface UserDetailPanelProps {
 const roleConfig: Record<PlatformRole, { label: string; icon: React.ElementType; color: string }> = {
   owner: { label: "Owner", icon: Crown, color: "bg-amber-500/10 text-amber-500 border-amber-500/20" },
   admin: { label: "Admin", icon: ShieldCheck, color: "bg-blue-500/10 text-blue-500 border-blue-500/20" },
-  user: { label: "User", icon: Shield, color: "bg-zinc-500/10 text-zinc-400 border-zinc-500/20" },
+  user: { label: "User", icon: Shield, color: "bg-muted text-muted-foreground border-border" },
 };
 
 const activityIcons = {
@@ -876,7 +876,7 @@ function ManageTab({
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
                   <DropdownMenuItem onClick={() => onRoleChange("user")} disabled={currentRole === "user"}>
-                    <Shield className="h-4 w-4 mr-2 text-zinc-400" /> User
+                    <Shield className="h-4 w-4 mr-2 text-muted-foreground" /> User
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => onRoleChange("admin")} disabled={currentRole === "admin"}>
                     <ShieldCheck className="h-4 w-4 mr-2 text-blue-500" /> Admin
