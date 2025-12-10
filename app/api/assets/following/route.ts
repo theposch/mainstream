@@ -15,7 +15,7 @@ export const dynamic = 'force-dynamic';
  * GET /api/assets/following
  * 
  * Query parameters:
- * - cursor: created_at timestamp for pagination (optional)
+ * - cursor: composite cursor "timestamp:id" for pagination (optional)
  * - limit: number of assets to fetch (default: 20, max: 50)
  * 
  * Returns assets from:
@@ -27,8 +27,22 @@ export const dynamic = 'force-dynamic';
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
-    const cursor = searchParams.get('cursor');
+    const cursorParam = searchParams.get('cursor');
     const limit = Math.min(parseInt(searchParams.get('limit') || '20'), 50);
+    
+    // Parse composite cursor: "timestamp:id"
+    let cursorTimestamp: string | null = null;
+    let cursorId: string | null = null;
+    if (cursorParam) {
+      const lastColonIndex = cursorParam.lastIndexOf(':');
+      if (lastColonIndex > 0) {
+        cursorTimestamp = cursorParam.substring(0, lastColonIndex);
+        cursorId = cursorParam.substring(lastColonIndex + 1);
+      } else {
+        // Fallback: treat entire cursor as timestamp (backwards compatibility)
+        cursorTimestamp = cursorParam;
+      }
+    }
 
     const supabase = await createClient();
     
@@ -135,16 +149,22 @@ export async function GET(request: NextRequest) {
       let userAssetsQuery = supabase
         .from('assets')
         .select(baseSelect)
-        .or(userVisibilityFilter);
+        .or(userVisibilityFilter)
+        .order('created_at', { ascending: false })
+        .order('id', { ascending: false });
       
-      // Apply cursor filter BEFORE limit for correct pagination semantics
-      if (cursor) {
-        userAssetsQuery = userAssetsQuery.lt('created_at', cursor);
+      // Apply composite cursor pagination if provided
+      if (cursorTimestamp) {
+        if (cursorId) {
+          userAssetsQuery = userAssetsQuery.or(
+            `created_at.lt.${cursorTimestamp},and(created_at.eq.${cursorTimestamp},id.lt.${cursorId})`
+          );
+        } else {
+          userAssetsQuery = userAssetsQuery.lt('created_at', cursorTimestamp);
+        }
       }
       
-      userAssetsQuery = userAssetsQuery
-        .order('created_at', { ascending: false })
-        .limit(fetchLimit);
+      userAssetsQuery = userAssetsQuery.limit(fetchLimit);
       
       assetQueries.push(userAssetsQuery);
     }
@@ -161,16 +181,22 @@ export async function GET(request: NextRequest) {
       let streamAssetsQuery = supabase
         .from('assets')
         .select(baseSelect)
-        .or(streamVisibilityFilter);
-
-      // Apply cursor filter BEFORE limit for correct pagination semantics
-      if (cursor) {
-        streamAssetsQuery = streamAssetsQuery.lt('created_at', cursor);
+        .or(streamVisibilityFilter)
+        .order('created_at', { ascending: false })
+        .order('id', { ascending: false });
+      
+      // Apply composite cursor pagination if provided
+      if (cursorTimestamp) {
+        if (cursorId) {
+          streamAssetsQuery = streamAssetsQuery.or(
+            `created_at.lt.${cursorTimestamp},and(created_at.eq.${cursorTimestamp},id.lt.${cursorId})`
+          );
+        } else {
+          streamAssetsQuery = streamAssetsQuery.lt('created_at', cursorTimestamp);
+        }
       }
 
-      streamAssetsQuery = streamAssetsQuery
-        .order('created_at', { ascending: false })
-        .limit(fetchLimit);
+      streamAssetsQuery = streamAssetsQuery.limit(fetchLimit);
       
       assetQueries.push(streamAssetsQuery);
     }
@@ -204,9 +230,14 @@ export async function GET(request: NextRequest) {
       });
     });
     
-    // Sort by created_at DESC
+    // Sort by created_at DESC, then by id DESC for stable ordering
     const allMergedAssets = Array.from(assetMap.values())
-      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+      .sort((a, b) => {
+        const timeCompare = new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+        if (timeCompare !== 0) return timeCompare;
+        // If timestamps are equal, sort by id DESC for stable ordering
+        return b.id.localeCompare(a.id);
+      });
     
     // hasMore is true if:
     // 1. Any individual query returned fetchLimit items (indicating more in that source), OR
@@ -241,10 +272,14 @@ export async function GET(request: NextRequest) {
       isLikedByCurrentUser: userLikedAssetIds.has(asset.id),
     }));
 
+    // Build composite cursor: "timestamp:id"
+    const lastAsset = assets[assets.length - 1];
+    const nextCursor = lastAsset ? `${lastAsset.created_at}:${lastAsset.id}` : null;
+    
     return NextResponse.json({
       assets: assets || [],
       hasMore,
-      cursor: assets && assets.length > 0 ? assets[assets.length - 1].created_at : null
+      cursor: nextCursor
     });
   } catch (error) {
     console.error('[GET /api/assets/following] Error:', error);

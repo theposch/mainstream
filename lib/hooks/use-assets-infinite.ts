@@ -17,10 +17,14 @@ import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
 import type { Asset } from "@/lib/types/database";
 import { assetKeys } from "@/lib/queries/asset-queries";
 
+// Page sizes - SSR initial load is larger for better UX, subsequent fetches are smaller
+const SSR_INITIAL_PAGE_SIZE = 50; // Must match app/home/page.tsx limit
+const CLIENT_PAGE_SIZE = 20;
+
 interface AssetsResponse {
   assets: Asset[];
   hasMore: boolean;
-  cursor: string | null;
+  cursor: string | null; // Composite cursor: "timestamp:id"
 }
 
 interface UseAssetsInfiniteReturn {
@@ -32,12 +36,20 @@ interface UseAssetsInfiniteReturn {
   removeAsset: (assetId: string) => void;
 }
 
+/**
+ * Build a composite cursor from an asset for pagination.
+ * Format: "timestamp:id" - ensures uniqueness even with identical timestamps.
+ */
+function buildCursor(asset: Asset): string {
+  return `${asset.created_at}:${asset.id}`;
+}
+
 const fetchRecentAssets = async ({ pageParam }: { pageParam: string | null }): Promise<AssetsResponse> => {
   const url = new URL('/api/assets', window.location.origin);
   if (pageParam) {
     url.searchParams.set('cursor', pageParam);
   }
-  url.searchParams.set('limit', '20');
+  url.searchParams.set('limit', String(CLIENT_PAGE_SIZE));
 
   const response = await fetch(url.toString());
 
@@ -65,11 +77,12 @@ export function useAssetsInfinite(
     initialPageParam: null as string | null,
     getNextPageParam: (lastPage) => lastPage.hasMore ? lastPage.cursor : undefined,
     // Hydrate with initial data from SSR
+    // Note: SSR fetches SSR_INITIAL_PAGE_SIZE (50) items, so check against that threshold
     initialData: initialAssets.length > 0 ? {
       pages: [{
         assets: initialAssets,
-        hasMore: initialAssets.length >= 20,
-        cursor: initialAssets.length > 0 ? initialAssets[initialAssets.length - 1].created_at : null,
+        hasMore: initialAssets.length >= SSR_INITIAL_PAGE_SIZE,
+        cursor: initialAssets.length > 0 ? buildCursor(initialAssets[initialAssets.length - 1]) : null,
       }],
       pageParams: [null],
     } : undefined,
