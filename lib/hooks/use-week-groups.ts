@@ -70,17 +70,13 @@ export function useWeekGroups(assets: Asset[]): WeekGroup[] {
     const currentFirstId = assets[0]?.id ?? null;
     const prevFirstId = prevFirstAssetIdRef.current;
     
-    // Detect actual feed switch:
-    // 1. New array is empty (clear for fresh start)
-    // 2. First asset ID changed (actual feed switch, not pagination)
-    //    - On pagination, we ADD assets to the end, first asset stays the same
-    //    - On feed switch (Recent ↔ Following), the first asset is different
-    // 3. Previous was empty and now has data (initial load of different feed)
-    const isNewFeed = (
-      assets.length === 0 ||
-      (prevFirstId !== null && currentFirstId !== null && prevFirstId !== currentFirstId) ||
-      (prevFirstId === null && currentFirstId !== null && processedIdsRef.current.size > 0 && !processedIdsRef.current.has(currentFirstId))
-    );
+    // Detect actual feed switch - simplified logic:
+    // 1. Empty array → clear cache for fresh start
+    // 2. First asset ID changed → different feed source (Recent ↔ Following)
+    //    - On pagination, first asset stays the same (we append to end)
+    //    - On feed switch, first asset is different
+    // This handles all edge cases including: null→value, value→null, value→different_value
+    const isNewFeed = assets.length === 0 || currentFirstId !== prevFirstId;
     
     if (isNewFeed) {
       // Clear caches for fresh dataset
@@ -88,7 +84,7 @@ export function useWeekGroups(assets: Asset[]): WeekGroup[] {
       weekGroupsRef.current.clear();
     }
     
-    // Update previous first asset ID
+    // Update previous first asset ID AFTER the check
     prevFirstAssetIdRef.current = currentFirstId;
     // Filter to only new (unprocessed) assets
     const newAssets = assets.filter(a => !processedIdsRef.current.has(a.id));
