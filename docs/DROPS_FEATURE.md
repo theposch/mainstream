@@ -437,8 +437,17 @@ RESEND_API_KEY=re_your-resend-key
 
 Drops support all asset types:
 - **Images**: JPEG, PNG, WebP, GIF (including animated)
-- **Videos**: WebM (up to 50MB, autoplays in email as static preview)
+- **Videos**: WebM (up to 50MB, auto-generated JPEG thumbnails for email/previews)
 - **Embeds**: Figma, Loom (renders as clickable thumbnail in email)
+
+**Video Thumbnail Generation:**
+WebM videos automatically get JPEG thumbnails extracted at upload time (via FFmpeg). This ensures videos display correctly in:
+- Drop preview cards
+- Email templates (where `<video>` tags don't work)
+- Stream cards and grid views
+- Any context requiring static images
+
+If FFmpeg is unavailable, uploads still succeed but fall back to using the video URL (which may not render in image contexts).
 
 ---
 

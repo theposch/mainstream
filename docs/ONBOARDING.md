@@ -13,7 +13,9 @@ A Pinterest-style design sharing platform with:
 - **Assets** - Uploaded designs with likes and comments
   - Images (JPG, PNG, WebP)
   - Animated GIFs (with GIF badge and hover animation)
+  - WebM videos (up to 50MB, auto-thumbnails for cards/previews)
   - Figma embeds (paste URL, auto-thumbnails)
+  - Loom embeds (paste URL, video thumbnails)
 - **Following** - See work from people and streams you follow
 - **Search** - Find assets, users, and streams
 - **Real-time** - Live notifications, typing indicators, instant updates
@@ -25,6 +27,7 @@ A Pinterest-style design sharing platform with:
 - Tailwind CSS + shadcn/ui
 - Supabase (PostgreSQL + Auth + Storage)
 - Framer Motion + canvas-confetti
+- FFmpeg (video thumbnail generation)
 
 ## Quick Setup
 
@@ -32,6 +35,10 @@ A Pinterest-style design sharing platform with:
 
 ```bash
 npm install
+
+# Install FFmpeg (required for video thumbnails)
+brew install ffmpeg  # macOS
+# or: apt-get install ffmpeg  # Ubuntu/Debian
 ```
 
 ### 2. Start Supabase
@@ -192,16 +199,18 @@ Home page has two tabs:
 # Or use the signup page at /auth/signup
 ```
 
-### Upload an Image or GIF
+### Upload an Image, GIF, or Video
 
 1. Log in
 2. Click "Create" button
 3. Select "Upload Image"
-4. Select file (JPG, PNG, WebP, or animated GIF)
+4. Select file (JPG, PNG, WebP, animated GIF, or WebM video up to 50MB)
 5. Add to streams (type `#stream-name` or use picker)
 6. Upload
 
-**Note:** Animated GIFs show a "GIF" badge and animate on hover in the feed.
+**Notes:**
+- Animated GIFs show a "GIF" badge and animate on hover in the feed
+- WebM videos show a "VIDEO" badge, autoplay in feed, and have auto-generated thumbnails for cards/previews
 
 ### Add a Figma Design
 

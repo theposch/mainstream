@@ -82,8 +82,8 @@ Storage policies allow:
 
 #### Assets
 - `GET /api/assets` - List assets with pagination
-- `POST /api/assets/upload` - Upload new asset (images + animated GIFs)
-- `POST /api/assets/embed` - Create embed asset from URL (Figma)
+- `POST /api/assets/upload` - Upload new asset (images, GIFs, WebM videos with auto-thumbnails)
+- `POST /api/assets/embed` - Create embed asset from URL (Figma, Loom)
 - `GET /api/assets/[id]` - Get single asset with enriched data
 - `PATCH /api/assets/[id]` - Update asset metadata
 - `DELETE /api/assets/[id]` - Delete asset (owner only)
@@ -182,6 +182,11 @@ Implemented with Supabase Realtime:
 - `lib/hooks/use-typing-indicator.ts` - Supabase Presence for typing
 - `lib/hooks/use-figma-integration.ts` - Figma token management
 - `lib/hooks/use-media-query.ts` - Shared media query hooks (useIsMobile, etc.)
+
+**Utilities:**
+- `lib/utils/video-processing.ts` - FFmpeg-based video thumbnail extraction
+- `lib/utils/image-processing.ts` - Sharp-based image/GIF optimization
+- `lib/utils/embed-providers.ts` - Figma/Loom URL detection and thumbnails
 
 **Real-time Requirements:**
 ```sql
@@ -458,7 +463,7 @@ Users can connect their Figma account for frame-specific thumbnails:
 - [ ] Bookmark reordering (drag and drop)
 - [ ] Bookmark metadata auto-fetch (page titles)
 - [ ] YouTube/Vimeo embeds (provider detection ready)
-- [ ] Video uploads (WebM conversion)
+- [x] ~~Video uploads (WebM conversion)~~ ✅ WebM videos supported with auto-thumbnails
 
 ### Scalability Considerations
 - Add read replicas for high traffic
