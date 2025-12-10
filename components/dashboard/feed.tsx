@@ -186,7 +186,7 @@ export const DashboardFeed = React.memo(function DashboardFeed({ initialAssets }
   return (
     <div className="w-full min-h-screen">
       <div className="relative mb-8 flex items-center justify-center">
-        <FeedTabs activeTab={activeTab} onTabChange={setActiveTab} />
+      <FeedTabs activeTab={activeTab} onTabChange={setActiveTab} />
         
         <div className="absolute right-0 top-1/2 -translate-y-1/2 hidden md:flex items-center gap-1 bg-muted/50 p-1 rounded-lg border border-border">
           <button
@@ -285,8 +285,8 @@ export const DashboardFeed = React.memo(function DashboardFeed({ initialAssets }
           <>
             {/* Search results - no weekly grouping */}
             {isSearching ? (
-              <MasonryGrid 
-                assets={displayedAssets} 
+          <MasonryGrid 
+            assets={displayedAssets} 
                 layout={layout}
                 onAssetClick={handleAssetClick}
               />
@@ -303,8 +303,8 @@ export const DashboardFeed = React.memo(function DashboardFeed({ initialAssets }
                     <MasonryGrid 
                       assets={week.assets} 
                       layout={layout}
-                      onAssetClick={handleAssetClick}
-                    />
+            onAssetClick={handleAssetClick}
+          />
                   </div>
                 ))}
               </div>

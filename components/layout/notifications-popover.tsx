@@ -89,20 +89,20 @@ export function NotificationsPopover() {
   return (
     <Popover open={isOpen} onOpenChange={setIsOpen}>
       <PopoverTrigger asChild>
-        <Button variant="ghost" size="icon" className="relative text-zinc-400 hover:text-white">
+        <Button variant="ghost" size="icon" className="relative text-muted-foreground hover:text-foreground">
           <Bell className="h-5 w-5" />
           {unreadCount > 0 && (
-            <span className="absolute top-2 right-2 h-2 w-2 rounded-full bg-red-500 border-2 border-black" />
+            <span className="absolute top-2 right-2 h-2 w-2 rounded-full bg-red-500 border-2 border-background" />
           )}
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-80 p-0 bg-zinc-900 border-zinc-800" align="end">
-        <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-800">
-          <h4 className="font-semibold text-sm text-white">Notifications</h4>
+      <PopoverContent className="w-80 p-0 bg-popover border-border" align="end">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-border">
+          <h4 className="font-semibold text-sm text-foreground">Notifications</h4>
           {unreadCount > 0 && (
             <button 
               onClick={handleMarkAllAsRead}
-              className="text-xs text-zinc-500 hover:text-white transition-colors cursor-pointer"
+              className="text-xs text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
             >
               Mark all read
             </button>
@@ -111,15 +111,15 @@ export function NotificationsPopover() {
         <ScrollArea className="h-[300px]">
           {loading ? (
             <div className="flex items-center justify-center h-full py-8">
-              <p className="text-sm text-zinc-500">Loading...</p>
+              <p className="text-sm text-muted-foreground">Loading...</p>
             </div>
           ) : notifications.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full py-8 text-center">
-              <Bell className="h-8 w-8 text-zinc-700 mb-2" />
-              <p className="text-sm text-zinc-500">No notifications yet</p>
+              <Bell className="h-8 w-8 text-muted-foreground/50 mb-2" />
+              <p className="text-sm text-muted-foreground">No notifications yet</p>
             </div>
           ) : (
-            <div className="divide-y divide-zinc-800/50">
+            <div className="divide-y divide-border/50">
               {notifications.map((notification) => {
                 const data = getNotificationContent(notification);
                 if (!data) return null;
@@ -133,8 +133,8 @@ export function NotificationsPopover() {
                         setIsOpen(false);
                     }}
                     className={cn(
-                      "flex items-start gap-3 px-4 py-3 hover:bg-zinc-800/50 transition-colors",
-                      !notification.is_read && "bg-zinc-800/30"
+                      "flex items-start gap-3 px-4 py-3 hover:bg-accent/50 transition-colors",
+                      !notification.is_read && "bg-accent/30"
                     )}
                   >
                     <Avatar className="h-8 w-8 border border-border mt-0.5">
@@ -142,16 +142,16 @@ export function NotificationsPopover() {
                       <AvatarFallback>{data.actor.username.charAt(0).toUpperCase()}</AvatarFallback>
                     </Avatar>
                     <div className="flex-1 space-y-1">
-                      <p className="text-sm text-zinc-300 leading-snug">
-                        <span className="font-medium text-white">{data.actor.display_name}</span>{" "}
+                      <p className="text-sm text-muted-foreground leading-snug">
+                        <span className="font-medium text-foreground">{data.actor.display_name}</span>{" "}
                         {data.content}
                       </p>
                       {data.preview && (
-                        <p className="text-sm text-zinc-400 line-clamp-2 italic">
+                        <p className="text-sm text-muted-foreground/80 line-clamp-2 italic">
                           "{data.preview}"
                         </p>
                       )}
-                      <p className="text-xs text-zinc-500">
+                      <p className="text-xs text-muted-foreground">
                         {formatRelativeTime(notification.created_at)}
                       </p>
                     </div>

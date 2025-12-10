@@ -394,7 +394,7 @@ export function AssetDetailDesktop({ asset, previousAsset = null, nextAsset = nu
   return (
     <div 
       ref={modalRef}
-      className="fixed inset-0 z-[100] bg-black flex flex-row overflow-hidden"
+      className="fixed inset-0 z-[100] bg-background flex flex-row overflow-hidden"
       role="dialog"
       aria-modal="true"
       aria-label="Asset detail view"
@@ -422,7 +422,7 @@ export function AssetDetailDesktop({ asset, previousAsset = null, nextAsset = nu
       )}
 
       {/* Left: Media View */}
-      <div className="flex-1 relative bg-zinc-950 flex items-center justify-center p-4 md:p-10 overflow-y-auto">
+      <div className="flex-1 relative bg-muted/30 flex items-center justify-center p-4 md:p-10 overflow-y-auto">
         <div className="relative w-full h-full max-h-[90vh] flex items-center justify-center">
           {/* Embed View (Figma, etc.) */}
           {currentAsset.asset_type === 'embed' && currentAsset.embed_url ? (
@@ -476,12 +476,12 @@ export function AssetDetailDesktop({ asset, previousAsset = null, nextAsset = nu
                         <div className={`flex items-center justify-center w-24 h-24 rounded-2xl mb-4 ${providerInfo.bgColor}`}>
                           <span className="text-5xl">{providerInfo.icon}</span>
                         </div>
-                        <p className="text-lg font-medium text-zinc-400 mb-4">{providerInfo.name} Embed</p>
+                        <p className="text-lg font-medium text-muted-foreground mb-4">{providerInfo.name} Embed</p>
                         <a
                           href={currentAsset.embed_url}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white text-black font-medium hover:bg-zinc-200 transition-colors"
+                          className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground font-medium hover:bg-primary/90 transition-colors"
                         >
                           <ExternalLink className="h-4 w-4" />
                           Open Link
@@ -528,18 +528,18 @@ export function AssetDetailDesktop({ asset, previousAsset = null, nextAsset = nu
       </div>
 
       {/* Right: Sidebar Info */}
-      <div className="w-[400px] lg:w-[480px] bg-black border-l border-zinc-900 flex flex-col h-full overflow-hidden shrink-0">
+      <div className="w-[400px] lg:w-[480px] bg-background border-l border-border flex flex-col h-full overflow-hidden shrink-0">
         {/* Scrollable Content */}
         <div className="flex-1 overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
           <div className="p-6 space-y-5 pb-20">
               {/* 1. Title + 3-dot Menu Row */}
               <div className="flex items-start justify-between gap-4">
-                <h1 className="text-2xl font-bold text-white leading-tight flex-1">
+                <h1 className="text-2xl font-bold text-foreground leading-tight flex-1">
                   {currentAsset.title}
                 </h1>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon" className="shrink-0 text-zinc-400 hover:text-white">
+                    <Button variant="ghost" size="icon" className="shrink-0 text-muted-foreground hover:text-foreground">
                       <MoreHorizontal className="h-5 w-5" />
                     </Button>
                   </DropdownMenuTrigger>
@@ -586,7 +586,7 @@ export function AssetDetailDesktop({ asset, previousAsset = null, nextAsset = nu
                   <div className="flex flex-col">
                     <Link 
                       href={`/u/${uploader?.username}`}
-                      className="text-sm font-medium text-white hover:underline"
+                      className="text-sm font-medium text-foreground hover:underline"
                     >
                       {uploader?.display_name || 'Unknown User'}
                     </Link>
@@ -615,7 +615,7 @@ export function AssetDetailDesktop({ asset, previousAsset = null, nextAsset = nu
 
               {/* 3. Description (conditional) */}
               {currentAsset.description && (
-                <p className="text-sm text-zinc-400 leading-relaxed">
+                <p className="text-sm text-muted-foreground leading-relaxed">
                   {currentAsset.description}
                 </p>
               )}
@@ -630,7 +630,7 @@ export function AssetDetailDesktop({ asset, previousAsset = null, nextAsset = nu
               )}
 
               {/* 5. Engagement Row */}
-              <div className="flex items-center gap-4 py-3 border-y border-zinc-900">
+              <div className="flex items-center gap-4 py-3 border-y border-border">
                 <LikeButton 
                   isLiked={isLiked} 
                   likeCount={likeCount} 
@@ -641,7 +641,7 @@ export function AssetDetailDesktop({ asset, previousAsset = null, nextAsset = nu
                 
                 <button 
                   onClick={scrollToComments}
-                  className="flex items-center gap-1.5 text-zinc-400 hover:text-white transition-colors"
+                  className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-colors"
                 >
                   <MessageCircle className="h-5 w-5" />
                 </button>
@@ -654,7 +654,7 @@ export function AssetDetailDesktop({ asset, previousAsset = null, nextAsset = nu
 
               {/* 6. Comments Section */}
               <div ref={commentsSectionRef} id="comments-section" className="space-y-4 pt-2">
-                <h3 className="text-sm font-semibold text-white">
+                <h3 className="text-sm font-semibold text-foreground">
                   Comments ({comments.length})
                 </h3>
                 
@@ -675,16 +675,16 @@ export function AssetDetailDesktop({ asset, previousAsset = null, nextAsset = nu
         </div>
 
         {/* Fixed Comment Input */}
-        <div className="p-4 bg-black border-t border-zinc-900 z-10 shrink-0">
+        <div className="p-4 bg-background border-t border-border z-10 shrink-0">
            {replyingToId && replyingToUser && (
-             <div className="flex items-center justify-between bg-zinc-900/50 rounded-t-lg px-3 py-1.5 mb-2 text-xs border border-zinc-800">
-               <span className="text-zinc-400 flex items-center gap-1">
+             <div className="flex items-center justify-between bg-muted/50 rounded-t-lg px-3 py-1.5 mb-2 text-xs border border-border">
+               <span className="text-muted-foreground flex items-center gap-1">
                  <Reply className="h-3 w-3" />
-                 Replying to <span className="font-medium text-zinc-300">@{replyingToUser.username || 'unknown'}</span>
+                 Replying to <span className="font-medium text-foreground">@{replyingToUser.username || 'unknown'}</span>
                </span>
                <button 
                  onClick={() => setReplyingToId(null)}
-                 className="text-zinc-500 hover:text-white p-0.5"
+                 className="text-muted-foreground hover:text-foreground p-0.5"
                >
                  <X className="h-3 w-3" />
                </button>
