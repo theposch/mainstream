@@ -15,8 +15,12 @@ import {
 import { useStreamDropdownOptions } from "@/lib/hooks/use-stream-dropdown-options";
 
 // Memoized stream option component
+// Note: isNew is passed as separate prop to avoid creating new object reference on each render
 interface StreamOptionProps {
-  option: { id: string; name: string; description?: string; isNew?: boolean };
+  optionId: string;
+  optionName: string;
+  optionDescription?: string;
+  isNew: boolean;
   index: number;
   selectedIndex: number;
   isSelected: boolean;
@@ -27,7 +31,10 @@ interface StreamOptionProps {
 }
 
 const StreamOption = React.memo(function StreamOption({
-  option,
+  optionId,
+  optionName,
+  optionDescription,
+  isNew,
   index,
   selectedIndex,
   isSelected,
@@ -36,12 +43,11 @@ const StreamOption = React.memo(function StreamOption({
   onSelect,
   onHover,
 }: StreamOptionProps) {
-  const isNew = option.isNew || false;
-  const streamName = option.name;
+  const streamName = optionName;
 
   const handleClick = React.useCallback(() => {
-    onSelect(option.id, isNew, streamName);
-  }, [onSelect, option.id, isNew, streamName]);
+    onSelect(optionId, isNew, streamName);
+  }, [onSelect, optionId, isNew, streamName]);
 
   const handleMouseEnter = React.useCallback(() => {
     onHover(index);
@@ -92,9 +98,9 @@ const StreamOption = React.memo(function StreamOption({
             Create new stream
           </p>
         )}
-        {!isNew && option.description && (
+        {!isNew && optionDescription && (
           <p className="text-xs text-muted-foreground truncate mt-0.5">
-            {option.description}
+            {optionDescription}
           </p>
         )}
       </div>
@@ -391,7 +397,10 @@ export function StreamPicker({
             return (
               <StreamOption
                 key={isNew ? '__create__' : option.id}
-                option={{ ...option, isNew }}
+                optionId={option.id}
+                optionName={option.name}
+                optionDescription={'description' in option ? option.description : undefined}
+                isNew={isNew}
                 index={index}
                 selectedIndex={selectedIndex}
                 isSelected={isSelected}
