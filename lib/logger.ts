@@ -33,10 +33,11 @@ const isServer = typeof window === 'undefined';
 
 /**
  * Format a log entry for console output
+ * Returns the context prefix - message and data are logged separately for better console grouping
  */
 function formatLogEntry(entry: LogEntry): string {
-  const prefix = `[${entry.context}]`;
-  return prefix;
+  const timestamp = entry.timestamp.split('T')[1].split('.')[0]; // HH:MM:SS
+  return `[${timestamp}] [${entry.level.toUpperCase()}] [${entry.context}]`;
 }
 
 /**

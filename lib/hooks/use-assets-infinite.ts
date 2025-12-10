@@ -74,7 +74,10 @@ export function useAssetsInfinite(
     initialPageParam: null as string | null,
     getNextPageParam: (lastPage) => lastPage.hasMore ? lastPage.cursor : undefined,
     // Hydrate with initial data from SSR
-    // Note: SSR fetches PAGE_SIZES.SSR_INITIAL (50) items, so check against that threshold
+    // Note: SSR fetches PAGE_SIZES.SSR_INITIAL (50) items WITHOUT the extra item hasMore check
+    // We use >= as a conservative heuristic: if we got the full 50, assume there might be more
+    // This may trigger one extra fetch when there are exactly 50 items, but won't miss content
+    // The alternative (>) would break infinite scroll since SSR never returns >50 items
     initialData: initialAssets.length > 0 ? {
       pages: [{
         assets: initialAssets,

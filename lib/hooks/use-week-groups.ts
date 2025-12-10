@@ -60,8 +60,28 @@ export function useWeekGroups(assets: Asset[]): WeekGroup[] {
   // Track the "now" date reference for consistent labeling
   // Update only when week boundary changes to avoid label flicker
   const nowRef = useRef<Date>(new Date());
+  
+  // Track the asset array identity to detect feed switches
+  // When the array reference changes completely (e.g., switching from recent to following),
+  // we need to clear the cache to avoid mixing data from different feeds
+  const prevAssetsRef = useRef<Asset[]>([]);
 
   return useMemo(() => {
+    // Detect if the asset array has been completely replaced (feed switch)
+    // If first asset ID differs from what we've cached, clear and start fresh
+    const prevFirstId = prevAssetsRef.current[0]?.id;
+    const currFirstId = assets[0]?.id;
+    
+    // Check if this is a completely different dataset (feed switch)
+    // Also check if array is now empty (clear cache for fresh start)
+    if (assets.length === 0 || (currFirstId && prevFirstId && currFirstId !== prevFirstId && !processedIdsRef.current.has(currFirstId))) {
+      // Clear caches for fresh dataset
+      processedIdsRef.current.clear();
+      weekGroupsRef.current.clear();
+    }
+    
+    // Update previous assets reference
+    prevAssetsRef.current = assets;
     // Filter to only new (unprocessed) assets
     const newAssets = assets.filter(a => !processedIdsRef.current.has(a.id));
     
