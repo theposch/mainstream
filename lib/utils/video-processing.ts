@@ -77,7 +77,8 @@ export async function generateVideoThumbnail(
   const tempDir = path.join(os.tmpdir(), `video-thumb-${randomUUID()}`);
   fs.mkdirSync(tempDir, { recursive: true });
 
-  const tempVideoPath = path.join(tempDir, 'input.webm');
+  // Use generic extension - ffmpeg auto-detects format from content
+  const tempVideoPath = path.join(tempDir, 'input.video');
   const tempOutputPath = path.join(tempDir, 'thumbnail.jpg');
 
   try {
@@ -130,20 +131,21 @@ export async function generateVideoThumbnail(
 /**
  * Generates multiple thumbnail sizes from a video buffer
  * 
- * Creates three sizes matching the image processing pipeline:
- * - Full: Original extracted frame (optimized)
- * - Medium: 800px max dimension
- * - Thumbnail: 300px max dimension
+ * Creates two sizes for video thumbnails:
+ * - Medium: 800px max dimension (for detail views)
+ * - Thumbnail: 300px max dimension (for grids/cards)
+ * 
+ * Note: Unlike images, we don't store a "full" thumbnail since
+ * the original video file serves that purpose.
  * 
  * @param videoBuffer - Video file buffer
  * @param timestamp - Time in seconds to extract frame (default: 1)
- * @returns Object with buffers for each size and video metadata
+ * @returns Object with buffers for medium and thumbnail sizes, plus video metadata
  */
 export async function generateVideoThumbnails(
   videoBuffer: Buffer,
   timestamp: number = 1
 ): Promise<{
-  full: Buffer;
   medium: Buffer;
   thumbnail: Buffer;
   metadata: VideoMetadata;
@@ -155,12 +157,7 @@ export async function generateVideoThumbnails(
   );
 
   // Generate different sizes using Sharp (same as image processing)
-  const [full, medium, thumbnail] = await Promise.all([
-    // Full: Just optimize the extracted frame
-    sharp(baseThumbnail)
-      .jpeg({ quality: 90, progressive: true, mozjpeg: true })
-      .toBuffer(),
-    
+  const [medium, thumbnail] = await Promise.all([
     // Medium: 800px max
     sharp(baseThumbnail)
       .resize(800, 800, {
@@ -181,7 +178,6 @@ export async function generateVideoThumbnails(
   ]);
 
   return {
-    full,
     medium,
     thumbnail,
     metadata,
@@ -189,14 +185,26 @@ export async function generateVideoThumbnails(
 }
 
 /**
+ * Cached FFmpeg availability status (checked once per process)
+ */
+let ffmpegAvailableCache: boolean | null = null;
+
+/**
  * Checks if FFmpeg is available on the system
+ * 
+ * Results are cached since FFmpeg availability won't change during runtime.
  * 
  * @returns True if FFmpeg is installed and accessible
  */
 export async function isFFmpegAvailable(): Promise<boolean> {
+  if (ffmpegAvailableCache !== null) {
+    return ffmpegAvailableCache;
+  }
+  
   return new Promise((resolve) => {
     ffmpeg.getAvailableFormats((err) => {
-      resolve(!err);
+      ffmpegAvailableCache = !err;
+      resolve(ffmpegAvailableCache);
     });
   });
 }
