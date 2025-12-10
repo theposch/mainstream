@@ -150,6 +150,104 @@ export function parseCompositeCursor(cursor: string): { timestamp: string; id: s
 // Validation
 // ============================================================================
 
+// UUID v4 regex pattern (standard format)
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+// ISO 8601 timestamp regex (accepts formats like 2025-01-01T00:00:00.000Z)
+const ISO_TIMESTAMP_REGEX = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?(?:Z|[+-]\d{2}:\d{2})$/;
+
+/**
+ * Validate that a string is a valid UUID v4.
+ * Prevents SQL injection via malicious cursor IDs.
+ * 
+ * @param value - String to validate
+ * @returns true if valid UUID v4
+ */
+export function isValidUUID(value: string): boolean {
+  return UUID_REGEX.test(value);
+}
+
+/**
+ * Validate that a string is a valid ISO 8601 timestamp.
+ * Prevents SQL injection via malicious cursor timestamps.
+ * 
+ * @param value - String to validate
+ * @returns true if valid ISO timestamp
+ */
+export function isValidISOTimestamp(value: string): boolean {
+  if (!ISO_TIMESTAMP_REGEX.test(value)) {
+    return false;
+  }
+  // Also verify it parses to a valid date
+  const date = new Date(value);
+  return !isNaN(date.getTime());
+}
+
+/**
+ * Parse and validate a composite cursor from user input.
+ * Returns null for invalid cursors to prevent SQL injection.
+ * 
+ * Security: All cursor values are validated before use in queries.
+ * 
+ * @param cursor - Raw cursor parameter from URL
+ * @returns Validated cursor components or null if invalid
+ */
+export function parseAndValidateCursor(cursor: string | null): { 
+  timestamp: string; 
+  id: string | null;
+} | null {
+  if (!cursor) {
+    return null;
+  }
+
+  // Try double-colon separator first (new format)
+  const separatorIndex = cursor.lastIndexOf('::');
+  
+  if (separatorIndex > 0) {
+    const timestamp = cursor.substring(0, separatorIndex);
+    const id = cursor.substring(separatorIndex + 2);
+    
+    // Validate both components
+    if (!isValidISOTimestamp(timestamp)) {
+      console.warn('[parseAndValidateCursor] Invalid timestamp in cursor:', timestamp);
+      return null;
+    }
+    if (!isValidUUID(id)) {
+      console.warn('[parseAndValidateCursor] Invalid UUID in cursor:', id);
+      return null;
+    }
+    
+    return { timestamp, id };
+  }
+  
+  // Fallback: try single colon (legacy format, be careful with ISO timestamps)
+  const lastColonIndex = cursor.lastIndexOf(':');
+  if (lastColonIndex > 10) { // ISO timestamps have colons at position 13 and 16
+    const timestamp = cursor.substring(0, lastColonIndex);
+    const id = cursor.substring(lastColonIndex + 1);
+    
+    // Validate both components
+    if (!isValidISOTimestamp(timestamp)) {
+      console.warn('[parseAndValidateCursor] Invalid legacy timestamp in cursor:', timestamp);
+      return null;
+    }
+    if (!isValidUUID(id)) {
+      console.warn('[parseAndValidateCursor] Invalid legacy UUID in cursor:', id);
+      return null;
+    }
+    
+    return { timestamp, id };
+  }
+  
+  // Fallback: treat entire cursor as timestamp only
+  if (isValidISOTimestamp(cursor)) {
+    return { timestamp: cursor, id: null };
+  }
+  
+  console.warn('[parseAndValidateCursor] Invalid cursor format:', cursor);
+  return null;
+}
+
 /**
  * Parse and validate limit parameter from request.
  * 

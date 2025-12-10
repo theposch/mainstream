@@ -37,8 +37,8 @@ interface UseCommentLikesManagerReturn {
   getLikeState: (commentId: string) => CommentLikeState;
   /** Toggle like for a comment with optimistic update */
   toggleLike: (commentId: string) => Promise<void>;
-  /** Whether any like operation is in progress */
-  isLoading: boolean;
+  /** Check if a specific comment's like is being toggled */
+  isLikeLoading: (commentId: string) => boolean;
 }
 
 // Default state for comments not in the map
@@ -54,8 +54,8 @@ export function useCommentLikesManager(
   // Track which comment IDs we're managing
   const commentIdsRef = useRef<Set<string>>(new Set());
   
-  // Loading state for optimistic updates
-  const [isLoading, setIsLoading] = useState(false);
+  // Track in-flight like operations per comment (allows concurrent likes on different comments)
+  const [loadingCommentIds, setLoadingCommentIds] = useState<Set<string>>(new Set());
   
   // Build initial state map from comments
   const [likeStates, setLikeStates] = useState<Map<string, CommentLikeState>>(() => {
@@ -166,11 +166,18 @@ export function useCommentLikesManager(
     return likeStates.get(commentId) || DEFAULT_LIKE_STATE;
   }, [likeStates]);
 
-  // Toggle like with optimistic update
+  // Check if a specific comment's like operation is in progress
+  const isLikeLoading = useCallback((commentId: string): boolean => {
+    return loadingCommentIds.has(commentId);
+  }, [loadingCommentIds]);
+
+  // Toggle like with optimistic update (supports concurrent operations on different comments)
   const toggleLike = useCallback(async (commentId: string): Promise<void> => {
-    if (isLoading) return;
+    // Block only if THIS specific comment is already being toggled
+    if (loadingCommentIds.has(commentId)) return;
     
-    setIsLoading(true);
+    // Add this comment to loading set
+    setLoadingCommentIds(prev => new Set(prev).add(commentId));
     
     // Capture current state for rollback
     const currentState = likeStates.get(commentId) || DEFAULT_LIKE_STATE;
@@ -207,15 +214,20 @@ export function useCommentLikesManager(
         return updated;
       });
     } finally {
-      setIsLoading(false);
+      // Remove this comment from loading set
+      setLoadingCommentIds(prev => {
+        const updated = new Set(prev);
+        updated.delete(commentId);
+        return updated;
+      });
     }
-  }, [likeStates, isLoading]);
+  }, [likeStates, loadingCommentIds]);
 
   // Memoize return to prevent unnecessary re-renders
   return useMemo(() => ({
     getLikeState,
     toggleLike,
-    isLoading,
-  }), [getLikeState, toggleLike, isLoading]);
+    isLikeLoading,
+  }), [getLikeState, toggleLike, isLikeLoading]);
 }
 
