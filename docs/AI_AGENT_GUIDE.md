@@ -276,6 +276,7 @@ confetti.ts           - Celebration animations (triggerConfetti, triggerSmallCon
 embed-providers.ts    - Figma URL detection, oEmbed/API integration
 encryption.ts         - AES-256-GCM token encryption utilities
 image-processing.ts   - Sharp-based image/GIF processing
+video-processing.ts   - FFmpeg-based video thumbnail extraction
 file-storage.ts       - Local file storage helpers
 week-grouping.ts      - Group assets by week for feed display (WeekGroup interface)
 string.ts             - String utilities (getInitials, truncate, capitalize, slugify, pluralize)
@@ -746,12 +747,27 @@ Upload animated GIFs → preserved animation with GIF badge in feed.
 ## WebM Video Support
 
 ### Overview
-Upload WebM videos (up to 50MB) → autoplay in feed, controls in detail view.
+Upload WebM videos (up to 50MB) → autoplay in feed, controls in detail view, with thumbnail generation for static contexts.
 
 ### Upload Processing
 1. **Validation**: File type must be `video/webm`, max 50MB
 2. **Storage**: Video saved directly (no transcoding)
-3. **Database**: `asset_type: 'video'`, `type: 'video'`
+3. **Thumbnail Generation**: FFmpeg extracts frame at 1s → JPEG thumbnails (medium + thumbnail sizes)
+4. **Database**: `asset_type: 'video'`, `type: 'video'`, `thumbnail_url` points to JPEG
+
+### Thumbnail Generation (NEW)
+Videos now get proper image thumbnails for contexts that can't display video:
+- Stream cards (preview grid)
+- Drop previews and email templates
+- Any `<img>` context
+
+**Requirements:** FFmpeg must be installed (`brew install ffmpeg`)
+
+**Backfill Script:** For existing videos missing thumbnails:
+```bash
+npx tsx scripts/backfill-video-thumbnails.ts --dry-run  # Preview
+npx tsx scripts/backfill-video-thumbnails.ts            # Execute
+```
 
 ### Feed Display
 - **VIDEO badge** appears on card
@@ -763,7 +779,9 @@ Upload WebM videos (up to 50MB) → autoplay in feed, controls in detail view.
 - Not muted by default
 
 ### Key Files
-- `app/api/assets/upload/route.ts` - WebM handling (no image processing)
+- `lib/utils/video-processing.ts` - FFmpeg thumbnail extraction
+- `app/api/assets/upload/route.ts` - WebM handling with thumbnail generation
+- `scripts/backfill-video-thumbnails.ts` - Backfill existing videos
 - `components/assets/element-card.tsx` - Video element with VIDEO badge
 - `components/assets/asset-detail-desktop.tsx` - Video player with controls
 - `components/layout/upload-dialog.tsx` - Accepts video/webm, 50MB limit
