@@ -101,6 +101,47 @@ export interface Asset {
   view_count?: number;
 }
 
+// Partial user data for comment author (returned from API)
+export type CommentUser = Pick<User, 'id' | 'username' | 'display_name' | 'avatar_url'> & {
+  email?: string;
+  job_title?: string;
+};
+
+// Comment type (single source of truth for all comment-related components)
+export interface Comment {
+  id: string;
+  asset_id: string;
+  user_id: string;
+  content: string;
+  parent_id: string | null;
+  created_at: string;
+  updated_at: string;
+  is_edited: boolean;
+  likes: number;
+  has_liked: boolean;
+  user?: CommentUser;
+}
+
+// Notification types
+export type NotificationType = 'like_asset' | 'like_comment' | 'reply_comment' | 'follow' | 'mention' | 'comment';
+export type ResourceType = 'asset' | 'comment' | 'user' | 'stream';
+
+// Notification type (single source of truth)
+export interface Notification {
+  id: string;
+  type: NotificationType;
+  recipient_id: string;
+  actor_id: string;
+  resource_id: string | null;
+  resource_type: ResourceType | null;
+  is_read: boolean;
+  created_at: string;
+  comment_id?: string | null;
+  content?: string | null;
+  actor?: Pick<User, 'id' | 'username' | 'display_name' | 'avatar_url'>;
+  asset?: Pick<Asset, 'id' | 'title'> | null;
+}
+
 // Viewer type for tooltip display
 export interface AssetViewer {
   id: string;

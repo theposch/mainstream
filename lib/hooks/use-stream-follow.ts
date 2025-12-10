@@ -17,6 +17,8 @@
  */
 
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { assetKeys } from "@/lib/queries/asset-queries";
 import type { User } from "@/lib/types/database";
 
 // Export for use in server components
@@ -39,6 +41,8 @@ export function useStreamFollow(
   streamId: string, 
   initialData?: InitialFollowData
 ): UseStreamFollowReturn {
+  const queryClient = useQueryClient();
+  
   // Use initial data if provided, otherwise use defaults
   const [isFollowing, setIsFollowing] = useState(initialData?.isFollowing ?? false);
   const [followerCount, setFollowerCount] = useState(initialData?.followerCount ?? 0);
@@ -120,15 +124,31 @@ export function useStreamFollow(
         throw new Error(data.error || 'Failed to toggle follow');
       }
 
-      // Optionally refresh followers list after follow
-      if (!wasFollowing) {
-        // After following, fetch updated followers
-        const followersResponse = await fetch(`/api/streams/${streamId}/follow`);
-        if (followersResponse.ok) {
-          const data = await followersResponse.json();
-          setFollowers(data.followers || []);
-        }
+      // Both POST and DELETE return updated follower data and stream stats
+      const data = await response.json();
+      if (data.followers) {
+        setFollowers(data.followers);
       }
+      if (typeof data.followerCount === 'number') {
+        setFollowerCount(data.followerCount);
+      }
+      if (typeof data.isFollowing === 'boolean') {
+        setIsFollowing(data.isFollowing);
+      }
+      // Update stream stats (these don't change on follow/unfollow but are
+      // included for API consistency and to handle any data drift)
+      if (typeof data.contributorCount === 'number') {
+        setContributorCount(data.contributorCount);
+      }
+      if (data.contributors) {
+        setContributors(data.contributors);
+      }
+      if (typeof data.assetCount === 'number') {
+        setAssetCount(data.assetCount);
+      }
+      
+      // Invalidate the "following" feed cache so it refetches with new follows
+      queryClient.invalidateQueries({ queryKey: assetKeys.following() });
     } catch (err) {
       console.error('[useStreamFollow] Error toggling follow:', err);
       setError(err instanceof Error ? err.message : 'Unknown error');

@@ -12,7 +12,9 @@
  */
 
 import { useState, useEffect, useCallback } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
+import { assetKeys } from "@/lib/queries/asset-queries";
 
 interface UseUserFollowReturn {
   isFollowing: boolean;
@@ -23,6 +25,7 @@ interface UseUserFollowReturn {
 }
 
 export function useUserFollow(targetUsername: string): UseUserFollowReturn {
+  const queryClient = useQueryClient();
   const [isFollowing, setIsFollowing] = useState(false);
   const [followerCount, setFollowerCount] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -112,8 +115,8 @@ export function useUserFollow(targetUsername: string): UseUserFollowReturn {
         throw new Error(data.error || 'Failed to toggle follow');
       }
 
-      // API returns {success: true}, but we already have the count
-      // Real-time subscriptions will update if needed
+      // Invalidate the "following" feed cache so it refetches with new follows
+      queryClient.invalidateQueries({ queryKey: assetKeys.following() });
     } catch (err) {
       console.error('[useUserFollow] Error toggling follow:', err);
       setError(err instanceof Error ? err.message : 'Unknown error');

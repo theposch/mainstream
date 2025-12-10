@@ -24,7 +24,7 @@ type SuggestionItem = {
 interface SuggestionItemProps {
   suggestion: SuggestionItem;
   isSelected: boolean;
-  onSelect: () => void;
+  onSelect: (suggestion: SuggestionItem) => void;
 }
 
 const AssetSuggestionItem = React.memo(function AssetSuggestionItem({
@@ -32,11 +32,15 @@ const AssetSuggestionItem = React.memo(function AssetSuggestionItem({
   isSelected,
   onSelect,
 }: SuggestionItemProps) {
+  const handleClick = React.useCallback(() => {
+    onSelect(suggestion);
+  }, [onSelect, suggestion]);
+
   return (
     <button
       role="option"
       aria-selected={isSelected}
-      onClick={onSelect}
+      onClick={handleClick}
       className={cn(
         "w-full flex items-center gap-3 px-3 py-2 text-sm text-left transition-colors cursor-pointer",
         "hover:bg-accent",
@@ -71,11 +75,15 @@ const UserSuggestionItem = React.memo(function UserSuggestionItem({
   isSelected,
   onSelect,
 }: SuggestionItemProps) {
+  const handleClick = React.useCallback(() => {
+    onSelect(suggestion);
+  }, [onSelect, suggestion]);
+
   return (
     <button
       role="option"
       aria-selected={isSelected}
-      onClick={onSelect}
+      onClick={handleClick}
       className={cn(
         "w-full flex items-center gap-3 px-3 py-2 text-sm text-left transition-colors cursor-pointer",
         "hover:bg-accent",
@@ -109,11 +117,15 @@ const DefaultSuggestionItem = React.memo(function DefaultSuggestionItem({
   isSelected,
   onSelect,
 }: SuggestionItemProps) {
+  const handleClick = React.useCallback(() => {
+    onSelect(suggestion);
+  }, [onSelect, suggestion]);
+
   return (
     <button
       role="option"
       aria-selected={isSelected}
-      onClick={onSelect}
+      onClick={handleClick}
       className={cn(
         "w-full flex items-center gap-3 px-3 py-2 text-sm text-left transition-colors cursor-pointer",
         "hover:bg-accent",
@@ -369,7 +381,7 @@ export function SearchSuggestions({
                   key={suggestion.id}
                   suggestion={suggestion}
                   isSelected={selectedIndex === index}
-                  onSelect={() => handleSelectSuggestion(suggestion)}
+                  onSelect={handleSelectSuggestion}
                 />
               );
             }
@@ -381,7 +393,7 @@ export function SearchSuggestions({
                   key={suggestion.id}
                   suggestion={suggestion}
                   isSelected={selectedIndex === index}
-                  onSelect={() => handleSelectSuggestion(suggestion)}
+                  onSelect={handleSelectSuggestion}
                 />
               );
             }
@@ -392,7 +404,7 @@ export function SearchSuggestions({
                 key={suggestion.id}
                 suggestion={suggestion}
                 isSelected={selectedIndex === index}
-                onSelect={() => handleSelectSuggestion(suggestion)}
+                onSelect={handleSelectSuggestion}
               />
             );
           })

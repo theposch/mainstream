@@ -138,6 +138,7 @@ export const DashboardFeed = React.memo(function DashboardFeed({ initialAssets }
   );
 
   // Group assets by week for display (only when not searching)
+  // Using simple pure function - reliable and predictable
   const weekGroups = React.useMemo(
     () => debouncedQuery.trim() ? [] : groupAssetsByWeek(baseAssets),
     [debouncedQuery, baseAssets]

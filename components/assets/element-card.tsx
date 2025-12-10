@@ -73,6 +73,13 @@ export const ElementCard = React.memo(
     }
   }, [toggleLike, isLiked, asset.id, onLikeChange]);
 
+  // Memoize relative time to prevent Date object creation on every render
+  // Only recalculates when asset.created_at changes
+  const relativeTime = React.useMemo(
+    () => formatDistanceToNow(new Date(asset.created_at), { addSuffix: true }),
+    [asset.created_at]
+  );
+
   // Ensure we have valid numbers for aspect ratio (prevent division by zero)
   const width = asset.width && asset.width > 0 ? asset.width : 800;
   const height = asset.height && asset.height > 0 ? asset.height : 600;
@@ -396,9 +403,7 @@ export const ElementCard = React.memo(
                   <span className="font-medium">Unknown</span>
                 )}
                 <span>•</span>
-                <span>
-                  {formatDistanceToNow(new Date(asset.created_at), { addSuffix: true })}
-                </span>
+                <span>{relativeTime}</span>
               </div>
            </div>
         </div>

@@ -151,6 +151,11 @@ Storage policies allow:
 - **Optimistic UI updates** - Instant feedback for likes, follows, and bookmarks
 - **JOIN queries** - Avoid N+1 problems
 - **Database indexes** - On foreign keys and common lookups
+- **React Query cache invalidation** - Following feed auto-refreshes after follow/unfollow
+- **Centralized constants** - Cache times, page sizes in `lib/constants/cache.ts`
+- **Dynamic imports** - Lazy-loaded dialogs reduce initial bundle size
+- **Error boundaries** - Graceful error handling prevents cascading failures
+- **Smart image preloading** - Adjacent images prefetched during idle time
 
 ### ✅ Real-time Features
 Implemented with Supabase Realtime:
@@ -167,13 +172,16 @@ Implemented with Supabase Realtime:
 - `lib/hooks/use-asset-like.ts`
 - `lib/hooks/use-asset-view.ts` - Atomic view recording with real-time count callback
 - `lib/hooks/use-comment-like.ts` - With race-condition prevention
+- `lib/hooks/use-comment-likes-manager.ts` - Centralized comment likes state
 - `lib/hooks/use-asset-comments.ts`
 - `lib/hooks/use-notifications.ts` - Enriches with asset data
-- `lib/hooks/use-stream-follow.ts`
+- `lib/hooks/use-stream-follow.ts` - With React Query cache invalidation
+- `lib/hooks/use-user-follow.ts` - With React Query cache invalidation
 - `lib/hooks/use-stream-bookmarks.ts`
 - `lib/hooks/use-stream-members.ts` - Private stream member management
 - `lib/hooks/use-typing-indicator.ts` - Supabase Presence for typing
 - `lib/hooks/use-figma-integration.ts` - Figma token management
+- `lib/hooks/use-media-query.ts` - Shared media query hooks (useIsMobile, etc.)
 
 **Real-time Requirements:**
 ```sql

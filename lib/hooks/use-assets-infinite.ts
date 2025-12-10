@@ -16,11 +16,13 @@ import { useCallback, useMemo } from "react";
 import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
 import type { Asset } from "@/lib/types/database";
 import { assetKeys } from "@/lib/queries/asset-queries";
+import { CACHE_TIMES, PAGE_SIZES } from "@/lib/constants/cache";
+import { buildCompositeCursor } from "@/lib/api/assets";
 
 interface AssetsResponse {
   assets: Asset[];
   hasMore: boolean;
-  cursor: string | null;
+  cursor: string | null; // Composite cursor: "timestamp::id"
 }
 
 interface UseAssetsInfiniteReturn {
@@ -37,7 +39,7 @@ const fetchRecentAssets = async ({ pageParam }: { pageParam: string | null }): P
   if (pageParam) {
     url.searchParams.set('cursor', pageParam);
   }
-  url.searchParams.set('limit', '20');
+  url.searchParams.set('limit', String(PAGE_SIZES.CLIENT_PAGE));
 
   const response = await fetch(url.toString());
 
@@ -65,16 +67,20 @@ export function useAssetsInfinite(
     initialPageParam: null as string | null,
     getNextPageParam: (lastPage) => lastPage.hasMore ? lastPage.cursor : undefined,
     // Hydrate with initial data from SSR
+    // Note: SSR fetches PAGE_SIZES.SSR_INITIAL (50) items WITHOUT the extra item hasMore check
+    // We use >= as a conservative heuristic: if we got the full 50, assume there might be more
+    // This may trigger one extra fetch when there are exactly 50 items, but won't miss content
+    // The alternative (>) would break infinite scroll since SSR never returns >50 items
     initialData: initialAssets.length > 0 ? {
       pages: [{
         assets: initialAssets,
-        hasMore: initialAssets.length >= 20,
-        cursor: initialAssets.length > 0 ? initialAssets[initialAssets.length - 1].created_at : null,
+        hasMore: initialAssets.length >= PAGE_SIZES.SSR_INITIAL,
+        cursor: initialAssets.length > 0 ? buildCompositeCursor(initialAssets[initialAssets.length - 1]) : null,
       }],
       pageParams: [null],
     } : undefined,
-    staleTime: 5 * 60 * 1000, // 5 minutes - cached between tab switches
-    gcTime: 30 * 60 * 1000, // 30 minutes
+    staleTime: CACHE_TIMES.STALE_TIME,
+    gcTime: CACHE_TIMES.GC_TIME,
   });
 
   // Flatten all pages into a single array

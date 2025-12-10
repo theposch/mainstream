@@ -379,7 +379,14 @@ If changes aren't reflecting:
 1. Check terminal for errors
 2. Clear browser cache
 3. Restart dev server
-4. Clear `.next` cache
+4. Clear `.next` cache (or Turbopack cache: `rm -rf .next`)
+
+### Following Feed Not Updating
+
+The following feed now auto-refreshes when you follow/unfollow:
+- Stream follows trigger cache invalidation via React Query
+- User follows also invalidate the following feed cache
+- No manual refresh needed - navigate to Following tab to see new content
 
 ### Database Changes
 

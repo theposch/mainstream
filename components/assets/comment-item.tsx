@@ -4,49 +4,29 @@ import { Button } from "@/components/ui/button";
 import { formatRelativeTime } from "@/lib/utils/time";
 import { CommentInput } from "./comment-input";
 import { cn } from "@/lib/utils";
-import { MoreHorizontal, Trash2, Edit2, Heart } from "lucide-react";
+import { MoreHorizontal, Trash2, Edit2 } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useCommentLike } from "@/lib/hooks/use-comment-like";
 import { LikeButton } from "@/components/ui/like-button";
-
-// Database types
-interface Comment {
-  id: string;
-  asset_id: string;
-  user_id: string;
-  content: string;
-  parent_id: string | null;
-  created_at: string;
-  updated_at: string;
-  is_edited: boolean;
-  likes: number;
-  has_liked: boolean;
-  user?: User;
-}
-
-interface User {
-  id: string;
-  username: string;
-  display_name: string;
-  avatar_url?: string;
-  email?: string;
-  job_title?: string;
-}
+import type { Comment, User, CommentUser } from "@/lib/types/database";
+import type { CommentLikeState } from "@/lib/hooks/use-comment-likes-manager";
 
 interface CommentItemProps {
   comment: Comment;
-  author?: User;
+  author?: CommentUser;
   currentUser: User | null;
   onReply: (commentId: string) => void;
   onEdit: (commentId: string, newContent: string) => Promise<void>;
   onStartEdit: (commentId: string) => void;
   onDelete: (commentId: string) => Promise<void>;
-  onLike: (commentId: string) => void;
+  /** Like state from centralized manager */
+  likeState: CommentLikeState;
+  /** Toggle like callback from centralized manager */
+  onToggleLike: (commentId: string) => Promise<void>;
   isEditing: boolean;
   onCancelEdit: () => void;
   /** Whether this comment should be highlighted (e.g., from notification click) */
@@ -61,13 +41,13 @@ export const CommentItem = React.memo(function CommentItem({
   onEdit,
   onStartEdit,
   onDelete,
-  onLike,
+  likeState,
+  onToggleLike,
   isEditing,
   onCancelEdit,
   isHighlighted = false
 }: CommentItemProps) {
   const isOwner = currentUser?.id === comment.user_id;
-  const [isHovered, setIsHovered] = React.useState(false);
   const [showHighlight, setShowHighlight] = React.useState(isHighlighted);
   const commentRef = React.useRef<HTMLDivElement>(null);
 
@@ -83,12 +63,13 @@ export const CommentItem = React.memo(function CommentItem({
     }
   }, [isHighlighted]);
   
-  // Use comment like hook for real-time like functionality
-  const { isLiked, likeCount, toggleLike } = useCommentLike(
-    comment.id,
-    comment.has_liked || false,
-    comment.likes || 0
-  );
+  // Destructure like state from centralized manager (single subscription)
+  const { isLiked, likeCount } = likeState;
+  
+  // Memoized toggle handler
+  const handleToggleLike = React.useCallback(() => {
+    onToggleLike(comment.id);
+  }, [onToggleLike, comment.id]);
 
   if (isEditing) {
     return (
@@ -113,8 +94,6 @@ export const CommentItem = React.memo(function CommentItem({
         "group flex gap-3 py-3 px-2 -mx-2 rounded-lg transition-colors duration-500",
         showHighlight && "bg-amber-500/20 animate-pulse"
       )}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
     >
       <Avatar className="h-8 w-8 shrink-0 border border-border mt-0.5 cursor-pointer hover:opacity-80 transition-opacity">
         <AvatarImage src={author?.avatar_url} alt={author?.display_name} />
@@ -184,11 +163,11 @@ export const CommentItem = React.memo(function CommentItem({
           <LikeButton 
             isLiked={isLiked}
             likeCount={likeCount}
-            onLike={toggleLike}
+            onLike={handleToggleLike}
             variant="ghost"
             size="sm"
             className={isLiked ? "text-red-500" : "text-muted-foreground hover:text-foreground"}
-            />
+          />
         </div>
       </div>
     </div>
