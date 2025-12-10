@@ -21,8 +21,9 @@ export const revalidate = 0;
  * URLs, metadata, and color information.
  * 
  * Query parameters:
- * - cursor: composite cursor "timestamp:id" for pagination (optional)
- *   Using composite cursor ensures no assets are skipped when multiple
+ * - cursor: composite cursor "timestamp::id" for pagination (optional)
+ *   Using double colon separator to avoid conflicts with ISO timestamp colons.
+ *   Composite cursor ensures no assets are skipped when multiple
  *   assets share the same created_at timestamp.
  * - limit: number of assets to fetch (default: 20, max: 50)
  * 
@@ -30,7 +31,7 @@ export const revalidate = 0;
  * {
  *   "assets": [...],
  *   "hasMore": true,
- *   "cursor": "2025-01-01T00:00:00Z:asset-id-here"
+ *   "cursor": "2025-01-01T00:00:00Z::asset-id-here"
  * }
  */
 export async function GET(request: NextRequest) {
@@ -40,17 +41,23 @@ export async function GET(request: NextRequest) {
     const limit = Math.min(parseInt(searchParams.get('limit') || '20'), 50);
     const fetchLimit = limit + 1; // Fetch one extra to determine hasMore
     
-    // Parse composite cursor: "timestamp:id"
+    // Parse composite cursor: "timestamp::id" (double colon to avoid ISO timestamp conflicts)
     let cursorTimestamp: string | null = null;
     let cursorId: string | null = null;
     if (cursorParam) {
-      const lastColonIndex = cursorParam.lastIndexOf(':');
-      if (lastColonIndex > 0) {
-        cursorTimestamp = cursorParam.substring(0, lastColonIndex);
-        cursorId = cursorParam.substring(lastColonIndex + 1);
+      const separatorIndex = cursorParam.lastIndexOf('::');
+      if (separatorIndex > 0) {
+        cursorTimestamp = cursorParam.substring(0, separatorIndex);
+        cursorId = cursorParam.substring(separatorIndex + 2);
       } else {
-        // Fallback: treat entire cursor as timestamp (backwards compatibility)
-        cursorTimestamp = cursorParam;
+        // Fallback: treat entire cursor as timestamp (backwards compatibility with single colon)
+        const lastColonIndex = cursorParam.lastIndexOf(':');
+        if (lastColonIndex > 10) { // ISO timestamps have colons at position 13 and 16
+          cursorTimestamp = cursorParam.substring(0, lastColonIndex);
+          cursorId = cursorParam.substring(lastColonIndex + 1);
+        } else {
+          cursorTimestamp = cursorParam;
+        }
       }
     }
     
@@ -168,9 +175,9 @@ export async function GET(request: NextRequest) {
       isLikedByCurrentUser: userLikedAssetIds.has(asset.id),
     }));
     
-    // Build composite cursor: "timestamp:id"
+    // Build composite cursor: "timestamp::id" (double colon to avoid ISO timestamp conflicts)
     const lastAsset = transformedAssets[transformedAssets.length - 1];
-    const nextCursor = lastAsset ? `${lastAsset.created_at}:${lastAsset.id}` : null;
+    const nextCursor = lastAsset ? `${lastAsset.created_at}::${lastAsset.id}` : null;
     
     return NextResponse.json(
       { 
