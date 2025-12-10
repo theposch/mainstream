@@ -127,11 +127,16 @@ Uploaded images and designs. Features:
 
 **Database:** `assets` table
 
-### Following Feed
+### Home Feed
 
 Home page has two tabs:
-- **Recent** - All assets (chronological)
+- **Recent** - All assets (grouped by week)
 - **Following** - Assets from users AND streams you follow
+
+**Features:**
+- Weekly grouping with headers ("4 posts this week")
+- Contributor avatars showing who posted
+- Layout toggle: Grid (visual) or Detailed (list with metadata)
 
 **Database:** `user_follows` table + `stream_follows` table
 
@@ -159,6 +164,11 @@ Home page has two tabs:
 - Confetti celebrations on publish/upload
 - Animated like button with floating hearts
 - Smooth transitions throughout the UI
+
+### Weekly Feed Organization
+- Posts grouped by week ("This week", "Last week", date ranges)
+- Contributor avatars showing who posted each week
+- Toggle between grid and detailed list views
 
 ### Figma Integration
 - Paste Figma URLs to embed designs
