@@ -23,7 +23,7 @@ export interface WeekGroup {
 /**
  * Get the start of the week (Monday) for a given date
  */
-function getWeekStart(date: Date): Date {
+export function getWeekStart(date: Date): Date {
   const d = new Date(date);
   const day = d.getDay();
   // Adjust so Monday is day 0
@@ -47,7 +47,7 @@ function getWeekEnd(date: Date): Date {
 /**
  * Format a week label based on how recent it is
  */
-function formatWeekLabel(weekStart: Date, now: Date): string {
+export function formatWeekLabel(weekStart: Date, now: Date): string {
   const currentWeekStart = getWeekStart(now);
   const lastWeekStart = new Date(currentWeekStart);
   lastWeekStart.setDate(lastWeekStart.getDate() - 7);

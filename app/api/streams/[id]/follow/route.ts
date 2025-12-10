@@ -11,11 +11,68 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { shouldCreateNotification } from '@/lib/notifications/check-preferences';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 interface RouteContext {
   params: Promise<{
     id: string;
   }>;
+}
+
+// Types for contributor data extraction
+interface ContributorItem {
+  assets?: {
+    uploader_id: string;
+    uploader?: {
+      id: string;
+      username: string;
+      display_name: string;
+      avatar_url: string;
+    };
+  };
+}
+
+/**
+ * Fetch stream stats (contributors, asset count) - shared by POST and DELETE
+ * These values don't change on follow/unfollow but are included for API consistency
+ */
+async function fetchStreamStats(supabase: SupabaseClient, streamId: string) {
+  const [contributorsResult, assetCountResult] = await Promise.all([
+    supabase
+      .from('asset_streams')
+      .select(`
+        assets!inner(
+          uploader_id,
+          uploader:users!uploader_id(
+            id,
+            username,
+            display_name,
+            avatar_url
+          )
+        )
+      `)
+      .eq('stream_id', streamId),
+    supabase
+      .from('asset_streams')
+      .select('*', { count: 'exact', head: true })
+      .eq('stream_id', streamId),
+  ]);
+
+  // Extract unique contributors
+  const contributorMap = new Map<string, NonNullable<NonNullable<ContributorItem['assets']>['uploader']>>();
+  (contributorsResult.data as ContributorItem[] | null)?.forEach((item) => {
+    const uploader = item.assets?.uploader;
+    if (uploader && !contributorMap.has(uploader.id)) {
+      contributorMap.set(uploader.id, uploader);
+    }
+  });
+  const contributors = Array.from(contributorMap.values());
+
+  return {
+    contributorCount: contributors.length,
+    contributors: contributors.slice(0, 10),
+    assetCount: assetCountResult.count || 0,
+  };
 }
 
 /**
@@ -111,18 +168,7 @@ export async function GET(
       console.error('[GET /api/streams/[id]/follow] Error getting asset count:', assetCountResult.error);
     }
 
-    // Extract unique contributors with their details
-    interface ContributorItem {
-      assets?: {
-        uploader_id: string;
-        uploader?: {
-          id: string;
-          username: string;
-          display_name: string;
-          avatar_url: string;
-        };
-      };
-    }
+    // Extract unique contributors with their details (uses module-level ContributorItem type)
     const contributorMap = new Map<string, NonNullable<NonNullable<ContributorItem['assets']>['uploader']>>();
     (contributorsResult.data as ContributorItem[] | null)?.forEach((item) => {
       const uploader = item.assets?.uploader;
@@ -195,9 +241,39 @@ export async function POST(
         user_id: currentUser.id,
       });
 
-    // If already following, return success (idempotent)
+    // If already following, return consistent response format (idempotent)
     if (followError?.code === '23505') {
-      return NextResponse.json({ message: 'Already following' });
+      // Fetch current follower data and stream stats to return consistent response
+      const [countResult, followersResult, streamStats] = await Promise.all([
+        supabase
+          .from('stream_follows')
+          .select('*', { count: 'exact', head: true })
+          .eq('stream_id', streamId),
+        supabase
+          .from('stream_follows')
+          .select(`
+            user_id,
+            created_at,
+            users:user_id (
+              id,
+              username,
+              display_name,
+              avatar_url
+            )
+          `)
+          .eq('stream_id', streamId)
+          .order('created_at', { ascending: false })
+          .limit(10),
+        fetchStreamStats(supabase, streamId),
+      ]);
+      
+      return NextResponse.json({ 
+        success: true,
+        isFollowing: true,
+        followerCount: countResult.count || 0,
+        followers: followersResult.data?.map(f => f.users).filter(Boolean) || [],
+        ...streamStats,
+      });
     }
 
     if (followError) {
@@ -229,7 +305,38 @@ export async function POST(
       }
     }
 
-    return NextResponse.json({ success: true });
+    // Fetch updated follower count, followers, and stream stats to return
+    // This eliminates the need for a separate GET request after follow
+    const [countResult, followersResult, streamStats] = await Promise.all([
+      supabase
+        .from('stream_follows')
+        .select('*', { count: 'exact', head: true })
+        .eq('stream_id', streamId),
+      supabase
+        .from('stream_follows')
+        .select(`
+          user_id,
+          created_at,
+          users:user_id (
+            id,
+            username,
+            display_name,
+            avatar_url
+          )
+        `)
+        .eq('stream_id', streamId)
+        .order('created_at', { ascending: false })
+        .limit(10),
+      fetchStreamStats(supabase, streamId),
+    ]);
+
+    return NextResponse.json({ 
+      success: true,
+      isFollowing: true,
+      followerCount: countResult.count || 0,
+      followers: followersResult.data?.map(f => f.users).filter(Boolean) || [],
+      ...streamStats,
+    });
   } catch (error) {
     console.error('[POST /api/streams/[id]/follow] Error:', error);
     return NextResponse.json(
@@ -277,7 +384,37 @@ export async function DELETE(
       );
     }
 
-    return NextResponse.json({ success: true });
+    // Fetch updated follower data and stream stats to return (matches POST response format)
+    const [countResult, followersResult, streamStats] = await Promise.all([
+      supabase
+        .from('stream_follows')
+        .select('*', { count: 'exact', head: true })
+        .eq('stream_id', streamId),
+      supabase
+        .from('stream_follows')
+        .select(`
+          user_id,
+          created_at,
+          users:user_id (
+            id,
+            username,
+            display_name,
+            avatar_url
+          )
+        `)
+        .eq('stream_id', streamId)
+        .order('created_at', { ascending: false })
+        .limit(10),
+      fetchStreamStats(supabase, streamId),
+    ]);
+
+    return NextResponse.json({ 
+      success: true,
+      isFollowing: false,
+      followerCount: countResult.count || 0,
+      followers: followersResult.data?.map(f => f.users).filter(Boolean) || [],
+      ...streamStats,
+    });
   } catch (error) {
     console.error('[DELETE /api/streams/[id]/follow] Error:', error);
     return NextResponse.json(

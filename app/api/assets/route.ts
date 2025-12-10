@@ -8,6 +8,12 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { 
+  ASSET_BASE_SELECT, 
+  parseAndValidateCursor, 
+  buildCompositeCursor,
+  NO_CACHE_HEADERS 
+} from '@/lib/api/assets';
 
 // Force dynamic rendering to prevent caching
 export const dynamic = 'force-dynamic';
@@ -21,54 +27,68 @@ export const revalidate = 0;
  * URLs, metadata, and color information.
  * 
  * Query parameters:
- * - cursor: created_at timestamp for pagination (optional)
+ * - cursor: composite cursor "timestamp::id" for pagination (optional)
+ *   Using double colon separator to avoid conflicts with ISO timestamp colons.
+ *   Composite cursor ensures no assets are skipped when multiple
+ *   assets share the same created_at timestamp.
  * - limit: number of assets to fetch (default: 20, max: 50)
  * 
  * Response:
  * {
  *   "assets": [...],
  *   "hasMore": true,
- *   "cursor": "2025-01-01T00:00:00Z"
+ *   "cursor": "2025-01-01T00:00:00Z::asset-id-here"
  * }
  */
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
-    const cursor = searchParams.get('cursor');
+    const cursorParam = searchParams.get('cursor');
     const limit = Math.min(parseInt(searchParams.get('limit') || '20'), 50);
     const fetchLimit = limit + 1; // Fetch one extra to determine hasMore
+    
+    // Parse and validate cursor to prevent SQL injection
+    // Returns null for invalid/malicious cursors
+    const validatedCursor = parseAndValidateCursor(cursorParam);
+    const cursorTimestamp = validatedCursor?.timestamp ?? null;
+    const cursorId = validatedCursor?.id ?? null;
     
     const supabase = await createClient();
     
     // Get current user for like status (optional - won't fail if not authenticated)
     const { data: { user: currentUser } } = await supabase.auth.getUser();
     
-    // Build base query with all relations
-    const baseSelect = `
-      *,
-      uploader:users!uploader_id(
-        id,
-        username,
-        display_name,
-        avatar_url,
-        email
-      ),
-      asset_streams(
-        streams(*)
-      ),
-      asset_likes(count)
-    `;
-    
     // Build query with visibility filter
+    // Sort by created_at DESC, then by id DESC for stable ordering
+    // IMPORTANT: We use a single combined filter to avoid Supabase OR chaining issues
+    // Multiple .or() calls combine with OR logic, not AND, which would break filtering
     let query = supabase
       .from('assets')
-      .select(baseSelect)
-      .or('visibility.is.null,visibility.eq.public')
-      .order('created_at', { ascending: false });
+      .select(ASSET_BASE_SELECT)
+      .order('created_at', { ascending: false })
+      .order('id', { ascending: false });
     
-    // Apply cursor pagination if provided
-    if (cursor) {
-      query = query.lt('created_at', cursor);
+    // Build combined filter for visibility AND cursor pagination
+    // This ensures proper AND semantics between filters
+    // IMPORTANT: Timestamp values must be quoted to prevent PostgREST parsing issues
+    // with special characters like colons, dots, and the 'T' separator in ISO 8601 format
+    if (cursorTimestamp) {
+      if (cursorId) {
+        // Combined filter: visibility AND composite cursor
+        // Format: (visibility IS NULL OR public) AND (before cursor OR same-time-lower-id)
+        query = query.or(
+          `and(or(visibility.is.null,visibility.eq.public),created_at.lt."${cursorTimestamp}"),` +
+          `and(or(visibility.is.null,visibility.eq.public),created_at.eq."${cursorTimestamp}",id.lt.${cursorId})`
+        );
+      } else {
+        // Combined filter: visibility AND simple timestamp cursor
+        query = query.or(
+          `and(or(visibility.is.null,visibility.eq.public),created_at.lt."${cursorTimestamp}")`
+        );
+      }
+    } else {
+      // No cursor - just visibility filter
+      query = query.or('visibility.is.null,visibility.eq.public');
     }
     
     query = query.limit(fetchLimit);
@@ -80,11 +100,19 @@ export async function GET(request: NextRequest) {
     if (error && isColumnNotFoundError) {
       let fallbackQuery = supabase
         .from('assets')
-        .select(baseSelect)
-        .order('created_at', { ascending: false });
+        .select(ASSET_BASE_SELECT)
+        .order('created_at', { ascending: false })
+        .order('id', { ascending: false });
       
-      if (cursor) {
-        fallbackQuery = fallbackQuery.lt('created_at', cursor);
+      if (cursorTimestamp) {
+        if (cursorId) {
+          // Timestamp values must be quoted for proper PostgREST parsing
+          fallbackQuery = fallbackQuery.or(
+            `created_at.lt."${cursorTimestamp}",and(created_at.eq."${cursorTimestamp}",id.lt.${cursorId})`
+          );
+        } else {
+          fallbackQuery = fallbackQuery.lt('created_at', cursorTimestamp);
+        }
       }
       
       const fallback = await fallbackQuery.limit(fetchLimit);
@@ -132,19 +160,19 @@ export async function GET(request: NextRequest) {
       isLikedByCurrentUser: userLikedAssetIds.has(asset.id),
     }));
     
+    // Build composite cursor using shared utility
+    const lastAsset = transformedAssets[transformedAssets.length - 1];
+    const nextCursor = lastAsset ? buildCompositeCursor(lastAsset) : null;
+    
     return NextResponse.json(
       { 
         assets: transformedAssets,
         hasMore,
-        cursor: transformedAssets.length > 0 ? transformedAssets[transformedAssets.length - 1].created_at : null
+        cursor: nextCursor
       },
       { 
         status: 200,
-        headers: {
-          'Cache-Control': 'no-store, must-revalidate',
-          'Pragma': 'no-cache',
-          'Expires': '0',
-        }
+        headers: NO_CACHE_HEADERS
       }
     );
   } catch (error) {

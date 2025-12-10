@@ -12,9 +12,15 @@ Quick onboarding guide for AI assistants working on the Mainstream codebase.
 ## Critical Context
 
 ### Recent Major Changes
-- ✅ **Weekly Feed Grouping** - Posts grouped by week with "This week", "Last week" headers (NEW)
-- ✅ **Feed Layout Toggle** - Switch between grid and detailed list views (NEW)
-- ✅ **Contributor Avatars** - Stacked avatar component showing who posted each week (NEW)
+- ✅ **React Query Cache Invalidation** - Following feed auto-refreshes after follow/unfollow (NEW)
+- ✅ **Centralized Constants** - Cache times, page sizes, and timing in `lib/constants/cache.ts` (NEW)
+- ✅ **String Utilities** - Shared `getInitials`, `truncate`, etc. in `lib/utils/string.ts` (NEW)
+- ✅ **Error Boundaries** - Graceful error handling with `ErrorBoundary` component (NEW)
+- ✅ **Dynamic Imports** - Lazy-loaded dialogs for better performance (NEW)
+- ✅ **Media Query Hooks** - Shared `useIsMobile`, `useIsTablet` hooks (NEW)
+- ✅ **Weekly Feed Grouping** - Posts grouped by week with "This week", "Last week" headers
+- ✅ **Feed Layout Toggle** - Switch between grid and detailed list views
+- ✅ **Contributor Avatars** - Stacked avatar component showing who posted each week
 - ✅ **Micro-animations & Delight** - Confetti celebrations, animated like button with particles
 - ✅ **Cursor Consistency** - All interactive elements now show pointer cursor
 - ✅ **Create Drop Filters** - Multi-select streams and users when creating drops
@@ -155,9 +161,11 @@ dashboard/
 
 assets/
   element-card.tsx          - Asset card with grid/detailed layouts, hover, GIF badge (React.memo)
-  masonry-grid.tsx          - Pinterest-style layout with layout prop (React.memo)
-  asset-detail-desktop.tsx  - Desktop modal with view tracking, Figma embeds
+  masonry-grid.tsx          - Pinterest-style layout with layout prop, error boundaries (React.memo)
+  asset-detail.tsx          - Responsive wrapper using useIsMobile hook
+  asset-detail-desktop.tsx  - Desktop modal with view tracking, Figma embeds, smart preloading
   asset-detail-mobile.tsx   - Mobile carousel with view tracking, Figma embeds
+  asset-card-error.tsx      - Error fallback for failed asset cards
   comment-input.tsx         - Comment form with @mentions, typing indicator
   comment-item.tsx          - Comment with like button, highlight animation
   comment-list.tsx          - Threaded comments (no nested replies)
@@ -193,6 +201,7 @@ ui/ (shadcn components)
   calendar.tsx              - Calendar component (react-day-picker v9)
   date-picker.tsx           - Reusable date picker (Popover + Calendar)
   like-button.tsx           - Animated like button with heartbeat and particles
+  error-boundary.tsx        - Error boundary with reset capability
 
 users/
   user-profile-header.tsx   - Profile header with follow button
@@ -211,15 +220,16 @@ layout/
 
 ### Hooks (`lib/hooks/`)
 ```
-use-assets-infinite.ts      - Infinite scroll for recent assets
-use-following-assets.ts     - Infinite scroll for following feed (users + streams)
+use-assets-infinite.ts      - Infinite scroll for recent assets (React Query)
+use-following-assets.ts     - Infinite scroll for following feed (React Query, auto-invalidation)
 use-asset-like.ts           - Like/unlike with optimistic updates
 use-asset-view.ts           - Record view after 2s (atomic RPC, real-time count callback)
 use-asset-comments.ts       - CRUD operations (React Query + Supabase Realtime)
 use-asset-prefetch.ts       - Hover-based data prefetching for instant modal
 use-comment-like.ts         - Like/unlike comments (race-condition fixed)
-use-user-follow.ts          - Follow/unfollow users
-use-stream-follow.ts        - Follow/unfollow streams with optimistic updates
+use-comment-likes-manager.ts - Centralized comment likes state management
+use-user-follow.ts          - Follow/unfollow users (+ cache invalidation)
+use-stream-follow.ts        - Follow/unfollow streams (+ cache invalidation)
 use-stream-bookmarks.ts     - CRUD for stream bookmarks
 use-stream-members.ts       - Add/remove members with optimistic updates
 use-notifications.ts        - Real-time notifications with asset enrichment
@@ -227,6 +237,7 @@ use-stream-mentions.ts      - Parse and create streams from hashtags
 use-stream-dropdown-options.ts - Shared stream dropdown logic
 use-typing-indicator.ts     - Real-time typing status (Supabase Presence)
 use-figma-integration.ts    - Manage Figma token connection status
+use-media-query.ts          - Shared media queries (useIsMobile, useIsTablet, etc.)
 ```
 
 ### Providers (`lib/providers/`)
@@ -237,13 +248,20 @@ query-provider.tsx          - React Query provider with DevTools (dev only)
 ### Queries (`lib/queries/`)
 ```
 asset-queries.ts            - Query keys factory and fetch functions
+                              - assetKeys.all, .list, .detail, .comments
+                              - assetKeys.recent(), .following() - for infinite queries
+                              - fetchAssetById, fetchAssetComments
 ```
 
 ### Types (`lib/types/`)
 ```
 database.ts - TypeScript interfaces for all DB entities:
   - Asset (includes likeCount, isLikedByCurrentUser, view_count, streams, asset_type, embed_url, embed_provider, visibility)
-  - Stream, User (includes figma_access_token), Comment, Notification (includes content, comment_id)
+  - Stream, User (includes figma_access_token)
+  - Comment (single source of truth for comment data)
+  - CommentUser (partial user data for comments)
+  - Notification (includes content, comment_id)
+  - NotificationType, ResourceType (type unions)
   - StreamFollow, StreamBookmark
   - AssetViewer (for view tooltip)
   - Drop, DropPost, DropBlock, DropBlockGalleryImage (AI newsletter system)
@@ -260,6 +278,17 @@ encryption.ts         - AES-256-GCM token encryption utilities
 image-processing.ts   - Sharp-based image/GIF processing
 file-storage.ts       - Local file storage helpers
 week-grouping.ts      - Group assets by week for feed display (WeekGroup interface)
+string.ts             - String utilities (getInitials, truncate, capitalize, slugify, pluralize)
+```
+
+### Constants (`lib/constants/`)
+```
+cache.ts              - Centralized timing constants:
+                        - CACHE_TIMES: staleTime, gcTime for React Query
+                        - PAGE_SIZES: SSR_INITIAL, CLIENT_PAGE, MAX_LIMIT
+                        - REALTIME: debounce, throttle values
+                        - UI_TIMING: prefetch delay, highlight duration
+                        - VIRTUALIZATION: thresholds and heights
 ```
 
 ## Data Model
@@ -435,6 +464,44 @@ const handleClick = useCallback(() => {
 }, [dependencies]);
 ```
 
+### Error Boundaries
+```typescript
+// Wrap components that might fail
+import { ErrorBoundary } from "@/components/ui/error-boundary";
+import { AssetCardErrorFallback } from "@/components/assets/asset-card-error";
+
+<ErrorBoundary
+  fallback={(error, reset) => (
+    <AssetCardErrorFallback error={error} onRetry={reset} />
+  )}
+>
+  <ElementCard asset={asset} />
+</ErrorBoundary>
+```
+
+### Dynamic Imports (Code Splitting)
+```typescript
+// Lazy-load dialogs to reduce initial bundle
+import dynamic from "next/dynamic";
+
+const StreamDialog = dynamic(
+  () => import("@/components/layout/stream-dialog").then((mod) => mod.StreamDialog),
+  { ssr: false }
+);
+
+// Used in: streams-tab.tsx, create-dialog.tsx, stream-header.tsx
+// Also: EditProfileDialog, ManageMembersDialog
+```
+
+### Shared Media Queries
+```typescript
+// Use centralized media query hooks (deduplicated listeners)
+import { useIsMobile, useIsTablet } from "@/lib/hooks/use-media-query";
+
+const isMobile = useIsMobile();   // < 768px
+const isTablet = useIsTablet();   // < 1024px
+```
+
 ### Server-Side Prefetch (Stream Pages)
 ```typescript
 // app/stream/[slug]/page.tsx
@@ -517,6 +584,24 @@ try {
   setLiked(false);
   setLikeCount(prev => prev - 1);
 }
+```
+
+### Cache Invalidation on Follow/Unfollow
+```typescript
+// When user follows/unfollows a stream or user, invalidate the Following feed
+// This ensures the feed refreshes with new content when they visit the Following tab
+
+import { useQueryClient } from "@tanstack/react-query";
+import { assetKeys } from "@/lib/queries/asset-queries";
+
+const queryClient = useQueryClient();
+
+// After successful follow/unfollow:
+queryClient.invalidateQueries({ queryKey: assetKeys.following() });
+
+// Query keys are centralized in lib/queries/asset-queries.ts:
+// assetKeys.following() → ["assets", "following"]
+// assetKeys.recent() → ["assets", "recent"]
 ```
 
 ### Upload Refresh

@@ -18,8 +18,10 @@ Design collaboration platform for internal teams to share work and organize into
 - **Tailwind CSS** - Styling
 - **shadcn/ui** - Component library
 - **Supabase** - PostgreSQL database + Auth + Storage
+- **React Query** - Data fetching, caching, and cache invalidation
 - **Framer Motion** - Animations
 - **canvas-confetti** - Celebration animations
+- **@tanstack/react-virtual** - UI virtualization for long lists
 - **LiteLLM** - AI integration (Gemini 2.5 Flash)
 - **React Email** - Email-compatible components
 - **Resend** - Email delivery
@@ -55,6 +57,8 @@ Design collaboration platform for internal teams to share work and organize into
 ✅ **Complete** - Micro-animations and delightful interactions (confetti, animated like button)  
 ✅ **Complete** - Weekly feed grouping (posts grouped by week with contributor avatars)  
 ✅ **Complete** - Feed layout toggle (grid vs detailed view)  
+✅ **Complete** - Performance optimizations (React Query, memoization, error boundaries, dynamic imports)  
+✅ **Complete** - Centralized constants (cache times, page sizes, timing)  
 
 ## Project Structure
 
@@ -83,7 +87,9 @@ mainstream/
 │   ├── auth/            # Auth utilities
 │   ├── hooks/           # Custom React hooks
 │   ├── contexts/        # React contexts
-│   ├── utils/           # Utilities (AI, encryption, confetti, week-grouping, etc.)
+│   ├── constants/       # Centralized constants (cache, page sizes, timing)
+│   ├── queries/         # React Query key factories and fetch functions
+│   ├── utils/           # Utilities (AI, encryption, confetti, week-grouping, string, etc.)
 │   └── types/           # TypeScript types
 └── docs/                # Documentation
 ```

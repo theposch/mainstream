@@ -4,6 +4,7 @@ import * as React from "react";
 import type { Asset } from "@/lib/types/database";
 import { AssetDetailDesktop } from "./asset-detail-desktop";
 import { AssetDetailMobile } from "./asset-detail-mobile";
+import { useIsMobile } from "@/lib/hooks/use-media-query";
 
 interface AssetDetailProps {
   asset: Asset;
@@ -18,17 +19,8 @@ interface AssetDetailProps {
 }
 
 export function AssetDetail({ asset, allAssets = [], onClose, onNavigate, onDelete }: AssetDetailProps) {
-  // Check mobile on initial render (safe since this is only rendered client-side from feed.tsx)
-  const [isMobile, setIsMobile] = React.useState(() => {
-    if (typeof window === 'undefined') return false;
-    return window.innerWidth < 768;
-  });
-
-  React.useEffect(() => {
-    const checkMobile = () => setIsMobile(window.innerWidth < 768);
-    window.addEventListener('resize', checkMobile);
-    return () => window.removeEventListener('resize', checkMobile);
-  }, []);
+  // Use shared media query hook for efficient, deduplicated mobile detection
+  const isMobile = useIsMobile();
 
   // Calculate previous/next assets for navigation
   const currentIndex = allAssets.findIndex(a => a.id === asset.id);

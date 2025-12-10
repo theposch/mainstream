@@ -9,6 +9,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
+import { getInitials } from "@/lib/utils/string";
 import type { User } from "@/lib/types/database";
 
 type Contributor = Pick<User, "id" | "username" | "display_name" | "avatar_url">;
@@ -53,16 +54,6 @@ export function ContributorAvatars({
   const visibleContributors = contributors.slice(0, maxVisible);
   const remainingCount = contributors.length - maxVisible;
   const hasMore = remainingCount > 0;
-
-  // Get initials for fallback
-  const getInitials = (name: string): string => {
-    return name
-      .split(" ")
-      .map((n) => n[0])
-      .join("")
-      .toUpperCase()
-      .slice(0, 2);
-  };
 
   return (
     <div className={cn("flex items-center", className)}>

@@ -8,6 +8,11 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { 
+  ASSET_BASE_SELECT, 
+  parseAndValidateCursor, 
+  buildCompositeCursor 
+} from '@/lib/api/assets';
 
 export const dynamic = 'force-dynamic';
 
@@ -15,7 +20,8 @@ export const dynamic = 'force-dynamic';
  * GET /api/assets/following
  * 
  * Query parameters:
- * - cursor: created_at timestamp for pagination (optional)
+ * - cursor: composite cursor "timestamp::id" for pagination (optional)
+ *   Using double colon separator to avoid conflicts with ISO timestamp colons.
  * - limit: number of assets to fetch (default: 20, max: 50)
  * 
  * Returns assets from:
@@ -27,8 +33,14 @@ export const dynamic = 'force-dynamic';
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
-    const cursor = searchParams.get('cursor');
+    const cursorParam = searchParams.get('cursor');
     const limit = Math.min(parseInt(searchParams.get('limit') || '20'), 50);
+    
+    // Parse and validate cursor to prevent SQL injection
+    // Returns null for invalid/malicious cursors
+    const validatedCursor = parseAndValidateCursor(cursorParam);
+    const cursorTimestamp = validatedCursor?.timestamp ?? null;
+    const cursorId = validatedCursor?.id ?? null;
 
     const supabase = await createClient();
     
@@ -74,14 +86,19 @@ export async function GET(request: NextRequest) {
       console.error('[GET /api/assets/following] Error fetching stream follows (continuing with user follows):', streamFollowsResult.error);
     }
 
-    const followingUserIds = userFollowsResult.data?.map(f => f.following_id) || [];
+    // Filter out self-follows - don't show your own posts in the Following feed
+    // (your own posts appear in Recent/profile instead)
+    const followingUserIds = (userFollowsResult.data?.map(f => f.following_id) || [])
+      .filter(id => id !== currentUser.id);
     const followingStreamIds = streamFollowsResult.data?.map(f => f.stream_id) || [];
 
     // If not following anyone or any streams, return empty array
+    // Maintain consistent response structure with cursor field
     if (followingUserIds.length === 0 && followingStreamIds.length === 0) {
       return NextResponse.json({
         assets: [],
-        hasMore: false
+        hasMore: false,
+        cursor: null
       });
     }
 
@@ -100,22 +117,6 @@ export async function GET(request: NextRequest) {
       streamAssetIds = streamAssets?.map(sa => sa.asset_id) || [];
     }
 
-    // Build the base select query for assets
-    const baseSelect = `
-        *,
-        uploader:users!uploader_id(
-          id,
-          username,
-          display_name,
-          avatar_url,
-          email
-        ),
-        asset_streams(
-          streams(*)
-        ),
-        asset_likes(count)
-    `;
-
     // Fetch assets using separate queries to avoid complex OR filter issues with UUIDs
     // Then merge and deduplicate the results
     // Request limit + 1 to accurately detect if more data exists
@@ -124,53 +125,88 @@ export async function GET(request: NextRequest) {
     
     // Query for assets from followed users
     // Filter by visibility (exclude unlisted drop-only images)
-    // Use compound OR to ensure AND semantics with IN filter
+    // IMPORTANT: Build single combined filter to avoid Supabase OR chaining issues
+    // Multiple .or() calls combine with OR logic, not AND
     if (followingUserIds.length > 0) {
-      // Build visibility filter for each uploader_id
-      // Format: (uploader_id = X AND (visibility IS NULL OR visibility = public))
-      const userVisibilityFilter = followingUserIds
-        .map(id => `and(uploader_id.eq.${id},or(visibility.is.null,visibility.eq.public))`)
-        .join(',');
-      
       let userAssetsQuery = supabase
         .from('assets')
-        .select(baseSelect)
-        .or(userVisibilityFilter);
+        .select(ASSET_BASE_SELECT)
+        .order('created_at', { ascending: false })
+        .order('id', { ascending: false });
       
-      // Apply cursor filter BEFORE limit for correct pagination semantics
-      if (cursor) {
-        userAssetsQuery = userAssetsQuery.lt('created_at', cursor);
+      // Build combined filter: (uploader IN followed AND visibility OK) AND cursor
+      // IMPORTANT: Timestamp values must be quoted for proper PostgREST parsing
+      if (cursorTimestamp) {
+        if (cursorId) {
+          // Combined filter with composite cursor
+          // Each uploader filter includes visibility AND cursor conditions
+          const userCursorFilter = followingUserIds
+            .map(id => 
+              `and(uploader_id.eq.${id},or(visibility.is.null,visibility.eq.public),or(created_at.lt."${cursorTimestamp}",and(created_at.eq."${cursorTimestamp}",id.lt.${cursorId})))`
+            )
+            .join(',');
+          userAssetsQuery = userAssetsQuery.or(userCursorFilter);
+        } else {
+          // Combined filter with simple timestamp cursor
+          const userCursorFilter = followingUserIds
+            .map(id => 
+              `and(uploader_id.eq.${id},or(visibility.is.null,visibility.eq.public),created_at.lt."${cursorTimestamp}")`
+            )
+            .join(',');
+          userAssetsQuery = userAssetsQuery.or(userCursorFilter);
+        }
+      } else {
+        // No cursor - just uploader + visibility filter
+        const userVisibilityFilter = followingUserIds
+          .map(id => `and(uploader_id.eq.${id},or(visibility.is.null,visibility.eq.public))`)
+          .join(',');
+        userAssetsQuery = userAssetsQuery.or(userVisibilityFilter);
       }
       
-      userAssetsQuery = userAssetsQuery
-        .order('created_at', { ascending: false })
-        .limit(fetchLimit);
+      userAssetsQuery = userAssetsQuery.limit(fetchLimit);
       
       assetQueries.push(userAssetsQuery);
     }
     
     // Query for assets from followed streams
     // Filter by visibility (exclude unlisted drop-only images)
+    // IMPORTANT: Build single combined filter to avoid Supabase OR chaining issues
     if (streamAssetIds.length > 0) {
-      // Build visibility filter for each asset_id
-      // Format: (id = X AND (visibility IS NULL OR visibility = public))
-      const streamVisibilityFilter = streamAssetIds
-        .map(id => `and(id.eq.${id},or(visibility.is.null,visibility.eq.public))`)
-        .join(',');
-      
       let streamAssetsQuery = supabase
         .from('assets')
-        .select(baseSelect)
-        .or(streamVisibilityFilter);
-
-      // Apply cursor filter BEFORE limit for correct pagination semantics
-      if (cursor) {
-        streamAssetsQuery = streamAssetsQuery.lt('created_at', cursor);
+        .select(ASSET_BASE_SELECT)
+        .order('created_at', { ascending: false })
+        .order('id', { ascending: false });
+      
+      // Build combined filter: (id IN stream assets AND visibility OK) AND cursor
+      // IMPORTANT: Timestamp values must be quoted for proper PostgREST parsing
+      if (cursorTimestamp) {
+        if (cursorId) {
+          // Combined filter with composite cursor
+          const streamCursorFilter = streamAssetIds
+            .map(id => 
+              `and(id.eq.${id},or(visibility.is.null,visibility.eq.public),or(created_at.lt."${cursorTimestamp}",and(created_at.eq."${cursorTimestamp}",id.lt.${cursorId})))`
+            )
+            .join(',');
+          streamAssetsQuery = streamAssetsQuery.or(streamCursorFilter);
+        } else {
+          // Combined filter with simple timestamp cursor
+          const streamCursorFilter = streamAssetIds
+            .map(id => 
+              `and(id.eq.${id},or(visibility.is.null,visibility.eq.public),created_at.lt."${cursorTimestamp}")`
+            )
+            .join(',');
+          streamAssetsQuery = streamAssetsQuery.or(streamCursorFilter);
+        }
+      } else {
+        // No cursor - just asset id + visibility filter
+        const streamVisibilityFilter = streamAssetIds
+          .map(id => `and(id.eq.${id},or(visibility.is.null,visibility.eq.public))`)
+          .join(',');
+        streamAssetsQuery = streamAssetsQuery.or(streamVisibilityFilter);
       }
 
-      streamAssetsQuery = streamAssetsQuery
-        .order('created_at', { ascending: false })
-        .limit(fetchLimit);
+      streamAssetsQuery = streamAssetsQuery.limit(fetchLimit);
       
       assetQueries.push(streamAssetsQuery);
     }
@@ -204,9 +240,15 @@ export async function GET(request: NextRequest) {
       });
     });
     
-    // Sort by created_at DESC
+    // Sort by created_at DESC, then by id DESC for stable ordering
     const allMergedAssets = Array.from(assetMap.values())
-      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+      .sort((a, b) => {
+        const timeCompare = new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+        if (timeCompare !== 0) return timeCompare;
+        // If timestamps are equal, sort by id DESC for stable ordering
+        // localeCompare returns positive when first > second, so negate for DESC
+        return -a.id.localeCompare(b.id);
+      });
     
     // hasMore is true if:
     // 1. Any individual query returned fetchLimit items (indicating more in that source), OR
@@ -241,10 +283,14 @@ export async function GET(request: NextRequest) {
       isLikedByCurrentUser: userLikedAssetIds.has(asset.id),
     }));
 
+    // Build composite cursor using shared utility
+    const lastAsset = assets[assets.length - 1];
+    const nextCursor = lastAsset ? buildCompositeCursor(lastAsset) : null;
+    
     return NextResponse.json({
       assets: assets || [],
       hasMore,
-      cursor: assets && assets.length > 0 ? assets[assets.length - 1].created_at : null
+      cursor: nextCursor
     });
   } catch (error) {
     console.error('[GET /api/assets/following] Error:', error);

@@ -5,6 +5,8 @@ import Masonry from "react-masonry-css";
 import type { Asset } from "@/lib/types/database";
 import { ElementCard } from "./element-card";
 import { LoadingSpinner } from "@/components/ui/loading";
+import { ErrorBoundary } from "@/components/ui/error-boundary";
+import { AssetCardErrorFallback } from "./asset-card-error";
 import { MASONRY_BREAKPOINTS } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 import { ImageOff } from "lucide-react";
@@ -53,14 +55,24 @@ export const MasonryGrid = React.memo(function MasonryGrid({
       columnClassName="pl-6 bg-clip-padding"
     >
       {assets.map((asset) => (
-        <ElementCard 
-          key={asset.id} 
-          asset={asset} 
-          className="mb-6" 
-          layout={layout}
-          onLikeChange={onLikeChange}
-          onClick={onAssetClick}
-        />
+        <ErrorBoundary 
+          key={asset.id}
+          fallback={(error, reset) => (
+            <AssetCardErrorFallback
+              className="mb-6"
+              error={error}
+              onRetry={reset}
+            />
+          )}
+        >
+          <ElementCard 
+            asset={asset} 
+            className="mb-6" 
+            layout={layout}
+            onLikeChange={onLikeChange}
+            onClick={onAssetClick}
+          />
+        </ErrorBoundary>
       ))}
     </Masonry>
   );
