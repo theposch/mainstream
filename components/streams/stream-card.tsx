@@ -53,7 +53,7 @@ export const StreamCard = React.memo(function StreamCard({ stream }: StreamCardP
 
       <div className="space-y-1 px-1">
         <div className="flex items-center justify-between">
-          <h3 className="font-medium text-white truncate pr-2">{stream.name}</h3>
+          <h3 className="font-medium text-foreground truncate pr-2">{stream.name}</h3>
           {stream.is_private ? (
             <Lock className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
           ) : (

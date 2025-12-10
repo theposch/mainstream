@@ -460,7 +460,7 @@ export function AssetDetailMobile({ asset, allAssets: allAssetsProp, onClose, on
             {/* Header Info */}
             <div className="px-4 pt-2 pb-4 border-b border-border space-y-4">
               {/* Title */}
-              <h1 className="text-xl font-bold text-white">{currentAsset.title}</h1>
+              <h1 className="text-xl font-bold text-foreground">{currentAsset.title}</h1>
               
               {/* Author Row */}
               <div className="flex items-center justify-between gap-3">
@@ -474,7 +474,7 @@ export function AssetDetailMobile({ asset, allAssets: allAssetsProp, onClose, on
                   <div className="flex flex-col">
                     <Link 
                       href={`/u/${uploader?.username}`}
-                      className="text-sm font-medium text-white hover:underline"
+                      className="text-sm font-medium text-foreground hover:underline"
                     >
                       {uploader?.display_name || 'Unknown User'}
                     </Link>
@@ -541,7 +541,7 @@ export function AssetDetailMobile({ asset, allAssets: allAssetsProp, onClose, on
 
             {/* Comments List */}
             <div className="p-4">
-              <h3 className="text-sm font-semibold text-white mb-4">
+              <h3 className="text-sm font-semibold text-foreground mb-4">
                 Comments ({comments.length})
               </h3>
               <CommentList 
