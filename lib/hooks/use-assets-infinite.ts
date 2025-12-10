@@ -8,7 +8,7 @@
  * 
  * Usage:
  * ```tsx
- * const { assets, loadMore, hasMore, loading } = useAssetsInfinite(initialAssets);
+ * const { assets, loadMore, hasMore, loading, removeAsset } = useAssetsInfinite(initialAssets);
  * ```
  */
 
@@ -21,6 +21,8 @@ interface UseAssetsInfiniteReturn {
   loadMore: () => Promise<void>;
   hasMore: boolean;
   loading: boolean;
+  /** Remove an asset from local state (for optimistic updates after deletion) */
+  removeAsset: (assetId: string) => void;
 }
 
 const PAGE_SIZE = 20;
@@ -107,5 +109,10 @@ export function useAssetsInfinite(
     }
   }, [assets, loading, hasMore]);
 
-  return { assets, loadMore, hasMore, loading };
+  // Remove an asset from local state (optimistic update after deletion)
+  const removeAsset = useCallback((assetId: string) => {
+    setAssets((prev) => prev.filter((a) => a.id !== assetId));
+  }, []);
+
+  return { assets, loadMore, hasMore, loading, removeAsset };
 }

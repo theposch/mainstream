@@ -46,9 +46,11 @@ interface AssetDetailMobileProps {
   onClose?: () => void;
   /** Callback when navigating to another asset (for modal mode) */
   onNavigate?: (assetId: string) => void;
+  /** Callback when asset is deleted (for feed updates) */
+  onDelete?: (assetId: string) => void;
 }
 
-export function AssetDetailMobile({ asset, allAssets: allAssetsProp, onClose, onNavigate }: AssetDetailMobileProps) {
+export function AssetDetailMobile({ asset, allAssets: allAssetsProp, onClose, onNavigate, onDelete }: AssetDetailMobileProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const highlightedCommentId = searchParams.get('comment');
@@ -243,6 +245,9 @@ export function AssetDetailMobile({ asset, allAssets: allAssetsProp, onClose, on
         const data = await response.json();
         throw new Error(data.message || 'Failed to delete asset');
       }
+
+      // Notify parent to update feed (remove from local state)
+      onDelete?.(currentAsset.id);
 
       // Success - close modal or redirect to home
       if (onClose) {

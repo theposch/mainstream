@@ -8,12 +8,12 @@
  * 
  * Usage:
  * ```tsx
- * const { assets, loadMore, hasMore, loading, error } = useFollowingAssets();
+ * const { assets, loadMore, hasMore, loading, error, removeAsset } = useFollowingAssets();
  * ```
  */
 
 import { useCallback, useMemo } from "react";
-import { useInfiniteQuery } from "@tanstack/react-query";
+import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
 import type { Asset } from "@/lib/types/database";
 
 interface FollowingAssetsResponse {
@@ -28,6 +28,8 @@ interface UseFollowingAssetsReturn {
   hasMore: boolean;
   loading: boolean;
   error: string | null;
+  /** Remove an asset from the cache (for optimistic updates after deletion) */
+  removeAsset: (assetId: string) => void;
 }
 
 const fetchFollowingAssets = async ({ pageParam }: { pageParam: string | null }): Promise<FollowingAssetsResponse> => {
@@ -47,6 +49,8 @@ const fetchFollowingAssets = async ({ pageParam }: { pageParam: string | null })
 };
 
 export function useFollowingAssets(): UseFollowingAssetsReturn {
+  const queryClient = useQueryClient();
+  
   const {
     data,
     fetchNextPage,
@@ -74,12 +78,30 @@ export function useFollowingAssets(): UseFollowingAssetsReturn {
     }
   }, [fetchNextPage, hasNextPage, isFetching]);
 
+  // Optimistically remove an asset from the cache
+  const removeAsset = useCallback((assetId: string) => {
+    queryClient.setQueryData<{ pages: FollowingAssetsResponse[]; pageParams: (string | null)[] }>(
+      ['assets', 'following'],
+      (oldData) => {
+        if (!oldData) return oldData;
+        return {
+          ...oldData,
+          pages: oldData.pages.map((page) => ({
+            ...page,
+            assets: page.assets.filter((asset) => asset.id !== assetId),
+          })),
+        };
+      }
+    );
+  }, [queryClient]);
+
   return {
     assets,
     loadMore,
     hasMore: hasNextPage ?? true,
     loading: isFetching || isFetchingNextPage,
     error: error instanceof Error ? error.message : null,
+    removeAsset,
   };
 }
 
