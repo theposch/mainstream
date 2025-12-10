@@ -173,10 +173,12 @@ export const CommentList = React.memo(function CommentList({
   }
 
   // Virtualized rendering for large comment lists (30+ comments)
+  // Uses flex-1 to inherit height from parent container instead of fixed height
+  // This maintains natural scroll behavior with the rest of the detail view
   return (
     <div
       ref={parentRef}
-      className="h-[400px] overflow-auto"
+      className="flex-1 min-h-0 overflow-auto"
     >
       <div
         style={{

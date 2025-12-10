@@ -86,10 +86,12 @@ export async function GET(request: NextRequest) {
     const followingStreamIds = streamFollowsResult.data?.map(f => f.stream_id) || [];
 
     // If not following anyone or any streams, return empty array
+    // Maintain consistent response structure with cursor field
     if (followingUserIds.length === 0 && followingStreamIds.length === 0) {
       return NextResponse.json({
         assets: [],
-        hasMore: false
+        hasMore: false,
+        cursor: null
       });
     }
 
@@ -230,7 +232,8 @@ export async function GET(request: NextRequest) {
         const timeCompare = new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
         if (timeCompare !== 0) return timeCompare;
         // If timestamps are equal, sort by id DESC for stable ordering
-        return b.id.localeCompare(a.id);
+        // localeCompare returns positive when first > second, so negate for DESC
+        return -a.id.localeCompare(b.id);
       });
     
     // hasMore is true if:
