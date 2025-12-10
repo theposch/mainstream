@@ -66,8 +66,8 @@ export function MoreMenuSheet({
               onOpenChange(false);
             }}
             className={cn(
-              "w-full flex items-center gap-4 p-4 rounded-xl transition-colors bg-zinc-900/50 active:bg-zinc-800 cursor-pointer",
-              item.variant === "destructive" ? "text-red-500" : "text-zinc-200"
+              "w-full flex items-center gap-4 p-4 rounded-xl transition-colors bg-muted/50 active:bg-accent cursor-pointer",
+              item.variant === "destructive" ? "text-destructive" : "text-foreground"
             )}
           >
             <item.icon className="h-5 w-5" />
@@ -77,7 +77,7 @@ export function MoreMenuSheet({
         
         <button
           onClick={() => onOpenChange(false)}
-          className="w-full flex items-center justify-center gap-2 p-4 rounded-xl bg-zinc-900 text-zinc-400 mt-4 font-medium active:bg-zinc-800 cursor-pointer"
+          className="w-full flex items-center justify-center gap-2 p-4 rounded-xl bg-muted text-muted-foreground mt-4 font-medium active:bg-accent cursor-pointer"
         >
           Cancel
         </button>

@@ -24,24 +24,24 @@ export const MobileActionBar = React.memo(function MobileActionBar({
   onMoreTap
 }: MobileActionBarProps) {
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-50 px-4 py-3 pb-[max(12px,env(safe-area-inset-bottom))] bg-black/80 backdrop-blur-xl border-t border-white/10 flex items-center justify-between gap-4">
+    <div className="fixed bottom-0 left-0 right-0 z-50 px-4 py-3 pb-[max(12px,env(safe-area-inset-bottom))] bg-background/80 backdrop-blur-xl border-t border-border flex items-center justify-between gap-4">
       {/* Like Button */}
       <button 
         onClick={onLike}
-        className="flex flex-col items-center gap-0.5 p-2 text-zinc-400 active:scale-95 transition-transform cursor-pointer"
+        className="flex flex-col items-center gap-0.5 p-2 text-muted-foreground active:scale-95 transition-transform cursor-pointer"
       >
         <Heart 
           className={cn(
             "h-6 w-6 transition-colors", 
-            hasLiked ? "fill-red-500 text-red-500" : "text-white"
+            hasLiked ? "fill-red-500 text-red-500" : "text-foreground"
           )} 
         />
-        <span className={cn("text-xs font-medium", hasLiked ? "text-red-500" : "text-zinc-400")}>
+        <span className={cn("text-xs font-medium", hasLiked ? "text-red-500" : "text-muted-foreground")}>
           {likes}
         </span>
         {/* View count below likes */}
         {viewCount !== undefined && (
-          <span className="text-[10px] text-zinc-600 flex items-center gap-0.5 mt-0.5">
+          <span className="text-[10px] text-muted-foreground/70 flex items-center gap-0.5 mt-0.5">
             <Eye className="h-2.5 w-2.5" />
             {viewCount}
           </span>
@@ -51,10 +51,10 @@ export const MobileActionBar = React.memo(function MobileActionBar({
       {/* Comments Button (Primary Action) */}
       <button 
         onClick={onCommentsTap}
-        className="flex-1 h-10 bg-zinc-800 hover:bg-zinc-700 active:bg-zinc-600 rounded-full flex items-center px-4 gap-2 transition-colors cursor-pointer"
+        className="flex-1 h-10 bg-muted hover:bg-accent active:bg-accent/80 rounded-full flex items-center px-4 gap-2 transition-colors cursor-pointer"
       >
-        <MessageCircle className="h-4 w-4 text-zinc-400" />
-        <span className="text-sm font-medium text-zinc-300">
+        <MessageCircle className="h-4 w-4 text-muted-foreground" />
+        <span className="text-sm font-medium text-foreground/80">
           {commentCount === 0 ? "Add a comment..." : `${commentCount} comments`}
         </span>
       </button>
@@ -63,9 +63,9 @@ export const MobileActionBar = React.memo(function MobileActionBar({
       {onMoreTap && (
         <button 
           onClick={onMoreTap}
-          className="flex flex-col items-center gap-1 p-2 text-zinc-400 active:scale-95 transition-transform cursor-pointer"
+          className="flex flex-col items-center gap-1 p-2 text-muted-foreground active:scale-95 transition-transform cursor-pointer"
         >
-          <MoreHorizontal className="h-6 w-6 text-white" />
+          <MoreHorizontal className="h-6 w-6 text-foreground" />
         </button>
       )}
     </div>
