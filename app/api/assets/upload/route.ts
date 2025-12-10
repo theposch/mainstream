@@ -32,6 +32,10 @@ import {
   generateAnimatedMedium,
   generateGifThumbnail,
 } from '@/lib/utils/image-processing';
+import {
+  generateVideoThumbnails,
+  isFFmpegAvailable,
+} from '@/lib/utils/video-processing';
 import { createClient } from '@/lib/supabase/server';
 
 export const runtime = 'nodejs';
@@ -194,17 +198,49 @@ export async function POST(request: NextRequest) {
     let metadata: { width?: number; height?: number; isAnimated?: boolean; pages?: number } = {};
 
     if (isWebM) {
-      // WebM video: save directly without processing
+      // WebM video: save video + generate thumbnail images
       console.log(`[POST /api/assets/upload] Processing WebM video (${(file.size / 1024 / 1024).toFixed(2)} MB)`);
+      
+      // Check if FFmpeg is available for thumbnail generation
+      const ffmpegAvailable = await isFFmpegAvailable();
       
       // Save the WebM file directly (no transcoding needed)
       fullUrl = await saveImageToPublic(buffer, uniqueFilename, 'full', '.webm');
-      // Use the same file for all sizes (browser handles video scaling)
-      mediumUrl = fullUrl;
-      thumbnailUrl = fullUrl;
       
-      // WebM metadata - we don't extract dimensions, browser handles it
-      metadata = { isAnimated: true };
+      if (ffmpegAvailable) {
+        try {
+          // Generate thumbnail images from video (extract frame at 1 second)
+          console.log(`[POST /api/assets/upload] Generating video thumbnails...`);
+          const { medium, thumbnail, metadata: videoMeta } = await generateVideoThumbnails(buffer, 1);
+          
+          // Save thumbnail images (JPEG format)
+          [mediumUrl, thumbnailUrl] = await Promise.all([
+            saveImageToPublic(medium, uniqueFilename, 'medium', '.jpg'),
+            saveImageToPublic(thumbnail, uniqueFilename, 'thumbnails', '.jpg'),
+          ]);
+          
+          // Use video metadata for dimensions
+          metadata = {
+            width: videoMeta.width,
+            height: videoMeta.height,
+            isAnimated: true,
+          };
+          
+          console.log(`[POST /api/assets/upload] Video thumbnails generated successfully`);
+        } catch (thumbError) {
+          console.error('[POST /api/assets/upload] Failed to generate video thumbnails:', thumbError);
+          // Fall back to video URL (better than failing the upload)
+          mediumUrl = fullUrl;
+          thumbnailUrl = fullUrl;
+          metadata = { isAnimated: true };
+        }
+      } else {
+        console.warn('[POST /api/assets/upload] FFmpeg not available, skipping video thumbnail generation');
+        // Use video URL as fallback
+        mediumUrl = fullUrl;
+        thumbnailUrl = fullUrl;
+        metadata = { isAnimated: true };
+      }
     } else {
       // Image processing
       // Validate it's a real image
