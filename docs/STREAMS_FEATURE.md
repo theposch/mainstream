@@ -141,6 +141,7 @@ CREATE TABLE stream_follows (
 - Assets from followed streams appear in the "Following" tab
 - Merges with assets from followed users
 - Deduplication prevents showing the same asset twice
+- **Auto-refresh:** Following feed cache is invalidated on follow/unfollow, so new content appears immediately without manual refresh
 
 ### Stream Bookmarks
 
@@ -755,7 +756,7 @@ SELECT * FROM streams WHERE name = 'stream-slug';
 - `lib/types/database.ts` - StreamFollow, StreamBookmark, StreamMember
 
 ### Hooks
-- `lib/hooks/use-stream-follow.ts` - Follow/unfollow streams
+- `lib/hooks/use-stream-follow.ts` - Follow/unfollow streams (+ React Query cache invalidation)
 - `lib/hooks/use-stream-bookmarks.ts` - CRUD for bookmarks
 - `lib/hooks/use-stream-members.ts` - Member management with optimistic updates
 - `lib/hooks/use-stream-mentions.ts` - Parse hashtags
