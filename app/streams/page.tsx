@@ -72,7 +72,7 @@ export default async function StreamsPage() {
     <div className="w-full min-h-screen pb-20">
       {/* Page Header */}
       <div className="pt-10 pb-12 space-y-3">
-        <h1 className="text-4xl font-bold text-white">Streams</h1>
+        <h1 className="text-4xl font-bold text-foreground">Streams</h1>
         <p className="text-lg text-muted-foreground max-w-2xl">
           Browse all streams and discover creative work across teams and individuals.
         </p>

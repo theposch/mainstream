@@ -99,7 +99,7 @@ export function StreamMentionDropdown({
   const dropdownContent = (
     <div
       ref={dropdownRef}
-      className="fixed z-[150] min-w-[280px] max-w-[320px] bg-zinc-900 border border-zinc-700 rounded-lg shadow-2xl overflow-hidden"
+      className="fixed z-[150] min-w-[280px] max-w-[320px] bg-popover border border-border rounded-lg shadow-2xl overflow-hidden"
       style={{
         top: `${position.top + 4}px`,
         left: `${position.left}px`,
@@ -118,18 +118,18 @@ export function StreamMentionDropdown({
               onMouseEnter={() => setSelectedIndex(index)}
               className={cn(
                 "w-full flex items-center gap-3 px-3 py-2 text-left transition-colors cursor-pointer",
-                selectedIndex === index && "bg-zinc-800",
-                "hover:bg-zinc-800"
+                selectedIndex === index && "bg-accent",
+                "hover:bg-accent"
               )}
             >
               <div className={cn(
                 "flex items-center justify-center w-8 h-8 rounded-md shrink-0",
-                isNew ? "bg-blue-500/20" : "bg-zinc-800"
+                isNew ? "bg-blue-500/20" : "bg-muted"
               )}>
                 {isNew ? (
                   <Plus className="h-4 w-4 text-blue-400" />
                 ) : (
-                  <Hash className="h-4 w-4 text-zinc-400" />
+                  <Hash className="h-4 w-4 text-muted-foreground" />
                 )}
               </div>
               
@@ -137,7 +137,7 @@ export function StreamMentionDropdown({
                 <div className="flex items-center gap-2">
                   <span className={cn(
                     "text-sm font-medium truncate",
-                    isNew ? "text-blue-400" : "text-white"
+                    isNew ? "text-blue-400" : "text-foreground"
                   )}>
                     #{streamName}
                   </span>
@@ -146,7 +146,7 @@ export function StreamMentionDropdown({
                   )}
                 </div>
                 {isNew && (
-                  <p className="text-xs text-zinc-500 mt-0.5">
+                  <p className="text-xs text-muted-foreground mt-0.5">
                     Create new stream
                   </p>
                 )}
@@ -156,8 +156,8 @@ export function StreamMentionDropdown({
         })}
       </div>
       
-      <div className="px-3 py-2 border-t border-zinc-800 bg-zinc-900/50">
-        <p className="text-xs text-zinc-500">
+      <div className="px-3 py-2 border-t border-border bg-muted/50">
+        <p className="text-xs text-muted-foreground">
           ↑↓ Navigate • ↵ Select • Esc Close
         </p>
       </div>

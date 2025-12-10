@@ -22,8 +22,8 @@ export const DropsGrid = React.memo(function DropsGrid({
   if (drops.length === 0) {
     return (
       <div className="text-center py-16">
-        <p className="text-lg font-medium text-zinc-400">No drops yet</p>
-        <p className="text-sm text-zinc-500 mt-2">
+        <p className="text-lg font-medium text-muted-foreground">No drops yet</p>
+        <p className="text-sm text-muted-foreground/70 mt-2">
           Create your first drop to get started
         </p>
       </div>

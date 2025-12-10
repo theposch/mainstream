@@ -121,13 +121,13 @@ export function EditAssetDialog({
   
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px] bg-zinc-950 border-zinc-800 z-[120]">
+      <DialogContent className="sm:max-w-[500px] bg-background border-border z-[120]">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 text-white">
+          <DialogTitle className="flex items-center gap-2 text-foreground">
             <Pencil className="h-5 w-5" />
             Edit Post
           </DialogTitle>
-          <DialogDescription className="text-zinc-400">
+          <DialogDescription className="text-muted-foreground">
             Update your post&apos;s title, description, and streams.
             Use #streamname to add streams.
           </DialogDescription>
@@ -162,14 +162,14 @@ export function EditAssetDialog({
               variant="outline"
               onClick={() => onOpenChange(false)}
               disabled={isLoading}
-              className="border-zinc-700 text-zinc-300 hover:bg-zinc-800"
+              className="border-border text-muted-foreground hover:bg-accent"
             >
               Cancel
             </Button>
             <Button
               type="submit"
               disabled={isLoading || !hasChanges}
-              className="bg-white text-black hover:bg-zinc-200"
+              className=""
             >
               {isLoading ? (
                 <>

@@ -196,11 +196,11 @@ export function DropEditorClient({
   return (
     <div className="min-h-screen pb-20">
       {/* Header */}
-      <div className="sticky top-0 z-40 bg-black/80 backdrop-blur-xl border-b border-zinc-800">
+      <div className="sticky top-0 z-40 bg-background/80 backdrop-blur-xl border-b border-border">
         <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
           <Link
             href="/drops?tab=drafts"
-            className="flex items-center gap-2 text-zinc-400 hover:text-white transition-colors"
+            className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors"
           >
             <ArrowLeft className="h-4 w-4" />
             <span>Back</span>
@@ -259,17 +259,17 @@ export function DropEditorClient({
           onCropPositionChange={handleCropPositionChange}
         />
         {isSaving && (
-          <p className="text-xs text-zinc-500 text-center mt-2">Saving...</p>
+          <p className="text-xs text-muted-foreground text-center mt-2">Saving...</p>
         )}
 
         {/* Filter bar */}
-        <div className="mt-8 p-4 bg-zinc-900/50 rounded-lg border border-zinc-800">
-          <div className="flex items-center gap-2 text-sm text-zinc-500">
+        <div className="mt-8 p-4 bg-muted/50 rounded-lg border border-border">
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <span>Include posts from:</span>
-            <span className="px-2 py-1 bg-zinc-800 rounded text-zinc-400">
+            <span className="px-2 py-1 bg-muted rounded text-muted-foreground">
               All streams
             </span>
-            <span className="px-2 py-1 bg-zinc-800 rounded text-zinc-400">
+            <span className="px-2 py-1 bg-muted rounded text-muted-foreground">
               All teammates
             </span>
             <span className="px-2 py-1 bg-violet-500/20 text-violet-400 rounded">

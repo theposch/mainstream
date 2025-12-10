@@ -331,14 +331,14 @@ export function BlockEditor({ dropId, blocks, onBlocksChange, availableAssets = 
             {/* Drag handle and actions */}
             <div className="absolute -left-10 top-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
               <button
-                className="p-1 text-zinc-600 hover:text-zinc-400 cursor-grab active:cursor-grabbing"
+                className="p-1 text-muted-foreground/50 hover:text-muted-foreground cursor-grab active:cursor-grabbing"
                 title="Drag to reorder"
               >
                 <GripVertical className="h-4 w-4" />
               </button>
               <button
                 onClick={() => handleDeleteBlock(block.id)}
-                className="p-1 text-zinc-600 hover:text-red-400 cursor-pointer"
+                className="p-1 text-muted-foreground/50 hover:text-destructive cursor-pointer"
                 title="Delete block"
               >
                 <Trash2 className="h-4 w-4" />
@@ -454,7 +454,7 @@ function AddBlockButton({
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 10, scale: 0.95 }}
             transition={{ duration: 0.2, ease: "easeOut" }}
-            className="absolute left-1/2 -translate-x-1/2 top-full mt-2 z-50 w-64 bg-zinc-900 border border-zinc-800 rounded-lg shadow-xl overflow-hidden backdrop-blur-xl"
+            className="absolute left-1/2 -translate-x-1/2 top-full mt-2 z-50 w-64 bg-popover border border-border rounded-lg shadow-xl overflow-hidden backdrop-blur-xl"
           >
             {BLOCK_TYPES.map((blockType, i) => (
               <motion.button
@@ -463,19 +463,19 @@ function AddBlockButton({
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: i * 0.05 }}
               onClick={() => onSelectType(blockType.type)}
-                className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-zinc-800 transition-colors group relative overflow-hidden cursor-pointer"
+                className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-accent transition-colors group relative overflow-hidden cursor-pointer"
             >
                 {/* Hover gradient background */}
                 <div className="absolute inset-0 bg-gradient-to-r from-violet-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                 
-                <span className="text-zinc-400 group-hover:text-violet-400 transition-colors relative z-10">
+                <span className="text-muted-foreground group-hover:text-violet-400 transition-colors relative z-10">
                   {blockType.icon}
                 </span>
                 <div className="relative z-10">
-                  <div className="text-sm font-medium text-white group-hover:text-violet-100 transition-colors">
+                  <div className="text-sm font-medium text-foreground group-hover:text-violet-100 transition-colors">
                     {blockType.label}
                   </div>
-                  <div className="text-xs text-zinc-500 group-hover:text-zinc-400 transition-colors">
+                  <div className="text-xs text-muted-foreground group-hover:text-muted-foreground/80 transition-colors">
                     {blockType.description}
                   </div>
               </div>
@@ -628,14 +628,14 @@ function AssetPickerModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80">
-      <div className="w-full max-w-2xl max-h-[80vh] bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden flex flex-col">
+      <div className="w-full max-w-2xl max-h-[80vh] bg-popover border border-border rounded-xl overflow-hidden flex flex-col">
         {/* Header */}
-        <div className="p-4 border-b border-zinc-800">
+        <div className="p-4 border-b border-border">
           <div className="flex items-center justify-between mb-3">
-            <h3 className="text-lg font-semibold text-white">
+            <h3 className="text-lg font-semibold text-foreground">
               {multiSelect ? "Select images for gallery" : "Select a post"}
             </h3>
-            <button onClick={onClose} className="text-zinc-500 hover:text-white cursor-pointer">
+            <button onClick={onClose} className="text-muted-foreground hover:text-foreground cursor-pointer">
               <X className="h-5 w-5" />
             </button>
           </div>
@@ -646,8 +646,8 @@ function AssetPickerModal({
               onClick={() => setActiveTab("browse")}
               className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors cursor-pointer ${
                 activeTab === "browse"
-                  ? "bg-zinc-800 text-white"
-                  : "text-zinc-400 hover:text-white hover:bg-zinc-800/50"
+                  ? "bg-accent text-foreground"
+                  : "text-muted-foreground hover:text-foreground hover:bg-accent/50"
               }`}
             >
               Browse Posts
@@ -656,8 +656,8 @@ function AssetPickerModal({
               onClick={() => setActiveTab("upload")}
               className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors flex items-center gap-2 cursor-pointer ${
                 activeTab === "upload"
-                  ? "bg-zinc-800 text-white"
-                  : "text-zinc-400 hover:text-white hover:bg-zinc-800/50"
+                  ? "bg-accent text-foreground"
+                  : "text-muted-foreground hover:text-foreground hover:bg-accent/50"
               }`}
             >
               <Upload className="h-4 w-4" />
@@ -672,7 +672,7 @@ function AssetPickerModal({
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Search posts..."
-                className="w-full px-4 py-2 bg-zinc-800 border border-zinc-700 rounded-lg text-white placeholder:text-zinc-500 focus:outline-none focus:border-zinc-600"
+                className="w-full px-4 py-2 bg-muted border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-ring"
               />
               {multiSelect && selectedIds.length > 0 && (
                 <p className="text-sm text-violet-400 mt-2">{selectedIds.length} images selected</p>
@@ -687,7 +687,7 @@ function AssetPickerModal({
             // Browse existing posts
             filteredAssets.length === 0 ? (
               <div className="text-center py-8">
-                <p className="text-zinc-500">No posts found</p>
+                <p className="text-muted-foreground">No posts found</p>
                 <button
                   onClick={() => setActiveTab("upload")}
                   className="mt-3 text-sm text-violet-400 hover:text-violet-300 cursor-pointer"
@@ -710,7 +710,7 @@ function AssetPickerModal({
                           onClose();
                         }
                       }}
-                      className={`group relative aspect-square rounded-lg overflow-hidden bg-zinc-800 transition-all cursor-pointer ${
+                      className={`group relative aspect-square rounded-lg overflow-hidden bg-muted transition-all cursor-pointer ${
                         isSelected ? "ring-2 ring-violet-500" : "hover:ring-2 hover:ring-violet-500/50"
                       }`}
                     >
@@ -752,14 +752,14 @@ function AssetPickerModal({
                   className={`border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-colors ${
                     isDragging
                       ? "border-violet-500 bg-violet-500/10"
-                      : "border-zinc-700 hover:border-zinc-600 hover:bg-zinc-800/50"
+                      : "border-border hover:border-border hover:bg-accent/50"
                   }`}
                 >
-                  <Upload className="h-10 w-10 mx-auto text-zinc-500 mb-3" />
-                  <p className="text-white font-medium mb-1">
+                  <Upload className="h-10 w-10 mx-auto text-muted-foreground mb-3" />
+                  <p className="text-foreground font-medium mb-1">
                     Drop an image here or click to browse
                   </p>
-                  <p className="text-sm text-zinc-500">
+                  <p className="text-sm text-muted-foreground">
                     PNG, JPG, GIF, WebP up to 10MB
                   </p>
                   <input
@@ -776,7 +776,7 @@ function AssetPickerModal({
               ) : (
                 // Preview
                 <div className="space-y-4">
-                  <div className="relative aspect-video rounded-lg overflow-hidden bg-zinc-800">
+                  <div className="relative aspect-video rounded-lg overflow-hidden bg-muted">
                     <img
                       src={preview!}
                       alt="Preview"
@@ -791,7 +791,7 @@ function AssetPickerModal({
                   </div>
                   
                   <div>
-                    <label className="block text-sm font-medium text-zinc-400 mb-1.5">
+                    <label className="block text-sm font-medium text-muted-foreground mb-1.5">
                       Title (optional)
                     </label>
                     <input
@@ -799,7 +799,7 @@ function AssetPickerModal({
                       value={uploadTitle}
                       onChange={(e) => setUploadTitle(e.target.value)}
                       placeholder="Enter a title..."
-                      className="w-full px-4 py-2 bg-zinc-800 border border-zinc-700 rounded-lg text-white placeholder:text-zinc-500 focus:outline-none focus:border-zinc-600"
+                      className="w-full px-4 py-2 bg-muted border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-ring"
                     />
                   </div>
 
@@ -832,10 +832,10 @@ function AssetPickerModal({
 
         {/* Footer for multi-select */}
         {multiSelect && activeTab === "browse" && (
-          <div className="p-4 border-t border-zinc-800 flex justify-end gap-3">
+          <div className="p-4 border-t border-border flex justify-end gap-3">
             <button
               onClick={onClose}
-              className="px-4 py-2 text-sm text-zinc-400 hover:text-white transition-colors cursor-pointer"
+              className="px-4 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
             >
               Cancel
             </button>

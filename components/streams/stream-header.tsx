@@ -219,7 +219,7 @@ export const StreamHeader = React.memo(function StreamHeader({
         {/* Left: Stream Identity */}
         <div className="space-y-1.5 flex-1 min-w-0">
           {/* Title */}
-          <h1 className="text-2xl md:text-3xl font-semibold text-white tracking-tight">
+          <h1 className="text-2xl md:text-3xl font-semibold text-foreground tracking-tight">
             <span className="text-muted-foreground font-normal"># </span>
             {stream.name}
           </h1>

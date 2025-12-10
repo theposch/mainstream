@@ -63,8 +63,8 @@ export function DropsPageClient({
       {/* Page Header */}
       <div className="pt-10 pb-8 flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-4xl font-bold text-white">Drops</h1>
-          <p className="text-lg text-zinc-400 mt-2 max-w-2xl">
+          <h1 className="text-4xl font-bold text-foreground">Drops</h1>
+          <p className="text-lg text-muted-foreground mt-2 max-w-2xl">
             AI-powered newsletters summarizing your team&apos;s design work.
           </p>
         </div>
@@ -80,7 +80,7 @@ export function DropsPageClient({
       </div>
 
       {/* Tabs */}
-      <div className="flex items-center gap-1 mb-8 border-b border-zinc-800">
+      <div className="flex items-center gap-1 mb-8 border-b border-border">
         {tabs.map((tab) => {
           // Hide "My Drafts" for unauthenticated users
           if (tab.id === "drafts" && !isAuthenticated) return null;
@@ -93,8 +93,8 @@ export function DropsPageClient({
               className={`
                 px-4 py-2.5 text-sm font-medium transition-colors relative
                 ${isActive
-                  ? "text-white"
-                  : "text-zinc-500 hover:text-zinc-300"
+                  ? "text-foreground"
+                  : "text-muted-foreground hover:text-foreground"
                 }
               `}
             >

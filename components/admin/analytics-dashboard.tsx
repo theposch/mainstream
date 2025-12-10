@@ -418,7 +418,7 @@ interface ContributorCardProps {
 function ContributorCard({ contributor, rank }: ContributorCardProps) {
   const getRankStyle = (r: number) => {
     if (r === 1) return "bg-amber-500/20 text-amber-400 border-amber-500/30";
-    if (r === 2) return "bg-zinc-400/20 text-zinc-300 border-zinc-400/30";
+    if (r === 2) return "bg-muted text-muted-foreground border-border";
     if (r === 3) return "bg-orange-600/20 text-orange-400 border-orange-500/30";
     return "bg-muted text-muted-foreground border-border";
   };
