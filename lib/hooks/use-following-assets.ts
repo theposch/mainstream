@@ -15,6 +15,7 @@
 import { useCallback, useMemo } from "react";
 import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
 import type { Asset } from "@/lib/types/database";
+import { assetKeys } from "@/lib/queries/asset-queries";
 
 interface FollowingAssetsResponse {
   assets: Asset[];
@@ -59,7 +60,7 @@ export function useFollowingAssets(): UseFollowingAssetsReturn {
     isFetchingNextPage,
     error,
   } = useInfiniteQuery({
-    queryKey: ['assets', 'following'],
+    queryKey: assetKeys.following(),
     queryFn: fetchFollowingAssets,
     initialPageParam: null as string | null,
     getNextPageParam: (lastPage) => lastPage.hasMore ? lastPage.cursor : undefined,
@@ -81,7 +82,7 @@ export function useFollowingAssets(): UseFollowingAssetsReturn {
   // Optimistically remove an asset from the cache
   const removeAsset = useCallback((assetId: string) => {
     queryClient.setQueryData<{ pages: FollowingAssetsResponse[]; pageParams: (string | null)[] }>(
-      ['assets', 'following'],
+      assetKeys.following(),
       (oldData) => {
         if (!oldData) return oldData;
         return {

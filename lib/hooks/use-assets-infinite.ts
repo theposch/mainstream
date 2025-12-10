@@ -4,7 +4,7 @@
  * Infinite Scroll Hook for Assets
  * 
  * Provides infinite scrolling functionality with cursor-based pagination
- * using Supabase's `lt()` (less than) method for efficient queries.
+ * using React Query for caching and automatic background refetching.
  * 
  * Usage:
  * ```tsx
@@ -12,107 +12,104 @@
  * ```
  */
 
-import { useState, useCallback } from "react";
-import { createClient } from "@/lib/supabase/client";
+import { useCallback, useMemo } from "react";
+import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
 import type { Asset } from "@/lib/types/database";
+import { assetKeys } from "@/lib/queries/asset-queries";
+
+interface AssetsResponse {
+  assets: Asset[];
+  hasMore: boolean;
+  cursor: string | null;
+}
 
 interface UseAssetsInfiniteReturn {
   assets: Asset[];
-  loadMore: () => Promise<void>;
+  loadMore: () => void;
   hasMore: boolean;
   loading: boolean;
-  /** Remove an asset from local state (for optimistic updates after deletion) */
+  /** Remove an asset from the cache (for optimistic updates after deletion) */
   removeAsset: (assetId: string) => void;
 }
 
-const PAGE_SIZE = 20;
+const fetchRecentAssets = async ({ pageParam }: { pageParam: string | null }): Promise<AssetsResponse> => {
+  const url = new URL('/api/assets', window.location.origin);
+  if (pageParam) {
+    url.searchParams.set('cursor', pageParam);
+  }
+  url.searchParams.set('limit', '20');
+
+  const response = await fetch(url.toString());
+
+  if (!response.ok) {
+    throw new Error('Failed to fetch recent assets');
+  }
+
+  return response.json();
+};
 
 export function useAssetsInfinite(
   initialAssets: Asset[]
 ): UseAssetsInfiniteReturn {
-  const [assets, setAssets] = useState<Asset[]>(initialAssets);
-  const [loading, setLoading] = useState(false);
-  const [hasMore, setHasMore] = useState(initialAssets.length >= PAGE_SIZE);
+  const queryClient = useQueryClient();
 
-  const loadMore = useCallback(async () => {
-    if (loading || !hasMore) return;
-    
-    setLoading(true);
+  const {
+    data,
+    fetchNextPage,
+    hasNextPage,
+    isFetching,
+    isFetchingNextPage,
+  } = useInfiniteQuery({
+    queryKey: assetKeys.recent(),
+    queryFn: fetchRecentAssets,
+    initialPageParam: null as string | null,
+    getNextPageParam: (lastPage) => lastPage.hasMore ? lastPage.cursor : undefined,
+    // Hydrate with initial data from SSR
+    initialData: initialAssets.length > 0 ? {
+      pages: [{
+        assets: initialAssets,
+        hasMore: initialAssets.length >= 20,
+        cursor: initialAssets.length > 0 ? initialAssets[initialAssets.length - 1].created_at : null,
+      }],
+      pageParams: [null],
+    } : undefined,
+    staleTime: 5 * 60 * 1000, // 5 minutes - cached between tab switches
+    gcTime: 30 * 60 * 1000, // 30 minutes
+  });
 
-    try {
-      const lastAsset = assets[assets.length - 1];
-      if (!lastAsset) {
-        setHasMore(false);
-        setLoading(false);
-        return;
-      }
+  // Flatten all pages into a single array
+  const assets = useMemo(() => {
+    return data?.pages.flatMap(page => page.assets) || [];
+  }, [data]);
 
-      const supabase = createClient();
-      
-      // Get current user for like status check
-      const { data: { user } } = await supabase.auth.getUser();
-
-      const { data, error } = await supabase
-        .from("assets")
-        .select(`
-          *,
-          uploader:users!uploader_id(*),
-          asset_streams(
-            streams(*)
-          ),
-          asset_likes(count)
-        `)
-        .order("created_at", { ascending: false })
-        .lt("created_at", lastAsset.created_at)
-        .limit(PAGE_SIZE);
-
-      if (error) {
-        console.error("[useAssetsInfinite] Error loading more assets:", error);
-        setLoading(false);
-        return;
-      }
-
-      if (data.length < PAGE_SIZE) {
-        setHasMore(false);
-      }
-
-      // Batch fetch which assets the user has liked
-      let userLikedAssetIds: Set<string> = new Set();
-      if (user && data && data.length > 0) {
-        const assetIds = data.map((a: any) => a.id);
-        const { data: userLikes } = await supabase
-          .from('asset_likes')
-          .select('asset_id')
-          .eq('user_id', user.id)
-          .in('asset_id', assetIds);
-        
-        if (userLikes) {
-          userLikedAssetIds = new Set(userLikes.map(l => l.asset_id));
-        }
-      }
-
-      // Transform nested data to flat structure with like status
-      const assetsWithData = (data || []).map((asset: any) => ({
-        ...asset,
-        streams: asset.asset_streams?.map((rel: any) => rel.streams).filter(Boolean) || [],
-        asset_streams: undefined,
-        likeCount: asset.asset_likes?.[0]?.count || 0,
-        asset_likes: undefined,
-        isLikedByCurrentUser: userLikedAssetIds.has(asset.id),
-      }));
-
-      setAssets((prev) => [...prev, ...assetsWithData]);
-    } catch (error) {
-      console.error("[useAssetsInfinite] Unexpected error:", error);
-    } finally {
-      setLoading(false);
+  const loadMore = useCallback(() => {
+    if (!isFetching && hasNextPage) {
+      fetchNextPage();
     }
-  }, [assets, loading, hasMore]);
+  }, [fetchNextPage, hasNextPage, isFetching]);
 
-  // Remove an asset from local state (optimistic update after deletion)
+  // Optimistically remove an asset from the cache
   const removeAsset = useCallback((assetId: string) => {
-    setAssets((prev) => prev.filter((a) => a.id !== assetId));
-  }, []);
+    queryClient.setQueryData<{ pages: AssetsResponse[]; pageParams: (string | null)[] }>(
+      assetKeys.recent(),
+      (oldData) => {
+        if (!oldData) return oldData;
+        return {
+          ...oldData,
+          pages: oldData.pages.map((page) => ({
+            ...page,
+            assets: page.assets.filter((asset) => asset.id !== assetId),
+          })),
+        };
+      }
+    );
+  }, [queryClient]);
 
-  return { assets, loadMore, hasMore, loading, removeAsset };
+  return {
+    assets,
+    loadMore,
+    hasMore: hasNextPage ?? true,
+    loading: isFetching || isFetchingNextPage,
+    removeAsset,
+  };
 }

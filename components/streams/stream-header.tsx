@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import dynamic from "next/dynamic";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { 
@@ -20,9 +21,18 @@ import { useStreamFollow, type InitialFollowData } from "@/lib/hooks/use-stream-
 import { useStreamBookmarks, extractDomain, getFaviconUrl, type BookmarkWithCreator } from "@/lib/hooks/use-stream-bookmarks";
 import { UploadDialog } from "@/components/layout/upload-dialog";
 import { AddBookmarkDialog } from "@/components/streams/add-bookmark-dialog";
-import { ManageMembersDialog } from "@/components/streams/manage-members-dialog";
-import { StreamDialog } from "@/components/layout/stream-dialog";
 import { useStreamMembers, type InitialMembersData } from "@/lib/hooks/use-stream-members";
+
+// Dynamic imports for dialogs - only loaded when opened
+const ManageMembersDialog = dynamic(
+  () => import("@/components/streams/manage-members-dialog").then((mod) => mod.ManageMembersDialog),
+  { ssr: false }
+);
+
+const StreamDialog = dynamic(
+  () => import("@/components/layout/stream-dialog").then((mod) => mod.StreamDialog),
+  { ssr: false }
+);
 import {
   DropdownMenu,
   DropdownMenuContent,

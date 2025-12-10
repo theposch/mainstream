@@ -14,6 +14,94 @@ import {
 } from "@/components/ui/popover";
 import { useStreamDropdownOptions } from "@/lib/hooks/use-stream-dropdown-options";
 
+// Memoized stream option component
+interface StreamOptionProps {
+  option: { id: string; name: string; description?: string; isNew?: boolean };
+  index: number;
+  selectedIndex: number;
+  isSelected: boolean;
+  isMaxReached: boolean;
+  disabled: boolean;
+  onSelect: (id: string, isNew: boolean, name: string) => void;
+  onHover: (index: number) => void;
+}
+
+const StreamOption = React.memo(function StreamOption({
+  option,
+  index,
+  selectedIndex,
+  isSelected,
+  isMaxReached,
+  disabled,
+  onSelect,
+  onHover,
+}: StreamOptionProps) {
+  const isNew = option.isNew || false;
+  const streamName = option.name;
+
+  const handleClick = React.useCallback(() => {
+    onSelect(option.id, isNew, streamName);
+  }, [onSelect, option.id, isNew, streamName]);
+
+  const handleMouseEnter = React.useCallback(() => {
+    onHover(index);
+  }, [onHover, index]);
+
+  return (
+    <button
+      onClick={handleClick}
+      onMouseEnter={handleMouseEnter}
+      disabled={disabled || isMaxReached}
+      className={cn(
+        "w-full flex items-center gap-3 p-2 rounded-md text-left transition-colors cursor-pointer",
+        "hover:bg-secondary",
+        selectedIndex === index && "bg-secondary",
+        isSelected && "bg-secondary/50",
+        (disabled || isMaxReached) && "opacity-50 cursor-not-allowed"
+      )}
+    >
+      <div className={cn(
+        "h-4 w-4 rounded border flex items-center justify-center shrink-0",
+        isNew 
+          ? "bg-blue-500/20 border-blue-500/50" 
+          : isSelected 
+            ? "bg-primary border-primary" 
+            : "border-muted-foreground/30"
+      )}>
+        {isNew ? (
+          <Plus className="h-3 w-3 text-blue-400" />
+        ) : isSelected ? (
+          <Check className="h-3 w-3 text-primary-foreground" />
+        ) : null}
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-1.5">
+          <Hash className="h-3 w-3 text-muted-foreground shrink-0" />
+          <span className={cn(
+            "text-sm font-medium truncate",
+            isNew ? "text-blue-400" : "text-foreground"
+          )}>
+            {streamName}
+          </span>
+          {isSelected && !isNew && (
+            <Check className="h-3 w-3 text-green-500 shrink-0 ml-auto" />
+          )}
+        </div>
+        {isNew && (
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Create new stream
+          </p>
+        )}
+        {!isNew && option.description && (
+          <p className="text-xs text-muted-foreground truncate mt-0.5">
+            {option.description}
+          </p>
+        )}
+      </div>
+    </button>
+  );
+});
+
 interface Stream {
   id: string;
   name: string;
@@ -288,7 +376,7 @@ export function StreamPicker({
 
       <ScrollArea className="h-[200px]">
         <div className="space-y-1 pr-3">
-          {allOptions.map((option) => {
+          {allOptions.map((option, index) => {
             const isNew = ('isNew' in option && option.isNew) || false;
             const streamName = option.name;
             
@@ -301,58 +389,17 @@ export function StreamPicker({
             const isMaxReached = totalSelected >= maxStreams && !isSelected;
 
             return (
-              <button
+              <StreamOption
                 key={isNew ? '__create__' : option.id}
-                onClick={() => handleSelectStream(option.id, isNew, streamName)}
-                onMouseEnter={() => setSelectedIndex(allOptions.indexOf(option))}
-                disabled={disabled || isMaxReached}
-                className={cn(
-                  "w-full flex items-center gap-3 p-2 rounded-md text-left transition-colors cursor-pointer",
-                  "hover:bg-secondary",
-                  selectedIndex === allOptions.indexOf(option) && "bg-secondary",
-                  isSelected && "bg-secondary/50",
-                  (disabled || isMaxReached) && "opacity-50 cursor-not-allowed"
-                )}
-              >
-                <div className={cn(
-                  "h-4 w-4 rounded border flex items-center justify-center shrink-0",
-                  isNew 
-                    ? "bg-blue-500/20 border-blue-500/50" 
-                    : isSelected 
-                      ? "bg-primary border-primary" 
-                      : "border-muted-foreground/30"
-                )}>
-                  {isNew ? (
-                    <Plus className="h-3 w-3 text-blue-400" />
-                  ) : isSelected ? (
-                    <Check className="h-3 w-3 text-primary-foreground" />
-                  ) : null}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-1.5">
-                    <Hash className="h-3 w-3 text-muted-foreground shrink-0" />
-                    <span className={cn(
-                      "text-sm font-medium truncate",
-                      isNew ? "text-blue-400" : "text-foreground"
-                    )}>
-                      {streamName}
-                    </span>
-                    {isSelected && !isNew && (
-                      <Check className="h-3 w-3 text-green-500 shrink-0 ml-auto" />
-                    )}
-                  </div>
-                  {isNew && (
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      Create new stream
-                    </p>
-                  )}
-                  {!isNew && 'description' in option && option.description && (
-                    <p className="text-xs text-muted-foreground truncate mt-0.5">
-                      {option.description}
-                    </p>
-                  )}
-                </div>
-              </button>
+                option={{ ...option, isNew }}
+                index={index}
+                selectedIndex={selectedIndex}
+                isSelected={isSelected}
+                isMaxReached={isMaxReached}
+                disabled={disabled}
+                onSelect={handleSelectStream}
+                onHover={setSelectedIndex}
+              />
             );
           })}
 

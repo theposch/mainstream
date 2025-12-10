@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
 import {
@@ -17,11 +18,16 @@ import {
   DropdownMenuPortal,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { SettingsDialog } from "@/components/layout/settings-dialog";
 import { createClient } from "@/lib/supabase/client";
 import { useUser } from "@/lib/auth/use-user";
 import { Button } from "@/components/ui/button";
 import { User, Settings, LogOut, Shield, Sun, Moon, Monitor, Check } from "lucide-react";
+
+// Dynamic import for SettingsDialog - only loaded when opened
+const SettingsDialog = dynamic(
+  () => import("@/components/layout/settings-dialog").then((mod) => mod.SettingsDialog),
+  { ssr: false }
+);
 
 export function UserMenu() {
   const [settingsOpen, setSettingsOpen] = React.useState(false);
@@ -35,7 +41,7 @@ export function UserMenu() {
     setMounted(true);
   }, []);
 
-  const handleLogout = async () => {
+  const handleLogout = React.useCallback(async () => {
     try {
       const supabase = createClient();
       await supabase.auth.signOut();
@@ -44,7 +50,27 @@ export function UserMenu() {
     } catch (error) {
       console.error("Error logging out:", error);
     }
-  };
+  }, [router]);
+
+  const handleSignIn = React.useCallback(() => {
+    router.push("/auth/login");
+  }, [router]);
+
+  const handleOpenSettings = React.useCallback(() => {
+    setSettingsOpen(true);
+  }, []);
+
+  const handleSetLightTheme = React.useCallback(() => {
+    setTheme("light");
+  }, [setTheme]);
+
+  const handleSetDarkTheme = React.useCallback(() => {
+    setTheme("dark");
+  }, [setTheme]);
+
+  const handleSetSystemTheme = React.useCallback(() => {
+    setTheme("system");
+  }, [setTheme]);
 
   // Show loading state
   if (loading) {
@@ -56,7 +82,7 @@ export function UserMenu() {
   // Show sign in button if not authenticated
   if (!user) {
     return (
-      <Button variant="outline" size="sm" onClick={() => router.push("/auth/login")}>
+      <Button variant="outline" size="sm" onClick={handleSignIn}>
         Sign In
       </Button>
     );
@@ -90,7 +116,7 @@ export function UserMenu() {
         </DropdownMenuItem>
         <DropdownMenuItem 
           className="focus:bg-accent focus:text-accent-foreground cursor-pointer"
-          onClick={() => setSettingsOpen(true)}
+          onClick={handleOpenSettings}
         >
           <Settings className="mr-2 h-4 w-4" />
           <span>Settings</span>
@@ -113,7 +139,7 @@ export function UserMenu() {
               <DropdownMenuSubContent className="bg-popover border-border text-popover-foreground">
                 <DropdownMenuItem 
                   className="focus:bg-accent focus:text-accent-foreground cursor-pointer"
-                  onClick={() => setTheme("light")}
+                  onClick={handleSetLightTheme}
                 >
                   <Sun className="mr-2 h-4 w-4" />
                   <span>Light</span>
@@ -121,7 +147,7 @@ export function UserMenu() {
                 </DropdownMenuItem>
                 <DropdownMenuItem 
                   className="focus:bg-accent focus:text-accent-foreground cursor-pointer"
-                  onClick={() => setTheme("dark")}
+                  onClick={handleSetDarkTheme}
                 >
                   <Moon className="mr-2 h-4 w-4" />
                   <span>Dark</span>
@@ -129,7 +155,7 @@ export function UserMenu() {
                 </DropdownMenuItem>
                 <DropdownMenuItem 
                   className="focus:bg-accent focus:text-accent-foreground cursor-pointer"
-                  onClick={() => setTheme("system")}
+                  onClick={handleSetSystemTheme}
                 >
                   <Monitor className="mr-2 h-4 w-4" />
                   <span>System</span>
