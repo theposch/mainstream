@@ -25,6 +25,7 @@ Design collaboration platform for internal teams to share work and organize into
 - **LiteLLM** - AI integration (Gemini 2.5 Flash)
 - **React Email** - Email-compatible components
 - **Resend** - Email delivery
+- **FFmpeg** - Video thumbnail generation (via fluent-ffmpeg)
 
 ## Current Status
 
@@ -112,7 +113,9 @@ Uploaded designs and images organized by streams. Supports likes, comments, view
 **New Asset Types:**
 - **Images** - Standard image upload with optimization
 - **Animated GIFs** - Animation preserved, GIF badge in feed, hover to play
+- **WebM Videos** - Up to 50MB, auto-thumbnails via FFmpeg for cards/previews
 - **Figma Embeds** - Paste Figma URL, auto-thumbnails (frame-specific with token)
+- **Loom Embeds** - Paste Loom URL, auto-thumbnails via oEmbed
 
 ### Figma Integration
 Paste a Figma URL to embed designs directly. Features:
@@ -159,6 +162,10 @@ AI-powered newsletters that summarize your team's weekly design work. Features:
 ```bash
 # Install dependencies
 npm install
+
+# Install FFmpeg (required for video thumbnails)
+brew install ffmpeg  # macOS
+# or: apt-get install ffmpeg  # Ubuntu
 
 # Start Supabase (Docker required)
 cd supabase-docker && docker-compose up -d
