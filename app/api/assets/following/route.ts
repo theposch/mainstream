@@ -135,13 +135,14 @@ export async function GET(request: NextRequest) {
         .order('id', { ascending: false });
       
       // Build combined filter: (uploader IN followed AND visibility OK) AND cursor
+      // IMPORTANT: Timestamp values must be quoted for proper PostgREST parsing
       if (cursorTimestamp) {
         if (cursorId) {
           // Combined filter with composite cursor
           // Each uploader filter includes visibility AND cursor conditions
           const userCursorFilter = followingUserIds
             .map(id => 
-              `and(uploader_id.eq.${id},or(visibility.is.null,visibility.eq.public),or(created_at.lt.${cursorTimestamp},and(created_at.eq.${cursorTimestamp},id.lt.${cursorId})))`
+              `and(uploader_id.eq.${id},or(visibility.is.null,visibility.eq.public),or(created_at.lt."${cursorTimestamp}",and(created_at.eq."${cursorTimestamp}",id.lt.${cursorId})))`
             )
             .join(',');
           userAssetsQuery = userAssetsQuery.or(userCursorFilter);
@@ -149,7 +150,7 @@ export async function GET(request: NextRequest) {
           // Combined filter with simple timestamp cursor
           const userCursorFilter = followingUserIds
             .map(id => 
-              `and(uploader_id.eq.${id},or(visibility.is.null,visibility.eq.public),created_at.lt.${cursorTimestamp})`
+              `and(uploader_id.eq.${id},or(visibility.is.null,visibility.eq.public),created_at.lt."${cursorTimestamp}")`
             )
             .join(',');
           userAssetsQuery = userAssetsQuery.or(userCursorFilter);
@@ -178,12 +179,13 @@ export async function GET(request: NextRequest) {
         .order('id', { ascending: false });
       
       // Build combined filter: (id IN stream assets AND visibility OK) AND cursor
+      // IMPORTANT: Timestamp values must be quoted for proper PostgREST parsing
       if (cursorTimestamp) {
         if (cursorId) {
           // Combined filter with composite cursor
           const streamCursorFilter = streamAssetIds
             .map(id => 
-              `and(id.eq.${id},or(visibility.is.null,visibility.eq.public),or(created_at.lt.${cursorTimestamp},and(created_at.eq.${cursorTimestamp},id.lt.${cursorId})))`
+              `and(id.eq.${id},or(visibility.is.null,visibility.eq.public),or(created_at.lt."${cursorTimestamp}",and(created_at.eq."${cursorTimestamp}",id.lt.${cursorId})))`
             )
             .join(',');
           streamAssetsQuery = streamAssetsQuery.or(streamCursorFilter);
@@ -191,7 +193,7 @@ export async function GET(request: NextRequest) {
           // Combined filter with simple timestamp cursor
           const streamCursorFilter = streamAssetIds
             .map(id => 
-              `and(id.eq.${id},or(visibility.is.null,visibility.eq.public),created_at.lt.${cursorTimestamp})`
+              `and(id.eq.${id},or(visibility.is.null,visibility.eq.public),created_at.lt."${cursorTimestamp}")`
             )
             .join(',');
           streamAssetsQuery = streamAssetsQuery.or(streamCursorFilter);

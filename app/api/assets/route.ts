@@ -70,18 +70,20 @@ export async function GET(request: NextRequest) {
     
     // Build combined filter for visibility AND cursor pagination
     // This ensures proper AND semantics between filters
+    // IMPORTANT: Timestamp values must be quoted to prevent PostgREST parsing issues
+    // with special characters like colons, dots, and the 'T' separator in ISO 8601 format
     if (cursorTimestamp) {
       if (cursorId) {
         // Combined filter: visibility AND composite cursor
         // Format: (visibility IS NULL OR public) AND (before cursor OR same-time-lower-id)
         query = query.or(
-          `and(or(visibility.is.null,visibility.eq.public),created_at.lt.${cursorTimestamp}),` +
-          `and(or(visibility.is.null,visibility.eq.public),created_at.eq.${cursorTimestamp},id.lt.${cursorId})`
+          `and(or(visibility.is.null,visibility.eq.public),created_at.lt."${cursorTimestamp}"),` +
+          `and(or(visibility.is.null,visibility.eq.public),created_at.eq."${cursorTimestamp}",id.lt.${cursorId})`
         );
       } else {
         // Combined filter: visibility AND simple timestamp cursor
         query = query.or(
-          `and(or(visibility.is.null,visibility.eq.public),created_at.lt.${cursorTimestamp})`
+          `and(or(visibility.is.null,visibility.eq.public),created_at.lt."${cursorTimestamp}")`
         );
       }
     } else {
@@ -104,8 +106,9 @@ export async function GET(request: NextRequest) {
       
       if (cursorTimestamp) {
         if (cursorId) {
+          // Timestamp values must be quoted for proper PostgREST parsing
           fallbackQuery = fallbackQuery.or(
-            `created_at.lt.${cursorTimestamp},and(created_at.eq.${cursorTimestamp},id.lt.${cursorId})`
+            `created_at.lt."${cursorTimestamp}",and(created_at.eq."${cursorTimestamp}",id.lt.${cursorId})`
           );
         } else {
           fallbackQuery = fallbackQuery.lt('created_at', cursorTimestamp);
