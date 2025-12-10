@@ -53,6 +53,8 @@ Design collaboration platform for internal teams to share work and organize into
 ✅ **Complete** - Notification settings (toggle by type: likes, comments, follows, mentions)  
 ✅ **Complete** - View tracking improvements (atomic RPC, real-time count updates)  
 ✅ **Complete** - Micro-animations and delightful interactions (confetti, animated like button)  
+✅ **Complete** - Weekly feed grouping (posts grouped by week with contributor avatars)  
+✅ **Complete** - Feed layout toggle (grid vs detailed view)  
 
 ## Project Structure
 
@@ -81,7 +83,7 @@ mainstream/
 │   ├── auth/            # Auth utilities
 │   ├── hooks/           # Custom React hooks
 │   ├── contexts/        # React contexts
-│   ├── utils/           # Utilities (AI, encryption, confetti, etc.)
+│   ├── utils/           # Utilities (AI, encryption, confetti, week-grouping, etc.)
 │   └── types/           # TypeScript types
 └── docs/                # Documentation
 ```
@@ -115,6 +117,12 @@ Paste a Figma URL to embed designs directly. Features:
 
 ### Search
 Real-time search across assets, users, and streams with auto-suggest and accurate total counts.
+
+### Home Feed
+The main feed has two tabs (Recent/Following) with:
+- **Weekly Grouping** - Posts organized by week ("This week", "Last week", etc.)
+- **Contributor Avatars** - Stacked avatars showing who posted each week
+- **Layout Toggle** - Switch between grid (visual) and detailed (list) views
 
 ### Following Feed
 See assets from users and streams you follow.

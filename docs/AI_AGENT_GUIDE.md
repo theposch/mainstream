@@ -12,8 +12,11 @@ Quick onboarding guide for AI assistants working on the Mainstream codebase.
 ## Critical Context
 
 ### Recent Major Changes
-- ✅ **Micro-animations & Delight** - Confetti celebrations, animated like button with particles (NEW)
-- ✅ **Cursor Consistency** - All interactive elements now show pointer cursor (NEW)
+- ✅ **Weekly Feed Grouping** - Posts grouped by week with "This week", "Last week" headers (NEW)
+- ✅ **Feed Layout Toggle** - Switch between grid and detailed list views (NEW)
+- ✅ **Contributor Avatars** - Stacked avatar component showing who posted each week (NEW)
+- ✅ **Micro-animations & Delight** - Confetti celebrations, animated like button with particles
+- ✅ **Cursor Consistency** - All interactive elements now show pointer cursor
 - ✅ **Create Drop Filters** - Multi-select streams and users when creating drops
 - ✅ **shadcn DatePicker** - Replace native date inputs with shadcn DatePicker component
 - ✅ **UserPicker Component** - Multi-select user picker with search and keyboard navigation
@@ -144,9 +147,15 @@ notifications/route.ts - GET/PUT: Notifications
 
 ### Key Components
 ```
+dashboard/
+  feed.tsx                    - Main feed with weekly grouping and layout toggle
+  feed-tabs.tsx               - Recent/Following tab switcher
+  week-header.tsx             - Weekly section header (post count + contributor avatars)
+  contributor-avatars.tsx     - Stacked avatar group with tooltips and profile links
+
 assets/
-  element-card.tsx          - Asset card with hover, GIF badge, embed support (React.memo)
-  masonry-grid.tsx          - Pinterest-style layout (React.memo)
+  element-card.tsx          - Asset card with grid/detailed layouts, hover, GIF badge (React.memo)
+  masonry-grid.tsx          - Pinterest-style layout with layout prop (React.memo)
   asset-detail-desktop.tsx  - Desktop modal with view tracking, Figma embeds
   asset-detail-mobile.tsx   - Mobile carousel with view tracking, Figma embeds
   comment-input.tsx         - Comment form with @mentions, typing indicator
@@ -250,6 +259,7 @@ embed-providers.ts    - Figma URL detection, oEmbed/API integration
 encryption.ts         - AES-256-GCM token encryption utilities
 image-processing.ts   - Sharp-based image/GIF processing
 file-storage.ts       - Local file storage helpers
+week-grouping.ts      - Group assets by week for feed display (WeekGroup interface)
 ```
 
 ## Data Model
@@ -562,7 +572,9 @@ See `docs/DROPS_FEATURE.md` for comprehensive documentation.
 
 | Feature | Page | API | Hook | Component |
 |---------|------|-----|------|-----------|
-| Asset feed | `app/home/page.tsx` | `api/assets/route.ts` | `use-assets-infinite.ts` | `masonry-grid.tsx` |
+| Asset feed | `app/home/page.tsx` | `api/assets/route.ts` | `use-assets-infinite.ts` | `feed.tsx`, `masonry-grid.tsx` |
+| Weekly grouping | `app/home/page.tsx` | - | - | `week-header.tsx`, `contributor-avatars.tsx` |
+| Layout toggle | `app/home/page.tsx` | - | - | `feed.tsx`, `element-card.tsx` |
 | Following | `app/home/page.tsx` | `api/assets/following/route.ts` | `use-following-assets.ts` | `feed.tsx` |
 | Asset detail | `app/e/[id]/page.tsx` | `api/assets/[id]/route.ts` | `use-asset-detail.ts` | `asset-detail-*.tsx` |
 | Likes | - | `api/assets/[id]/like/route.ts` | `use-asset-like.ts` | `element-card.tsx` |
@@ -758,6 +770,56 @@ All interactive elements use `cursor-pointer` for clear affordance:
 - Base `Button` component includes it in variants
 - Custom buttons add it explicitly
 - Disabled states use `cursor-not-allowed`
+
+## Weekly Feed Grouping
+
+### Overview
+The home feed groups posts by week for better organization. Each week section shows:
+- Post count and week label ("4 posts this week", "6 posts last week")
+- Stacked contributor avatars linking to profiles
+
+### Key Components
+
+**`WeekHeader`** (`components/dashboard/week-header.tsx`)
+```typescript
+<WeekHeader
+  label="This week"      // or "Last week", "Nov 25 - Dec 1"
+  postCount={4}
+  contributors={[...]}   // Array of User objects
+/>
+```
+
+**`ContributorAvatars`** (`components/dashboard/contributor-avatars.tsx`)
+```typescript
+<ContributorAvatars
+  contributors={users}
+  maxVisible={5}         // Shows "+X" badge for overflow
+  size="default"         // "sm" | "default" | "lg"
+/>
+```
+
+**`groupAssetsByWeek`** (`lib/utils/week-grouping.ts`)
+```typescript
+import { groupAssetsByWeek, type WeekGroup } from "@/lib/utils/week-grouping";
+
+const weekGroups: WeekGroup[] = groupAssetsByWeek(assets);
+// Returns: [{ key, label, postCount, contributors, assets }, ...]
+```
+
+### Feed Layout Toggle
+The feed supports two layouts:
+- **Grid** (default) - Visual masonry grid with overlay metadata
+- **Detailed** - List view with metadata below images
+
+Toggle buttons appear on the right side of the feed tabs (desktop only).
+
+**ElementCard Layout Prop:**
+```typescript
+<ElementCard 
+  asset={asset} 
+  layout="grid"      // "grid" | "detailed"
+/>
+```
 
 ---
 
