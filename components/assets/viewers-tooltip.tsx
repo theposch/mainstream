@@ -62,7 +62,7 @@ export function ViewersTooltip({ assetId, viewCount, className }: ViewersTooltip
         <TooltipTrigger asChild>
           <button
             onMouseEnter={fetchViewers}
-            className={`flex items-center gap-1.5 text-xs text-zinc-500 hover:text-zinc-400 transition-colors cursor-pointer ${className}`}
+            className={`flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors cursor-pointer ${className}`}
           >
             <Eye className="h-3.5 w-3.5" />
             <span>Seen by {viewCount} {viewCount === 1 ? "person" : "people"}</span>
@@ -74,15 +74,15 @@ export function ViewersTooltip({ assetId, viewCount, className }: ViewersTooltip
           className="p-3 max-w-xs z-[150]"
         >
           {loading ? (
-            <p className="text-xs text-zinc-400">Loading...</p>
+            <p className="text-xs text-muted-foreground">Loading...</p>
           ) : viewers.length > 0 ? (
             <div className="flex items-center gap-2">
               {/* Stacked avatars */}
               <div className="flex -space-x-2">
                 {viewers.slice(0, 5).map((viewer) => (
-                  <Avatar key={viewer.id} className="h-7 w-7 border-2 border-zinc-900 ring-0">
+                  <Avatar key={viewer.id} className="h-7 w-7 border-2 border-background ring-0">
                     <AvatarImage src={viewer.avatar_url || undefined} alt={viewer.display_name} />
-                    <AvatarFallback className="text-xs bg-zinc-700 text-zinc-200">
+                    <AvatarFallback className="text-xs bg-muted text-muted-foreground">
                       {viewer.display_name?.charAt(0).toUpperCase() || "?"}
                     </AvatarFallback>
                   </Avatar>
@@ -90,12 +90,12 @@ export function ViewersTooltip({ assetId, viewCount, className }: ViewersTooltip
               </div>
               
               {/* Names text */}
-              <p className="text-xs text-zinc-300">
+              <p className="text-xs text-foreground/80">
                 {formatViewerNames(viewers, remainingCount)}
               </p>
             </div>
           ) : (
-            <p className="text-xs text-zinc-400">No viewer details available</p>
+            <p className="text-xs text-muted-foreground">No viewer details available</p>
           )}
         </TooltipContent>
       </Tooltip>

@@ -75,7 +75,7 @@ export function DropPublishDialog({
           {/* Notify teammates toggle */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <Bell className="h-4 w-4 text-zinc-400" />
+              <Bell className="h-4 w-4 text-muted-foreground" />
               <Label htmlFor="notify" className="font-normal">
                 Notify teammates
               </Label>
@@ -88,7 +88,7 @@ export function DropPublishDialog({
               onClick={() => setNotifyTeam(!notifyTeam)}
               className={`
                 relative inline-flex h-6 w-11 items-center rounded-full transition-colors
-                ${notifyTeam ? "bg-violet-600" : "bg-zinc-700"}
+                ${notifyTeam ? "bg-violet-600" : "bg-muted"}
               `}
             >
               <span

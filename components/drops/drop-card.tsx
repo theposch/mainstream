@@ -66,13 +66,13 @@ export const DropCard = React.memo(function DropCard({
     <>
       <Link
         href={href}
-        className="group block bg-zinc-900/50 rounded-xl border border-zinc-800 overflow-hidden hover:border-zinc-700 transition-colors relative"
+        className="group block bg-card/50 rounded-xl border border-border overflow-hidden hover:border-border/80 transition-colors relative"
       >
         {/* Header */}
         <div className="p-4 pb-2">
           <div className="flex items-start justify-between gap-2">
             <div className="flex-1 min-w-0">
-              <h3 className="font-semibold text-white truncate group-hover:text-violet-400 transition-colors">
+              <h3 className="font-semibold text-foreground truncate group-hover:text-violet-400 transition-colors">
                 {drop.title}
               </h3>
               {drop.status === "draft" && (
@@ -90,7 +90,7 @@ export const DropCard = React.memo(function DropCard({
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-8 w-8 text-zinc-500 hover:text-white hover:bg-zinc-800"
+                      className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-accent"
                     >
                       <MoreHorizontal className="h-4 w-4" />
                       <span className="sr-only">More options</span>
@@ -112,13 +112,13 @@ export const DropCard = React.memo(function DropCard({
           
           {/* Preview text */}
           {drop.description && (
-            <p className="mt-2 text-sm text-zinc-400 line-clamp-2">
+            <p className="mt-2 text-sm text-muted-foreground line-clamp-2">
               {drop.description}
             </p>
           )}
           
           {/* Meta info */}
-          <div className="mt-3 flex items-center gap-3 text-xs text-zinc-500">
+          <div className="mt-3 flex items-center gap-3 text-xs text-muted-foreground">
             {drop.creator && (
               <div className="flex items-center gap-1.5">
                 {drop.creator.avatar_url && (
@@ -151,7 +151,7 @@ export const DropCard = React.memo(function DropCard({
               {drop.preview_images.slice(0, 3).map((url, index) => (
                 <div
                   key={index}
-                  className="relative flex-1 aspect-[4/3] bg-zinc-800 rounded-lg overflow-hidden"
+                  className="relative flex-1 aspect-[4/3] bg-muted rounded-lg overflow-hidden"
                 >
                   <Image
                     src={url}
