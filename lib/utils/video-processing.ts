@@ -185,27 +185,40 @@ export async function generateVideoThumbnails(
 }
 
 /**
- * Cached FFmpeg availability status (checked once per process)
+ * Cached FFmpeg availability check (caches both result and pending promise)
  */
 let ffmpegAvailableCache: boolean | null = null;
+let ffmpegCheckPromise: Promise<boolean> | null = null;
 
 /**
  * Checks if FFmpeg is available on the system
  * 
  * Results are cached since FFmpeg availability won't change during runtime.
+ * Also caches the pending promise to prevent race conditions where multiple
+ * concurrent calls would each spawn their own ffmpeg check.
  * 
  * @returns True if FFmpeg is installed and accessible
  */
 export async function isFFmpegAvailable(): Promise<boolean> {
+  // Return cached result if already determined
   if (ffmpegAvailableCache !== null) {
     return ffmpegAvailableCache;
   }
   
-  return new Promise((resolve) => {
+  // Return pending promise if check is already in flight
+  if (ffmpegCheckPromise !== null) {
+    return ffmpegCheckPromise;
+  }
+  
+  // Create and cache the promise for concurrent callers
+  ffmpegCheckPromise = new Promise((resolve) => {
     ffmpeg.getAvailableFormats((err) => {
       ffmpegAvailableCache = !err;
+      ffmpegCheckPromise = null; // Clear pending promise
       resolve(ffmpegAvailableCache);
     });
   });
+  
+  return ffmpegCheckPromise;
 }
 
