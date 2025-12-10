@@ -6,7 +6,10 @@
  */
 
 import type { QueryClient } from "@tanstack/react-query";
-import type { Asset } from "@/lib/types/database";
+import type { Asset, Comment } from "@/lib/types/database";
+
+// Re-export Comment type for backwards compatibility
+export type { Comment };
 
 // ============================================================================
 // Query Key Factory
@@ -23,31 +26,6 @@ export const assetKeys = {
   recent: () => [...assetKeys.all, "recent"] as const,
   following: () => [...assetKeys.all, "following"] as const,
 };
-
-// ============================================================================
-// Types
-// ============================================================================
-
-export interface Comment {
-  id: string;
-  asset_id: string;
-  user_id: string;
-  content: string;
-  parent_id: string | null;
-  created_at: string;
-  updated_at: string;
-  is_edited: boolean;
-  likes: number;
-  has_liked: boolean;
-  user?: {
-    id: string;
-    username: string;
-    display_name: string;
-    email: string;
-    avatar_url?: string;
-    job_title?: string;
-  };
-}
 
 // ============================================================================
 // Fetch Functions

@@ -120,13 +120,14 @@ export function useStreamFollow(
         throw new Error(data.error || 'Failed to toggle follow');
       }
 
-      // Optionally refresh followers list after follow
+      // POST returns updated followers in response - no need for separate GET
       if (!wasFollowing) {
-        // After following, fetch updated followers
-        const followersResponse = await fetch(`/api/streams/${streamId}/follow`);
-        if (followersResponse.ok) {
-          const data = await followersResponse.json();
-          setFollowers(data.followers || []);
+        const data = await response.json();
+        if (data.followers) {
+          setFollowers(data.followers);
+        }
+        if (typeof data.followerCount === 'number') {
+          setFollowerCount(data.followerCount);
         }
       }
     } catch (err) {

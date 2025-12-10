@@ -16,6 +16,7 @@ import { useCallback, useMemo } from "react";
 import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
 import type { Asset } from "@/lib/types/database";
 import { assetKeys } from "@/lib/queries/asset-queries";
+import { CACHE_TIMES, PAGE_SIZES } from "@/lib/constants/cache";
 
 interface FollowingAssetsResponse {
   assets: Asset[];
@@ -38,7 +39,7 @@ const fetchFollowingAssets = async ({ pageParam }: { pageParam: string | null })
   if (pageParam) {
     url.searchParams.set('cursor', pageParam);
   }
-  url.searchParams.set('limit', '20');
+  url.searchParams.set('limit', String(PAGE_SIZES.CLIENT_PAGE));
 
   const response = await fetch(url.toString());
 
@@ -64,8 +65,8 @@ export function useFollowingAssets(): UseFollowingAssetsReturn {
     queryFn: fetchFollowingAssets,
     initialPageParam: null as string | null,
     getNextPageParam: (lastPage) => lastPage.hasMore ? lastPage.cursor : undefined,
-    staleTime: 5 * 60 * 1000, // 5 minutes - cached between tab switches
-    gcTime: 30 * 60 * 1000, // 30 minutes
+    staleTime: CACHE_TIMES.STALE_TIME,
+    gcTime: CACHE_TIMES.GC_TIME,
   });
 
   // Flatten all pages into a single array

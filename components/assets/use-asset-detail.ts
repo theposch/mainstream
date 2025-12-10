@@ -69,10 +69,6 @@ export function useAssetDetail(asset: any) {
     await deleteComment(commentId);
   }, [deleteComment]);
 
-  const handleLikeComment = React.useCallback((_commentId: string) => {
-    // Comment likes are handled by useCommentLike hook in CommentItem component
-  }, []);
-
   const handleAssetLike = React.useCallback(async () => {
     await toggleLike();
   }, [toggleLike]);
@@ -93,7 +89,6 @@ export function useAssetDetail(asset: any) {
     handleAddComment,
     handleEditComment,
     handleDeleteComment,
-    handleLikeComment,
     handleAssetLike,
     isLiked,
     likeCount,
