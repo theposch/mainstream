@@ -64,16 +64,16 @@ export function DropBlocksEditorClient({
   const editorStateRef = React.useRef(editorState);
   editorStateRef.current = editorState;
   
-  const setTitle = React.useCallback((newTitle: string) => {
-    setEditorState({ ...editorStateRef.current, title: newTitle });
+  const setTitle = React.useCallback((newTitle: string, skipHistory = false) => {
+    setEditorState({ ...editorStateRef.current, title: newTitle }, skipHistory);
   }, [setEditorState]);
   
-  const setDescription = React.useCallback((newDescription: string) => {
-    setEditorState({ ...editorStateRef.current, description: newDescription });
+  const setDescription = React.useCallback((newDescription: string, skipHistory = false) => {
+    setEditorState({ ...editorStateRef.current, description: newDescription }, skipHistory);
   }, [setEditorState]);
   
-  const setBlocks = React.useCallback((newBlocks: DropBlock[]) => {
-    setEditorState({ ...editorStateRef.current, blocks: newBlocks });
+  const setBlocks = React.useCallback((newBlocks: DropBlock[], skipHistory = false) => {
+    setEditorState({ ...editorStateRef.current, blocks: newBlocks }, skipHistory);
   }, [setEditorState]);
   
   const [contributors, setContributors] = React.useState(initialContributors);

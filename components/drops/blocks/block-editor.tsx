@@ -9,7 +9,7 @@ import type { DropBlock, DropBlockType, Asset, GalleryLayout } from "@/lib/types
 interface BlockEditorProps {
   dropId: string;
   blocks: DropBlock[];
-  onBlocksChange: (blocks: DropBlock[]) => void;
+  onBlocksChange: (blocks: DropBlock[], skipHistory?: boolean) => void;
   availableAssets?: Asset[];
   onSaveStatus?: (status: 'saving' | 'saved' | 'error') => void;
 }
@@ -118,8 +118,8 @@ export function BlockEditor({ dropId, blocks, onBlocksChange, availableAssets = 
         onSaveStatus?.('saved');
       } catch (error) {
         console.error("Failed to save block:", error);
-        // Rollback on error
-        onBlocksChange(previousBlocks);
+        // Rollback on error (skip history to avoid polluting undo stack)
+        onBlocksChange(previousBlocks, true);
         onSaveStatus?.('error');
       }
     }, 500);
@@ -144,8 +144,8 @@ export function BlockEditor({ dropId, blocks, onBlocksChange, availableAssets = 
       onSaveStatus?.('saved');
     } catch (error) {
       console.error("Failed to delete block:", error);
-      // Rollback on error
-      onBlocksChange(previousBlocks);
+      // Rollback on error (skip history to avoid polluting undo stack)
+      onBlocksChange(previousBlocks, true);
       onSaveStatus?.('error');
     }
   };
@@ -172,8 +172,8 @@ export function BlockEditor({ dropId, blocks, onBlocksChange, availableAssets = 
       onSaveStatus?.('saved');
     } catch (error) {
       console.error("Failed to update display mode:", error);
-      // Rollback on error
-      onBlocksChange(previousBlocks);
+      // Rollback on error (skip history to avoid polluting undo stack)
+      onBlocksChange(previousBlocks, true);
       onSaveStatus?.('error');
     }
   };
@@ -200,8 +200,8 @@ export function BlockEditor({ dropId, blocks, onBlocksChange, availableAssets = 
       onSaveStatus?.('saved');
     } catch (error) {
       console.error("Failed to update crop position:", error);
-      // Rollback on error
-      onBlocksChange(previousBlocks);
+      // Rollback on error (skip history to avoid polluting undo stack)
+      onBlocksChange(previousBlocks, true);
       onSaveStatus?.('error');
     }
   };
@@ -228,8 +228,8 @@ export function BlockEditor({ dropId, blocks, onBlocksChange, availableAssets = 
       onSaveStatus?.('saved');
     } catch (error) {
       console.error("Failed to update gallery layout:", error);
-      // Rollback on error
-      onBlocksChange(previousBlocks);
+      // Rollback on error (skip history to avoid polluting undo stack)
+      onBlocksChange(previousBlocks, true);
       onSaveStatus?.('error');
     }
   };
@@ -256,8 +256,8 @@ export function BlockEditor({ dropId, blocks, onBlocksChange, availableAssets = 
       onSaveStatus?.('saved');
     } catch (error) {
       console.error("Failed to update featured index:", error);
-      // Rollback on error
-      onBlocksChange(previousBlocks);
+      // Rollback on error (skip history to avoid polluting undo stack)
+      onBlocksChange(previousBlocks, true);
       onSaveStatus?.('error');
     }
   };
@@ -311,8 +311,8 @@ export function BlockEditor({ dropId, blocks, onBlocksChange, availableAssets = 
       onSaveStatus?.('saved');
     } catch (error) {
       console.error("Failed to remove image from gallery:", error);
-      // Rollback on error
-      onBlocksChange(previousBlocks);
+      // Rollback on error (skip history to avoid polluting undo stack)
+      onBlocksChange(previousBlocks, true);
       onSaveStatus?.('error');
     }
   };
@@ -353,8 +353,8 @@ export function BlockEditor({ dropId, blocks, onBlocksChange, availableAssets = 
         onSaveStatus?.('saved');
       } catch (error) {
         console.error("Failed to reorder blocks:", error);
-        // Rollback on error
-        onBlocksChange(previousBlocks);
+        // Rollback on error (skip history to avoid polluting undo stack)
+        onBlocksChange(previousBlocks, true);
         onSaveStatus?.('error');
       }
     }
