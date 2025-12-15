@@ -51,15 +51,17 @@ const AssetSuggestionItem = React.memo(function AssetSuggestionItem({
         isSelected && "bg-accent"
       )}
     >
-      <div className="relative w-12 h-12 rounded overflow-hidden flex-shrink-0 bg-muted">
+      <div className="relative w-12 h-12 rounded overflow-hidden flex-shrink-0 bg-muted flex items-center justify-center">
         <img 
           src={suggestion.thumbnail} 
           alt={suggestion.label}
           className="w-full h-full object-cover"
           onError={(e) => {
             e.currentTarget.style.display = 'none';
+            e.currentTarget.nextElementSibling?.classList.remove('hidden');
           }}
         />
+        <ImageIcon className="h-5 w-5 text-muted-foreground hidden" />
       </div>
       <div className="flex-1 min-w-0">
         <div className="font-medium truncate">{suggestion.label}</div>
@@ -101,10 +103,15 @@ const UserSuggestionItem = React.memo(function UserSuggestionItem({
         <img 
           src={suggestion.thumbnail} 
           alt={suggestion.label}
+          className="w-full h-full object-cover"
           onError={(e) => {
             e.currentTarget.style.display = 'none';
+            e.currentTarget.nextElementSibling?.classList.remove('hidden');
           }}
         />
+        <div className="hidden w-full h-full bg-muted flex items-center justify-center text-xs font-medium text-muted-foreground">
+          {suggestion.label?.charAt(0)?.toUpperCase() || 'U'}
+        </div>
       </Avatar>
       <div className="flex-1 min-w-0">
         <div className="font-medium truncate">{suggestion.label}</div>
@@ -189,6 +196,7 @@ const RecentSearchItem = React.memo(function RecentSearchItem({
     <div
       role="option"
       aria-selected={isSelected}
+      tabIndex={-1}
       data-suggestion-index={index}
       className={cn(
         "w-full flex items-center gap-3 px-3 py-2 text-sm transition-colors group",
@@ -260,9 +268,9 @@ export function SearchSuggestions({
 
     const fetchPopularStreams = async () => {
       try {
-        const res = await fetch('/api/streams?limit=5');
+        const res = await fetch(`/api/streams?limit=${SEARCH_CONSTANTS.MAX_POPULAR_STREAMS}`);
         const data = await res.json();
-        setPopularStreams(data.streams?.slice(0, 5) || []);
+        setPopularStreams(data.streams?.slice(0, SEARCH_CONSTANTS.MAX_POPULAR_STREAMS) || []);
       } catch (error) {
         console.error('[SearchSuggestions] Failed to fetch popular streams:', error);
       }
