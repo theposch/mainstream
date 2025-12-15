@@ -25,12 +25,14 @@ interface SuggestionItemProps {
   suggestion: SuggestionItem;
   isSelected: boolean;
   onSelect: (suggestion: SuggestionItem) => void;
+  index: number; // Global index for scroll targeting
 }
 
 const AssetSuggestionItem = React.memo(function AssetSuggestionItem({
   suggestion,
   isSelected,
   onSelect,
+  index,
 }: SuggestionItemProps) {
   const handleMouseDown = React.useCallback((e: React.MouseEvent) => {
     e.preventDefault(); // Prevent input blur
@@ -42,6 +44,7 @@ const AssetSuggestionItem = React.memo(function AssetSuggestionItem({
       role="option"
       aria-selected={isSelected}
       onMouseDown={handleMouseDown}
+      data-suggestion-index={index}
       className={cn(
         "w-full flex items-center gap-3 px-3 py-2 text-sm text-left transition-colors cursor-pointer",
         "hover:bg-accent",
@@ -75,6 +78,7 @@ const UserSuggestionItem = React.memo(function UserSuggestionItem({
   suggestion,
   isSelected,
   onSelect,
+  index,
 }: SuggestionItemProps) {
   const handleMouseDown = React.useCallback((e: React.MouseEvent) => {
     e.preventDefault(); // Prevent input blur
@@ -86,6 +90,7 @@ const UserSuggestionItem = React.memo(function UserSuggestionItem({
       role="option"
       aria-selected={isSelected}
       onMouseDown={handleMouseDown}
+      data-suggestion-index={index}
       className={cn(
         "w-full flex items-center gap-3 px-3 py-2 text-sm text-left transition-colors cursor-pointer",
         "hover:bg-accent",
@@ -118,6 +123,7 @@ const DefaultSuggestionItem = React.memo(function DefaultSuggestionItem({
   suggestion,
   isSelected,
   onSelect,
+  index,
 }: SuggestionItemProps) {
   const handleMouseDown = React.useCallback((e: React.MouseEvent) => {
     e.preventDefault(); // Prevent input blur
@@ -129,6 +135,7 @@ const DefaultSuggestionItem = React.memo(function DefaultSuggestionItem({
       role="option"
       aria-selected={isSelected}
       onMouseDown={handleMouseDown}
+      data-suggestion-index={index}
       className={cn(
         "w-full flex items-center gap-3 px-3 py-2 text-sm text-left transition-colors cursor-pointer",
         "hover:bg-accent",
@@ -157,6 +164,7 @@ interface RecentSearchItemProps {
   isSelected: boolean;
   onSelect: (suggestion: SuggestionItem) => void;
   onRemove?: (query: string) => void;
+  index: number; // Global index for scroll targeting
 }
 
 const RecentSearchItem = React.memo(function RecentSearchItem({
@@ -164,6 +172,7 @@ const RecentSearchItem = React.memo(function RecentSearchItem({
   isSelected,
   onSelect,
   onRemove,
+  index,
 }: RecentSearchItemProps) {
   const handleMouseDown = React.useCallback((e: React.MouseEvent) => {
     e.preventDefault();
@@ -180,6 +189,7 @@ const RecentSearchItem = React.memo(function RecentSearchItem({
     <div
       role="option"
       aria-selected={isSelected}
+      data-suggestion-index={index}
       className={cn(
         "w-full flex items-center gap-3 px-3 py-2 text-sm transition-colors group",
         "hover:bg-accent",
@@ -438,9 +448,12 @@ export function SearchSuggestions({
   }, [isOpen, selectedIndex, suggestions.length, onClose, handleSelectSuggestion]);
 
   // Scroll selected item into view
+  // Use data attribute to find correct element since DOM includes section headers
   React.useEffect(() => {
     if (selectedIndex >= 0 && suggestionsRef.current) {
-      const selectedElement = suggestionsRef.current.children[selectedIndex] as HTMLElement;
+      const selectedElement = suggestionsRef.current.querySelector(
+        `[data-suggestion-index="${selectedIndex}"]`
+      ) as HTMLElement;
       selectedElement?.scrollIntoView({ block: "nearest", behavior: "smooth" });
     }
   }, [selectedIndex]);
@@ -530,6 +543,7 @@ export function SearchSuggestions({
                 isSelected={selectedIndex === getGlobalIndex(suggestion)}
                 onSelect={handleSelectSuggestion}
                 onRemove={onRemoveRecentSearch}
+                index={getGlobalIndex(suggestion)}
               />
             ))}
           </>
@@ -559,6 +573,7 @@ export function SearchSuggestions({
                     suggestion={suggestion}
                     isSelected={selectedIndex === getGlobalIndex(suggestion)}
                     onSelect={handleSelectSuggestion}
+                    index={getGlobalIndex(suggestion)}
                   />
                 ))}
               </>
@@ -574,6 +589,7 @@ export function SearchSuggestions({
                     suggestion={suggestion}
                     isSelected={selectedIndex === getGlobalIndex(suggestion)}
                     onSelect={handleSelectSuggestion}
+                    index={getGlobalIndex(suggestion)}
                   />
                 ))}
               </>
@@ -589,6 +605,7 @@ export function SearchSuggestions({
                     suggestion={suggestion}
                     isSelected={selectedIndex === getGlobalIndex(suggestion)}
                     onSelect={handleSelectSuggestion}
+                    index={getGlobalIndex(suggestion)}
                   />
                 ))}
               </>
@@ -601,6 +618,7 @@ export function SearchSuggestions({
                   suggestion={viewAllSuggestion}
                   isSelected={selectedIndex === getGlobalIndex(viewAllSuggestion)}
                   onSelect={handleSelectSuggestion}
+                  index={getGlobalIndex(viewAllSuggestion)}
                 />
               </div>
             )}
