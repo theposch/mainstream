@@ -21,7 +21,7 @@ interface WeekHeaderProps {
  * WeekHeader - Header for a week section in the feed
  * 
  * Shows post count, week label, and contributor avatars.
- * Example: "6 posts last week" with stacked avatars on the right.
+ * Example: "6 posts · Last week" with stacked avatars on the right.
  */
 export function WeekHeader({
   label,
@@ -29,8 +29,9 @@ export function WeekHeader({
   contributors,
   className,
 }: WeekHeaderProps) {
-  // Format the label for display (lowercase for natural reading)
-  const formattedLabel = label.toLowerCase();
+  // Check if label is a relative term (This week, Last week) vs a date range
+  const isRelativeLabel = label === "This week" || label === "Last week";
+  const formattedLabel = isRelativeLabel ? label.toLowerCase() : label;
   
   return (
     <div
@@ -44,7 +45,7 @@ export function WeekHeader({
           <span className="font-semibold text-foreground">{postCount}</span>
           {" "}
           {postCount === 1 ? "post" : "posts"}
-          {" "}
+          {" · "}
           {formattedLabel}
         </span>
       </div>

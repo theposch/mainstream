@@ -71,11 +71,11 @@ export function formatWeekLabel(weekStart: Date, now: Date): string {
 
   // Same month
   if (startMonth === endMonth) {
-    return `${startMonth} ${startDay} - ${endDay}`;
+    return `${startMonth} ${startDay}–${endDay}`;
   }
 
   // Different months
-  return `${startMonth} ${startDay} - ${endMonth} ${endDay}`;
+  return `${startMonth} ${startDay} – ${endMonth} ${endDay}`;
 }
 
 /**
