@@ -85,11 +85,13 @@ function HeadingBlockView({ block, isEditing, onContentChange }: BlockRendererPr
     );
   }
 
-  const HeadingTag = `h${level}` as "h1" | "h2" | "h3";
-  return (
-    <HeadingTag className={headingClasses[level as keyof typeof headingClasses]}>
-      {block.content}
-    </HeadingTag>
+  const className = headingClasses[level as keyof typeof headingClasses];
+  
+  // Use React.createElement to dynamically create heading tags
+  return React.createElement(
+    `h${level}` as "h1" | "h2" | "h3",
+    { className },
+    block.content
   );
 }
 
