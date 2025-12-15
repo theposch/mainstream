@@ -91,9 +91,16 @@ export function DropBlocksEditorClient({
   const [saveStatus, setSaveStatus] = React.useState<SaveStatus>('idle');
   const savedTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
 
+  // Track dirty state for published drops (explicit save mode)
+  const [hasUnsavedChanges, setHasUnsavedChanges] = React.useState(false);
+  const originalTitleRef = React.useRef(drop.title);
+  const originalDescriptionRef = React.useRef(drop.description || "");
+
   // Warn user about unsaved changes when navigating away
+  // For drafts: warn if auto-save is pending
+  // For published: warn if there are unsaved changes
   const hasPendingChanges = saveStatus === 'pending' || saveStatus === 'saving';
-  useUnsavedChanges(hasPendingChanges);
+  useUnsavedChanges(hasPendingChanges || hasUnsavedChanges);
 
   // Handle successful deletion - redirect to drafts list
   const handleDeleted = React.useCallback(() => {
@@ -115,11 +122,6 @@ export function DropBlocksEditorClient({
     });
     setContributors(Array.from(contributorMap.values()));
   }, [blocks]);
-
-  // Track dirty state for published drops (explicit save mode)
-  const [hasUnsavedChanges, setHasUnsavedChanges] = React.useState(false);
-  const originalTitleRef = React.useRef(drop.title);
-  const originalDescriptionRef = React.useRef(drop.description || "");
 
   // Debounced saves (only for drafts)
   const titleSaveTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
