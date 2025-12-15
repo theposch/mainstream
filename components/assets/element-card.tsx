@@ -4,7 +4,7 @@ import * as React from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { Heart, Bookmark, Play, ExternalLink } from "lucide-react";
+import { Play, ExternalLink } from "lucide-react";
 import { StreamBadge } from "@/components/streams/stream-badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
@@ -279,17 +279,15 @@ export const ElementCard = React.memo(
             "absolute inset-0 bg-gradient-to-b from-black/60 via-transparent to-black/80 transition-opacity duration-200",
             isHovered ? "opacity-100" : "opacity-0"
           )}>
-            {/* Top Right: Save to Collection */}
+            {/* Top Right: Like Button */}
             <div className="absolute top-3 right-3" onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}>
-              {/* TODO: Replace with real save to collection functionality
-                  - Open dialog to select collection/stream
-                  - POST /api/streams/:streamId/assets with { assetId }
-                  - Show success/error toast
-                  - Update saved state
-              */}
-              <button className="p-2.5 bg-white/90 hover:bg-white backdrop-blur-md rounded-full text-black transition-all shadow-lg">
-                <Bookmark className="w-4 h-4" />
-              </button>
+              <LikeButton
+                isLiked={isLiked}
+                likeCount={likeCount}
+                onLike={handleLikeClick}
+                isLoading={loading}
+                variant="solid"
+              />
             </div>
 
             {/* Bottom Section */}
@@ -310,8 +308,8 @@ export const ElementCard = React.memo(
               )}
               
               {/* User Info Row */}
-              <div className="flex items-center justify-between gap-3">
-              {/* Left: User Info */}
+              <div className="flex items-center gap-3">
+              {/* User Info */}
               <div className="flex items-center gap-2 flex-1 min-w-0">
                 <Avatar className="h-8 w-8 border-2 border-white/20 shrink-0">
                   <AvatarImage src={uploader?.avatar_url} />
@@ -327,17 +325,6 @@ export const ElementCard = React.memo(
                     @{uploader?.username || 'unknown'}
                   </span>
                 </div>
-              </div>
-
-              {/* Right: Like Button with Real-time Updates */}
-              <div className="flex items-center gap-2 shrink-0">
-                <LikeButton
-                  isLiked={isLiked}
-                  likeCount={likeCount}
-                  onLike={handleLikeClick}
-                  isLoading={loading}
-                  variant="solid"
-                />
               </div>
               </div>
             </div>
