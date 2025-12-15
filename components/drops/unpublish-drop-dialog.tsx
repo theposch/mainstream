@@ -13,25 +13,22 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
-interface DeleteDropDialogProps {
+interface UnpublishDropDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   dropId: string;
   dropTitle: string;
-  dropStatus?: 'draft' | 'published';
-  onDeleted: () => void;
+  onUnpublished: () => void;
 }
 
-export const DeleteDropDialog = React.memo(function DeleteDropDialog({
+export const UnpublishDropDialog = React.memo(function UnpublishDropDialog({
   open,
   onOpenChange,
   dropId,
   dropTitle,
-  dropStatus = 'draft',
-  onDeleted,
-}: DeleteDropDialogProps) {
-  const isPublished = dropStatus === 'published';
-  const [isDeleting, setIsDeleting] = React.useState(false);
+  onUnpublished,
+}: UnpublishDropDialogProps) {
+  const [isUnpublishing, setIsUnpublishing] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
   // Reset error when dialog opens/closes
@@ -41,47 +38,39 @@ export const DeleteDropDialog = React.memo(function DeleteDropDialog({
     }
   }, [open]);
 
-  const handleDelete = React.useCallback(async () => {
-    setIsDeleting(true);
+  const handleUnpublish = React.useCallback(async () => {
+    setIsUnpublishing(true);
     setError(null);
     
     try {
       const response = await fetch(`/api/drops/${dropId}`, {
-        method: "DELETE",
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "draft" }),
       });
 
       if (!response.ok) {
         const data = await response.json().catch(() => ({}));
-        throw new Error(data.error || "Failed to delete drop");
+        throw new Error(data.error || "Failed to unpublish drop");
       }
 
-      onDeleted();
+      onUnpublished();
       onOpenChange(false);
     } catch (err) {
-      console.error("Failed to delete drop:", err);
-      setError(err instanceof Error ? err.message : "Failed to delete drop. Please try again.");
+      console.error("Failed to unpublish drop:", err);
+      setError(err instanceof Error ? err.message : "Failed to unpublish drop. Please try again.");
     } finally {
-      setIsDeleting(false);
+      setIsUnpublishing(false);
     }
-  }, [dropId, onDeleted, onOpenChange]);
+  }, [dropId, onUnpublished, onOpenChange]);
 
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>
-            {isPublished ? "Delete Published Drop" : "Delete Draft"}
-          </AlertDialogTitle>
+          <AlertDialogTitle>Unpublish this drop?</AlertDialogTitle>
           <AlertDialogDescription>
-            {isPublished ? (
-              <>
-                Are you sure you want to delete &ldquo;{dropTitle}&rdquo;? This drop has been published and may have been viewed by team members. Deleting will permanently remove it and break any shared links. This action cannot be undone.
-              </>
-            ) : (
-              <>
-                Are you sure you want to delete &ldquo;{dropTitle}&rdquo;? This action cannot be undone.
-              </>
-            )}
+            &ldquo;{dropTitle}&rdquo; will be moved back to drafts. Team members who already received the email notification can still access this page until you publish again or delete.
           </AlertDialogDescription>
         </AlertDialogHeader>
         
@@ -93,19 +82,18 @@ export const DeleteDropDialog = React.memo(function DeleteDropDialog({
         )}
         
         <AlertDialogFooter>
-          <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+          <AlertDialogCancel disabled={isUnpublishing}>Cancel</AlertDialogCancel>
           <AlertDialogAction
-            onClick={handleDelete}
-            disabled={isDeleting}
-            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            onClick={handleUnpublish}
+            disabled={isUnpublishing}
           >
-            {isDeleting ? (
+            {isUnpublishing ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Deleting...
+                Unpublishing...
               </>
             ) : (
-              "Delete"
+              "Unpublish"
             )}
           </AlertDialogAction>
         </AlertDialogFooter>

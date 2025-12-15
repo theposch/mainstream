@@ -44,10 +44,8 @@ export const DropCard = React.memo(function DropCard({
     ? `/drops/${drop.id}/edit` 
     : `/drops/${drop.id}`;
 
-  // Show menu only for drafts owned by current user
-  const canDelete = drop.status === "draft" && 
-    currentUserId && 
-    drop.created_by === currentUserId;
+  // Show menu for drops owned by current user (both drafts and published)
+  const canDelete = currentUserId && drop.created_by === currentUserId;
 
   const handleMenuClick = React.useCallback((e: React.MouseEvent) => {
     e.preventDefault();
@@ -172,6 +170,7 @@ export const DropCard = React.memo(function DropCard({
         onOpenChange={setDeleteDialogOpen}
         dropId={drop.id}
         dropTitle={drop.title}
+        dropStatus={drop.status as 'draft' | 'published'}
         onDeleted={handleDeleted}
       />
     </>

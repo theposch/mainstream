@@ -4,7 +4,7 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
-import { ArrowLeft, Sparkles, Loader2, Eye, Pencil, Mail, MoreHorizontal, Trash2, Check, Cloud, AlertCircle, Undo2, Redo2 } from "lucide-react";
+import { ArrowLeft, Sparkles, Loader2, Eye, Pencil, Mail, MoreHorizontal, Trash2, Check, Cloud, AlertCircle, Undo2, Redo2, ArchiveRestore } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -15,6 +15,7 @@ import {
 import { BlockEditor, DropBlocksView } from "@/components/drops/blocks";
 import { DropPublishDialog } from "@/components/drops/drop-publish-dialog";
 import { DeleteDropDialog } from "@/components/drops/delete-drop-dialog";
+import { UnpublishDropDialog } from "@/components/drops/unpublish-drop-dialog";
 import { useUnsavedChanges } from "@/lib/hooks/use-unsaved-changes";
 import { useUndoRedo } from "@/lib/hooks/use-undo-redo";
 import type { Drop, DropBlock, Asset, User } from "@/lib/types/database";
@@ -50,7 +51,11 @@ export function DropBlocksEditorClient({
   const [isGenerating, setIsGenerating] = React.useState(false);
   const [publishDialogOpen, setPublishDialogOpen] = React.useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false);
+  const [unpublishDialogOpen, setUnpublishDialogOpen] = React.useState(false);
   const [showPreview, setShowPreview] = React.useState(false);
+  
+  // Track if the drop is published
+  const isPublished = drop.status === 'published';
   
   // Save status tracking: 'idle' | 'pending' | 'saving' | 'saved' | 'error'
   type SaveStatus = 'idle' | 'pending' | 'saving' | 'saved' | 'error';
@@ -66,6 +71,11 @@ export function DropBlocksEditorClient({
     router.push("/drops?tab=drafts");
   }, [router]);
 
+  // Handle successful unpublish - redirect to drafts list
+  const handleUnpublished = React.useCallback(() => {
+    router.push("/drops?tab=drafts");
+  }, [router]);
+
   // Update contributors when blocks change
   React.useEffect(() => {
     const contributorMap = new Map<string, User>();
@@ -77,40 +87,110 @@ export function DropBlocksEditorClient({
     setContributors(Array.from(contributorMap.values()));
   }, [blocks]);
 
-  // Debounced saves
+  // Track dirty state for published drops (explicit save mode)
+  const [hasUnsavedChanges, setHasUnsavedChanges] = React.useState(false);
+  const originalTitleRef = React.useRef(drop.title);
+  const originalDescriptionRef = React.useRef(drop.description || "");
+
+  // Debounced saves (only for drafts)
   const titleSaveTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
   const descSaveTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
   
   const handleTitleChange = (newTitle: string) => {
     setTitle(newTitle);
-    setSaveStatus('pending');
     
-    if (titleSaveTimeoutRef.current) {
-      clearTimeout(titleSaveTimeoutRef.current);
-    }
-    titleSaveTimeoutRef.current = setTimeout(() => {
-      if (newTitle !== drop.title && newTitle.trim()) {
-        saveField("title", newTitle);
-      } else {
-        setSaveStatus('idle');
+    if (isPublished) {
+      // For published drops, just track changes - no auto-save
+      const isDirty = newTitle !== originalTitleRef.current || description !== originalDescriptionRef.current;
+      setHasUnsavedChanges(isDirty);
+      setSaveStatus(isDirty ? 'pending' : 'idle');
+    } else {
+      // For drafts, use auto-save
+      setSaveStatus('pending');
+      
+      if (titleSaveTimeoutRef.current) {
+        clearTimeout(titleSaveTimeoutRef.current);
       }
-    }, 1000);
+      titleSaveTimeoutRef.current = setTimeout(() => {
+        if (newTitle !== drop.title && newTitle.trim()) {
+          saveField("title", newTitle);
+        } else {
+          setSaveStatus('idle');
+        }
+      }, 1000);
+    }
   };
 
   const handleDescriptionChange = (newDescription: string) => {
     setDescription(newDescription);
-    setSaveStatus('pending');
     
-    if (descSaveTimeoutRef.current) {
-      clearTimeout(descSaveTimeoutRef.current);
-    }
-    descSaveTimeoutRef.current = setTimeout(() => {
-      if (newDescription !== drop.description) {
-        saveField("description", newDescription);
-      } else {
-        setSaveStatus('idle');
+    if (isPublished) {
+      // For published drops, just track changes - no auto-save
+      const isDirty = title !== originalTitleRef.current || newDescription !== originalDescriptionRef.current;
+      setHasUnsavedChanges(isDirty);
+      setSaveStatus(isDirty ? 'pending' : 'idle');
+    } else {
+      // For drafts, use auto-save
+      setSaveStatus('pending');
+      
+      if (descSaveTimeoutRef.current) {
+        clearTimeout(descSaveTimeoutRef.current);
       }
-    }, 1000);
+      descSaveTimeoutRef.current = setTimeout(() => {
+        if (newDescription !== drop.description) {
+          saveField("description", newDescription);
+        } else {
+          setSaveStatus('idle');
+        }
+      }, 1000);
+    }
+  };
+
+  // Save all changes at once (for published drops)
+  const handleUpdatePublished = async () => {
+    setSaveStatus('saving');
+    
+    try {
+      const updates: Record<string, string> = {};
+      if (title !== originalTitleRef.current) {
+        updates.title = title;
+      }
+      if (description !== originalDescriptionRef.current) {
+        updates.description = description;
+      }
+      
+      if (Object.keys(updates).length > 0) {
+        const response = await fetch(`/api/drops/${drop.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(updates),
+        });
+        
+        if (!response.ok) {
+          throw new Error("Failed to update drop");
+        }
+        
+        // Update refs to new values
+        originalTitleRef.current = title;
+        originalDescriptionRef.current = description;
+      }
+      
+      setHasUnsavedChanges(false);
+      setSaveStatus('saved');
+      
+      if (savedTimeoutRef.current) {
+        clearTimeout(savedTimeoutRef.current);
+      }
+      savedTimeoutRef.current = setTimeout(() => {
+        setSaveStatus('idle');
+      }, 2000);
+    } catch (error) {
+      console.error("Failed to update drop:", error);
+      setSaveStatus('error');
+      savedTimeoutRef.current = setTimeout(() => {
+        setSaveStatus('idle');
+      }, 3000);
+    }
   };
 
   // Generate AI description
@@ -300,15 +380,37 @@ export function DropBlocksEditorClient({
               <Mail className="h-4 w-4" />
               Email
             </button>
-            <span className="px-2.5 py-1 text-xs font-medium bg-amber-500/20 text-amber-400 rounded">
-              DRAFT
-            </span>
-            <Button
-              onClick={() => setPublishDialogOpen(true)}
-              disabled={postCount === 0}
-            >
-              Publish
-            </Button>
+            {isPublished ? (
+              <span className="px-2.5 py-1 text-xs font-medium bg-green-500/20 text-green-400 rounded">
+                PUBLISHED
+              </span>
+            ) : (
+              <span className="px-2.5 py-1 text-xs font-medium bg-amber-500/20 text-amber-400 rounded">
+                DRAFT
+              </span>
+            )}
+            {isPublished ? (
+              <Button
+                onClick={handleUpdatePublished}
+                disabled={!hasUnsavedChanges || saveStatus === 'saving'}
+              >
+                {saveStatus === 'saving' ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Updating...
+                  </>
+                ) : (
+                  "Update"
+                )}
+              </Button>
+            ) : (
+              <Button
+                onClick={() => setPublishDialogOpen(true)}
+                disabled={postCount === 0}
+              >
+                Publish
+              </Button>
+            )}
             
             {/* More options menu */}
             <DropdownMenu>
@@ -319,18 +421,36 @@ export function DropBlocksEditorClient({
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
+                {isPublished && (
+                  <DropdownMenuItem
+                    onClick={() => setUnpublishDialogOpen(true)}
+                  >
+                    <ArchiveRestore className="mr-2 h-4 w-4" />
+                    Unpublish
+                  </DropdownMenuItem>
+                )}
                 <DropdownMenuItem
                   onClick={() => setDeleteDialogOpen(true)}
                   className="text-destructive focus:text-destructive"
                 >
                   <Trash2 className="mr-2 h-4 w-4" />
-                  Delete Draft
+                  {isPublished ? "Delete" : "Delete Draft"}
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
         </div>
       </div>
+
+      {/* Warning banner for published drops */}
+      {isPublished && !showPreview && (
+        <div className="bg-amber-500/10 border-b border-amber-500/20 px-4 py-2">
+          <div className="max-w-5xl mx-auto flex items-center justify-center gap-2 text-sm text-amber-400">
+            <AlertCircle className="h-4 w-4" />
+            <span>You&apos;re editing a published drop. Changes won&apos;t be visible until you click Update.</span>
+          </div>
+        </div>
+      )}
 
       {showPreview ? (
         /* Preview mode */
@@ -503,7 +623,17 @@ export function DropBlocksEditorClient({
         onOpenChange={setDeleteDialogOpen}
         dropId={drop.id}
         dropTitle={title}
+        dropStatus={drop.status as 'draft' | 'published'}
         onDeleted={handleDeleted}
+      />
+
+      {/* Unpublish confirmation dialog */}
+      <UnpublishDropDialog
+        open={unpublishDialogOpen}
+        onOpenChange={setUnpublishDialogOpen}
+        dropId={drop.id}
+        dropTitle={title}
+        onUnpublished={handleUnpublished}
       />
     </div>
   );
