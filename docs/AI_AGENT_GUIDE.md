@@ -12,12 +12,16 @@ Quick onboarding guide for AI assistants working on the Mainstream codebase.
 ## Critical Context
 
 ### Recent Major Changes
-- ✅ **React Query Cache Invalidation** - Following feed auto-refreshes after follow/unfollow (NEW)
-- ✅ **Centralized Constants** - Cache times, page sizes, and timing in `lib/constants/cache.ts` (NEW)
-- ✅ **String Utilities** - Shared `getInitials`, `truncate`, etc. in `lib/utils/string.ts` (NEW)
-- ✅ **Error Boundaries** - Graceful error handling with `ErrorBoundary` component (NEW)
-- ✅ **Dynamic Imports** - Lazy-loaded dialogs for better performance (NEW)
-- ✅ **Media Query Hooks** - Shared `useIsMobile`, `useIsTablet` hooks (NEW)
+- ✅ **Drop Undo/Redo** - Full undo/redo for title, description, and blocks with keyboard shortcuts (NEW)
+- ✅ **Published Drop Management** - Edit, unpublish, delete published drops (NEW)
+- ✅ **Drop Editor Header** - Sticky, translucent header with save status, undo/redo buttons (NEW)
+- ✅ **Unsaved Changes Warning** - Browser warns before leaving with unsaved changes (NEW)
+- ✅ **React Query Cache Invalidation** - Following feed auto-refreshes after follow/unfollow
+- ✅ **Centralized Constants** - Cache times, page sizes, and timing in `lib/constants/cache.ts`
+- ✅ **String Utilities** - Shared `getInitials`, `truncate`, etc. in `lib/utils/string.ts`
+- ✅ **Error Boundaries** - Graceful error handling with `ErrorBoundary` component
+- ✅ **Dynamic Imports** - Lazy-loaded dialogs for better performance
+- ✅ **Media Query Hooks** - Shared `useIsMobile`, `useIsTablet` hooks
 - ✅ **Weekly Feed Grouping** - Posts grouped by week with "This week", "Last week" headers
 - ✅ **Feed Layout Toggle** - Switch between grid and detailed list views
 - ✅ **Contributor Avatars** - Stacked avatar component showing who posted each week
@@ -183,18 +187,20 @@ users/
   user-picker.tsx           - Multi-select user picker with search (used in drop creation)
 
 drops/
-  create-drop-dialog.tsx    - New drop creation with DatePicker, StreamPicker, UserPicker
-  drop-card.tsx             - Drop preview card with delete menu
-  drops-grid.tsx            - Grid layout for drops
-  drop-view.tsx             - Classic drop view (legacy)
-  drop-publish-dialog.tsx   - Publish confirmation dialog
-  delete-drop-dialog.tsx    - Confirm delete with error handling
+  create-drop-dialog.tsx      - New drop creation with DatePicker, StreamPicker, UserPicker
+  drop-card.tsx               - Drop preview card with delete menu
+  drops-grid.tsx              - Grid layout for drops
+  drop-view.tsx               - Classic drop view (legacy)
+  drop-publish-dialog.tsx     - Publish confirmation dialog
+  delete-drop-dialog.tsx      - Confirm delete with error handling
+  unpublish-drop-dialog.tsx   - Unpublish confirmation (NEW)
+  published-drop-header.tsx   - Header for published drop view with edit/unpublish/delete (NEW)
   blocks/
-    block-editor.tsx        - Notion-like interactive block editor
-    block-renderer.tsx      - Client-side block rendering
-    drop-blocks-view.tsx    - Preview/published drop view (with date range)
-    email-block-renderer.tsx - Server-side email block rendering
-    email-drop-view.tsx     - Full email template (with date range)
+    block-editor.tsx          - Notion-like interactive block editor with rollback
+    block-renderer.tsx        - Client-side block rendering
+    drop-blocks-view.tsx      - Preview/published drop view (with date range)
+    email-block-renderer.tsx  - Server-side email block rendering
+    email-drop-view.tsx       - Full email template (with date range)
 
 ui/ (shadcn components)
   button.tsx                - Base button with cursor-pointer (all variants)
@@ -238,6 +244,11 @@ use-stream-dropdown-options.ts - Shared stream dropdown logic
 use-typing-indicator.ts     - Real-time typing status (Supabase Presence)
 use-figma-integration.ts    - Manage Figma token connection status
 use-media-query.ts          - Shared media queries (useIsMobile, useIsTablet, etc.)
+use-undo-redo.ts            - Undo/redo state management with keyboard shortcuts (NEW)
+use-unsaved-changes.ts      - Browser warning for unsaved changes (NEW)
+use-keyboard-shortcut.ts    - Global keyboard shortcut registration
+use-click-outside.ts        - Detect clicks outside an element
+use-debounce.ts             - Debounce values
 ```
 
 ### Providers (`lib/providers/`)
@@ -632,6 +643,10 @@ AI-powered newsletters that summarize your team's weekly design work. Uses a Not
 - **Create Drop Filters**: Multi-select streams and users to filter which posts are included
 - **Date Range Display**: Shows the date range in editor, preview, published view, and email
 - **Timezone-safe**: Dates are stored and displayed correctly regardless of user timezone
+- **Undo/Redo**: Full undo/redo for title, description, and blocks (⌘Z / ⌘⇧Z)
+- **Save Status**: Real-time indicator showing save state
+- **Published Drop Management**: Edit, unpublish, delete published drops
+- **Sticky Header**: Translucent glass effect header aligned with main navbar
 
 ### Create Drop Components
 - `DatePicker` - shadcn date picker built on react-day-picker v9
