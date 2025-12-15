@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Bookmark, ChevronDown } from "lucide-react";
+import { ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SearchBar } from "./search-bar";
 import { UserMenu } from "./user-menu";
@@ -58,14 +58,6 @@ export function Navbar() {
             </CreateDialog>
             
             <NotificationsPopover />
-            
-            <button 
-              className="p-2 text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
-              aria-label="Bookmarks"
-              title="Bookmarks"
-            >
-              <Bookmark className="h-5 w-5" aria-hidden="true" />
-            </button>
 
             <div className="pl-2 flex items-center gap-1">
               <UserMenu />
