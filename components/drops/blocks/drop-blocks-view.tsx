@@ -1,15 +1,9 @@
 import * as React from "react";
 import { format } from "date-fns";
-import {
-  Container,
-  Section,
-  Heading,
-  Text,
-  Img,
-  Hr,
-} from "@react-email/components";
+import Image from "next/image";
 import { BlockRenderer } from "./block-renderer";
 import type { DropBlock, User } from "@/lib/types/database";
+import { cn } from "@/lib/utils";
 
 interface DropBlocksViewProps {
   title: string;
@@ -21,37 +15,6 @@ interface DropBlocksViewProps {
   dateRangeEnd?: string;
 }
 
-// Styles for email compatibility
-const styles = {
-  container: {
-    maxWidth: "700px",
-    margin: "0 auto",
-    backgroundColor: "#000000",
-    color: "#ffffff",
-    fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
-  },
-  header: {
-    textAlign: "center" as const,
-    padding: "40px 20px 20px",
-  },
-  brandName: {
-    fontSize: "12px",
-    color: "#888888",
-    letterSpacing: "0.1em",
-    textTransform: "uppercase" as const,
-    margin: "0",
-  },
-  title: {
-    fontSize: "32px",
-    fontWeight: "700",
-    color: "#ffffff",
-    margin: "24px 0 8px",
-    lineHeight: "1.2",
-  },
-  blocksContainer: {
-    padding: "0 20px 40px",
-  },
-};
 
 // Format contributor names
 function formatContributorNames(contributors: User[]): string {
@@ -96,123 +59,73 @@ export function DropBlocksView({
   const dateRange = formatDateRange(dateRangeStart, dateRangeEnd);
 
   return (
-    <Container style={styles.container}>
+    <div className="max-w-[700px] mx-auto bg-background text-foreground font-sans">
       {/* Header */}
-      <Section style={styles.header}>
-        <Text style={styles.brandName}>Mainstream</Text>
-        <Heading style={styles.title}>{title}</Heading>
+      <div className="text-center py-10 px-5 pt-10">
+        <p className="text-xs text-muted-foreground tracking-wider uppercase m-0">Mainstream</p>
+        <h1 className="text-[32px] font-bold text-foreground my-6 leading-tight">{title}</h1>
         {dateRange && (
-          <Text style={{
-            fontSize: "14px",
-            color: "#71717a",
-            margin: "8px 0 0 0",
-          }}>
+          <p className="text-sm text-muted-foreground mt-2 mb-0">
             {dateRange}
-          </Text>
+          </p>
         )}
-      </Section>
+      </div>
 
       {/* Description */}
       {description && (
-        <Text style={{
-          fontSize: "16px",
-          lineHeight: "1.7",
-          color: "#a0a0a0",
-          padding: "0 20px 16px",
-          margin: "0",
-          textAlign: "center" as const,
-          whiteSpace: "pre-wrap" as const, // Preserve line breaks and paragraphs
-        }}>
+        <p className="text-base leading-relaxed text-muted-foreground px-5 pb-4 m-0 text-center whitespace-pre-wrap">
           {description}
-        </Text>
+        </p>
       )}
 
       {/* Contributors avatars */}
       {contributors.length > 0 && (
-        <Section style={{ textAlign: "center" as const, padding: "16px 20px" }}>
-          {/* Overlapping avatars using table for email compatibility */}
-          <div style={{ display: "inline-block" }}>
+        <div className="text-center py-4 px-5">
+          {/* Overlapping avatars */}
+          <div className="inline-block">
             {contributors.slice(0, 5).map((contributor, index) => (
               <div
                 key={contributor.id}
-                style={{
-                  display: "inline-block",
-                  marginLeft: index === 0 ? "0" : "-12px",
-                  position: "relative" as const,
-                  zIndex: contributors.length - index,
-                }}
+                className={cn(
+                  "inline-block relative",
+                  index !== 0 && "-ml-3"
+                )}
+                style={{ zIndex: contributors.length - index }}
               >
                 {contributor.avatar_url ? (
-                  <Img
+                  <Image
                     src={contributor.avatar_url}
                     alt={contributor.display_name}
                     width={48}
                     height={48}
-                    style={{
-                      borderRadius: "50%",
-                      border: "2px solid #000000",
-                      objectFit: "cover" as const,
-                    }}
+                    className="rounded-full border-2 border-background object-cover"
                   />
                 ) : (
-                  <div
-                    style={{
-                      width: "48px",
-                      height: "48px",
-                      borderRadius: "50%",
-                      border: "2px solid #000000",
-                      backgroundColor: "#3f3f46",
-                      display: "inline-flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      color: "#ffffff",
-                      fontSize: "14px",
-                      fontWeight: "500",
-                    }}
-                  >
+                  <div className="w-12 h-12 rounded-full border-2 border-background bg-muted inline-flex items-center justify-center text-foreground text-sm font-medium">
                     {contributor.display_name.charAt(0).toUpperCase()}
                   </div>
                 )}
               </div>
             ))}
             {contributors.length > 5 && (
-              <div
-                style={{
-                  display: "inline-block",
-                  marginLeft: "-12px",
-                  width: "48px",
-                  height: "48px",
-                  borderRadius: "50%",
-                  border: "2px solid #000000",
-                  backgroundColor: "#27272a",
-                  color: "#a1a1aa",
-                  fontSize: "14px",
-                  fontWeight: "500",
-                  lineHeight: "44px",
-                  textAlign: "center" as const,
-                }}
-              >
+              <div className="inline-block -ml-3 w-12 h-12 rounded-full border-2 border-background bg-muted text-muted-foreground text-sm font-medium leading-[44px] text-center">
                 +{contributors.length - 5}
               </div>
             )}
           </div>
           
           {/* Post count text */}
-          <Text style={{
-            fontSize: "14px",
-            color: "#71717a",
-            margin: "12px 0 0 0",
-          }}>
+          <p className="text-sm text-muted-foreground mt-3 mb-0">
             {postCount} post{postCount !== 1 ? "s" : ""} from {contributorNames}
-          </Text>
-        </Section>
+          </p>
+        </div>
       )}
 
       {/* Divider */}
-      <Hr style={{ borderColor: "#27272a", margin: "16px 20px 32px" }} />
+      <hr className="border-border my-4 mx-5" />
 
       {/* Blocks */}
-      <div style={styles.blocksContainer}>
+      <div className="px-5 pb-10">
         {blocks.map((block) => (
           <BlockRenderer
             key={block.id}
@@ -221,7 +134,7 @@ export function DropBlocksView({
           />
         ))}
       </div>
-    </Container>
+    </div>
   );
 }
 
