@@ -189,6 +189,7 @@ users/
 drops/
   create-drop-dialog.tsx      - New drop creation with DatePicker, StreamPicker, UserPicker
   drop-card.tsx               - Drop preview card with delete menu
+  drop-editor-header.tsx      - Editor header with save status, undo/redo, actions (NEW)
   drops-grid.tsx              - Grid layout for drops
   drop-view.tsx               - Classic drop view (legacy)
   drop-publish-dialog.tsx     - Publish confirmation dialog
