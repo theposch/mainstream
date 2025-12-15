@@ -144,10 +144,10 @@ export function useUndoRedo<T>(
   }, []);
 
   // Register keyboard shortcuts
-  // Cmd/Ctrl+Z for undo
-  useKeyboardShortcut(["Meta", "z"], undo, { enableOnFormTags: true });
+  // Cmd/Ctrl+Z for undo (only when NOT in form fields - let browser handle native text undo)
+  useKeyboardShortcut(["Meta", "z"], undo, { enableOnFormTags: false });
   // Cmd/Ctrl+Shift+Z for redo
-  useKeyboardShortcut(["Meta", "Shift", "z"], redo, { enableOnFormTags: true });
+  useKeyboardShortcut(["Meta", "Shift", "z"], redo, { enableOnFormTags: false });
 
   // Cleanup debounce timer on unmount
   useEffect(() => {
