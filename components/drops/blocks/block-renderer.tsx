@@ -715,23 +715,45 @@ function GalleryAddModal({
       setUploadError("File size must be less than 10MB");
       return;
     }
-    setFile(selectedFile);
+    
+    // Clear previous state before processing new file
     setUploadError(null);
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      if (e.target?.result) {
-        setPreview(e.target.result as string);
-      }
-    };
-    reader.onerror = () => {
-      setUploadError("Failed to read file");
-      setFile(null);
-    };
-    reader.readAsDataURL(selectedFile);
+    setPreview(null);
+    
+    // Set upload title before file reading to avoid race conditions
     if (!uploadTitle) {
       const nameWithoutExt = selectedFile.name.replace(/\.[^/.]+$/, "");
       setUploadTitle(nameWithoutExt);
     }
+    
+    // Set file state after validation
+    setFile(selectedFile);
+    
+    // Create new FileReader instance to avoid race conditions
+    const reader = new FileReader();
+    let isCompleted = false;
+    
+    reader.onload = (e) => {
+      // Prevent race condition: only update if not already completed/errored
+      if (!isCompleted && e.target?.result) {
+        isCompleted = true;
+        setPreview(e.target.result as string);
+      }
+    };
+    
+    reader.onerror = () => {
+      // Prevent race condition: only update if not already completed
+      if (!isCompleted) {
+        isCompleted = true;
+        setUploadError("Failed to read file");
+        setFile(null);
+        setPreview(null);
+        setUploadTitle("");
+      }
+    };
+    
+    // Start reading after all handlers are set up
+    reader.readAsDataURL(selectedFile);
   };
 
   const handleDrop = (e: React.DragEvent) => {

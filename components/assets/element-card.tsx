@@ -309,23 +309,23 @@ export const ElementCard = React.memo(
               
               {/* User Info Row */}
               <div className="flex items-center gap-3">
-              {/* User Info */}
-              <div className="flex items-center gap-2 flex-1 min-w-0">
-                <Avatar className="h-8 w-8 border-2 border-white/20 shrink-0">
-                  <AvatarImage src={uploader?.avatar_url} />
-                  <AvatarFallback className="text-xs">
-                    {uploader?.username?.substring(0, 2).toUpperCase() || 'UN'}
-                  </AvatarFallback>
-                </Avatar>
-                <div className="flex flex-col min-w-0">
-                  <span className="text-sm font-semibold text-white truncate leading-tight">
-                    {asset.title}
-                  </span>
-                  <span className="text-xs text-white/80 truncate">
-                    @{uploader?.username || 'unknown'}
-                  </span>
+                {/* User Info */}
+                <div className="flex items-center gap-2 flex-1 min-w-0">
+                  <Avatar className="h-8 w-8 border-2 border-white/20 shrink-0">
+                    <AvatarImage src={uploader?.avatar_url} />
+                    <AvatarFallback className="text-xs">
+                      {uploader?.username?.substring(0, 2).toUpperCase() || 'UN'}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="flex flex-col min-w-0">
+                    <span className="text-sm font-semibold text-white truncate leading-tight">
+                      {asset.title}
+                    </span>
+                    <span className="text-xs text-white/80 truncate">
+                      @{uploader?.username || 'unknown'}
+                    </span>
+                  </div>
                 </div>
-              </div>
               </div>
             </div>
             )}
