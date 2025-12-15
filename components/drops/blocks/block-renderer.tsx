@@ -737,8 +737,10 @@ function GalleryAddModal({
     
     reader.onload = (e) => {
       // Prevent race condition: only update if not already completed/errored
-      if (!isCompleted && e.target?.result) {
-        isCompleted = true;
+      if (isCompleted) return;
+      isCompleted = true;
+      
+      if (e.target?.result) {
         setPreview(e.target.result as string);
       }
     };
