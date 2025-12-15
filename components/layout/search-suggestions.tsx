@@ -500,11 +500,11 @@ export function SearchSuggestions({
                 </button>
               )}
             </div>
-            {recentSuggestions.map((suggestion, index) => (
+            {recentSuggestions.map((suggestion) => (
               <RecentSearchItem
                 key={suggestion.id}
                 suggestion={suggestion}
-                isSelected={selectedIndex === index}
+                isSelected={selectedIndex === getGlobalIndex(suggestion)}
                 onSelect={handleSelectSuggestion}
                 onRemove={onRemoveRecentSearch}
               />
