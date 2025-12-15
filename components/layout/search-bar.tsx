@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { Sparkles, X } from "lucide-react";
+import { Search, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSearch } from "@/lib/contexts/search-context";
 import { useKeyboardShortcut } from "@/lib/hooks/use-keyboard-shortcut";
@@ -44,7 +44,10 @@ export function SearchBar() {
 
   const handleFocus = () => {
     setIsInputFocused(true);
-    setShowSuggestions(true);
+    // Only show suggestions if there's already text in the query
+    if (query.trim()) {
+      setShowSuggestions(true);
+    }
   };
 
   const handleBlur = () => {
@@ -91,7 +94,7 @@ export function SearchBar() {
           isInputFocused && "border-ring ring-ring/50 ring-[3px]"
         )}>
           <div className="flex items-center pl-3 pointer-events-none">
-            <Sparkles className="h-4 w-4 text-muted-foreground" />
+            <Search className="h-4 w-4 text-muted-foreground" />
           </div>
           <input
             ref={inputRef}
