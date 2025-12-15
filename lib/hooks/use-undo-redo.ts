@@ -67,22 +67,26 @@ export function useUndoRedo<T>(
     // Debounce history updates to group rapid changes (like typing)
     debounceTimerRef.current = setTimeout(() => {
       setPresent((currentPresent) => {
-        // Only add to history if there's actually a change
-        if (pendingStateRef.current !== null) {
-          setPast((currentPast) => {
-            const newPast = [...currentPast, currentPresent];
-            // Limit history size
-            if (newPast.length > maxHistorySize) {
-              return newPast.slice(newPast.length - maxHistorySize);
-            }
-            return newPast;
-          });
-          // Clear future when making a new change
-          setFuture([]);
+        // Only add to history if there's actually a pending change
+        if (pendingStateRef.current === null) {
+          return currentPresent; // No pending change, keep current state
         }
-        return pendingStateRef.current as T;
+        
+        setPast((currentPast) => {
+          const newPast = [...currentPast, currentPresent];
+          // Limit history size
+          if (newPast.length > maxHistorySize) {
+            return newPast.slice(newPast.length - maxHistorySize);
+          }
+          return newPast;
+        });
+        // Clear future when making a new change
+        setFuture([]);
+        
+        const newState = pendingStateRef.current;
+        pendingStateRef.current = null;
+        return newState;
       });
-      pendingStateRef.current = null;
     }, 300);
 
     // Immediately update the present state for responsive UI
