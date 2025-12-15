@@ -66,16 +66,32 @@ export function formatWeekLabel(weekStart: Date, now: Date): string {
   const weekEnd = getWeekEnd(weekStart);
   const startMonth = weekStart.toLocaleDateString("en-US", { month: "short" });
   const startDay = weekStart.getDate();
+  const startYear = weekStart.getFullYear();
   const endMonth = weekEnd.toLocaleDateString("en-US", { month: "short" });
   const endDay = weekEnd.getDate();
+  const endYear = weekEnd.getFullYear();
+  const currentYear = now.getFullYear();
 
-  // Same month
-  if (startMonth === endMonth) {
-    return `${startMonth} ${startDay}–${endDay}`;
+  // Check if we need to show the year
+  const needsYear = startYear !== currentYear || endYear !== currentYear;
+  const spansDifferentYears = startYear !== endYear;
+
+  // Same month, same year
+  if (startMonth === endMonth && !spansDifferentYears) {
+    return needsYear 
+      ? `${startMonth} ${startDay}–${endDay}, ${startYear}`
+      : `${startMonth} ${startDay}–${endDay}`;
   }
 
-  // Different months
-  return `${startMonth} ${startDay} – ${endMonth} ${endDay}`;
+  // Different months but same year
+  if (!spansDifferentYears) {
+    return needsYear
+      ? `${startMonth} ${startDay} – ${endMonth} ${endDay}, ${startYear}`
+      : `${startMonth} ${startDay} – ${endMonth} ${endDay}`;
+  }
+
+  // Spans different years (e.g., Dec 30 – Jan 5)
+  return `${startMonth} ${startDay}, ${startYear} – ${endMonth} ${endDay}, ${endYear}`;
 }
 
 /**
