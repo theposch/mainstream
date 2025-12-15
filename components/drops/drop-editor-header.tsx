@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
   Cloud,
@@ -16,8 +17,19 @@ import {
   MoreHorizontal,
   ArchiveRestore,
   Trash2,
+  X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -62,18 +74,46 @@ export function DropEditorHeader({
   onUnpublish,
   onDelete,
 }: DropEditorHeaderProps) {
+  const router = useRouter();
+  const [cancelDialogOpen, setCancelDialogOpen] = React.useState(false);
+
+  const handleCancelClick = () => {
+    if (hasUnsavedChanges) {
+      setCancelDialogOpen(true);
+    } else {
+      // No unsaved changes, go directly to view mode
+      router.push(`/drops/${dropId}`);
+    }
+  };
+
+  const handleConfirmCancel = () => {
+    setCancelDialogOpen(false);
+    router.push(`/drops/${dropId}`);
+  };
+
   return (
+    <>
     <div className="sticky top-16 z-40 bg-background/80 backdrop-blur-xl supports-[backdrop-filter]:bg-background/50 -mt-6 -mx-4 sm:-mx-6 lg:-mx-8">
       <div className="border-b border-border px-4 sm:px-6 lg:px-8">
         <div className="max-w-[1920px] mx-auto py-2 flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <Link
-              href="/drops?tab=drafts"
-              className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors"
-            >
-              <ArrowLeft className="h-4 w-4" />
-              <span>Back</span>
-            </Link>
+            {isPublished ? (
+              <button
+                onClick={handleCancelClick}
+                className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <X className="h-4 w-4" />
+                <span>Cancel</span>
+              </button>
+            ) : (
+              <Link
+                href="/drops?tab=drafts"
+                className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <ArrowLeft className="h-4 w-4" />
+                <span>Back</span>
+              </Link>
+            )}
 
             {/* Save Status Indicator */}
             <SaveStatusIndicator status={saveStatus} />
@@ -205,6 +245,25 @@ export function DropEditorHeader({
         </div>
       )}
     </div>
+
+    {/* Cancel confirmation dialog for published drops */}
+    <AlertDialog open={cancelDialogOpen} onOpenChange={setCancelDialogOpen}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Discard changes?</AlertDialogTitle>
+          <AlertDialogDescription>
+            You have unsaved changes. Are you sure you want to cancel? Your changes will be lost.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Keep editing</AlertDialogCancel>
+          <AlertDialogAction onClick={handleConfirmCancel} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+            Discard changes
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+    </>
   );
 }
 
