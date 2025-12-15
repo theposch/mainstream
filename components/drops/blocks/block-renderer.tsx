@@ -692,6 +692,17 @@ function GalleryAddModal({
   const [uploadError, setUploadError] = React.useState<string | null>(null);
   const [isDragging, setIsDragging] = React.useState(false);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const fileReaderRef = React.useRef<FileReader | null>(null);
+
+  // Cleanup FileReader on unmount to prevent memory leaks
+  React.useEffect(() => {
+    return () => {
+      if (fileReaderRef.current) {
+        fileReaderRef.current.abort();
+        fileReaderRef.current = null;
+      }
+    };
+  }, []);
 
   const filteredAssets = assets.filter(
     (asset) =>
@@ -731,8 +742,14 @@ function GalleryAddModal({
     // Set file state after validation
     setFile(selectedFile);
     
-    // Create new FileReader instance to avoid race conditions
+    // Abort any existing FileReader before creating a new one
+    if (fileReaderRef.current) {
+      fileReaderRef.current.abort();
+    }
+    
+    // Create new FileReader instance
     const reader = new FileReader();
+    fileReaderRef.current = reader;
     let isCompleted = false;
     
     reader.onload = (e) => {
@@ -814,6 +831,11 @@ function GalleryAddModal({
   };
 
   const clearUpload = () => {
+    // Abort any in-progress file reading
+    if (fileReaderRef.current) {
+      fileReaderRef.current.abort();
+      fileReaderRef.current = null;
+    }
     setFile(null);
     setPreview(null);
     setUploadTitle("");
