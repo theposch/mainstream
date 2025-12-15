@@ -149,8 +149,6 @@ export function validateEnvironment(): void {
   }
 }
 
-// Auto-validate on import (server-side only)
-if (typeof window === 'undefined') {
-  validateEnvironment();
-}
+// Note: Do not auto-validate on import to avoid hydration issues
+// Call validateEnvironment() explicitly from a server component instead
 

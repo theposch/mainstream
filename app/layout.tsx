@@ -7,8 +7,8 @@ import { QueryProvider } from "@/lib/providers/query-provider";
 import { ThemeProvider } from "@/lib/providers/theme-provider";
 import { NuqsAdapter } from "nuqs/adapters/next/app";
 
-// Validate environment variables at startup
-import "@/lib/utils/env-validation";
+// Validate environment variables at startup (server-side only)
+import "./env-validation";
 
 export const metadata: Metadata = {
   title: "Mainstream | Design Collaboration",

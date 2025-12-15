@@ -47,11 +47,16 @@ export function SearchBar() {
     // Only show suggestions if there's already text in the query
     if (query.trim()) {
       setShowSuggestions(true);
+    } else {
+      // Explicitly hide suggestions when focusing with empty query
+      setShowSuggestions(false);
     }
   };
 
   const handleBlur = () => {
     setIsInputFocused(false);
+    // Hide suggestions on blur to ensure consistent state
+    setShowSuggestions(false);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
