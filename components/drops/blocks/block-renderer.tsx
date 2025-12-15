@@ -1,14 +1,9 @@
 "use client";
 
 import * as React from "react";
-import {
-  Section,
-  Heading,
-  Text,
-  Img,
-  Hr,
-  Link,
-} from "@react-email/components";
+import Image from "next/image";
+import Link from "next/link";
+import { cn } from "@/lib/utils";
 import type { DropBlock, Asset, GalleryLayout } from "@/lib/types/database";
 
 interface BlockRendererProps {
@@ -27,180 +22,6 @@ interface BlockRendererProps {
   onAssetUploaded?: (asset: Asset) => void;
 }
 
-// Shared styles
-const styles = {
-  textBlock: {
-    fontSize: "16px",
-    lineHeight: "1.7",
-    color: "#a0a0a0",
-    margin: "0 0 16px 0",
-  },
-  heading1: {
-    fontSize: "28px",
-    fontWeight: "700",
-    color: "#ffffff",
-    margin: "32px 0 16px 0",
-    lineHeight: "1.3",
-  },
-  heading2: {
-    fontSize: "22px",
-    fontWeight: "600",
-    color: "#ffffff",
-    margin: "28px 0 12px 0",
-    lineHeight: "1.3",
-  },
-  heading3: {
-    fontSize: "18px",
-    fontWeight: "600",
-    color: "#ffffff",
-    margin: "24px 0 10px 0",
-    lineHeight: "1.3",
-  },
-  divider: {
-    borderColor: "#333333",
-    margin: "32px 0",
-  },
-  quote: {
-    borderLeft: "3px solid #a78bfa",
-    paddingLeft: "16px",
-    margin: "24px 0",
-    fontStyle: "italic" as const,
-    color: "#a0a0a0",
-    fontSize: "16px",
-    lineHeight: "1.6",
-  },
-  postCard: {
-    marginBottom: "32px",
-  },
-  featuredPostCard: {
-    marginBottom: "40px",
-  },
-  postImageWrapper: {
-    borderRadius: "12px",
-    overflow: "hidden",
-    backgroundColor: "#1a1a1a",
-    maxHeight: "400px",
-  },
-  featuredImageWrapper: {
-    borderRadius: "16px",
-    overflow: "hidden",
-    backgroundColor: "#1a1a1a",
-    maxHeight: "500px",
-  },
-  postImage: {
-    width: "100%",
-    height: "auto",
-    maxHeight: "400px",
-    objectFit: "cover" as const,
-    display: "block",
-    borderRadius: "12px",
-  },
-  featuredImage: {
-    width: "100%",
-    height: "auto",
-    maxHeight: "500px",
-    objectFit: "cover" as const,
-    display: "block",
-    borderRadius: "16px",
-  },
-  postContent: {
-    padding: "16px 0",
-  },
-  postTitle: {
-    fontSize: "18px",
-    fontWeight: "600",
-    color: "#ffffff",
-    margin: "0 0 8px 0",
-    lineHeight: "1.4",
-  },
-  featuredPostTitle: {
-    fontSize: "24px",
-    fontWeight: "700",
-    color: "#ffffff",
-    margin: "0 0 12px 0",
-    lineHeight: "1.3",
-  },
-  postDescription: {
-    fontSize: "15px",
-    color: "#a0a0a0",
-    margin: "0 0 12px 0",
-    lineHeight: "1.5",
-  },
-  postMeta: {
-    fontSize: "14px",
-    color: "#666666",
-    margin: "0",
-  },
-  postAuthorAvatar: {
-    width: "24px",
-    height: "24px",
-    borderRadius: "50%",
-  },
-  // Gallery styles
-  galleryContainer: {
-    marginBottom: "32px",
-  },
-  galleryGrid: {
-    display: "grid",
-    gridTemplateColumns: "repeat(2, 1fr)",
-    gap: "8px",
-  },
-  galleryGridItem: {
-    aspectRatio: "1",
-    borderRadius: "8px",
-    overflow: "hidden",
-    backgroundColor: "#1a1a1a",
-  },
-  galleryImage: {
-    width: "100%",
-    height: "100%",
-    objectFit: "cover" as const,
-  },
-  galleryFeaturedContainer: {
-    display: "flex",
-    flexDirection: "column" as const,
-    gap: "8px",
-  },
-  galleryFeaturedMain: {
-    aspectRatio: "16/9",
-    borderRadius: "12px",
-    overflow: "hidden",
-    backgroundColor: "#1a1a1a",
-  },
-  galleryFeaturedImage: {
-    width: "100%",
-    height: "100%",
-    objectFit: "cover" as const,
-  },
-  galleryThumbnailRow: {
-    display: "flex",
-    gap: "8px",
-  },
-  galleryThumbnail: {
-    flex: "1",
-    aspectRatio: "1",
-    borderRadius: "8px",
-    overflow: "hidden",
-    backgroundColor: "#1a1a1a",
-    position: "relative" as const,
-  },
-  galleryThumbnailImage: {
-    width: "100%",
-    height: "100%",
-    objectFit: "cover" as const,
-  },
-  galleryOverflowBadge: {
-    position: "absolute" as const,
-    inset: "0",
-    backgroundColor: "rgba(0,0,0,0.6)",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    color: "#ffffff",
-    fontSize: "16px",
-    fontWeight: "600",
-  },
-};
 
 // Format post date
 function formatPostDate(dateStr: string): string {
@@ -226,37 +47,28 @@ function getEffectiveDisplayMode(block: DropBlock): "fit" | "cover" {
 function TextBlockView({ block, isEditing, onContentChange }: BlockRendererProps) {
   if (isEditing && onContentChange) {
     return (
-      <div style={{ marginBottom: "16px" }}>
+      <div className="mb-4">
         <textarea
           value={block.content || ""}
           onChange={(e) => onContentChange(e.target.value)}
           placeholder="Write something..."
-          style={{
-            width: "100%",
-            minHeight: "80px",
-            backgroundColor: "transparent",
-            border: "1px solid #333",
-            borderRadius: "8px",
-            padding: "12px 16px",
-            fontSize: "16px",
-            lineHeight: "1.7",
-            color: "#a0a0a0",
-            resize: "vertical" as const,
-            outline: "none",
-            fontFamily: "inherit",
-          }}
+          className="w-full min-h-[80px] bg-transparent border border-border rounded-lg px-4 py-3 text-base leading-relaxed text-muted-foreground resize-y outline-none font-sans"
         />
       </div>
     );
   }
 
-  return <Text style={styles.textBlock}>{block.content}</Text>;
+  return <p className="text-base leading-relaxed text-muted-foreground mb-4">{block.content}</p>;
 }
 
 // Heading Block Component
 function HeadingBlockView({ block, isEditing, onContentChange }: BlockRendererProps) {
   const level = block.heading_level || 2;
-  const style = level === 1 ? styles.heading1 : level === 2 ? styles.heading2 : styles.heading3;
+  const headingClasses = {
+    1: "text-[28px] font-bold text-foreground my-8 leading-tight",
+    2: "text-[22px] font-semibold text-foreground my-7 leading-tight",
+    3: "text-lg font-semibold text-foreground my-6 leading-tight",
+  };
 
   if (isEditing && onContentChange) {
     return (
@@ -265,68 +77,45 @@ function HeadingBlockView({ block, isEditing, onContentChange }: BlockRendererPr
         value={block.content || ""}
         onChange={(e) => onContentChange(e.target.value)}
         placeholder={`Heading ${level}`}
-        style={{
-          ...style,
-          width: "100%",
-          backgroundColor: "transparent",
-          border: "none",
-          borderBottom: "2px solid transparent",
-          outline: "none",
-          fontFamily: "inherit",
-        }}
-        onFocus={(e) => {
-          e.target.style.borderBottomColor = "#333";
-        }}
-        onBlur={(e) => {
-          e.target.style.borderBottomColor = "transparent";
-        }}
+        className={cn(
+          headingClasses[level as keyof typeof headingClasses],
+          "w-full bg-transparent border-none border-b-2 border-transparent outline-none font-sans focus:border-border"
+        )}
       />
     );
   }
 
+  const HeadingTag = `h${level}` as "h1" | "h2" | "h3";
   return (
-    <Heading as={`h${level}` as "h1" | "h2" | "h3"} style={style}>
+    <HeadingTag className={headingClasses[level as keyof typeof headingClasses]}>
       {block.content}
-    </Heading>
+    </HeadingTag>
   );
 }
 
 // Divider Block Component
 function DividerBlockView() {
-  return <Hr style={styles.divider} />;
+  return <hr className="border-border my-8" />;
 }
 
 // Quote Block Component
 function QuoteBlockView({ block, isEditing, onContentChange }: BlockRendererProps) {
   if (isEditing && onContentChange) {
     return (
-      <div style={styles.quote}>
+      <div className="border-l-4 border-violet-400 pl-4 my-6 italic text-muted-foreground text-base leading-relaxed">
         <textarea
           value={block.content || ""}
           onChange={(e) => onContentChange(e.target.value)}
           placeholder="Add a quote..."
-          style={{
-            width: "100%",
-            minHeight: "60px",
-            backgroundColor: "transparent",
-            border: "none",
-            padding: "0",
-            fontSize: "16px",
-            lineHeight: "1.6",
-            color: "#a0a0a0",
-            resize: "vertical" as const,
-            outline: "none",
-            fontFamily: "inherit",
-            fontStyle: "italic",
-          }}
+          className="w-full min-h-[60px] bg-transparent border-none p-0 text-base leading-relaxed text-muted-foreground resize-y outline-none font-sans italic"
         />
       </div>
     );
   }
 
   return (
-    <div style={styles.quote}>
-      <Text style={{ margin: 0 }}>{block.content}</Text>
+    <div className="border-l-4 border-violet-400 pl-4 my-6 italic text-muted-foreground text-base leading-relaxed">
+      <p className="m-0">{block.content}</p>
     </div>
   );
 }
@@ -403,33 +192,21 @@ function DraggableImage({
     <div 
       ref={containerRef}
       onMouseDown={handleMouseDown}
-      style={{ 
-        cursor: isDragging ? 'grabbing' : 'grab',
-        position: 'relative',
-        width: '100%',
-        height: '100%',
-      }}
+      className={cn(
+        "relative w-full h-full",
+        isDragging ? "cursor-grabbing" : "cursor-grab"
+      )}
     >
-      <Img
+      <img
         src={asset.medium_url || asset.url || asset.thumbnail_url}
         alt={asset.title}
+        className="w-full h-auto max-h-[400px] object-cover block rounded-xl"
         style={{
-          ...imgStyle,
           objectPosition: `${cropPos.x}% ${cropPos.y}%`,
         }}
       />
       {isDragging && (
-        <div style={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundColor: 'rgba(167, 139, 250, 0.1)',
-          border: '2px solid rgba(167, 139, 250, 0.5)',
-          borderRadius: '12px',
-          pointerEvents: 'none',
-        }} />
+        <div className="absolute inset-0 bg-violet-400/10 border-2 border-violet-400/50 rounded-xl pointer-events-none" />
       )}
     </div>
   );
@@ -446,19 +223,7 @@ function DisplayModeControls({
   const currentMode = getEffectiveDisplayMode(block);
   
   return (
-    <div 
-      className="display-mode-controls"
-      style={{
-        position: 'absolute',
-        bottom: '12px',
-        right: '12px',
-        display: 'flex',
-        gap: '4px',
-        opacity: 0,
-        transition: 'opacity 0.2s ease',
-        zIndex: 10,
-      }}
-    >
+    <div className="display-mode-controls absolute bottom-3 right-3 flex gap-1 opacity-0 transition-opacity duration-200 z-10">
       <button
         onClick={(e) => {
           e.preventDefault();
@@ -466,20 +231,12 @@ function DisplayModeControls({
           onModeChange('fit');
         }}
         title="Fit - Show entire image"
-        style={{
-          width: '32px',
-          height: '32px',
-          borderRadius: '6px',
-          border: 'none',
-          backgroundColor: currentMode === 'fit' ? 'rgba(167, 139, 250, 0.9)' : 'rgba(0, 0, 0, 0.7)',
-          color: currentMode === 'fit' ? '#fff' : '#a0a0a0',
-          cursor: 'pointer',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          backdropFilter: 'blur(4px)',
-          fontSize: '14px',
-        }}
+        className={cn(
+          "w-8 h-8 rounded-md border-none cursor-pointer flex items-center justify-center backdrop-blur-sm text-sm",
+          currentMode === 'fit' 
+            ? "bg-violet-500/90 text-white" 
+            : "bg-black/70 text-muted-foreground"
+        )}
       >
         ⊡
       </button>
@@ -490,20 +247,12 @@ function DisplayModeControls({
           onModeChange('cover');
         }}
         title="Fill - Crop to fill"
-        style={{
-          width: '32px',
-          height: '32px',
-          borderRadius: '6px',
-          border: 'none',
-          backgroundColor: currentMode === 'cover' ? 'rgba(167, 139, 250, 0.9)' : 'rgba(0, 0, 0, 0.7)',
-          color: currentMode === 'cover' ? '#fff' : '#a0a0a0',
-          cursor: 'pointer',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          backdropFilter: 'blur(4px)',
-          fontSize: '14px',
-        }}
+        className={cn(
+          "w-8 h-8 rounded-md border-none cursor-pointer flex items-center justify-center backdrop-blur-sm text-sm",
+          currentMode === 'cover' 
+            ? "bg-violet-500/90 text-white" 
+            : "bg-black/70 text-muted-foreground"
+        )}
       >
         ⬚
       </button>
@@ -520,33 +269,30 @@ function PostBlockView({ block, isEditing, onDisplayModeChange, onCropPositionCh
   const isFitMode = displayMode === "fit";
 
   return (
-    <div style={styles.postCard}>
+    <div className="mb-8">
       <div 
-        className="post-image-container"
-        style={{
-          ...styles.postImageWrapper,
-          ...(isFitMode ? { backgroundColor: "#18181b" } : {}),
-          position: "relative" as const,
-        }}
+        className={cn(
+          "post-image-container rounded-xl overflow-hidden max-h-[400px] relative",
+          isFitMode ? "bg-muted" : ""
+        )}
       >
         {/* Draggable image in cover mode when editing */}
         {isEditing && !isFitMode && onCropPositionChange ? (
           <DraggableImage
             block={block}
-            imgStyle={{
-              ...styles.postImage,
-              objectFit: 'cover' as const,
-            }}
+            imgStyle={{}}
             onPositionChange={onCropPositionChange}
           />
         ) : (
           <Link href={`/e/${asset.id}`}>
-            <Img
+            <img
               src={asset.medium_url || asset.url || asset.thumbnail_url}
               alt={asset.title}
+              className={cn(
+                "w-full h-auto max-h-[400px] block rounded-xl",
+                isFitMode ? "object-contain" : "object-cover"
+              )}
               style={{
-                ...styles.postImage,
-                objectFit: isFitMode ? "contain" as const : "cover" as const,
                 objectPosition: isFitMode 
                   ? "center" 
                   : `${block.crop_position_x ?? 50}% ${block.crop_position_y ?? 0}%`,
@@ -562,44 +308,31 @@ function PostBlockView({ block, isEditing, onDisplayModeChange, onCropPositionCh
         )}
         {/* Drag hint */}
         {isEditing && !isFitMode && onCropPositionChange && (
-          <div 
-            className="drag-hint"
-            style={{
-              position: 'absolute',
-              top: '12px',
-              left: '12px',
-              padding: '4px 8px',
-              backgroundColor: 'rgba(0,0,0,0.7)',
-              color: '#888',
-              fontSize: '12px',
-              borderRadius: '4px',
-              opacity: 0,
-              transition: 'opacity 0.2s ease',
-              pointerEvents: 'none',
-            }}
-          >
+          <div className="drag-hint absolute top-3 left-3 px-2 py-1 bg-black/70 text-muted-foreground text-xs rounded opacity-0 transition-opacity duration-200 pointer-events-none">
             Drag to adjust crop
           </div>
         )}
       </div>
-      <div style={styles.postContent}>
-        <Text style={styles.postTitle}>{asset.title}</Text>
+      <div className="py-4">
+        <h3 className="text-lg font-semibold text-foreground mb-2 leading-snug">{asset.title}</h3>
         {asset.description && (
-          <Text style={styles.postDescription}>{asset.description}</Text>
+          <p className="text-[15px] text-muted-foreground mb-3 leading-normal">{asset.description}</p>
         )}
-        <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" as const }}>
+        <div className="flex items-center gap-2 flex-wrap">
           {asset.uploader && (
             <>
-              <Img
+              <Image
                 src={asset.uploader.avatar_url || "/default-avatar.png"}
                 alt={asset.uploader.display_name}
-                style={styles.postAuthorAvatar}
+                width={24}
+                height={24}
+                className="rounded-full"
               />
-              <Text style={styles.postMeta}>{asset.uploader.display_name}</Text>
-              <Text style={styles.postMeta}>•</Text>
+              <span className="text-sm text-muted-foreground m-0">{asset.uploader.display_name}</span>
+              <span className="text-sm text-muted-foreground m-0">•</span>
             </>
           )}
-          <Text style={styles.postMeta}>{formatPostDate(asset.created_at)}</Text>
+          <span className="text-sm text-muted-foreground m-0">{formatPostDate(asset.created_at)}</span>
         </div>
       </div>
       
@@ -625,33 +358,30 @@ function FeaturedPostBlockView({ block, isEditing, onDisplayModeChange, onCropPo
   const isFitMode = displayMode === "fit";
 
   return (
-    <div style={styles.featuredPostCard}>
+    <div className="mb-10">
       <div 
-        className="featured-image-container"
-        style={{
-          ...styles.featuredImageWrapper,
-          ...(isFitMode ? { backgroundColor: "#18181b" } : {}),
-          position: "relative" as const,
-        }}
+        className={cn(
+          "featured-image-container rounded-2xl overflow-hidden max-h-[500px] relative",
+          isFitMode ? "bg-muted" : ""
+        )}
       >
         {/* Draggable image in cover mode when editing */}
         {isEditing && !isFitMode && onCropPositionChange ? (
           <DraggableImage
             block={block}
-            imgStyle={{
-              ...styles.featuredImage,
-              objectFit: 'cover' as const,
-            }}
+            imgStyle={{}}
             onPositionChange={onCropPositionChange}
           />
         ) : (
           <Link href={`/e/${asset.id}`}>
-            <Img
+            <img
               src={asset.medium_url || asset.url || asset.thumbnail_url}
               alt={asset.title}
+              className={cn(
+                "w-full h-auto max-h-[500px] block rounded-2xl",
+                isFitMode ? "object-contain" : "object-cover"
+              )}
               style={{
-                ...styles.featuredImage,
-                objectFit: isFitMode ? "contain" as const : "cover" as const,
                 objectPosition: isFitMode 
                   ? "center" 
                   : `${block.crop_position_x ?? 50}% ${block.crop_position_y ?? 0}%`,
@@ -667,44 +397,31 @@ function FeaturedPostBlockView({ block, isEditing, onDisplayModeChange, onCropPo
         )}
         {/* Drag hint */}
         {isEditing && !isFitMode && onCropPositionChange && (
-          <div 
-            className="drag-hint"
-            style={{
-              position: 'absolute',
-              top: '12px',
-              left: '12px',
-              padding: '4px 8px',
-              backgroundColor: 'rgba(0,0,0,0.7)',
-              color: '#888',
-              fontSize: '12px',
-              borderRadius: '4px',
-              opacity: 0,
-              transition: 'opacity 0.2s ease',
-              pointerEvents: 'none',
-            }}
-          >
+          <div className="drag-hint absolute top-3 left-3 px-2 py-1 bg-black/70 text-muted-foreground text-xs rounded opacity-0 transition-opacity duration-200 pointer-events-none">
             Drag to adjust crop
           </div>
         )}
       </div>
-      <div style={{ ...styles.postContent, padding: "20px 0" }}>
-        <Text style={styles.featuredPostTitle}>{asset.title}</Text>
+      <div className="py-5">
+        <h2 className="text-2xl font-bold text-foreground mb-3 leading-tight">{asset.title}</h2>
         {asset.description && (
-          <Text style={{ ...styles.postDescription, fontSize: "16px" }}>{asset.description}</Text>
+          <p className="text-base text-muted-foreground mb-3 leading-normal">{asset.description}</p>
         )}
-        <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" as const }}>
+        <div className="flex items-center gap-2 flex-wrap">
           {asset.uploader && (
             <>
-              <Img
+              <Image
                 src={asset.uploader.avatar_url || "/default-avatar.png"}
                 alt={asset.uploader.display_name}
-                style={{ ...styles.postAuthorAvatar, width: "28px", height: "28px" }}
+                width={28}
+                height={28}
+                className="rounded-full"
               />
-              <Text style={{ ...styles.postMeta, fontSize: "15px" }}>{asset.uploader.display_name}</Text>
-              <Text style={styles.postMeta}>•</Text>
+              <span className="text-[15px] text-muted-foreground m-0">{asset.uploader.display_name}</span>
+              <span className="text-sm text-muted-foreground m-0">•</span>
             </>
           )}
-          <Text style={{ ...styles.postMeta, fontSize: "15px" }}>{formatPostDate(asset.created_at)}</Text>
+          <span className="text-[15px] text-muted-foreground m-0">{formatPostDate(asset.created_at)}</span>
         </div>
       </div>
       
@@ -730,19 +447,7 @@ function GalleryLayoutControls({
   onLayoutChange: (layout: GalleryLayout) => void;
 }) {
   return (
-    <div
-      className="gallery-layout-controls"
-      style={{
-        position: 'absolute',
-        top: '12px',
-        right: '12px',
-        display: 'flex',
-        gap: '4px',
-        opacity: 0,
-        transition: 'opacity 0.2s ease',
-        zIndex: 10,
-      }}
-    >
+    <div className="gallery-layout-controls absolute top-3 right-3 flex gap-1 opacity-0 transition-opacity duration-200 z-10">
       <button
         onClick={(e) => {
           e.preventDefault();
@@ -750,20 +455,12 @@ function GalleryLayoutControls({
           onLayoutChange('grid');
         }}
         title="Grid layout (2x2)"
-        style={{
-          width: '32px',
-          height: '32px',
-          borderRadius: '6px',
-          border: 'none',
-          backgroundColor: layout === 'grid' ? 'rgba(167, 139, 250, 0.9)' : 'rgba(0, 0, 0, 0.7)',
-          color: layout === 'grid' ? '#fff' : '#a0a0a0',
-          cursor: 'pointer',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          backdropFilter: 'blur(4px)',
-          fontSize: '12px',
-        }}
+        className={cn(
+          "w-8 h-8 rounded-md border-none cursor-pointer flex items-center justify-center backdrop-blur-sm text-xs",
+          layout === 'grid' 
+            ? "bg-violet-500/90 text-white" 
+            : "bg-black/70 text-muted-foreground"
+        )}
       >
         ⊞
       </button>
@@ -774,20 +471,12 @@ function GalleryLayoutControls({
           onLayoutChange('featured');
         }}
         title="Featured layout (1 large + thumbnails)"
-        style={{
-          width: '32px',
-          height: '32px',
-          borderRadius: '6px',
-          border: 'none',
-          backgroundColor: layout === 'featured' ? 'rgba(167, 139, 250, 0.9)' : 'rgba(0, 0, 0, 0.7)',
-          color: layout === 'featured' ? '#fff' : '#a0a0a0',
-          cursor: 'pointer',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          backdropFilter: 'blur(4px)',
-          fontSize: '12px',
-        }}
+        className={cn(
+          "w-8 h-8 rounded-md border-none cursor-pointer flex items-center justify-center backdrop-blur-sm text-xs",
+          layout === 'featured' 
+            ? "bg-violet-500/90 text-white" 
+            : "bg-black/70 text-muted-foreground"
+        )}
       >
         ⬒
       </button>
@@ -824,26 +513,11 @@ function ImageGalleryBlockView({
 
   if (images.length === 0 && isEditing) {
     return (
-      <div
-        style={{
-          padding: "40px",
-          border: "2px dashed #333",
-          borderRadius: "12px",
-          textAlign: "center",
-          marginBottom: "32px",
-        }}
-      >
-        <p style={{ color: "#666", marginBottom: "12px" }}>No images in gallery</p>
+      <div className="p-10 border-2 border-dashed border-border rounded-xl text-center mb-8">
+        <p className="text-muted-foreground mb-3">No images in gallery</p>
         <button
           onClick={() => setShowAddModal(true)}
-          style={{
-            padding: "8px 16px",
-            backgroundColor: "#a78bfa",
-            color: "#fff",
-            border: "none",
-            borderRadius: "8px",
-            cursor: "pointer",
-          }}
+          className="px-4 py-2 bg-violet-500 text-white border-none rounded-lg cursor-pointer"
         >
           Add Images
         </button>
@@ -871,51 +545,31 @@ function ImageGalleryBlockView({
   }
 
   return (
-    <div style={styles.galleryContainer}>
-      <div
-        className="gallery-container"
-        style={{ position: "relative" }}
-      >
+    <div className="mb-8">
+      <div className="gallery-container relative">
         {layout === 'grid' ? (
           // Grid layout (2x2)
-          <div style={styles.galleryGrid}>
+          <div className="grid grid-cols-2 gap-2">
             {images.slice(0, 4).map((img, index) => (
               <div
                 key={img.id}
-                style={styles.galleryGridItem}
-                className="gallery-item"
+                className="gallery-item aspect-square rounded-lg overflow-hidden bg-muted relative"
               >
-                <Img
+                <img
                   src={img.asset?.medium_url || img.asset?.url || img.asset?.thumbnail_url}
                   alt={img.asset?.title || ''}
-                  style={styles.galleryImage}
+                  className="w-full h-full object-cover"
                 />
                 {isEditing && onGalleryRemoveImage && (
                   <button
                     onClick={() => onGalleryRemoveImage(img.asset_id)}
-                    className="remove-btn"
-                    style={{
-                      position: 'absolute',
-                      top: '8px',
-                      right: '8px',
-                      width: '24px',
-                      height: '24px',
-                      borderRadius: '50%',
-                      backgroundColor: 'rgba(0,0,0,0.7)',
-                      color: '#fff',
-                      border: 'none',
-                      cursor: 'pointer',
-                      display: 'none',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      fontSize: '14px',
-                    }}
+                    className="remove-btn absolute top-2 right-2 w-6 h-6 rounded-full bg-black/70 text-white border-none cursor-pointer hidden items-center justify-center text-sm hover:flex"
                   >
                     ×
                   </button>
                 )}
                 {index === 3 && images.length > 4 && (
-                  <div style={styles.galleryOverflowBadge}>
+                  <div className="absolute inset-0 bg-black/60 flex items-center justify-center text-white text-base font-semibold">
                     +{images.length - 4}
                   </div>
                 )}
@@ -924,17 +578,16 @@ function ImageGalleryBlockView({
           </div>
         ) : (
           // Featured layout (1 large + thumbnails)
-          <div style={styles.galleryFeaturedContainer}>
+          <div className="flex flex-col gap-2">
             {featuredImage && (
               <div
-                style={styles.galleryFeaturedMain}
-                className="gallery-item"
+                className="gallery-item aspect-video rounded-xl overflow-hidden bg-muted relative cursor-pointer"
                 onClick={() => isEditing && onGalleryFeaturedIndexChange && onGalleryFeaturedIndexChange(featuredIndex)}
               >
-                <Img
+                <img
                   src={featuredImage.asset?.medium_url || featuredImage.asset?.url || featuredImage.asset?.thumbnail_url}
                   alt={featuredImage.asset?.title || ''}
-                  style={styles.galleryFeaturedImage}
+                  className="w-full h-full object-cover"
                 />
                 {isEditing && onGalleryRemoveImage && (
                   <button
@@ -942,23 +595,7 @@ function ImageGalleryBlockView({
                       e.stopPropagation();
                       onGalleryRemoveImage(featuredImage.asset_id);
                     }}
-                    className="remove-btn"
-                    style={{
-                      position: 'absolute',
-                      top: '8px',
-                      right: '8px',
-                      width: '24px',
-                      height: '24px',
-                      borderRadius: '50%',
-                      backgroundColor: 'rgba(0,0,0,0.7)',
-                      color: '#fff',
-                      border: 'none',
-                      cursor: 'pointer',
-                      display: 'none',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      fontSize: '14px',
-                    }}
+                    className="remove-btn absolute top-2 right-2 w-6 h-6 rounded-full bg-black/70 text-white border-none cursor-pointer hidden items-center justify-center text-sm hover:flex"
                   >
                     ×
                   </button>
@@ -966,20 +603,19 @@ function ImageGalleryBlockView({
               </div>
             )}
             {thumbnailImages.length > 0 && (
-              <div style={styles.galleryThumbnailRow}>
+              <div className="flex gap-2">
                 {thumbnailImages.slice(0, 4).map((img, index) => {
                   const actualIndex = images.findIndex((i) => i.id === img.id);
                   return (
                     <div
                       key={img.id}
-                      style={styles.galleryThumbnail}
-                      className="gallery-item"
+                      className="gallery-item flex-1 aspect-square rounded-lg overflow-hidden bg-muted relative cursor-pointer"
                       onClick={() => isEditing && onGalleryFeaturedIndexChange && onGalleryFeaturedIndexChange(actualIndex)}
                     >
-                      <Img
+                      <img
                         src={img.asset?.thumbnail_url || img.asset?.url}
                         alt={img.asset?.title || ''}
-                        style={styles.galleryThumbnailImage}
+                        className="w-full h-full object-cover"
                       />
                       {isEditing && onGalleryRemoveImage && (
                         <button
@@ -987,29 +623,13 @@ function ImageGalleryBlockView({
                             e.stopPropagation();
                             onGalleryRemoveImage(img.asset_id);
                           }}
-                          className="remove-btn"
-                          style={{
-                            position: 'absolute',
-                            top: '4px',
-                            right: '4px',
-                            width: '20px',
-                            height: '20px',
-                            borderRadius: '50%',
-                            backgroundColor: 'rgba(0,0,0,0.7)',
-                            color: '#fff',
-                            border: 'none',
-                            cursor: 'pointer',
-                            display: 'none',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            fontSize: '12px',
-                          }}
+                          className="remove-btn absolute top-1 right-1 w-5 h-5 rounded-full bg-black/70 text-white border-none cursor-pointer hidden items-center justify-center text-xs hover:flex"
                         >
                           ×
                         </button>
                       )}
                       {index === 3 && thumbnailImages.length > 4 && (
-                        <div style={styles.galleryOverflowBadge}>
+                        <div className="absolute inset-0 bg-black/60 flex items-center justify-center text-white text-base font-semibold">
                           +{thumbnailImages.length - 4}
                         </div>
                       )}
@@ -1033,21 +653,7 @@ function ImageGalleryBlockView({
         {isEditing && availableAssets && onGalleryAddImages && (
           <button
             onClick={() => setShowAddModal(true)}
-            className="add-images-btn"
-            style={{
-              position: 'absolute',
-              bottom: '12px',
-              left: '12px',
-              padding: '6px 12px',
-              backgroundColor: 'rgba(0,0,0,0.7)',
-              color: '#a0a0a0',
-              border: 'none',
-              borderRadius: '6px',
-              cursor: 'pointer',
-              fontSize: '12px',
-              opacity: 0,
-              transition: 'opacity 0.2s ease',
-            }}
+            className="add-images-btn absolute bottom-3 left-3 px-3 py-1.5 bg-black/70 text-muted-foreground border-none rounded-md cursor-pointer text-xs opacity-0 transition-opacity duration-200"
           >
             + Add images
           </button>
@@ -1216,73 +822,36 @@ function GalleryAddModal({
   };
 
   return (
-    <div
-      style={{
-        position: "fixed",
-        inset: "0",
-        zIndex: 50,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        backgroundColor: "rgba(0,0,0,0.8)",
-      }}
-    >
-      <div
-        style={{
-          width: "100%",
-          maxWidth: "600px",
-          maxHeight: "80vh",
-          backgroundColor: "#18181b",
-          border: "1px solid #333",
-          borderRadius: "12px",
-          overflow: "hidden",
-          display: "flex",
-          flexDirection: "column",
-        }}
-      >
-        <div style={{ padding: "16px", borderBottom: "1px solid #333" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "12px" }}>
-            <h3 style={{ margin: 0, color: "#fff" }}>Add images to gallery</h3>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80">
+      <div className="w-full max-w-[600px] max-h-[80vh] bg-card border border-border rounded-xl overflow-hidden flex flex-col">
+        <div className="p-4 border-b border-border">
+          <div className="flex justify-between mb-3">
+            <h3 className="m-0 text-foreground">Add images to gallery</h3>
             <button
               onClick={onClose}
-              style={{ background: "none", border: "none", color: "#666", cursor: "pointer", fontSize: "18px" }}
+              className="bg-transparent border-none text-muted-foreground cursor-pointer text-lg"
             >
               ×
             </button>
           </div>
           
           {/* Tabs */}
-          <div style={{ display: "flex", gap: "4px", marginBottom: "12px" }}>
+          <div className="flex gap-1 mb-3">
             <button
               onClick={() => setActiveTab("browse")}
-              style={{
-                padding: "8px 16px",
-                fontSize: "14px",
-                fontWeight: 500,
-                borderRadius: "6px",
-                border: "none",
-                cursor: "pointer",
-                backgroundColor: activeTab === "browse" ? "#27272a" : "transparent",
-                color: activeTab === "browse" ? "#fff" : "#666",
-              }}
+              className={cn(
+                "px-4 py-2 text-sm font-medium rounded-md border-none cursor-pointer",
+                activeTab === "browse" ? "bg-muted text-foreground" : "bg-transparent text-muted-foreground"
+              )}
             >
               Browse Posts
             </button>
             <button
               onClick={() => setActiveTab("upload")}
-              style={{
-                padding: "8px 16px",
-                fontSize: "14px",
-                fontWeight: 500,
-                borderRadius: "6px",
-                border: "none",
-                cursor: "pointer",
-                backgroundColor: activeTab === "upload" ? "#27272a" : "transparent",
-                color: activeTab === "upload" ? "#fff" : "#666",
-                display: "flex",
-                alignItems: "center",
-                gap: "6px",
-              }}
+              className={cn(
+                "px-4 py-2 text-sm font-medium rounded-md border-none cursor-pointer flex items-center gap-1.5",
+                activeTab === "upload" ? "bg-muted text-foreground" : "bg-transparent text-muted-foreground"
+              )}
             >
               ⬆ Upload New
             </button>
@@ -1295,18 +864,10 @@ function GalleryAddModal({
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Search..."
-                style={{
-                  width: "100%",
-                  padding: "8px 12px",
-                  backgroundColor: "#27272a",
-                  border: "1px solid #333",
-                  borderRadius: "6px",
-                  color: "#fff",
-                  outline: "none",
-                }}
+                className="w-full px-3 py-2 bg-muted border border-border rounded-md text-foreground outline-none"
               />
               {selectedIds.length > 0 && (
-                <p style={{ margin: "8px 0 0", color: "#a78bfa", fontSize: "14px" }}>
+                <p className="mt-2 mb-0 text-violet-400 text-sm">
                   {selectedIds.length} selected
                 </p>
               )}
@@ -1314,65 +875,38 @@ function GalleryAddModal({
           )}
         </div>
         
-        <div style={{ flex: 1, overflow: "auto", padding: "16px" }}>
+        <div className="flex-1 overflow-auto p-4">
           {activeTab === "browse" ? (
             filteredAssets.length === 0 ? (
-              <div style={{ textAlign: "center", padding: "32px 0" }}>
-                <p style={{ color: "#666" }}>No images available</p>
+              <div className="text-center py-8">
+                <p className="text-muted-foreground">No images available</p>
                 <button
                   onClick={() => setActiveTab("upload")}
-                  style={{
-                    marginTop: "12px",
-                    background: "none",
-                    border: "none",
-                    color: "#a78bfa",
-                    cursor: "pointer",
-                    fontSize: "14px",
-                  }}
+                  className="mt-3 bg-transparent border-none text-violet-400 cursor-pointer text-sm"
                 >
                   Upload a new image instead
                 </button>
               </div>
             ) : (
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "8px" }}>
+              <div className="grid grid-cols-3 gap-2">
                 {filteredAssets.map((asset) => {
                   const isSelected = selectedIds.includes(asset.id);
                   return (
                     <button
                       key={asset.id}
                       onClick={() => toggleSelection(asset.id)}
-                      style={{
-                        aspectRatio: "1",
-                        borderRadius: "8px",
-                        overflow: "hidden",
-                        border: isSelected ? "2px solid #a78bfa" : "2px solid transparent",
-                        padding: 0,
-                        cursor: "pointer",
-                        position: "relative",
-                      }}
+                      className={cn(
+                        "aspect-square rounded-lg overflow-hidden p-0 cursor-pointer relative",
+                        isSelected ? "border-2 border-violet-400" : "border-2 border-transparent"
+                      )}
                     >
                       <img
                         src={asset.thumbnail_url || asset.url}
                         alt={asset.title}
-                        style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                        className="w-full h-full object-cover"
                       />
                       {isSelected && (
-                        <div
-                          style={{
-                            position: "absolute",
-                            top: "4px",
-                            right: "4px",
-                            width: "20px",
-                            height: "20px",
-                            borderRadius: "50%",
-                            backgroundColor: "#a78bfa",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            color: "#fff",
-                            fontSize: "12px",
-                          }}
-                        >
+                        <div className="absolute top-1 right-1 w-5 h-5 rounded-full bg-violet-400 flex items-center justify-center text-white text-xs">
                           ✓
                         </div>
                       )}
@@ -1393,20 +927,16 @@ function GalleryAddModal({
                   onDragLeave={() => setIsDragging(false)}
                   onDrop={handleDrop}
                   onClick={() => fileInputRef.current?.click()}
-                  style={{
-                    border: `2px dashed ${isDragging ? "#a78bfa" : "#333"}`,
-                    borderRadius: "12px",
-                    padding: "40px",
-                    textAlign: "center",
-                    cursor: "pointer",
-                    backgroundColor: isDragging ? "rgba(167, 139, 250, 0.1)" : "transparent",
-                  }}
+                  className={cn(
+                    "border-2 border-dashed rounded-xl p-10 text-center cursor-pointer",
+                    isDragging ? "border-violet-400 bg-violet-400/10" : "border-border"
+                  )}
                 >
-                  <div style={{ fontSize: "32px", marginBottom: "12px" }}>⬆</div>
-                  <p style={{ color: "#fff", fontWeight: 500, marginBottom: "4px" }}>
+                  <div className="text-[32px] mb-3">⬆</div>
+                  <p className="text-foreground font-medium mb-1">
                     Drop an image here or click to browse
                   </p>
-                  <p style={{ color: "#666", fontSize: "14px" }}>
+                  <p className="text-muted-foreground text-sm">
                     PNG, JPG, GIF, WebP up to 10MB
                   </p>
                   <input
@@ -1422,49 +952,22 @@ function GalleryAddModal({
                 </div>
               ) : (
                 <div>
-                  <div
-                    style={{
-                      position: "relative",
-                      aspectRatio: "16/9",
-                      borderRadius: "12px",
-                      overflow: "hidden",
-                      backgroundColor: "#27272a",
-                      marginBottom: "16px",
-                    }}
-                  >
+                  <div className="relative aspect-video rounded-xl overflow-hidden bg-muted mb-4">
                     <img
                       src={preview!}
                       alt="Preview"
-                      style={{
-                        width: "100%",
-                        height: "100%",
-                        objectFit: "contain",
-                      }}
+                      className="w-full h-full object-contain"
                     />
                     <button
                       onClick={clearUpload}
-                      style={{
-                        position: "absolute",
-                        top: "8px",
-                        right: "8px",
-                        width: "28px",
-                        height: "28px",
-                        borderRadius: "50%",
-                        backgroundColor: "rgba(0,0,0,0.6)",
-                        border: "none",
-                        color: "#fff",
-                        cursor: "pointer",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                      }}
+                      className="absolute top-2 right-2 w-7 h-7 rounded-full bg-black/60 border-none text-white cursor-pointer flex items-center justify-center"
                     >
                       ×
                     </button>
                   </div>
                   
-                  <div style={{ marginBottom: "16px" }}>
-                    <label style={{ display: "block", fontSize: "14px", color: "#888", marginBottom: "6px" }}>
+                  <div className="mb-4">
+                    <label className="block text-sm text-muted-foreground mb-1.5">
                       Title (optional)
                     </label>
                     <input
@@ -1472,39 +975,21 @@ function GalleryAddModal({
                       value={uploadTitle}
                       onChange={(e) => setUploadTitle(e.target.value)}
                       placeholder="Enter a title..."
-                      style={{
-                        width: "100%",
-                        padding: "8px 12px",
-                        backgroundColor: "#27272a",
-                        border: "1px solid #333",
-                        borderRadius: "6px",
-                        color: "#fff",
-                        outline: "none",
-                      }}
+                      className="w-full px-3 py-2 bg-muted border border-border rounded-md text-foreground outline-none"
                     />
                   </div>
 
                   {uploadError && (
-                    <p style={{ color: "#ef4444", fontSize: "14px", marginBottom: "16px" }}>{uploadError}</p>
+                    <p className="text-red-500 text-sm mb-4">{uploadError}</p>
                   )}
 
                   <button
                     onClick={handleUpload}
                     disabled={isUploading}
-                    style={{
-                      width: "100%",
-                      padding: "10px 16px",
-                      backgroundColor: isUploading ? "#333" : "#a78bfa",
-                      color: "#fff",
-                      border: "none",
-                      borderRadius: "8px",
-                      cursor: isUploading ? "not-allowed" : "pointer",
-                      fontWeight: 500,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      gap: "8px",
-                    }}
+                    className={cn(
+                      "w-full px-4 py-2.5 text-white border-none rounded-lg font-medium flex items-center justify-center gap-2",
+                      isUploading ? "bg-muted cursor-not-allowed" : "bg-violet-500 cursor-pointer"
+                    )}
                   >
                     {isUploading ? "Uploading..." : "⬆ Upload & Add to Selection"}
                   </button>
@@ -1515,24 +1000,22 @@ function GalleryAddModal({
         </div>
         
         {activeTab === "browse" && (
-          <div style={{ padding: "16px", borderTop: "1px solid #333", display: "flex", justifyContent: "flex-end", gap: "12px" }}>
+          <div className="p-4 border-t border-border flex justify-end gap-3">
             <button
               onClick={onClose}
-              style={{ padding: "8px 16px", background: "none", border: "none", color: "#666", cursor: "pointer" }}
+              className="px-4 py-2 bg-transparent border-none text-muted-foreground cursor-pointer"
             >
               Cancel
             </button>
             <button
               onClick={() => onAdd(selectedIds)}
               disabled={selectedIds.length === 0}
-              style={{
-                padding: "8px 16px",
-                backgroundColor: selectedIds.length > 0 ? "#a78bfa" : "#333",
-                color: selectedIds.length > 0 ? "#fff" : "#666",
-                border: "none",
-                borderRadius: "6px",
-                cursor: selectedIds.length > 0 ? "pointer" : "not-allowed",
-              }}
+              className={cn(
+                "px-4 py-2 border-none rounded-md",
+                selectedIds.length > 0 
+                  ? "bg-violet-500 text-white cursor-pointer" 
+                  : "bg-muted text-muted-foreground cursor-not-allowed"
+              )}
             >
               Add {selectedIds.length} image{selectedIds.length !== 1 ? "s" : ""}
             </button>
