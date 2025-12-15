@@ -35,7 +35,7 @@ export function PublishedDropHeader({ dropId, dropTitle }: PublishedDropHeaderPr
 
   return (
     <>
-      <div className="sticky top-0 z-40 bg-background/80 backdrop-blur-xl border-b border-border -mt-6 -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8">
+      <div className="sticky top-16 z-40 bg-background/80 backdrop-blur-xl border-b border-border -mt-6 -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8">
         <div className="max-w-5xl mx-auto px-4 py-2 flex items-center justify-between">
           <Link
             href="/drops"
