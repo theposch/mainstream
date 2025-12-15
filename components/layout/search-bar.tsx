@@ -105,7 +105,7 @@ export function SearchBar() {
             onBlur={handleBlur}
             onKeyDown={handleKeyDown}
             className="w-full h-full bg-transparent border-none outline-none text-sm text-foreground placeholder:text-muted-foreground/60 px-3"
-            placeholder="Try 'luxury product packaging'"
+            placeholder="Search..."
             aria-label="Search"
             aria-expanded={showSuggestions}
             aria-haspopup="listbox"
