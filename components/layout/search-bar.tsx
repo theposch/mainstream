@@ -16,6 +16,7 @@ export function SearchBar() {
   const [isInputFocused, setIsInputFocused] = React.useState(false);
   const inputRef = React.useRef<HTMLInputElement>(null);
   const containerRef = React.useRef<HTMLDivElement>(null);
+  const suggestionsRef = React.useRef<HTMLDivElement>(null);
 
   // Close suggestions when clicking outside
   useClickOutside(containerRef, () => {
@@ -46,10 +47,17 @@ export function SearchBar() {
     setShowSuggestions(true);
   };
 
-  const handleBlur = () => {
+  const handleBlur = (e: React.FocusEvent<HTMLInputElement>) => {
+    // Don't close if focus is moving to the suggestions dropdown
+    const relatedTarget = e.relatedTarget as HTMLElement;
+    if (relatedTarget && suggestionsRef.current?.contains(relatedTarget)) {
+      return;
+    }
     setIsInputFocused(false);
-    // Hide suggestions on blur to ensure consistent state
-    setShowSuggestions(false);
+    // Use setTimeout to allow click events on suggestions to fire before closing
+    setTimeout(() => {
+      setShowSuggestions(false);
+    }, 150);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -124,13 +132,15 @@ export function SearchBar() {
       </form>
 
       {showSuggestions && (
-        <SearchSuggestions
-          query={query}
-          isOpen={showSuggestions}
-          onClose={() => setShowSuggestions(false)}
-          onSelect={handleSelectSuggestion}
-          recentSearches={recentSearches}
-        />
+        <div ref={suggestionsRef}>
+          <SearchSuggestions
+            query={query}
+            isOpen={showSuggestions}
+            onClose={() => setShowSuggestions(false)}
+            onSelect={handleSelectSuggestion}
+            recentSearches={recentSearches}
+          />
+        </div>
       )}
     </div>
   );
