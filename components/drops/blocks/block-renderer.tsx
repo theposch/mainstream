@@ -123,11 +123,9 @@ function QuoteBlockView({ block, isEditing, onContentChange }: BlockRendererProp
 // Draggable image for adjusting crop position in cover mode
 function DraggableImage({ 
   block, 
-  imgStyle,
   onPositionChange,
 }: { 
   block: DropBlock; 
-  imgStyle: React.CSSProperties;
   onPositionChange: (x: number, y: number) => void;
 }) {
   const containerRef = React.useRef<HTMLDivElement>(null);
@@ -223,7 +221,7 @@ function DisplayModeControls({
   const currentMode = getEffectiveDisplayMode(block);
   
   return (
-    <div className="display-mode-controls absolute bottom-3 right-3 flex gap-1 opacity-0 transition-opacity duration-200 z-10">
+    <div className="absolute bottom-3 right-3 flex gap-1 opacity-0 transition-opacity duration-200 z-10">
       <button
         onClick={(e) => {
           e.preventDefault();
@@ -231,11 +229,12 @@ function DisplayModeControls({
           onModeChange('fit');
         }}
         title="Fit - Show entire image"
+        aria-label="Fit - Show entire image"
         className={cn(
           "w-8 h-8 rounded-md border-none cursor-pointer flex items-center justify-center backdrop-blur-sm text-sm",
           currentMode === 'fit' 
             ? "bg-violet-500/90 text-white" 
-            : "bg-black/70 text-muted-foreground"
+            : "bg-background/70 text-muted-foreground"
         )}
       >
         ⊡
@@ -247,11 +246,12 @@ function DisplayModeControls({
           onModeChange('cover');
         }}
         title="Fill - Crop to fill"
+        aria-label="Fill - Crop to fill"
         className={cn(
           "w-8 h-8 rounded-md border-none cursor-pointer flex items-center justify-center backdrop-blur-sm text-sm",
           currentMode === 'cover' 
             ? "bg-violet-500/90 text-white" 
-            : "bg-black/70 text-muted-foreground"
+            : "bg-background/70 text-muted-foreground"
         )}
       >
         ⬚
@@ -272,7 +272,7 @@ function PostBlockView({ block, isEditing, onDisplayModeChange, onCropPositionCh
     <div className="mb-8">
       <div 
         className={cn(
-          "post-image-container rounded-xl overflow-hidden max-h-[400px] relative",
+          "group post-image-container rounded-xl overflow-hidden max-h-[400px] relative",
           isFitMode ? "bg-muted" : ""
         )}
       >
@@ -280,7 +280,6 @@ function PostBlockView({ block, isEditing, onDisplayModeChange, onCropPositionCh
         {isEditing && !isFitMode && onCropPositionChange ? (
           <DraggableImage
             block={block}
-            imgStyle={{}}
             onPositionChange={onCropPositionChange}
           />
         ) : (
@@ -301,14 +300,16 @@ function PostBlockView({ block, isEditing, onDisplayModeChange, onCropPositionCh
           </Link>
         )}
         {isEditing && onDisplayModeChange && (
-          <DisplayModeControls 
-            block={block} 
-            onModeChange={onDisplayModeChange} 
-          />
+          <div className="display-mode-controls group-hover:opacity-100">
+            <DisplayModeControls 
+              block={block} 
+              onModeChange={onDisplayModeChange} 
+            />
+          </div>
         )}
         {/* Drag hint */}
         {isEditing && !isFitMode && onCropPositionChange && (
-          <div className="drag-hint absolute top-3 left-3 px-2 py-1 bg-black/70 text-muted-foreground text-xs rounded opacity-0 transition-opacity duration-200 pointer-events-none">
+          <div className="drag-hint group-hover:opacity-100 absolute top-3 left-3 px-2 py-1 bg-background/70 backdrop-blur-sm text-muted-foreground text-xs rounded opacity-0 transition-opacity duration-200 pointer-events-none">
             Drag to adjust crop
           </div>
         )}
@@ -323,28 +324,18 @@ function PostBlockView({ block, isEditing, onDisplayModeChange, onCropPositionCh
             <>
               <Image
                 src={asset.uploader.avatar_url || "/default-avatar.png"}
-                alt={asset.uploader.display_name}
+                alt={asset.uploader.display_name || asset.uploader.username || "User"}
                 width={24}
                 height={24}
                 className="rounded-full"
               />
-              <span className="text-sm text-muted-foreground m-0">{asset.uploader.display_name}</span>
+              <span className="text-sm text-muted-foreground m-0">{asset.uploader.display_name || asset.uploader.username || "Unknown"}</span>
               <span className="text-sm text-muted-foreground m-0">•</span>
             </>
           )}
           <span className="text-sm text-muted-foreground m-0">{formatPostDate(asset.created_at)}</span>
         </div>
       </div>
-      
-      {/* CSS for hover effect */}
-      <style>{`
-        .post-image-container:hover .display-mode-controls {
-          opacity: 1 !important;
-        }
-        .post-image-container:hover .drag-hint {
-          opacity: 1 !important;
-        }
-      `}</style>
     </div>
   );
 }
@@ -361,7 +352,7 @@ function FeaturedPostBlockView({ block, isEditing, onDisplayModeChange, onCropPo
     <div className="mb-10">
       <div 
         className={cn(
-          "featured-image-container rounded-2xl overflow-hidden max-h-[500px] relative",
+          "group featured-image-container rounded-2xl overflow-hidden max-h-[500px] relative",
           isFitMode ? "bg-muted" : ""
         )}
       >
@@ -369,7 +360,6 @@ function FeaturedPostBlockView({ block, isEditing, onDisplayModeChange, onCropPo
         {isEditing && !isFitMode && onCropPositionChange ? (
           <DraggableImage
             block={block}
-            imgStyle={{}}
             onPositionChange={onCropPositionChange}
           />
         ) : (
@@ -390,14 +380,16 @@ function FeaturedPostBlockView({ block, isEditing, onDisplayModeChange, onCropPo
           </Link>
         )}
         {isEditing && onDisplayModeChange && (
-          <DisplayModeControls 
-            block={block} 
-            onModeChange={onDisplayModeChange} 
-          />
+          <div className="display-mode-controls group-hover:opacity-100">
+            <DisplayModeControls 
+              block={block} 
+              onModeChange={onDisplayModeChange} 
+            />
+          </div>
         )}
         {/* Drag hint */}
         {isEditing && !isFitMode && onCropPositionChange && (
-          <div className="drag-hint absolute top-3 left-3 px-2 py-1 bg-black/70 text-muted-foreground text-xs rounded opacity-0 transition-opacity duration-200 pointer-events-none">
+          <div className="drag-hint group-hover:opacity-100 absolute top-3 left-3 px-2 py-1 bg-background/70 backdrop-blur-sm text-muted-foreground text-xs rounded opacity-0 transition-opacity duration-200 pointer-events-none">
             Drag to adjust crop
           </div>
         )}
@@ -412,28 +404,18 @@ function FeaturedPostBlockView({ block, isEditing, onDisplayModeChange, onCropPo
             <>
               <Image
                 src={asset.uploader.avatar_url || "/default-avatar.png"}
-                alt={asset.uploader.display_name}
+                alt={asset.uploader.display_name || asset.uploader.username || "User"}
                 width={28}
                 height={28}
                 className="rounded-full"
               />
-              <span className="text-[15px] text-muted-foreground m-0">{asset.uploader.display_name}</span>
+              <span className="text-[15px] text-muted-foreground m-0">{asset.uploader.display_name || asset.uploader.username || "Unknown"}</span>
               <span className="text-sm text-muted-foreground m-0">•</span>
             </>
           )}
           <span className="text-[15px] text-muted-foreground m-0">{formatPostDate(asset.created_at)}</span>
         </div>
       </div>
-      
-      {/* CSS for hover effect */}
-      <style>{`
-        .featured-image-container:hover .display-mode-controls {
-          opacity: 1 !important;
-        }
-        .featured-image-container:hover .drag-hint {
-          opacity: 1 !important;
-        }
-      `}</style>
     </div>
   );
 }
@@ -447,7 +429,7 @@ function GalleryLayoutControls({
   onLayoutChange: (layout: GalleryLayout) => void;
 }) {
   return (
-    <div className="gallery-layout-controls absolute top-3 right-3 flex gap-1 opacity-0 transition-opacity duration-200 z-10">
+    <div className="absolute top-3 right-3 flex gap-1 opacity-0 transition-opacity duration-200 z-10">
       <button
         onClick={(e) => {
           e.preventDefault();
@@ -455,11 +437,12 @@ function GalleryLayoutControls({
           onLayoutChange('grid');
         }}
         title="Grid layout (2x2)"
+        aria-label="Grid layout (2x2)"
         className={cn(
           "w-8 h-8 rounded-md border-none cursor-pointer flex items-center justify-center backdrop-blur-sm text-xs",
           layout === 'grid' 
             ? "bg-violet-500/90 text-white" 
-            : "bg-black/70 text-muted-foreground"
+            : "bg-background/70 text-muted-foreground"
         )}
       >
         ⊞
@@ -471,11 +454,12 @@ function GalleryLayoutControls({
           onLayoutChange('featured');
         }}
         title="Featured layout (1 large + thumbnails)"
+        aria-label="Featured layout (1 large + thumbnails)"
         className={cn(
           "w-8 h-8 rounded-md border-none cursor-pointer flex items-center justify-center backdrop-blur-sm text-xs",
           layout === 'featured' 
             ? "bg-violet-500/90 text-white" 
-            : "bg-black/70 text-muted-foreground"
+            : "bg-background/70 text-muted-foreground"
         )}
       >
         ⬒
@@ -546,7 +530,7 @@ function ImageGalleryBlockView({
 
   return (
     <div className="mb-8">
-      <div className="gallery-container relative">
+      <div className="group gallery-container relative">
         {layout === 'grid' ? (
           // Grid layout (2x2)
           <div className="grid grid-cols-2 gap-2">
@@ -563,13 +547,14 @@ function ImageGalleryBlockView({
                 {isEditing && onGalleryRemoveImage && (
                   <button
                     onClick={() => onGalleryRemoveImage(img.asset_id)}
-                    className="remove-btn absolute top-2 right-2 w-6 h-6 rounded-full bg-black/70 text-white border-none cursor-pointer hidden items-center justify-center text-sm hover:flex"
+                    aria-label="Remove image"
+                    className="remove-btn absolute top-2 right-2 w-6 h-6 rounded-full bg-background/70 backdrop-blur-sm text-white border-none cursor-pointer hidden items-center justify-center text-sm hover:flex"
                   >
                     ×
                   </button>
                 )}
                 {index === 3 && images.length > 4 && (
-                  <div className="absolute inset-0 bg-black/60 flex items-center justify-center text-white text-base font-semibold">
+                  <div className="absolute inset-0 bg-background/60 backdrop-blur-sm flex items-center justify-center text-foreground text-base font-semibold">
                     +{images.length - 4}
                   </div>
                 )}
@@ -595,7 +580,8 @@ function ImageGalleryBlockView({
                       e.stopPropagation();
                       onGalleryRemoveImage(featuredImage.asset_id);
                     }}
-                    className="remove-btn absolute top-2 right-2 w-6 h-6 rounded-full bg-black/70 text-white border-none cursor-pointer hidden items-center justify-center text-sm hover:flex"
+                    aria-label="Remove featured image"
+                    className="remove-btn absolute top-2 right-2 w-6 h-6 rounded-full bg-background/70 backdrop-blur-sm text-white border-none cursor-pointer hidden items-center justify-center text-sm hover:flex"
                   >
                     ×
                   </button>
@@ -623,13 +609,14 @@ function ImageGalleryBlockView({
                             e.stopPropagation();
                             onGalleryRemoveImage(img.asset_id);
                           }}
-                          className="remove-btn absolute top-1 right-1 w-5 h-5 rounded-full bg-black/70 text-white border-none cursor-pointer hidden items-center justify-center text-xs hover:flex"
+                          aria-label="Remove thumbnail image"
+                          className="remove-btn absolute top-1 right-1 w-5 h-5 rounded-full bg-background/70 backdrop-blur-sm text-white border-none cursor-pointer hidden items-center justify-center text-xs hover:flex"
                         >
                           ×
                         </button>
                       )}
                       {index === 3 && thumbnailImages.length > 4 && (
-                        <div className="absolute inset-0 bg-black/60 flex items-center justify-center text-white text-base font-semibold">
+                        <div className="absolute inset-0 bg-background/60 backdrop-blur-sm flex items-center justify-center text-foreground text-base font-semibold">
                           +{thumbnailImages.length - 4}
                         </div>
                       )}
@@ -643,17 +630,20 @@ function ImageGalleryBlockView({
 
         {/* Layout toggle controls */}
         {isEditing && onGalleryLayoutChange && (
-          <GalleryLayoutControls
-            layout={layout}
-            onLayoutChange={onGalleryLayoutChange}
-          />
+          <div className="gallery-layout-controls group-hover:opacity-100">
+            <GalleryLayoutControls
+              layout={layout}
+              onLayoutChange={onGalleryLayoutChange}
+            />
+          </div>
         )}
 
         {/* Add more images button */}
         {isEditing && availableAssets && onGalleryAddImages && (
           <button
             onClick={() => setShowAddModal(true)}
-            className="add-images-btn absolute bottom-3 left-3 px-3 py-1.5 bg-black/70 text-muted-foreground border-none rounded-md cursor-pointer text-xs opacity-0 transition-opacity duration-200"
+            aria-label="Add more images to gallery"
+            className="add-images-btn group-hover:opacity-100 absolute bottom-3 left-3 px-3 py-1.5 bg-background/70 backdrop-blur-sm text-muted-foreground border-none rounded-md cursor-pointer text-xs opacity-0 transition-opacity duration-200"
           >
             + Add images
           </button>
@@ -676,22 +666,6 @@ function ImageGalleryBlockView({
           }}
         />
       )}
-
-      {/* CSS for hover effects */}
-      <style>{`
-        .gallery-container:hover .gallery-layout-controls {
-          opacity: 1 !important;
-        }
-        .gallery-container:hover .add-images-btn {
-          opacity: 1 !important;
-        }
-        .gallery-item {
-          position: relative;
-        }
-        .gallery-item:hover .remove-btn {
-          display: flex !important;
-        }
-      `}</style>
     </div>
   );
 }
@@ -750,7 +724,15 @@ function GalleryAddModal({
     setFile(selectedFile);
     setUploadError(null);
     const reader = new FileReader();
-    reader.onload = (e) => setPreview(e.target?.result as string);
+    reader.onload = (e) => {
+      if (e.target?.result) {
+        setPreview(e.target.result as string);
+      }
+    };
+    reader.onerror = () => {
+      setUploadError("Failed to read file");
+      setFile(null);
+    };
     reader.readAsDataURL(selectedFile);
     if (!uploadTitle) {
       const nameWithoutExt = selectedFile.name.replace(/\.[^/.]+$/, "");
@@ -822,14 +804,20 @@ function GalleryAddModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80">
+    <div 
+      className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
       <div className="w-full max-w-[600px] max-h-[80vh] bg-card border border-border rounded-xl overflow-hidden flex flex-col">
         <div className="p-4 border-b border-border">
           <div className="flex justify-between mb-3">
             <h3 className="m-0 text-foreground">Add images to gallery</h3>
             <button
               onClick={onClose}
-              className="bg-transparent border-none text-muted-foreground cursor-pointer text-lg"
+              aria-label="Close modal"
+              className="bg-transparent border-none text-muted-foreground cursor-pointer text-lg hover:text-foreground transition-colors"
             >
               ×
             </button>

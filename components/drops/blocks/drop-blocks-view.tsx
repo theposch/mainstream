@@ -102,7 +102,7 @@ export function DropBlocksView({
                   />
                 ) : (
                   <div className="w-12 h-12 rounded-full border-2 border-background bg-muted inline-flex items-center justify-center text-foreground text-sm font-medium">
-                    {contributor.display_name.charAt(0).toUpperCase()}
+                    {(contributor.display_name || contributor.username || 'U').charAt(0).toUpperCase()}
                   </div>
                 )}
               </div>
