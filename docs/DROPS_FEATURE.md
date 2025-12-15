@@ -14,15 +14,23 @@ A Drop is a curated collection of posts (design assets) organized into a newslet
 - **Blocks**: Content organized in a Notion-like block structure
 
 ### Drop Statuses
-- `draft` - Being edited, only visible to creator (deletable)
+- `draft` - Being edited, only visible to creator
 - `published` - Finalized and shareable, can be sent as email
 
-### Deleting Drafts
-Drafts can be deleted from two places:
-- **Drop Card** - Three-dot menu on draft cards in `/drops?tab=drafts`
-- **Drop Editor** - Three-dot menu in the editor header
+### Managing Drops
 
-Both use optimistic updates for instant UI feedback with rollback on error.
+**Draft Drops:**
+- Can be deleted from Drop Card (three-dot menu) or Drop Editor (more menu)
+- Auto-saves changes (title, description, blocks) with debounced saves
+- Shows "All changes saved" indicator in header
+
+**Published Drops:**
+- Can be **edited** - Changes require explicit "Update" button click (no auto-save)
+- Can be **unpublished** - Moves back to drafts, clears `published_at`
+- Can be **deleted** - Shows warning about breaking shared links
+- Edit/Unpublish/Delete available from More menu on published drop view page
+
+All operations use optimistic updates with rollback on error.
 
 ---
 
@@ -77,7 +85,22 @@ Dates are stored with explicit date components (YYYY-MM-DDT00:00:00Z) to avoid t
 
 **Location**: `app/drops/[id]/edit/drop-blocks-editor-client.tsx`
 
-A Notion-like editor with draggable blocks. The editor has a fixed structure:
+A Notion-like editor with draggable blocks.
+
+**Editor Header Features:**
+- **Sticky header** - Stays fixed below main navbar on scroll
+- **Translucent glass effect** - Matches main navbar styling
+- **Save status indicator** - Shows "All changes saved", "Saving...", "Save failed"
+- **Undo/Redo buttons** - With keyboard shortcuts (⌘Z / ⌘⇧Z)
+- **Preview toggle** - Switch between edit and preview modes
+- **Status badge** - Shows DRAFT or PUBLISHED status
+- **More menu** - Delete, Unpublish (published only)
+
+**Published Drop Warning:**
+When editing a published drop, a sticky warning banner appears:
+> "You're editing a published drop. Changes won't be visible until you click Update."
+
+The editor has a fixed structure:
 
 ```
 +-------------------------------------+
@@ -210,6 +233,44 @@ Group multiple images with two layout options.
 - Multi-select from existing posts
 - Upload new images directly with drag & drop
 - Toggle layout mode on hover (like Fit/Cover controls)
+
+---
+
+## Editor Features
+
+### Undo/Redo
+**Location**: `lib/hooks/use-undo-redo.ts`
+
+Full undo/redo support for all editor changes:
+- **Title changes** - Undo/redo title edits
+- **Description changes** - Including AI-generated descriptions
+- **Block operations** - Add, delete, reorder, edit content
+
+**Keyboard Shortcuts:**
+- `⌘Z` (Mac) / `Ctrl+Z` (Windows) - Undo
+- `⌘⇧Z` (Mac) / `Ctrl+Shift+Z` (Windows) - Redo
+
+**Note:** Shortcuts only work when NOT focused on text input fields (to allow native text undo).
+
+**Implementation Details:**
+- Groups rapid changes (like typing) into single history entries (300ms debounce)
+- Rollbacks from failed API calls skip history to avoid pollution
+- Tracks combined state: `{ title, description, blocks }`
+
+### Save Status Indicator
+Shows real-time save status in the header:
+- **"All changes saved"** - Everything synced to server
+- **"Editing..."** - Changes pending
+- **"Saving..."** - API call in progress
+- **"Saved"** - Just saved (briefly shown)
+- **"Save failed"** - Error occurred
+
+### Unsaved Changes Warning
+**Location**: `lib/hooks/use-unsaved-changes.ts`
+
+Browser warns before leaving page with unsaved changes:
+- For drafts: Warns if auto-save is pending
+- For published drops: Warns if there are unsaved changes
 
 ---
 
@@ -396,12 +457,15 @@ components/drops/blocks/
 ### Drop Components
 ```
 components/drops/
-  create-drop-dialog.tsx   # New drop creation with filters (DatePicker, StreamPicker, UserPicker)
-  drop-card.tsx            # Grid card preview with delete menu
-  drop-publish-dialog.tsx  # Publish confirmation
-  delete-drop-dialog.tsx   # Delete confirmation with error handling
-  drop-view.tsx            # Classic layout view
-  drops-grid.tsx           # Grid container
+  create-drop-dialog.tsx      # New drop creation with filters (DatePicker, StreamPicker, UserPicker)
+  drop-card.tsx               # Grid card preview with delete menu
+  drop-editor-header.tsx      # Editor header with save status, undo/redo, preview toggle (NEW)
+  drop-publish-dialog.tsx     # Publish confirmation
+  delete-drop-dialog.tsx      # Delete confirmation with error handling
+  unpublish-drop-dialog.tsx   # Unpublish confirmation (NEW)
+  published-drop-header.tsx   # Header for published drop view page (NEW)
+  drop-view.tsx               # Classic layout view
+  drops-grid.tsx              # Grid container
 ```
 
 ### Reusable UI Components (used in Create Drop)
@@ -460,4 +524,7 @@ Planned features not yet implemented:
 - Email recipient management
 - Drop templates
 - Analytics/tracking for sent emails
+- Rich text editing (bold, italic, links in text blocks)
+- Block duplication
+- Recipient preview before sending
 
