@@ -4,7 +4,7 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
-import { ArrowLeft, Sparkles, Loader2, Eye, Pencil, Mail, MoreHorizontal, Trash2 } from "lucide-react";
+import { ArrowLeft, Sparkles, Loader2, Eye, Pencil, Mail, MoreHorizontal, Trash2, Check, Cloud, AlertCircle, Undo2, Redo2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -15,6 +15,8 @@ import {
 import { BlockEditor, DropBlocksView } from "@/components/drops/blocks";
 import { DropPublishDialog } from "@/components/drops/drop-publish-dialog";
 import { DeleteDropDialog } from "@/components/drops/delete-drop-dialog";
+import { useUnsavedChanges } from "@/lib/hooks/use-unsaved-changes";
+import { useUndoRedo } from "@/lib/hooks/use-undo-redo";
 import type { Drop, DropBlock, Asset, User } from "@/lib/types/database";
 
 interface DropBlocksEditorClientProps {
@@ -31,15 +33,33 @@ export function DropBlocksEditorClient({
   availableAssets,
 }: DropBlocksEditorClientProps) {
   const router = useRouter();
-  const [blocks, setBlocks] = React.useState(initialBlocks);
+  
+  // Use undo/redo hook for blocks state management
+  const {
+    state: blocks,
+    setState: setBlocks,
+    undo,
+    redo,
+    canUndo,
+    canRedo,
+  } = useUndoRedo<DropBlock[]>(initialBlocks, { maxHistorySize: 50 });
+  
   const [contributors, setContributors] = React.useState(initialContributors);
   const [title, setTitle] = React.useState(drop.title);
   const [description, setDescription] = React.useState(drop.description || "");
-  const [isSaving, setIsSaving] = React.useState(false);
   const [isGenerating, setIsGenerating] = React.useState(false);
   const [publishDialogOpen, setPublishDialogOpen] = React.useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false);
   const [showPreview, setShowPreview] = React.useState(false);
+  
+  // Save status tracking: 'idle' | 'pending' | 'saving' | 'saved' | 'error'
+  type SaveStatus = 'idle' | 'pending' | 'saving' | 'saved' | 'error';
+  const [saveStatus, setSaveStatus] = React.useState<SaveStatus>('idle');
+  const savedTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
+
+  // Warn user about unsaved changes when navigating away
+  const hasPendingChanges = saveStatus === 'pending' || saveStatus === 'saving';
+  useUnsavedChanges(hasPendingChanges);
 
   // Handle successful deletion - redirect to drafts list
   const handleDeleted = React.useCallback(() => {
@@ -63,6 +83,7 @@ export function DropBlocksEditorClient({
   
   const handleTitleChange = (newTitle: string) => {
     setTitle(newTitle);
+    setSaveStatus('pending');
     
     if (titleSaveTimeoutRef.current) {
       clearTimeout(titleSaveTimeoutRef.current);
@@ -70,12 +91,15 @@ export function DropBlocksEditorClient({
     titleSaveTimeoutRef.current = setTimeout(() => {
       if (newTitle !== drop.title && newTitle.trim()) {
         saveField("title", newTitle);
+      } else {
+        setSaveStatus('idle');
       }
     }, 1000);
   };
 
   const handleDescriptionChange = (newDescription: string) => {
     setDescription(newDescription);
+    setSaveStatus('pending');
     
     if (descSaveTimeoutRef.current) {
       clearTimeout(descSaveTimeoutRef.current);
@@ -83,6 +107,8 @@ export function DropBlocksEditorClient({
     descSaveTimeoutRef.current = setTimeout(() => {
       if (newDescription !== drop.description) {
         saveField("description", newDescription);
+      } else {
+        setSaveStatus('idle');
       }
     }, 1000);
   };
@@ -110,17 +136,36 @@ export function DropBlocksEditorClient({
 
   // Save a field to the drop
   const saveField = async (field: string, value: string) => {
-    setIsSaving(true);
+    setSaveStatus('saving');
+    
+    // Clear any existing "saved" timeout
+    if (savedTimeoutRef.current) {
+      clearTimeout(savedTimeoutRef.current);
+    }
+    
     try {
-      await fetch(`/api/drops/${drop.id}`, {
+      const response = await fetch(`/api/drops/${drop.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ [field]: value }),
       });
+      
+      if (!response.ok) {
+        throw new Error(`Failed to save ${field}`);
+      }
+      
+      setSaveStatus('saved');
+      // After 2 seconds, go back to idle
+      savedTimeoutRef.current = setTimeout(() => {
+        setSaveStatus('idle');
+      }, 2000);
     } catch (error) {
       console.error(`Failed to save ${field}:`, error);
-    } finally {
-      setIsSaving(false);
+      setSaveStatus('error');
+      // After 3 seconds, reset to idle
+      savedTimeoutRef.current = setTimeout(() => {
+        setSaveStatus('idle');
+      }, 3000);
     }
   };
 
@@ -136,7 +181,25 @@ export function DropBlocksEditorClient({
       if (descSaveTimeoutRef.current) {
         clearTimeout(descSaveTimeoutRef.current);
       }
+      if (savedTimeoutRef.current) {
+        clearTimeout(savedTimeoutRef.current);
+      }
     };
+  }, []);
+
+  // Callback for BlockEditor to report save status
+  const handleBlockSaveStatus = React.useCallback((status: 'saving' | 'saved' | 'error') => {
+    setSaveStatus(status);
+    
+    if (savedTimeoutRef.current) {
+      clearTimeout(savedTimeoutRef.current);
+    }
+    
+    if (status === 'saved' || status === 'error') {
+      savedTimeoutRef.current = setTimeout(() => {
+        setSaveStatus('idle');
+      }, status === 'error' ? 3000 : 2000);
+    }
   }, []);
 
   return (
@@ -144,13 +207,69 @@ export function DropBlocksEditorClient({
       {/* Header */}
       <div className="sticky top-0 z-40 bg-background/80 backdrop-blur-xl border-b border-border">
         <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
-          <Link
-            href="/drops?tab=drafts"
-            className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            <span>Back</span>
-          </Link>
+          <div className="flex items-center gap-4">
+            <Link
+              href="/drops?tab=drafts"
+              className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              <span>Back</span>
+            </Link>
+            
+            {/* Save Status Indicator */}
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              {saveStatus === 'idle' && (
+                <>
+                  <Cloud className="h-3.5 w-3.5" />
+                  <span>All changes saved</span>
+                </>
+              )}
+              {saveStatus === 'pending' && (
+                <>
+                  <Cloud className="h-3.5 w-3.5" />
+                  <span>Editing...</span>
+                </>
+              )}
+              {saveStatus === 'saving' && (
+                <>
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  <span>Saving...</span>
+                </>
+              )}
+              {saveStatus === 'saved' && (
+                <>
+                  <Check className="h-3.5 w-3.5 text-green-500" />
+                  <span className="text-green-500">Saved</span>
+                </>
+              )}
+              {saveStatus === 'error' && (
+                <>
+                  <AlertCircle className="h-3.5 w-3.5 text-destructive" />
+                  <span className="text-destructive">Save failed</span>
+                </>
+              )}
+            </div>
+            
+            {/* Undo/Redo buttons */}
+            <div className="flex items-center gap-1 border-l border-border pl-3">
+              <button
+                onClick={undo}
+                disabled={!canUndo}
+                className="p-1.5 text-muted-foreground hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                title="Undo (⌘Z)"
+              >
+                <Undo2 className="h-4 w-4" />
+              </button>
+              <button
+                onClick={redo}
+                disabled={!canRedo}
+                className="p-1.5 text-muted-foreground hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                title="Redo (⌘⇧Z)"
+              >
+                <Redo2 className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
           
           <div className="flex items-center gap-3">
             <button
@@ -245,9 +364,6 @@ export function DropBlocksEditorClient({
                 {" – "}
                 {new Date(`${drop.date_range_end.substring(0, 10)}T12:00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
               </p>
-            )}
-            {isSaving && (
-              <p className="text-xs text-muted-foreground mt-2">Saving...</p>
             )}
           </div>
 
@@ -360,6 +476,7 @@ export function DropBlocksEditorClient({
             blocks={blocks}
             onBlocksChange={setBlocks}
             availableAssets={availableAssets}
+            onSaveStatus={handleBlockSaveStatus}
           />
 
           {/* Empty state */}

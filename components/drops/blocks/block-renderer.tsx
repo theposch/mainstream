@@ -535,7 +535,7 @@ function ImageGalleryBlockView({
             {images.slice(0, 4).map((img, index) => (
               <div
                 key={img.id}
-                className="gallery-item aspect-square rounded-lg overflow-hidden bg-muted relative"
+                className="gallery-item group/item aspect-square rounded-lg overflow-hidden bg-muted relative"
               >
                 <img
                   src={img.asset?.medium_url || img.asset?.url || img.asset?.thumbnail_url}
@@ -546,7 +546,7 @@ function ImageGalleryBlockView({
                   <button
                     onClick={() => onGalleryRemoveImage(img.asset_id)}
                     aria-label="Remove image"
-                    className="remove-btn absolute top-2 right-2 w-6 h-6 rounded-full bg-background/70 backdrop-blur-sm text-white border-none cursor-pointer hidden items-center justify-center text-sm hover:flex"
+                    className="remove-btn absolute top-2 right-2 w-6 h-6 rounded-full bg-background/70 backdrop-blur-sm text-white border-none cursor-pointer hidden group-hover/item:flex items-center justify-center text-sm"
                   >
                     ×
                   </button>
@@ -564,7 +564,7 @@ function ImageGalleryBlockView({
           <div className="flex flex-col gap-2">
             {featuredImage && (
               <div
-                className="gallery-item aspect-video rounded-xl overflow-hidden bg-muted relative cursor-pointer"
+                className="gallery-item group/featured aspect-video rounded-xl overflow-hidden bg-muted relative cursor-pointer"
                 onClick={() => isEditing && onGalleryFeaturedIndexChange && onGalleryFeaturedIndexChange(featuredIndex)}
               >
                 <img
@@ -579,7 +579,7 @@ function ImageGalleryBlockView({
                       onGalleryRemoveImage(featuredImage.asset_id);
                     }}
                     aria-label="Remove featured image"
-                    className="remove-btn absolute top-2 right-2 w-6 h-6 rounded-full bg-background/70 backdrop-blur-sm text-white border-none cursor-pointer hidden items-center justify-center text-sm hover:flex"
+                    className="remove-btn absolute top-2 right-2 w-6 h-6 rounded-full bg-background/70 backdrop-blur-sm text-white border-none cursor-pointer hidden group-hover/featured:flex items-center justify-center text-sm"
                   >
                     ×
                   </button>
@@ -593,7 +593,7 @@ function ImageGalleryBlockView({
                   return (
                     <div
                       key={img.id}
-                      className="gallery-item flex-1 aspect-square rounded-lg overflow-hidden bg-muted relative cursor-pointer"
+                      className="gallery-item group/thumb flex-1 aspect-square rounded-lg overflow-hidden bg-muted relative cursor-pointer"
                       onClick={() => isEditing && onGalleryFeaturedIndexChange && onGalleryFeaturedIndexChange(actualIndex)}
                     >
                       <img
@@ -608,7 +608,7 @@ function ImageGalleryBlockView({
                             onGalleryRemoveImage(img.asset_id);
                           }}
                           aria-label="Remove thumbnail image"
-                          className="remove-btn absolute top-1 right-1 w-5 h-5 rounded-full bg-background/70 backdrop-blur-sm text-white border-none cursor-pointer hidden items-center justify-center text-xs hover:flex"
+                          className="remove-btn absolute top-1 right-1 w-5 h-5 rounded-full bg-background/70 backdrop-blur-sm text-white border-none cursor-pointer hidden group-hover/thumb:flex items-center justify-center text-xs"
                         >
                           ×
                         </button>
