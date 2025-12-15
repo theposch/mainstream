@@ -1,15 +1,14 @@
 /**
  * Server-only environment validation
  * 
- * This file is imported in a server component to ensure
- * environment validation only runs on the server, avoiding
- * hydration mismatches.
+ * This file is imported by the root layout (a server component).
+ * The validation runs during server-side module evaluation, not client hydration.
+ * The window check is a safeguard against any edge cases.
  */
 
 import { validateEnvironment } from "@/lib/utils/env-validation";
 
-// Validate environment variables (server-side only)
-// This runs during server-side rendering, not during client hydration
+// Only validate on server (window is undefined on server)
 if (typeof window === 'undefined') {
   validateEnvironment();
 }

@@ -445,7 +445,7 @@ export function SearchSuggestions({
 
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [isOpen, selectedIndex, suggestions.length, onClose, handleSelectSuggestion]);
+  }, [isOpen, selectedIndex, suggestions, onClose, handleSelectSuggestion]);
 
   // Scroll selected item into view
   // Use data attribute to find correct element since DOM includes section headers
