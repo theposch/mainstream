@@ -27,6 +27,13 @@ interface DropBlocksEditorClientProps {
   availableAssets: Asset[];
 }
 
+// Combined editor state for undo/redo
+interface EditorState {
+  title: string;
+  description: string;
+  blocks: DropBlock[];
+}
+
 export function DropBlocksEditorClient({
   drop,
   initialBlocks,
@@ -35,19 +42,41 @@ export function DropBlocksEditorClient({
 }: DropBlocksEditorClientProps) {
   const router = useRouter();
   
-  // Use undo/redo hook for blocks state management
+  // Use undo/redo hook for ALL editor state (title, description, blocks)
   const {
-    state: blocks,
-    setState: setBlocks,
+    state: editorState,
+    setState: setEditorState,
     undo,
     redo,
     canUndo,
     canRedo,
-  } = useUndoRedo<DropBlock[]>(initialBlocks, { maxHistorySize: 50 });
+  } = useUndoRedo<EditorState>({
+    title: drop.title,
+    description: drop.description || "",
+    blocks: initialBlocks,
+  }, { maxHistorySize: 50 });
+  
+  // Destructure for convenience
+  const { title, description, blocks } = editorState;
+  
+  // Helper functions to update individual parts of editor state
+  // Using refs to avoid stale closures while still allowing undo/redo to work
+  const editorStateRef = React.useRef(editorState);
+  editorStateRef.current = editorState;
+  
+  const setTitle = React.useCallback((newTitle: string) => {
+    setEditorState({ ...editorStateRef.current, title: newTitle });
+  }, [setEditorState]);
+  
+  const setDescription = React.useCallback((newDescription: string) => {
+    setEditorState({ ...editorStateRef.current, description: newDescription });
+  }, [setEditorState]);
+  
+  const setBlocks = React.useCallback((newBlocks: DropBlock[]) => {
+    setEditorState({ ...editorStateRef.current, blocks: newBlocks });
+  }, [setEditorState]);
   
   const [contributors, setContributors] = React.useState(initialContributors);
-  const [title, setTitle] = React.useState(drop.title);
-  const [description, setDescription] = React.useState(drop.description || "");
   const [isGenerating, setIsGenerating] = React.useState(false);
   const [publishDialogOpen, setPublishDialogOpen] = React.useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false);
