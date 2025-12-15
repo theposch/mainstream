@@ -335,22 +335,11 @@ export const ElementCard = React.memo(
 
       {layout === 'detailed' && (
         <div className="flex flex-col gap-3 px-1">
-           <div className="flex items-start justify-between gap-3">
-             <Link href={`/e/${asset.id}`} onClick={handleCardClick} className="group/title min-w-0">
-                <h3 className="font-semibold text-lg leading-tight group-hover/title:underline decoration-1 underline-offset-2 truncate">
-                  {asset.title}
-                </h3>
-             </Link>
-             <LikeButton
-               isLiked={isLiked}
-               likeCount={likeCount}
-               onLike={handleLikeClick}
-               isLoading={loading}
-               variant="ghost"
-               size="sm"
-               className="shrink-0 -mr-1"
-             />
-           </div>
+           <Link href={`/e/${asset.id}`} onClick={handleCardClick} className="group/title min-w-0">
+              <h3 className="font-semibold text-lg leading-tight group-hover/title:underline decoration-1 underline-offset-2 truncate">
+                {asset.title}
+              </h3>
+           </Link>
            
            {asset.description && (
              <p className="text-sm text-muted-foreground line-clamp-2 leading-relaxed -mt-1">
