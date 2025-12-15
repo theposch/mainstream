@@ -89,6 +89,17 @@ export function DropBlocksEditorClient({
   const originalTitleRef = React.useRef(drop.title);
   const originalDescriptionRef = React.useRef(drop.description || "");
 
+  // Recalculate hasUnsavedChanges when title/description change (e.g., via undo/redo)
+  // This ensures the "Update" button and warning state stay in sync
+  React.useEffect(() => {
+    if (isPublished) {
+      const isDirty = title !== originalTitleRef.current || description !== originalDescriptionRef.current;
+      setHasUnsavedChanges(isDirty);
+      // Only update saveStatus if we're not currently saving
+      setSaveStatus(prev => prev === 'saving' ? prev : (isDirty ? 'pending' : 'idle'));
+    }
+  }, [title, description, isPublished]);
+
   // Warn user about unsaved changes when navigating away
   // For drafts: warn if auto-save is pending
   // For published: warn if there are unsaved changes
