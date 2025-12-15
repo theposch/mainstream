@@ -459,6 +459,7 @@ components/drops/blocks/
 components/drops/
   create-drop-dialog.tsx      # New drop creation with filters (DatePicker, StreamPicker, UserPicker)
   drop-card.tsx               # Grid card preview with delete menu
+  drop-editor-header.tsx      # Editor header with save status, undo/redo, preview toggle (NEW)
   drop-publish-dialog.tsx     # Publish confirmation
   delete-drop-dialog.tsx      # Delete confirmation with error handling
   unpublish-drop-dialog.tsx   # Unpublish confirmation (NEW)
