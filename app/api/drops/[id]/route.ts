@@ -164,11 +164,27 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     }
 
     const body = await request.json();
-    const { title, description } = body;
+    const { title, description, status } = body;
 
     const updates: Record<string, any> = {};
-    if (title !== undefined) updates.title = title.trim();
+    if (title !== undefined) updates.title = title?.trim() || null;
     if (description !== undefined) updates.description = description?.trim() || null;
+    
+    // Handle status change (for unpublishing)
+    if (status !== undefined) {
+      if (status !== 'draft' && status !== 'published') {
+        return NextResponse.json(
+          { error: "Invalid status. Must be 'draft' or 'published'" },
+          { status: 400 }
+        );
+      }
+      updates.status = status;
+      
+      // Clear published_at when reverting to draft
+      if (status === 'draft') {
+        updates.published_at = null;
+      }
+    }
 
     if (Object.keys(updates).length === 0) {
       return NextResponse.json(

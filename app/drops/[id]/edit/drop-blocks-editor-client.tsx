@@ -2,19 +2,15 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import Image from "next/image";
-import { ArrowLeft, Sparkles, Loader2, Eye, Pencil, Mail, MoreHorizontal, Trash2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { Sparkles, Loader2 } from "lucide-react";
 import { BlockEditor, DropBlocksView } from "@/components/drops/blocks";
+import { DropEditorHeader } from "@/components/drops/drop-editor-header";
 import { DropPublishDialog } from "@/components/drops/drop-publish-dialog";
 import { DeleteDropDialog } from "@/components/drops/delete-drop-dialog";
+import { UnpublishDropDialog } from "@/components/drops/unpublish-drop-dialog";
+import { useUnsavedChanges } from "@/lib/hooks/use-unsaved-changes";
+import { useUndoRedo } from "@/lib/hooks/use-undo-redo";
 import type { Drop, DropBlock, Asset, User } from "@/lib/types/database";
 
 interface DropBlocksEditorClientProps {
@@ -24,6 +20,13 @@ interface DropBlocksEditorClientProps {
   availableAssets: Asset[];
 }
 
+// Combined editor state for undo/redo
+interface EditorState {
+  title: string;
+  description: string;
+  blocks: DropBlock[];
+}
+
 export function DropBlocksEditorClient({
   drop,
   initialBlocks,
@@ -31,18 +34,85 @@ export function DropBlocksEditorClient({
   availableAssets,
 }: DropBlocksEditorClientProps) {
   const router = useRouter();
-  const [blocks, setBlocks] = React.useState(initialBlocks);
+  
+  // Use undo/redo hook for ALL editor state (title, description, blocks)
+  const {
+    state: editorState,
+    setState: setEditorState,
+    undo,
+    redo,
+    canUndo,
+    canRedo,
+  } = useUndoRedo<EditorState>({
+    title: drop.title,
+    description: drop.description || "",
+    blocks: initialBlocks,
+  }, { maxHistorySize: 50 });
+  
+  // Destructure for convenience
+  const { title, description, blocks } = editorState;
+  
+  // Helper functions to update individual parts of editor state
+  // Using refs to avoid stale closures while still allowing undo/redo to work
+  const editorStateRef = React.useRef(editorState);
+  editorStateRef.current = editorState;
+  
+  const setTitle = React.useCallback((newTitle: string, skipHistory = false) => {
+    setEditorState({ ...editorStateRef.current, title: newTitle }, skipHistory);
+  }, [setEditorState]);
+  
+  const setDescription = React.useCallback((newDescription: string, skipHistory = false) => {
+    setEditorState({ ...editorStateRef.current, description: newDescription }, skipHistory);
+  }, [setEditorState]);
+  
+  const setBlocks = React.useCallback((newBlocks: DropBlock[], skipHistory = false) => {
+    setEditorState({ ...editorStateRef.current, blocks: newBlocks }, skipHistory);
+  }, [setEditorState]);
+  
   const [contributors, setContributors] = React.useState(initialContributors);
-  const [title, setTitle] = React.useState(drop.title);
-  const [description, setDescription] = React.useState(drop.description || "");
-  const [isSaving, setIsSaving] = React.useState(false);
   const [isGenerating, setIsGenerating] = React.useState(false);
   const [publishDialogOpen, setPublishDialogOpen] = React.useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false);
+  const [unpublishDialogOpen, setUnpublishDialogOpen] = React.useState(false);
   const [showPreview, setShowPreview] = React.useState(false);
+  
+  // Track if the drop is published
+  const isPublished = drop.status === 'published';
+  
+  // Save status tracking: 'idle' | 'pending' | 'saving' | 'saved' | 'error'
+  type SaveStatus = 'idle' | 'pending' | 'saving' | 'saved' | 'error';
+  const [saveStatus, setSaveStatus] = React.useState<SaveStatus>('idle');
+  const savedTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
+
+  // Track dirty state for published drops (explicit save mode)
+  const [hasUnsavedChanges, setHasUnsavedChanges] = React.useState(false);
+  const originalTitleRef = React.useRef(drop.title);
+  const originalDescriptionRef = React.useRef(drop.description || "");
+
+  // Recalculate hasUnsavedChanges when title/description change (e.g., via undo/redo)
+  // This ensures the "Update" button and warning state stay in sync
+  React.useEffect(() => {
+    if (isPublished) {
+      const isDirty = title !== originalTitleRef.current || description !== originalDescriptionRef.current;
+      setHasUnsavedChanges(isDirty);
+      // Only update saveStatus if we're not currently saving
+      setSaveStatus(prev => prev === 'saving' ? prev : (isDirty ? 'pending' : 'idle'));
+    }
+  }, [title, description, isPublished]);
+
+  // Warn user about unsaved changes when navigating away
+  // For drafts: warn if auto-save is pending
+  // For published: warn if there are unsaved changes
+  const hasPendingChanges = saveStatus === 'pending' || saveStatus === 'saving';
+  useUnsavedChanges(hasPendingChanges || hasUnsavedChanges);
 
   // Handle successful deletion - redirect to drafts list
   const handleDeleted = React.useCallback(() => {
+    router.push("/drops?tab=drafts");
+  }, [router]);
+
+  // Handle successful unpublish - redirect to drafts list
+  const handleUnpublished = React.useCallback(() => {
     router.push("/drops?tab=drafts");
   }, [router]);
 
@@ -57,34 +127,108 @@ export function DropBlocksEditorClient({
     setContributors(Array.from(contributorMap.values()));
   }, [blocks]);
 
-  // Debounced saves
+  // Debounced saves (only for drafts)
   const titleSaveTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
   const descSaveTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
   
   const handleTitleChange = (newTitle: string) => {
     setTitle(newTitle);
     
-    if (titleSaveTimeoutRef.current) {
-      clearTimeout(titleSaveTimeoutRef.current);
-    }
-    titleSaveTimeoutRef.current = setTimeout(() => {
-      if (newTitle !== drop.title && newTitle.trim()) {
-        saveField("title", newTitle);
+    if (isPublished) {
+      // For published drops, just track changes - no auto-save
+      const isDirty = newTitle !== originalTitleRef.current || description !== originalDescriptionRef.current;
+      setHasUnsavedChanges(isDirty);
+      setSaveStatus(isDirty ? 'pending' : 'idle');
+    } else {
+      // For drafts, use auto-save
+      setSaveStatus('pending');
+      
+      if (titleSaveTimeoutRef.current) {
+        clearTimeout(titleSaveTimeoutRef.current);
       }
-    }, 1000);
+      titleSaveTimeoutRef.current = setTimeout(() => {
+        if (newTitle !== drop.title && newTitle.trim()) {
+          saveField("title", newTitle);
+        } else {
+          setSaveStatus('idle');
+        }
+      }, 1000);
+    }
   };
 
   const handleDescriptionChange = (newDescription: string) => {
     setDescription(newDescription);
     
-    if (descSaveTimeoutRef.current) {
-      clearTimeout(descSaveTimeoutRef.current);
-    }
-    descSaveTimeoutRef.current = setTimeout(() => {
-      if (newDescription !== drop.description) {
-        saveField("description", newDescription);
+    if (isPublished) {
+      // For published drops, just track changes - no auto-save
+      const isDirty = title !== originalTitleRef.current || newDescription !== originalDescriptionRef.current;
+      setHasUnsavedChanges(isDirty);
+      setSaveStatus(isDirty ? 'pending' : 'idle');
+    } else {
+      // For drafts, use auto-save
+      setSaveStatus('pending');
+      
+      if (descSaveTimeoutRef.current) {
+        clearTimeout(descSaveTimeoutRef.current);
       }
-    }, 1000);
+      descSaveTimeoutRef.current = setTimeout(() => {
+        if (newDescription !== drop.description) {
+          saveField("description", newDescription);
+        } else {
+          setSaveStatus('idle');
+        }
+      }, 1000);
+    }
+  };
+
+  // Save all changes at once (for published drops)
+  const handleUpdatePublished = async () => {
+    setSaveStatus('saving');
+    
+    try {
+      const updates: Record<string, string> = {};
+      if (title !== originalTitleRef.current) {
+        updates.title = title;
+      }
+      if (description !== originalDescriptionRef.current) {
+        updates.description = description;
+      }
+      
+      if (Object.keys(updates).length > 0) {
+        const response = await fetch(`/api/drops/${drop.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(updates),
+        });
+        
+        if (!response.ok) {
+          throw new Error("Failed to update drop");
+        }
+        
+        // Update refs to new values
+        originalTitleRef.current = title;
+        originalDescriptionRef.current = description;
+        
+        setHasUnsavedChanges(false);
+        setSaveStatus('saved');
+        
+        if (savedTimeoutRef.current) {
+          clearTimeout(savedTimeoutRef.current);
+        }
+        savedTimeoutRef.current = setTimeout(() => {
+          setSaveStatus('idle');
+        }, 2000);
+      } else {
+        // No changes to save - just reset status
+        setSaveStatus('idle');
+      }
+    } catch (error) {
+      console.error("Failed to update drop:", error);
+      setSaveStatus('error');
+      savedTimeoutRef.current = setTimeout(() => {
+        setSaveStatus('idle');
+      }, 3000);
+    }
   };
 
   // Generate AI description
@@ -110,17 +254,36 @@ export function DropBlocksEditorClient({
 
   // Save a field to the drop
   const saveField = async (field: string, value: string) => {
-    setIsSaving(true);
+    setSaveStatus('saving');
+    
+    // Clear any existing "saved" timeout
+    if (savedTimeoutRef.current) {
+      clearTimeout(savedTimeoutRef.current);
+    }
+    
     try {
-      await fetch(`/api/drops/${drop.id}`, {
+      const response = await fetch(`/api/drops/${drop.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ [field]: value }),
       });
+      
+      if (!response.ok) {
+        throw new Error(`Failed to save ${field}`);
+      }
+      
+      setSaveStatus('saved');
+      // After 2 seconds, go back to idle
+      savedTimeoutRef.current = setTimeout(() => {
+        setSaveStatus('idle');
+      }, 2000);
     } catch (error) {
       console.error(`Failed to save ${field}:`, error);
-    } finally {
-      setIsSaving(false);
+      setSaveStatus('error');
+      // After 3 seconds, reset to idle
+      savedTimeoutRef.current = setTimeout(() => {
+        setSaveStatus('idle');
+      }, 3000);
     }
   };
 
@@ -136,82 +299,46 @@ export function DropBlocksEditorClient({
       if (descSaveTimeoutRef.current) {
         clearTimeout(descSaveTimeoutRef.current);
       }
+      if (savedTimeoutRef.current) {
+        clearTimeout(savedTimeoutRef.current);
+      }
     };
+  }, []);
+
+  // Callback for BlockEditor to report save status
+  const handleBlockSaveStatus = React.useCallback((status: 'saving' | 'saved' | 'error') => {
+    setSaveStatus(status);
+    
+    if (savedTimeoutRef.current) {
+      clearTimeout(savedTimeoutRef.current);
+    }
+    
+    if (status === 'saved' || status === 'error') {
+      savedTimeoutRef.current = setTimeout(() => {
+        setSaveStatus('idle');
+      }, status === 'error' ? 3000 : 2000);
+    }
   }, []);
 
   return (
     <div className="min-h-screen pb-20">
-      {/* Header */}
-      <div className="sticky top-0 z-40 bg-background/80 backdrop-blur-xl border-b border-border">
-        <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
-          <Link
-            href="/drops?tab=drafts"
-            className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            <span>Back</span>
-          </Link>
-          
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => setShowPreview(!showPreview)}
-              className={`flex items-center gap-2 px-3 py-1.5 text-sm rounded-lg transition-colors ${
-                showPreview 
-                  ? "bg-violet-500/20 text-violet-400" 
-                  : "text-muted-foreground hover:text-foreground hover:bg-accent"
-              }`}
-            >
-              {showPreview ? (
-                <>
-                  <Pencil className="h-4 w-4" />
-                  Edit
-                </>
-              ) : (
-                <>
-                  <Eye className="h-4 w-4" />
-                  Preview
-                </>
-              )}
-            </button>
-            <button
-              onClick={() => window.open(`/api/drops/${drop.id}/email-preview`, '_blank')}
-              className="flex items-center gap-2 px-3 py-1.5 text-sm rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
-              title="Preview as email"
-            >
-              <Mail className="h-4 w-4" />
-              Email
-            </button>
-            <span className="px-2.5 py-1 text-xs font-medium bg-amber-500/20 text-amber-400 rounded">
-              DRAFT
-            </span>
-            <Button
-              onClick={() => setPublishDialogOpen(true)}
-              disabled={postCount === 0}
-            >
-              Publish
-            </Button>
-            
-            {/* More options menu */}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-9 w-9">
-                  <MoreHorizontal className="h-4 w-4" />
-                  <span className="sr-only">More options</span>
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem
-                  onClick={() => setDeleteDialogOpen(true)}
-                  className="text-destructive focus:text-destructive"
-                >
-                  <Trash2 className="mr-2 h-4 w-4" />
-                  Delete Draft
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-        </div>
-      </div>
+      <DropEditorHeader
+        dropId={drop.id}
+        isPublished={isPublished}
+        showPreview={showPreview}
+        onTogglePreview={() => setShowPreview(!showPreview)}
+        saveStatus={saveStatus}
+        canUndo={canUndo}
+        canRedo={canRedo}
+        onUndo={undo}
+        onRedo={redo}
+        hasUnsavedChanges={hasUnsavedChanges}
+        postCount={postCount}
+        onPublish={() => setPublishDialogOpen(true)}
+        onUpdate={handleUpdatePublished}
+        onUnpublish={() => setUnpublishDialogOpen(true)}
+        onDelete={() => setDeleteDialogOpen(true)}
+      />
 
       {showPreview ? (
         /* Preview mode */
@@ -245,9 +372,6 @@ export function DropBlocksEditorClient({
                 {" – "}
                 {new Date(`${drop.date_range_end.substring(0, 10)}T12:00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
               </p>
-            )}
-            {isSaving && (
-              <p className="text-xs text-muted-foreground mt-2">Saving...</p>
             )}
           </div>
 
@@ -360,6 +484,7 @@ export function DropBlocksEditorClient({
             blocks={blocks}
             onBlocksChange={setBlocks}
             availableAssets={availableAssets}
+            onSaveStatus={handleBlockSaveStatus}
           />
 
           {/* Empty state */}
@@ -386,7 +511,17 @@ export function DropBlocksEditorClient({
         onOpenChange={setDeleteDialogOpen}
         dropId={drop.id}
         dropTitle={title}
+        dropStatus={drop.status as 'draft' | 'published'}
         onDeleted={handleDeleted}
+      />
+
+      {/* Unpublish confirmation dialog */}
+      <UnpublishDropDialog
+        open={unpublishDialogOpen}
+        onOpenChange={setUnpublishDialogOpen}
+        dropId={drop.id}
+        dropTitle={title}
+        onUnpublished={handleUnpublished}
       />
     </div>
   );
