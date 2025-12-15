@@ -444,7 +444,7 @@ export function DropBlocksEditorClient({
 
       {/* Warning banner for published drops */}
       {isPublished && !showPreview && (
-        <div className="bg-amber-500/10 border-b border-amber-500/20 px-4 py-2">
+        <div className="sticky top-[6.5rem] z-30 bg-amber-500/10 backdrop-blur-xl supports-[backdrop-filter]:bg-amber-500/5 border-b border-amber-500/20 -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 py-2">
           <div className="max-w-[1920px] mx-auto flex items-center justify-center gap-2 text-sm text-amber-400">
             <AlertCircle className="h-4 w-4" />
             <span>You&apos;re editing a published drop. Changes won&apos;t be visible until you click Update.</span>
