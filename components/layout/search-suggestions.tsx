@@ -372,9 +372,10 @@ export function SearchSuggestions({
   }, [query, results, recentSearches]);
 
   // Reset selected index when suggestions change
+  // Using suggestions array (not just length) to handle content changes with same count
   React.useEffect(() => {
     setSelectedIndex(-1);
-  }, [suggestions.length, query]);
+  }, [suggestions]);
 
   // Handle suggestion selection
   const handleSelectSuggestion = React.useCallback((suggestion: typeof suggestions[0]) => {
