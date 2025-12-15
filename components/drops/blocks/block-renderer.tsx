@@ -942,7 +942,8 @@ function GalleryAddModal({
                     />
                     <button
                       onClick={clearUpload}
-                      className="absolute top-2 right-2 w-7 h-7 rounded-full bg-black/60 border-none text-white cursor-pointer flex items-center justify-center"
+                      aria-label="Clear preview"
+                      className="absolute top-2 right-2 w-7 h-7 rounded-full bg-background/60 backdrop-blur-sm border-none text-foreground cursor-pointer flex items-center justify-center hover:bg-background/80 transition-colors"
                     >
                       ×
                     </button>
