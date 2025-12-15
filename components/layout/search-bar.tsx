@@ -34,23 +34,16 @@ export function SearchBar() {
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setQuery(e.target.value);
-    if (e.target.value.trim()) {
-      setShowSuggestions(true);
-    } else {
-      // Close suggestions if query is empty
-      setShowSuggestions(false);
-    }
+    // Always show suggestions - SearchSuggestions will handle showing
+    // recent searches (when empty) or search results (when has text)
+    setShowSuggestions(true);
   };
 
   const handleFocus = () => {
     setIsInputFocused(true);
-    // Only show suggestions if there's already text in the query
-    if (query.trim()) {
-      setShowSuggestions(true);
-    } else {
-      // Explicitly hide suggestions when focusing with empty query
-      setShowSuggestions(false);
-    }
+    // Show suggestions when focusing - SearchSuggestions will show recent searches
+    // when query is empty, or search results when query has text
+    setShowSuggestions(true);
   };
 
   const handleBlur = () => {
