@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import { DropView } from "@/components/drops/drop-view";
 import { DropBlocksView } from "@/components/drops/blocks/drop-blocks-view";
+import { PublishedDropHeader } from "@/components/drops/published-drop-header";
 
 interface DropPageProps {
   params: Promise<{ id: string }>;
@@ -34,6 +35,9 @@ export default async function DropPage({ params }: DropPageProps) {
     }
     notFound();
   }
+
+  // Check if current user is the owner
+  const isOwner = user?.id === drop.created_by;
 
   // Check if drop uses blocks or legacy posts
   if (drop.use_blocks) {
@@ -72,16 +76,21 @@ export default async function DropPage({ params }: DropPageProps) {
     const contributors = Array.from(contributorMap.values());
 
     return (
-      <div className="max-w-3xl mx-auto py-10">
-        <DropBlocksView
-          title={drop.title}
-          description={drop.description}
-          blocks={blocks || []}
-          contributors={contributors}
-          dateRangeStart={drop.date_range_start}
-          dateRangeEnd={drop.date_range_end}
-        />
-      </div>
+      <>
+        {isOwner && (
+          <PublishedDropHeader dropId={drop.id} dropTitle={drop.title} />
+        )}
+        <div className="max-w-3xl mx-auto py-10 px-4">
+          <DropBlocksView
+            title={drop.title}
+            description={drop.description}
+            blocks={blocks || []}
+            contributors={contributors}
+            dateRangeStart={drop.date_range_start}
+            dateRangeEnd={drop.date_range_end}
+          />
+        </div>
+      </>
     );
   }
 
@@ -156,16 +165,21 @@ export default async function DropPage({ params }: DropPageProps) {
   const contributors = Array.from(contributorMap.values());
 
   return (
-    <div className="max-w-3xl mx-auto py-10">
-      <DropView
-        title={drop.title}
-        description={drop.description}
-        dateRangeStart={drop.date_range_start}
-        dateRangeEnd={drop.date_range_end}
-        posts={enrichedPosts}
-        contributors={contributors}
-      />
-    </div>
+    <>
+      {isOwner && (
+        <PublishedDropHeader dropId={drop.id} dropTitle={drop.title} />
+      )}
+      <div className="max-w-3xl mx-auto py-10 px-4">
+        <DropView
+          title={drop.title}
+          description={drop.description}
+          dateRangeStart={drop.date_range_start}
+          dateRangeEnd={drop.date_range_end}
+          posts={enrichedPosts}
+          contributors={contributors}
+        />
+      </div>
+    </>
   );
 }
 
