@@ -221,7 +221,7 @@ function DisplayModeControls({
   const currentMode = getEffectiveDisplayMode(block);
   
   return (
-    <div className="absolute bottom-3 right-3 flex gap-1 opacity-0 transition-opacity duration-200 z-10">
+    <div className="absolute bottom-3 right-3 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10">
       <button
         onClick={(e) => {
           e.preventDefault();
@@ -300,12 +300,10 @@ function PostBlockView({ block, isEditing, onDisplayModeChange, onCropPositionCh
           </Link>
         )}
         {isEditing && onDisplayModeChange && (
-          <div className="display-mode-controls group-hover:opacity-100">
-            <DisplayModeControls 
-              block={block} 
-              onModeChange={onDisplayModeChange} 
-            />
-          </div>
+          <DisplayModeControls 
+            block={block} 
+            onModeChange={onDisplayModeChange} 
+          />
         )}
         {/* Drag hint */}
         {isEditing && !isFitMode && onCropPositionChange && (
@@ -380,12 +378,10 @@ function FeaturedPostBlockView({ block, isEditing, onDisplayModeChange, onCropPo
           </Link>
         )}
         {isEditing && onDisplayModeChange && (
-          <div className="display-mode-controls group-hover:opacity-100">
-            <DisplayModeControls 
-              block={block} 
-              onModeChange={onDisplayModeChange} 
-            />
-          </div>
+          <DisplayModeControls 
+            block={block} 
+            onModeChange={onDisplayModeChange} 
+          />
         )}
         {/* Drag hint */}
         {isEditing && !isFitMode && onCropPositionChange && (
@@ -429,7 +425,7 @@ function GalleryLayoutControls({
   onLayoutChange: (layout: GalleryLayout) => void;
 }) {
   return (
-    <div className="absolute top-3 right-3 flex gap-1 opacity-0 transition-opacity duration-200 z-10">
+    <div className="absolute top-3 right-3 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10">
       <button
         onClick={(e) => {
           e.preventDefault();
@@ -630,12 +626,10 @@ function ImageGalleryBlockView({
 
         {/* Layout toggle controls */}
         {isEditing && onGalleryLayoutChange && (
-          <div className="gallery-layout-controls group-hover:opacity-100">
-            <GalleryLayoutControls
-              layout={layout}
-              onLayoutChange={onGalleryLayoutChange}
-            />
-          </div>
+          <GalleryLayoutControls
+            layout={layout}
+            onLayoutChange={onGalleryLayoutChange}
+          />
         )}
 
         {/* Add more images button */}
