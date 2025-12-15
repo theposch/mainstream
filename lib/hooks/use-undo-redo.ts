@@ -27,6 +27,7 @@ interface HistoryState<T> {
 /**
  * Hook to manage undo/redo functionality for any state.
  * Uses a single state object to avoid race conditions.
+ * Groups rapid changes (like typing) into single history entries.
  */
 export function useUndoRedo<T>(
   initialState: T,
@@ -45,6 +46,10 @@ export function useUndoRedo<T>(
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
   // Track if we're in undo/redo to skip adding to history
   const isUndoRedoRef = useRef(false);
+  // Track if we're in a change "burst" (rapid successive changes)
+  const inBurstRef = useRef(false);
+  // Capture the state at the START of a burst (the "before" state)
+  const burstStartStateRef = useRef<T | null>(null);
 
   const canUndo = history.past.length > 0;
   const canRedo = history.future.length > 0;
@@ -63,23 +68,41 @@ export function useUndoRedo<T>(
       return;
     }
 
-    // Immediately update present for responsive UI
-    setHistory(prev => ({ ...prev, present: newState }));
+    // Check if this is the start of a new burst (BEFORE async setHistory)
+    const isNewBurst = !inBurstRef.current;
+    if (isNewBurst) {
+      inBurstRef.current = true;
+    }
+
+    // Update present immediately for responsive UI
+    // Also capture the "before" state on first change of a burst
+    setHistory(prev => {
+      if (isNewBurst) {
+        burstStartStateRef.current = prev.present;
+      }
+      return { ...prev, present: newState };
+    });
 
     // Debounce adding to history (groups rapid changes like typing)
     debounceTimerRef.current = setTimeout(() => {
-      setHistory(prev => {
-        // Add current state to history
-        const newPast = [...prev.past, prev.present];
-        
-        return {
-          past: newPast.length > maxHistorySize 
-            ? newPast.slice(newPast.length - maxHistorySize) 
-            : newPast,
-          present: newState,
-          future: [], // Clear redo stack on new change
-        };
-      });
+      const stateBeforeChanges = burstStartStateRef.current;
+      
+      // Reset burst tracking
+      inBurstRef.current = false;
+      burstStartStateRef.current = null;
+      
+      if (stateBeforeChanges !== null) {
+        setHistory(prev => {
+          const newPast = [...prev.past, stateBeforeChanges];
+          return {
+            past: newPast.length > maxHistorySize 
+              ? newPast.slice(newPast.length - maxHistorySize) 
+              : newPast,
+            present: prev.present,
+            future: [], // Clear redo stack on new change
+          };
+        });
+      }
     }, debounceMs);
   }, [maxHistorySize, debounceMs]);
 
@@ -90,19 +113,37 @@ export function useUndoRedo<T>(
       clearTimeout(debounceTimerRef.current);
       debounceTimerRef.current = null;
     }
+    
+    // If we're in a burst, we need to save the burst start state first
+    // so the user can redo back to current state
+    const hadPendingBurst = inBurstRef.current && burstStartStateRef.current !== null;
+    
+    // Reset burst tracking
+    inBurstRef.current = false;
+    const burstStartState = burstStartStateRef.current;
+    burstStartStateRef.current = null;
 
     isUndoRedoRef.current = true;
     
     setHistory(prev => {
-      if (prev.past.length === 0) return prev;
+      // If there was a pending burst, save it to history first
+      let currentPast = prev.past;
+      let currentPresent = prev.present;
       
-      const newPast = [...prev.past];
+      if (hadPendingBurst && burstStartState !== null) {
+        // Add the burst start state to past, then undo from current
+        currentPast = [...prev.past, burstStartState];
+      }
+      
+      if (currentPast.length === 0) return prev;
+      
+      const newPast = [...currentPast];
       const previous = newPast.pop()!;
       
       return {
         past: newPast,
         present: previous,
-        future: [prev.present, ...prev.future],
+        future: [currentPresent, ...prev.future],
       };
     });
 
@@ -119,6 +160,10 @@ export function useUndoRedo<T>(
       clearTimeout(debounceTimerRef.current);
       debounceTimerRef.current = null;
     }
+    
+    // Reset burst tracking
+    inBurstRef.current = false;
+    burstStartStateRef.current = null;
 
     isUndoRedoRef.current = true;
     
@@ -142,6 +187,8 @@ export function useUndoRedo<T>(
 
   // Clear all history
   const clearHistory = useCallback(() => {
+    inBurstRef.current = false;
+    burstStartStateRef.current = null;
     setHistory(prev => ({
       past: [],
       present: prev.present,
