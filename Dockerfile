@@ -57,8 +57,9 @@ COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
 
 # Create uploads directory with correct permissions
+# chown entire public directory so nextjs user can write to uploads
 RUN mkdir -p ./public/uploads/full ./public/uploads/medium ./public/uploads/thumbnails
-RUN chown -R nextjs:nodejs ./public/uploads
+RUN chown -R nextjs:nodejs ./public
 
 # Switch to non-root user
 USER nextjs
