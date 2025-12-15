@@ -11,6 +11,7 @@ interface BlockEditorProps {
   blocks: DropBlock[];
   onBlocksChange: (blocks: DropBlock[]) => void;
   availableAssets?: Asset[];
+  onSaveStatus?: (status: 'saving' | 'saved' | 'error') => void;
 }
 
 // Block type options for the add menu
@@ -29,7 +30,7 @@ const BLOCK_TYPES: Array<{
   { type: "image_gallery", label: "Image Gallery", icon: <Images className="h-4 w-4" />, description: "Grid or featured layout" },
 ];
 
-export function BlockEditor({ dropId, blocks, onBlocksChange, availableAssets = [] }: BlockEditorProps) {
+export function BlockEditor({ dropId, blocks, onBlocksChange, availableAssets = [], onSaveStatus }: BlockEditorProps) {
   const [showAddMenu, setShowAddMenu] = React.useState<number | null>(null);
   const [showAssetPicker, setShowAssetPicker] = React.useState<{ position: number; type: DropBlockType; multiSelect?: boolean } | null>(null);
   const [draggedIndex, setDraggedIndex] = React.useState<number | null>(null);
@@ -92,6 +93,9 @@ export function BlockEditor({ dropId, blocks, onBlocksChange, availableAssets = 
 
   // Update block content (debounced)
   const handleContentChange = (blockId: string, content: string) => {
+    // Store previous state for rollback
+    const previousBlocks = [...blocks];
+    
     // Optimistic update
     const newBlocks = blocks.map((b) =>
       b.id === blockId ? { ...b, content } : b
@@ -103,112 +107,164 @@ export function BlockEditor({ dropId, blocks, onBlocksChange, availableAssets = 
       clearTimeout(saveTimeoutRef.current);
     }
     saveTimeoutRef.current = setTimeout(async () => {
+      onSaveStatus?.('saving');
       try {
-        await fetch(`/api/drops/${dropId}/blocks/${blockId}`, {
+        const response = await fetch(`/api/drops/${dropId}/blocks/${blockId}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ content }),
         });
+        if (!response.ok) throw new Error('Failed to save');
+        onSaveStatus?.('saved');
       } catch (error) {
         console.error("Failed to save block:", error);
+        // Rollback on error
+        onBlocksChange(previousBlocks);
+        onSaveStatus?.('error');
       }
     }, 500);
   };
 
   // Delete a block
   const handleDeleteBlock = async (blockId: string) => {
+    // Store previous state for rollback
+    const previousBlocks = [...blocks];
+    
     // Optimistic update
     const newBlocks = blocks.filter((b) => b.id !== blockId);
     newBlocks.forEach((b, i) => (b.position = i));
     onBlocksChange(newBlocks);
 
+    onSaveStatus?.('saving');
     try {
-      await fetch(`/api/drops/${dropId}/blocks/${blockId}`, {
+      const response = await fetch(`/api/drops/${dropId}/blocks/${blockId}`, {
         method: "DELETE",
       });
+      if (!response.ok) throw new Error('Failed to delete');
+      onSaveStatus?.('saved');
     } catch (error) {
       console.error("Failed to delete block:", error);
+      // Rollback on error
+      onBlocksChange(previousBlocks);
+      onSaveStatus?.('error');
     }
   };
 
   // Update display mode for a block
   const handleDisplayModeChange = async (blockId: string, mode: "auto" | "fit" | "cover") => {
+    // Store previous state for rollback
+    const previousBlocks = [...blocks];
+    
     // Optimistic update
     const newBlocks = blocks.map((b) =>
       b.id === blockId ? { ...b, display_mode: mode } : b
     );
     onBlocksChange(newBlocks);
 
+    onSaveStatus?.('saving');
     try {
-      await fetch(`/api/drops/${dropId}/blocks/${blockId}`, {
+      const response = await fetch(`/api/drops/${dropId}/blocks/${blockId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ display_mode: mode }),
       });
+      if (!response.ok) throw new Error('Failed to update');
+      onSaveStatus?.('saved');
     } catch (error) {
       console.error("Failed to update display mode:", error);
+      // Rollback on error
+      onBlocksChange(previousBlocks);
+      onSaveStatus?.('error');
     }
   };
 
   // Update crop position for a block
   const handleCropPositionChange = async (blockId: string, x: number, y: number) => {
+    // Store previous state for rollback
+    const previousBlocks = [...blocks];
+    
     // Optimistic update
     const newBlocks = blocks.map((b) =>
       b.id === blockId ? { ...b, crop_position_x: x, crop_position_y: y } : b
     );
     onBlocksChange(newBlocks);
 
+    onSaveStatus?.('saving');
     try {
-      await fetch(`/api/drops/${dropId}/blocks/${blockId}`, {
+      const response = await fetch(`/api/drops/${dropId}/blocks/${blockId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ crop_position_x: x, crop_position_y: y }),
       });
+      if (!response.ok) throw new Error('Failed to update');
+      onSaveStatus?.('saved');
     } catch (error) {
       console.error("Failed to update crop position:", error);
+      // Rollback on error
+      onBlocksChange(previousBlocks);
+      onSaveStatus?.('error');
     }
   };
 
   // Update gallery layout for a block
   const handleGalleryLayoutChange = async (blockId: string, layout: GalleryLayout) => {
+    // Store previous state for rollback
+    const previousBlocks = [...blocks];
+    
     // Optimistic update
     const newBlocks = blocks.map((b) =>
       b.id === blockId ? { ...b, gallery_layout: layout } : b
     );
     onBlocksChange(newBlocks);
 
+    onSaveStatus?.('saving');
     try {
-      await fetch(`/api/drops/${dropId}/blocks/${blockId}`, {
+      const response = await fetch(`/api/drops/${dropId}/blocks/${blockId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ gallery_layout: layout }),
       });
+      if (!response.ok) throw new Error('Failed to update');
+      onSaveStatus?.('saved');
     } catch (error) {
       console.error("Failed to update gallery layout:", error);
+      // Rollback on error
+      onBlocksChange(previousBlocks);
+      onSaveStatus?.('error');
     }
   };
 
   // Update gallery featured index
   const handleGalleryFeaturedIndexChange = async (blockId: string, index: number) => {
+    // Store previous state for rollback
+    const previousBlocks = [...blocks];
+    
     // Optimistic update
     const newBlocks = blocks.map((b) =>
       b.id === blockId ? { ...b, gallery_featured_index: index } : b
     );
     onBlocksChange(newBlocks);
 
+    onSaveStatus?.('saving');
     try {
-      await fetch(`/api/drops/${dropId}/blocks/${blockId}`, {
+      const response = await fetch(`/api/drops/${dropId}/blocks/${blockId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ gallery_featured_index: index }),
       });
+      if (!response.ok) throw new Error('Failed to update');
+      onSaveStatus?.('saved');
     } catch (error) {
       console.error("Failed to update featured index:", error);
+      // Rollback on error
+      onBlocksChange(previousBlocks);
+      onSaveStatus?.('error');
     }
   };
 
   // Add images to gallery
   const handleGalleryAddImages = async (blockId: string, assetIds: string[]) => {
+    onSaveStatus?.('saving');
     try {
       const response = await fetch(`/api/drops/${dropId}/blocks/${blockId}/gallery`, {
         method: "POST",
@@ -223,14 +279,21 @@ export function BlockEditor({ dropId, blocks, onBlocksChange, availableAssets = 
           b.id === blockId ? { ...b, gallery_images: [...(b.gallery_images || []), ...images] } : b
         );
         onBlocksChange(newBlocks);
+        onSaveStatus?.('saved');
+      } else {
+        throw new Error('Failed to add images');
       }
     } catch (error) {
       console.error("Failed to add images to gallery:", error);
+      onSaveStatus?.('error');
     }
   };
 
   // Remove image from gallery
   const handleGalleryRemoveImage = async (blockId: string, assetId: string) => {
+    // Store previous state for rollback
+    const previousBlocks = [...blocks];
+    
     // Optimistic update
     const newBlocks = blocks.map((b) =>
       b.id === blockId
@@ -239,12 +302,18 @@ export function BlockEditor({ dropId, blocks, onBlocksChange, availableAssets = 
     );
     onBlocksChange(newBlocks);
 
+    onSaveStatus?.('saving');
     try {
-      await fetch(`/api/drops/${dropId}/blocks/${blockId}/gallery?asset_id=${assetId}`, {
+      const response = await fetch(`/api/drops/${dropId}/blocks/${blockId}/gallery?asset_id=${assetId}`, {
         method: "DELETE",
       });
+      if (!response.ok) throw new Error('Failed to remove');
+      onSaveStatus?.('saved');
     } catch (error) {
       console.error("Failed to remove image from gallery:", error);
+      // Rollback on error
+      onBlocksChange(previousBlocks);
+      onSaveStatus?.('error');
     }
   };
 
@@ -263,6 +332,9 @@ export function BlockEditor({ dropId, blocks, onBlocksChange, availableAssets = 
 
   const handleDragEnd = async () => {
     if (draggedIndex !== null && dragOverIndex !== null && draggedIndex !== dragOverIndex) {
+      // Store previous state for rollback
+      const previousBlocks = [...blocks];
+      
       const newBlocks = [...blocks];
       const [draggedBlock] = newBlocks.splice(draggedIndex, 1);
       newBlocks.splice(dragOverIndex, 0, draggedBlock);
@@ -270,14 +342,20 @@ export function BlockEditor({ dropId, blocks, onBlocksChange, availableAssets = 
       onBlocksChange(newBlocks);
 
       // Save new order
+      onSaveStatus?.('saving');
       try {
-        await fetch(`/api/drops/${dropId}/blocks`, {
+        const response = await fetch(`/api/drops/${dropId}/blocks`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ block_ids: newBlocks.map((b) => b.id) }),
         });
+        if (!response.ok) throw new Error('Failed to reorder');
+        onSaveStatus?.('saved');
       } catch (error) {
         console.error("Failed to reorder blocks:", error);
+        // Rollback on error
+        onBlocksChange(previousBlocks);
+        onSaveStatus?.('error');
       }
     }
     setDraggedIndex(null);
@@ -508,6 +586,11 @@ function AssetPickerModal({
   const [search, setSearch] = React.useState("");
   const [selectedIds, setSelectedIds] = React.useState<string[]>([]);
   
+  // Show all assets toggle
+  const [showAllAssets, setShowAllAssets] = React.useState(false);
+  const [allAssets, setAllAssets] = React.useState<Asset[]>([]);
+  const [isLoadingAllAssets, setIsLoadingAllAssets] = React.useState(false);
+  
   // Upload state
   const [file, setFile] = React.useState<File | null>(null);
   const [preview, setPreview] = React.useState<string | null>(null);
@@ -517,7 +600,30 @@ function AssetPickerModal({
   const [isDragging, setIsDragging] = React.useState(false);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
-  const filteredAssets = assets.filter((asset) =>
+  // Fetch all assets when toggle is enabled
+  React.useEffect(() => {
+    if (showAllAssets && allAssets.length === 0) {
+      setIsLoadingAllAssets(true);
+      fetch('/api/assets?limit=100')
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.assets) {
+            setAllAssets(data.assets);
+          }
+        })
+        .catch((err) => {
+          console.error('Failed to fetch all assets:', err);
+        })
+        .finally(() => {
+          setIsLoadingAllAssets(false);
+        });
+    }
+  }, [showAllAssets, allAssets.length]);
+
+  // Use either all assets or date-range assets based on toggle
+  const displayAssets = showAllAssets ? allAssets : assets;
+  
+  const filteredAssets = displayAssets.filter((asset) =>
     asset.title.toLowerCase().includes(search.toLowerCase())
   );
 
@@ -674,6 +780,20 @@ function AssetPickerModal({
                 placeholder="Search posts..."
                 className="w-full px-4 py-2 bg-muted border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-ring"
               />
+              <div className="flex items-center justify-between mt-3">
+                <label className="flex items-center gap-2 text-sm text-muted-foreground cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={showAllAssets}
+                    onChange={(e) => setShowAllAssets(e.target.checked)}
+                    className="w-4 h-4 rounded border-border bg-muted accent-violet-500"
+                  />
+                  Show all posts (not just from date range)
+                </label>
+                {isLoadingAllAssets && (
+                  <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                )}
+              </div>
               {multiSelect && selectedIds.length > 0 && (
                 <p className="text-sm text-violet-400 mt-2">{selectedIds.length} images selected</p>
               )}
