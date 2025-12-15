@@ -2,20 +2,11 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { Clock, Search, Image as ImageIcon, Hash, Users, X, Sparkles } from "lucide-react";
+import { Clock, Search, Image as ImageIcon, Hash, Users, X, TrendingUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Avatar } from "@/components/ui/avatar";
 import { SEARCH_CONSTANTS } from "@/lib/constants/search";
 import type { Asset, Stream, User } from "@/lib/types/database";
-
-// Suggested searches for empty state
-const SUGGESTED_SEARCHES = [
-  "brand design",
-  "product photography", 
-  "UI components",
-  "illustrations",
-  "marketing assets",
-];
 
 // Suggestion item type
 type SuggestionItem = {
@@ -247,6 +238,29 @@ export function SearchSuggestions({
   } | null>(null);
   const [isLoading, setIsLoading] = React.useState(false);
 
+  // Popular streams for empty state suggestions
+  const [popularStreams, setPopularStreams] = React.useState<Stream[]>([]);
+
+  // Fetch popular streams when showing empty state
+  React.useEffect(() => {
+    // Only fetch if no query and no recent searches (empty state)
+    if (query.trim() || recentSearches.length > 0 || !isOpen) {
+      return;
+    }
+
+    const fetchPopularStreams = async () => {
+      try {
+        const res = await fetch('/api/streams?limit=5');
+        const data = await res.json();
+        setPopularStreams(data.streams?.slice(0, 5) || []);
+      } catch (error) {
+        console.error('[SearchSuggestions] Failed to fetch popular streams:', error);
+      }
+    };
+
+    fetchPopularStreams();
+  }, [query, recentSearches.length, isOpen]);
+
   // Fetch search results from API
   React.useEffect(() => {
     if (!query.trim()) {
@@ -462,23 +476,31 @@ export function SearchSuggestions({
         {!query.trim() && recentSearches.length === 0 && (
           <div className="px-3 py-4">
             <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
-              <Sparkles className="h-3.5 w-3.5" />
-              Try searching for
+              <TrendingUp className="h-3.5 w-3.5" />
+              Popular Streams
             </div>
-            <div className="flex flex-wrap gap-2">
-              {SUGGESTED_SEARCHES.map((search) => (
-                <button
-                  key={search}
-                  onMouseDown={(e) => {
-                    e.preventDefault();
-                    onSelect(search);
-                  }}
-                  className="px-3 py-1.5 text-sm bg-muted hover:bg-muted/80 text-foreground rounded-full transition-colors cursor-pointer"
-                >
-                  {search}
-                </button>
-              ))}
-            </div>
+            {popularStreams.length > 0 ? (
+              <div className="flex flex-wrap gap-2">
+                {popularStreams.map((stream) => (
+                  <button
+                    key={stream.id}
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      router.push(`/stream/${stream.name}`);
+                      onClose();
+                    }}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm bg-muted hover:bg-muted/80 text-foreground rounded-full transition-colors cursor-pointer"
+                  >
+                    <Hash className="h-3 w-3 text-muted-foreground" />
+                    {stream.name}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div className="text-sm text-muted-foreground">
+                No streams yet
+              </div>
+            )}
           </div>
         )}
 
