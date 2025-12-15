@@ -2,11 +2,20 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { Clock, Search, Image as ImageIcon, Hash, Users } from "lucide-react";
+import { Clock, Search, Image as ImageIcon, Hash, Users, X, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Avatar } from "@/components/ui/avatar";
 import { SEARCH_CONSTANTS } from "@/lib/constants/search";
 import type { Asset, Stream, User } from "@/lib/types/database";
+
+// Suggested searches for empty state
+const SUGGESTED_SEARCHES = [
+  "brand design",
+  "product photography", 
+  "UI components",
+  "illustrations",
+  "marketing assets",
+];
 
 // Suggestion item type
 type SuggestionItem = {
@@ -151,12 +160,69 @@ const DefaultSuggestionItem = React.memo(function DefaultSuggestionItem({
   );
 });
 
+// Recent search item with individual remove button
+interface RecentSearchItemProps {
+  suggestion: SuggestionItem;
+  isSelected: boolean;
+  onSelect: (suggestion: SuggestionItem) => void;
+  onRemove?: (query: string) => void;
+}
+
+const RecentSearchItem = React.memo(function RecentSearchItem({
+  suggestion,
+  isSelected,
+  onSelect,
+  onRemove,
+}: RecentSearchItemProps) {
+  const handleMouseDown = React.useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    onSelect(suggestion);
+  }, [onSelect, suggestion]);
+
+  const handleRemove = React.useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    onRemove?.(suggestion.label);
+  }, [onRemove, suggestion.label]);
+
+  return (
+    <div
+      role="option"
+      aria-selected={isSelected}
+      className={cn(
+        "w-full flex items-center gap-3 px-3 py-2 text-sm transition-colors group",
+        "hover:bg-accent",
+        isSelected && "bg-accent"
+      )}
+    >
+      <button
+        onMouseDown={handleMouseDown}
+        className="flex items-center gap-3 flex-1 min-w-0 text-left cursor-pointer"
+      >
+        <Clock className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+        <span className="truncate">{suggestion.label}</span>
+      </button>
+      {onRemove && (
+        <button
+          onMouseDown={handleRemove}
+          aria-label={`Remove "${suggestion.label}" from recent searches`}
+          className="p-1 rounded-full opacity-0 group-hover:opacity-100 hover:bg-muted text-muted-foreground hover:text-foreground transition-all cursor-pointer"
+        >
+          <X className="h-3.5 w-3.5" />
+        </button>
+      )}
+    </div>
+  );
+});
+
 interface SearchSuggestionsProps {
   query: string;
   isOpen: boolean;
   onClose: () => void;
   onSelect: (query: string) => void;
   recentSearches: string[];
+  onClearRecentSearches?: () => void;
+  onRemoveRecentSearch?: (query: string) => void;
 }
 
 export function SearchSuggestions({
@@ -165,6 +231,8 @@ export function SearchSuggestions({
   onClose,
   onSelect,
   recentSearches,
+  onClearRecentSearches,
+  onRemoveRecentSearch,
 }: SearchSuggestionsProps) {
   const router = useRouter();
   const [selectedIndex, setSelectedIndex] = React.useState(-1);
@@ -218,8 +286,11 @@ export function SearchSuggestions({
   }, [query]);
 
   // Build suggestions list with full data for rendering
-  const suggestions = React.useMemo(() => {
+  const { suggestions, hasAssets, hasStreams, hasUsers } = React.useMemo(() => {
     const items: SuggestionItem[] = [];
+    let assetCount = 0;
+    let streamCount = 0;
+    let userCount = 0;
 
     // Show recent searches if no query
     if (!query.trim() && recentSearches.length > 0) {
@@ -231,13 +302,15 @@ export function SearchSuggestions({
           icon: <Clock className="h-4 w-4" />,
         });
       });
-      return items;
+      return { suggestions: items, hasAssets: false, hasStreams: false, hasUsers: false };
     }
 
     // Show search results
     if (results) {
       // Assets - with thumbnails!
-      results.assets.slice(0, SEARCH_CONSTANTS.MAX_ASSET_SUGGESTIONS).forEach((asset) => {
+      const assetItems = results.assets.slice(0, SEARCH_CONSTANTS.MAX_ASSET_SUGGESTIONS);
+      assetCount = assetItems.length;
+      assetItems.forEach((asset) => {
         items.push({
           type: "asset",
           id: asset.id,
@@ -250,7 +323,9 @@ export function SearchSuggestions({
       });
 
       // Streams - with hash icon
-      results.streams.slice(0, SEARCH_CONSTANTS.MAX_STREAM_SUGGESTIONS).forEach((stream) => {
+      const streamItems = results.streams.slice(0, SEARCH_CONSTANTS.MAX_STREAM_SUGGESTIONS);
+      streamCount = streamItems.length;
+      streamItems.forEach((stream) => {
         items.push({
           type: "stream",
           id: stream.id,
@@ -263,7 +338,9 @@ export function SearchSuggestions({
       });
 
       // Users - with avatars
-      results.users.slice(0, SEARCH_CONSTANTS.MAX_USER_SUGGESTIONS).forEach((user) => {
+      const userItems = results.users.slice(0, SEARCH_CONSTANTS.MAX_USER_SUGGESTIONS);
+      userCount = userItems.length;
+      userItems.forEach((user) => {
         items.push({
           type: "user",
           id: user.id,
@@ -286,7 +363,12 @@ export function SearchSuggestions({
       }
     }
 
-    return items;
+    return { 
+      suggestions: items, 
+      hasAssets: assetCount > 0, 
+      hasStreams: streamCount > 0, 
+      hasUsers: userCount > 0 
+    };
   }, [query, results, recentSearches]);
 
   // Reset selected index when suggestions change
@@ -350,6 +432,23 @@ export function SearchSuggestions({
 
   if (!isOpen) return null;
 
+  // Get categorized suggestions for section rendering
+  const assetSuggestions = suggestions.filter(s => s.type === "asset");
+  const streamSuggestions = suggestions.filter(s => s.type === "stream");
+  const userSuggestions = suggestions.filter(s => s.type === "user");
+  const viewAllSuggestion = suggestions.find(s => s.type === "viewAll");
+  const recentSuggestions = suggestions.filter(s => s.type === "recent");
+
+  // Calculate indices for keyboard navigation
+  const getGlobalIndex = (suggestion: SuggestionItem) => suggestions.indexOf(suggestion);
+
+  // Section header component
+  const SectionHeader = ({ title }: { title: string }) => (
+    <div className="px-3 py-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider bg-muted/30">
+      {title}
+    </div>
+  );
+
   return (
     <div 
       id="search-suggestions"
@@ -357,13 +456,63 @@ export function SearchSuggestions({
       aria-label="Search suggestions"
       className="absolute top-full left-0 right-0 mt-2 bg-card border border-border rounded-lg shadow-lg overflow-hidden z-50 max-h-[500px] overflow-y-auto"
     >
-      <div ref={suggestionsRef} className="py-2">
-        {!query.trim() && recentSearches.length > 0 && (
-          <div className="px-3 py-1.5 text-xs font-medium text-muted-foreground">
-            Recent Searches
+      <div ref={suggestionsRef} className="py-1">
+        {/* Empty state - no query and no recent searches */}
+        {!query.trim() && recentSearches.length === 0 && (
+          <div className="px-3 py-4">
+            <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
+              <Sparkles className="h-3.5 w-3.5" />
+              Try searching for
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {SUGGESTED_SEARCHES.map((search) => (
+                <button
+                  key={search}
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    onSelect(search);
+                  }}
+                  className="px-3 py-1.5 text-sm bg-muted hover:bg-muted/80 text-foreground rounded-full transition-colors cursor-pointer"
+                >
+                  {search}
+                </button>
+              ))}
+            </div>
           </div>
         )}
+
+        {/* Recent searches with clear all */}
+        {!query.trim() && recentSearches.length > 0 && (
+          <>
+            <div className="px-3 py-1.5 flex items-center justify-between">
+              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                Recent Searches
+              </span>
+              {onClearRecentSearches && (
+                <button
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    onClearRecentSearches();
+                  }}
+                  className="text-xs text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                >
+                  Clear all
+                </button>
+              )}
+            </div>
+            {recentSuggestions.map((suggestion, index) => (
+              <RecentSearchItem
+                key={suggestion.id}
+                suggestion={suggestion}
+                isSelected={selectedIndex === index}
+                onSelect={handleSelectSuggestion}
+                onRemove={onRemoveRecentSearch}
+              />
+            ))}
+          </>
+        )}
         
+        {/* Loading state */}
         {isLoading && query.trim() ? (
           <div className="px-4 py-8 text-center text-sm text-muted-foreground">
             <div className="flex items-center justify-center gap-2">
@@ -375,42 +524,64 @@ export function SearchSuggestions({
           <div className="px-4 py-8 text-center text-sm text-muted-foreground">
             No results found for &quot;{query}&quot;
           </div>
-        ) : (
-          suggestions.map((suggestion, index) => {
-            // Render asset with thumbnail
-            if (suggestion.type === "asset" && suggestion.thumbnail) {
-              return (
-                <AssetSuggestionItem
-                  key={suggestion.id}
-                  suggestion={suggestion}
-                  isSelected={selectedIndex === index}
+        ) : query.trim() && (
+          <>
+            {/* Assets section */}
+            {hasAssets && (
+              <>
+                <SectionHeader title="Assets" />
+                {assetSuggestions.map((suggestion) => (
+                  <AssetSuggestionItem
+                    key={suggestion.id}
+                    suggestion={suggestion}
+                    isSelected={selectedIndex === getGlobalIndex(suggestion)}
+                    onSelect={handleSelectSuggestion}
+                  />
+                ))}
+              </>
+            )}
+
+            {/* Streams section */}
+            {hasStreams && (
+              <>
+                <SectionHeader title="Streams" />
+                {streamSuggestions.map((suggestion) => (
+                  <DefaultSuggestionItem
+                    key={suggestion.id}
+                    suggestion={suggestion}
+                    isSelected={selectedIndex === getGlobalIndex(suggestion)}
+                    onSelect={handleSelectSuggestion}
+                  />
+                ))}
+              </>
+            )}
+
+            {/* Users section */}
+            {hasUsers && (
+              <>
+                <SectionHeader title="People" />
+                {userSuggestions.map((suggestion) => (
+                  <UserSuggestionItem
+                    key={suggestion.id}
+                    suggestion={suggestion}
+                    isSelected={selectedIndex === getGlobalIndex(suggestion)}
+                    onSelect={handleSelectSuggestion}
+                  />
+                ))}
+              </>
+            )}
+
+            {/* View all results */}
+            {viewAllSuggestion && (
+              <div className="border-t border-border mt-1 pt-1">
+                <DefaultSuggestionItem
+                  suggestion={viewAllSuggestion}
+                  isSelected={selectedIndex === getGlobalIndex(viewAllSuggestion)}
                   onSelect={handleSelectSuggestion}
                 />
-              );
-            }
-
-            // Render user with avatar
-            if (suggestion.type === "user" && suggestion.thumbnail) {
-              return (
-                <UserSuggestionItem
-                  key={suggestion.id}
-                  suggestion={suggestion}
-                  isSelected={selectedIndex === index}
-                  onSelect={handleSelectSuggestion}
-                />
-              );
-            }
-
-            // Render other types (recent, stream, viewAll)
-            return (
-              <DefaultSuggestionItem
-                key={suggestion.id}
-                suggestion={suggestion}
-                isSelected={selectedIndex === index}
-                onSelect={handleSelectSuggestion}
-              />
-            );
-          })
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>

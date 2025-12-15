@@ -11,6 +11,7 @@ interface SearchContextType {
   isSearching: boolean; // Future: API loading state
   recentSearches: string[];
   addRecentSearch: (query: string) => void;
+  removeRecentSearch: (query: string) => void;
   clearRecentSearches: () => void;
   clearSearch: () => void;
 }
@@ -77,6 +78,18 @@ export function SearchProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
+  const removeRecentSearch = React.useCallback((searchToRemove: string) => {
+    setRecentSearches((prev) => {
+      const updated = prev.filter((s) => s !== searchToRemove);
+      try {
+        localStorage.setItem(SEARCH_CONSTANTS.RECENT_SEARCHES_STORAGE_KEY, JSON.stringify(updated));
+      } catch (error) {
+        console.error("Failed to update recent searches:", error);
+      }
+      return updated;
+    });
+  }, []);
+
   const clearRecentSearches = React.useCallback(() => {
     setRecentSearches([]);
     try {
@@ -98,10 +111,11 @@ export function SearchProvider({ children }: { children: React.ReactNode }) {
       isSearching,
       recentSearches,
       addRecentSearch,
+      removeRecentSearch,
       clearRecentSearches,
       clearSearch,
     }),
-    [query, setQuery, debouncedQuery, isSearching, recentSearches, addRecentSearch, clearRecentSearches, clearSearch]
+    [query, setQuery, debouncedQuery, isSearching, recentSearches, addRecentSearch, removeRecentSearch, clearRecentSearches, clearSearch]
   );
 
   return (
