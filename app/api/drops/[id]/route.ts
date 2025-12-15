@@ -167,7 +167,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     const { title, description, status } = body;
 
     const updates: Record<string, any> = {};
-    if (title !== undefined) updates.title = title.trim();
+    if (title !== undefined) updates.title = title?.trim() || null;
     if (description !== undefined) updates.description = description?.trim() || null;
     
     // Handle status change (for unpublishing)

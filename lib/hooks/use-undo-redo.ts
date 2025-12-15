@@ -197,8 +197,12 @@ export function useUndoRedo<T>(
   }, []);
 
   // Register keyboard shortcuts (only when NOT in form fields)
+  // Mac: Cmd+Z / Cmd+Shift+Z
   useKeyboardShortcut(["Meta", "z"], undo, { enableOnFormTags: false });
   useKeyboardShortcut(["Meta", "Shift", "z"], redo, { enableOnFormTags: false });
+  // Windows/Linux: Ctrl+Z / Ctrl+Shift+Z
+  useKeyboardShortcut(["Control", "z"], undo, { enableOnFormTags: false });
+  useKeyboardShortcut(["Control", "Shift", "z"], redo, { enableOnFormTags: false });
 
   // Cleanup debounce timer on unmount
   useEffect(() => {

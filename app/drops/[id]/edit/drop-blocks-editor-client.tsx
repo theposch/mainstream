@@ -208,17 +208,20 @@ export function DropBlocksEditorClient({
         // Update refs to new values
         originalTitleRef.current = title;
         originalDescriptionRef.current = description;
-      }
-      
-      setHasUnsavedChanges(false);
-      setSaveStatus('saved');
-      
-      if (savedTimeoutRef.current) {
-        clearTimeout(savedTimeoutRef.current);
-      }
-      savedTimeoutRef.current = setTimeout(() => {
+        
+        setHasUnsavedChanges(false);
+        setSaveStatus('saved');
+        
+        if (savedTimeoutRef.current) {
+          clearTimeout(savedTimeoutRef.current);
+        }
+        savedTimeoutRef.current = setTimeout(() => {
+          setSaveStatus('idle');
+        }, 2000);
+      } else {
+        // No changes to save - just reset status
         setSaveStatus('idle');
-      }, 2000);
+      }
     } catch (error) {
       console.error("Failed to update drop:", error);
       setSaveStatus('error');
