@@ -1,6 +1,9 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // Enable standalone output for Docker deployment
+  output: 'standalone',
+  
   // Allow larger file uploads (50MB for videos)
   experimental: {
     serverActions: {
