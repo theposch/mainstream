@@ -5,7 +5,67 @@ A design collaboration platform for internal teams to share work, organize into 
 ![Next.js](https://img.shields.io/badge/Next.js-16-black)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue)
 ![Supabase](https://img.shields.io/badge/Supabase-Self--Hosted-green)
-![React](https://img.shields.io/badge/React-19-61DAFB)
+![Docker](https://img.shields.io/badge/Docker-One--Click-2496ED)
+
+---
+
+## 🚀 One-Click Deploy with Docker
+
+Get Mainstream running in under 5 minutes with our setup wizard:
+
+```bash
+# Clone the repository
+git clone https://github.com/theposch/mainstream.git
+cd mainstream
+
+# Run the interactive setup wizard
+./setup.sh
+```
+
+The wizard will:
+1. ✅ Check Docker prerequisites
+2. ✅ Prompt for your configuration (domain, email, etc.)
+3. ✅ Generate secure secrets automatically
+4. ✅ Create all configuration files
+5. ✅ Start all services (Next.js + Supabase)
+
+**That's it!** Your Mainstream instance will be available at `http://localhost:3000`.
+
+### What Gets Deployed
+
+| Service | Port | Description |
+|---------|------|-------------|
+| Mainstream App | 3000 | The Next.js application |
+| Supabase API | 8000 | Kong API Gateway |
+| Supabase Studio | 3001 | Database admin dashboard |
+| PostgreSQL | 5432 | Database |
+
+### After Setup
+
+```bash
+# Run database migrations
+./migrate.sh
+
+# View logs
+docker compose logs -f
+
+# Stop all services
+docker compose down
+
+# Restart services
+docker compose up -d
+```
+
+### For Production
+
+For production deployments, you'll want to:
+1. Configure a reverse proxy (Nginx/Caddy) for SSL
+2. Point your domain's DNS to your server
+3. Update `SITE_URL` and `API_EXTERNAL_URL` in `.env`
+
+See the [Self-Hosting Guide](#self-hosting-guide) below for detailed production setup.
+
+---
 
 ## Features
 
@@ -27,14 +87,15 @@ A design collaboration platform for internal teams to share work, organize into 
 
 ## Table of Contents
 
-1. [Quick Start (Local Development)](#quick-start-local-development)
-2. [Self-Hosting Guide](#self-hosting-guide)
-3. [Environment Variables](#environment-variables-reference)
-4. [Database Migrations](#database-migrations)
-5. [File Storage](#file-storage)
-6. [Backups](#backups)
-7. [Monitoring](#monitoring)
-8. [Troubleshooting](#troubleshooting)
+1. [One-Click Deploy with Docker](#-one-click-deploy-with-docker) ⭐
+2. [Quick Start (Local Development)](#quick-start-local-development)
+3. [Self-Hosting Guide](#self-hosting-guide)
+4. [Environment Variables](#environment-variables-reference)
+5. [Database Migrations](#database-migrations)
+6. [File Storage](#file-storage)
+7. [Backups](#backups)
+8. [Monitoring](#monitoring)
+9. [Troubleshooting](#troubleshooting)
 
 ---
 
