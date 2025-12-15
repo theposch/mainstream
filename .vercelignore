@@ -1,0 +1,19 @@
+# Large directories
+supabase-docker/
+backups/
+node_modules/
+
+# Local uploads (these should be in Supabase Storage, not deployed)
+public/uploads/
+
+# Development files
+.next/
+.git/
+*.sql
+
+# Test files
+test_image.png
+
+# Documentation (optional, remove if needed)
+docs/
+
