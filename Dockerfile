@@ -1,26 +1,22 @@
 # ===========================================
 # Mainstream - Production Dockerfile
 # ===========================================
-# Multi-stage build for optimal image size
+# Two-stage build for optimal image size:
+# 1. Builder: installs all deps, compiles app
+# 2. Runner: minimal image with standalone output
 # Final image: ~200MB (vs ~1GB without multi-stage)
 
-# Stage 1: Dependencies
-FROM node:20-alpine AS deps
+# Stage 1: Builder
+# Install all dependencies (including dev) for the build process
+FROM node:20-alpine AS builder
 RUN apk add --no-cache libc6-compat
 WORKDIR /app
 
-# Copy package files
+# Copy package files and install all dependencies
 COPY package.json package-lock.json ./
+RUN npm ci
 
-# Install dependencies
-RUN npm ci --only=production
-
-# Stage 2: Builder
-FROM node:20-alpine AS builder
-WORKDIR /app
-
-# Copy dependencies from deps stage
-COPY --from=deps /app/node_modules ./node_modules
+# Copy source code
 COPY . .
 
 # Set environment for build
@@ -30,7 +26,7 @@ ENV NODE_ENV=production
 # Build the application
 RUN npm run build
 
-# Stage 3: Runner
+# Stage 2: Runner
 FROM node:20-alpine AS runner
 WORKDIR /app
 
