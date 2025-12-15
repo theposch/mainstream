@@ -149,6 +149,6 @@ export function validateEnvironment(): void {
   }
 }
 
-// Note: Do not auto-validate on import to avoid hydration issues
-// Call validateEnvironment() explicitly from a server component instead
+// Validation is called from app/env-validation.ts which is imported by the root layout
+// The check for typeof window === 'undefined' ensures it only runs on the server
 
