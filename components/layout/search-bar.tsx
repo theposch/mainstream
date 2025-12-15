@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { Search, X } from "lucide-react";
+import { Search, X, Command } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSearch } from "@/lib/contexts/search-context";
 import { useKeyboardShortcut } from "@/lib/hooks/use-keyboard-shortcut";
@@ -11,7 +11,7 @@ import { SearchSuggestions } from "./search-suggestions";
 
 export function SearchBar() {
   const router = useRouter();
-  const { query, setQuery, recentSearches, addRecentSearch } = useSearch();
+  const { query, setQuery, recentSearches, addRecentSearch, clearRecentSearches, removeRecentSearch } = useSearch();
   const [showSuggestions, setShowSuggestions] = React.useState(false);
   const [isInputFocused, setIsInputFocused] = React.useState(false);
   const inputRef = React.useRef<HTMLInputElement>(null);
@@ -118,6 +118,13 @@ export function SearchBar() {
             aria-controls="search-suggestions"
             aria-autocomplete="list"
           />
+          {/* Keyboard shortcut hint - show when not focused and no query */}
+          {!isInputFocused && !query && (
+            <div className="flex items-center gap-0.5 mr-3 px-1.5 py-0.5 rounded bg-muted/80 border border-border/50 text-muted-foreground">
+              <Command className="h-3 w-3" />
+              <span className="text-xs font-medium">K</span>
+            </div>
+          )}
           {query && (
             <button
               type="button"
@@ -139,6 +146,8 @@ export function SearchBar() {
             onClose={() => setShowSuggestions(false)}
             onSelect={handleSelectSuggestion}
             recentSearches={recentSearches}
+            onClearRecentSearches={clearRecentSearches}
+            onRemoveRecentSearch={removeRecentSearch}
           />
         </div>
       )}
