@@ -50,6 +50,19 @@ export const VALIDATION = {
 } as const;
 
 /**
+ * Validate that a timezone string is a valid IANA timezone
+ * Returns true if valid, false otherwise
+ */
+export function isValidTimezone(timezone: string): boolean {
+  try {
+    Intl.DateTimeFormat(undefined, { timeZone: timezone });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Get ordinal suffix for a number (1st, 2nd, 3rd, etc.)
  */
 export function getOrdinalSuffix(n: number): string {
