@@ -91,13 +91,17 @@ export function ManageSchedulesModal({
         throw new Error(data.error || "Failed to generate drop");
       }
 
+      // Validate response before closing modal
+      if (!data.drop?.id) {
+        throw new Error("Failed to generate drop: Invalid response");
+      }
+
       // Close modal and navigate to the new drop
       onOpenChange(false);
       router.push(`/drops/${data.drop.id}/edit`);
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to generate drop");
-    } finally {
       setLoading(schedule.id, null);
     }
   };
