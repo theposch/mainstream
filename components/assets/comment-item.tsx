@@ -1,4 +1,5 @@
 import React from "react";
+import Link from "next/link";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { formatRelativeTime } from "@/lib/utils/time";
@@ -14,6 +15,7 @@ import {
 import { LikeButton } from "@/components/ui/like-button";
 import type { Comment, User, CommentUser } from "@/lib/types/database";
 import type { CommentLikeState } from "@/lib/hooks/use-comment-likes-manager";
+import { parseTextWithMentions } from "@/lib/utils/mentions";
 
 interface CommentItemProps {
   comment: Comment;
@@ -146,7 +148,20 @@ export const CommentItem = React.memo(function CommentItem({
         </div>
 
         <p className="text-sm text-foreground/90 mt-0.5 whitespace-pre-wrap leading-relaxed break-words">
-          {comment.content}
+          {parseTextWithMentions(comment.content).map((segment, index) => 
+            segment.type === 'mention' ? (
+              <Link
+                key={index}
+                href={`/u/${segment.username}`}
+                className="text-primary hover:underline font-medium"
+                onClick={(e) => e.stopPropagation()}
+              >
+                {segment.content}
+              </Link>
+            ) : (
+              <React.Fragment key={index}>{segment.content}</React.Fragment>
+            )
+          )}
         </p>
 
         <div className="flex items-center gap-4 mt-1.5">

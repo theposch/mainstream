@@ -13,3 +13,4 @@ COMMENT ON COLUMN assets.description IS 'Optional description for the asset, can
 
 
 
+

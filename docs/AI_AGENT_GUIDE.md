@@ -12,9 +12,11 @@ Quick onboarding guide for AI assistants working on the Mainstream codebase.
 ## Critical Context
 
 ### Recent Major Changes
-- ✅ **Scheduled Drops** - Recurring newsletter generation (weekly, biweekly, monthly, custom) (NEW)
-- ✅ **Schedule Management** - Create, pause, resume, generate now, edit, delete schedules (NEW)
-- ✅ **Cron Service** - Docker container for automated drop generation every 15 minutes (NEW)
+- ✅ **People Page Tabs** - Toggle between "All People" and "Following" with consistent card heights (NEW)
+- ✅ **User Card Fixed Height** - Cards are 280px tall regardless of content for consistent grid layout (NEW)
+- ✅ **Scheduled Drops** - Recurring newsletter generation (weekly, biweekly, monthly, custom)
+- ✅ **Schedule Management** - Create, pause, resume, generate now, edit, delete schedules
+- ✅ **Cron Service** - Docker container for automated drop generation every 15 minutes
 - ✅ **Drop Undo/Redo** - Full undo/redo for title, description, and blocks with keyboard shortcuts
 - ✅ **Published Drop Management** - Edit, unpublish, delete published drops
 - ✅ **Drop Editor Header** - Sticky, translucent header with save status, undo/redo buttons
@@ -89,7 +91,8 @@ Quick onboarding guide for AI assistants working on the Mainstream codebase.
 home/page.tsx           - Main feed (Recent + Following tabs)
 e/[id]/page.tsx        - Asset detail page
 stream/[slug]/page.tsx - Stream page
-streams/page.tsx       - All streams listing
+streams/page.tsx       - All streams listing (All Streams + Following tabs)
+people/page.tsx        - People listing (All People + Following tabs)
 drops/page.tsx         - Drops listing (newsletters)
 drops/[id]/page.tsx    - Published drop view
 drops/[id]/edit/page.tsx - Drop block editor
@@ -152,7 +155,7 @@ ai/
   describe/route.ts    - POST: Generate AI asset description
 
 users/
-  route.ts             - GET: List users with pagination (People page)
+  route.ts             - GET: List users with pagination, filter=following support (People page)
   [username]/
     route.ts           - GET: User profile
     follow/route.ts    - POST/DELETE: Toggle follow
@@ -197,7 +200,12 @@ streams/
   manage-members-dialog.tsx - Add/remove members for private streams
 
 users/
+  user-card.tsx             - User card with fixed 280px height, preview grid, stream badges (React.memo)
   user-picker.tsx           - Multi-select user picker with search (used in drop creation)
+
+people/
+  page.tsx                  - People page wrapper (auth initialization)
+  people-page-client.tsx    - Tabs (All People / Following), dual infinite queries
 
 drops/
   create-drop-dialog.tsx      - New drop creation with DatePicker, StreamPicker, UserPicker
@@ -762,6 +770,7 @@ CRON_SECRET=your-secure-random-string
 | Stream Members | `app/stream/[slug]/page.tsx` | `api/streams/[id]/members/route.ts` | `use-stream-members.ts` | `manage-members-dialog.tsx` |
 | Stream Edit | `app/stream/[slug]/page.tsx` | `api/streams/[id]/route.ts` | - | `stream-dialog.tsx` |
 | Profiles | `app/u/[username]/page.tsx` | `api/users/[username]/route.ts` | `use-user-follow.ts` | `user-profile-*.tsx` |
+| People | `app/people/page.tsx` | `api/users/route.ts` (filter=following) | - | `people-page-client.tsx`, `user-card.tsx` |
 | Search | `app/search/page.tsx` | `api/search/route.ts` | - | `search-*.tsx` |
 | Notifications | - | `api/notifications/route.ts` | `use-notifications.ts` | `notifications-popover.tsx` |
 | Drops | `app/drops/page.tsx` | `api/drops/route.ts` | - | `drops/drop-*.tsx` |

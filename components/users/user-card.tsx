@@ -57,44 +57,44 @@ export const UserCard = React.memo(function UserCard({
   const extraStreams = totalStreams > 4 ? totalStreams - 4 : 0;
 
   return (
-    <div className="group bg-card border border-border rounded-xl overflow-hidden hover:border-border/80 hover:shadow-lg transition-all duration-200">
-      {/* Shots Grid - 5 columns on desktop, horizontal scroll on mobile */}
-      <div className="relative">
+    <div className="group h-[280px] flex flex-col bg-card border border-border rounded-xl overflow-hidden hover:border-border/80 hover:shadow-lg transition-all duration-200">
+      {/* Preview Section - Fixed height for consistency */}
+      <div className="h-24 shrink-0 relative">
         {recentAssets.length > 0 ? (
-          <div className="flex md:grid md:grid-cols-5 gap-0.5 p-0.5 overflow-x-auto md:overflow-visible scrollbar-hide">
-            {recentAssets.slice(0, 5).map((asset, index) => (
+          <div className="h-full grid grid-cols-5 gap-0.5 p-0.5">
+            {recentAssets.slice(0, 5).map((asset) => (
               <Link
                 key={asset.id}
                 href={`/e/${asset.id}`}
-                className="relative aspect-[4/3] min-w-[120px] md:min-w-0 flex-shrink-0 md:flex-shrink overflow-hidden bg-muted group/shot"
+                className="relative h-full overflow-hidden bg-muted group/shot"
               >
                 <Image
                   src={asset.thumbnail_url || asset.url || "/placeholder.svg"}
                   alt={asset.title}
                   fill
                   className="object-cover transition-transform group-hover/shot:scale-105"
-                  sizes="(max-width: 768px) 120px, (max-width: 1200px) 150px, 200px"
+                  sizes="(max-width: 768px) 80px, 120px"
                 />
                 <div className="absolute inset-0 bg-black/0 group-hover/shot:bg-black/20 transition-colors" />
               </Link>
             ))}
-            {/* Fill empty slots on desktop */}
+            {/* Fill empty slots */}
             {Array.from({ length: Math.max(0, 5 - recentAssets.length) }).map((_, i) => (
               <div
                 key={`empty-${i}`}
-                className="hidden md:block aspect-[4/3] bg-muted/30"
+                className="h-full bg-muted/30"
               />
             ))}
           </div>
         ) : (
-          <div className="aspect-[5/1] bg-muted/20 flex items-center justify-center">
+          <div className="h-full bg-muted/20 flex items-center justify-center">
             <span className="text-sm text-muted-foreground">No public work yet</span>
           </div>
         )}
       </div>
 
-      {/* User Info */}
-      <div className="p-4">
+      {/* User Info - Flex-1 fills remaining space */}
+      <div className="p-4 flex-1 flex flex-col min-h-0">
         <div className="flex items-start gap-3">
           {/* Avatar */}
           <Link href={`/u/${user.username}`}>
@@ -168,24 +168,26 @@ export const UserCard = React.memo(function UserCard({
           )}
         </div>
 
-        {/* Stream Badges */}
-        {streams.length > 0 && (
-          <div className="flex flex-wrap gap-1.5 mt-3">
-            {streams.slice(0, 4).map((stream) => (
-              <StreamBadge
-                key={stream.id}
-                stream={stream}
-                clickable
-                className="text-[11px]"
-              />
-            ))}
-            {extraStreams > 0 && (
-              <span className="inline-flex items-center px-2 py-1 rounded-md text-[11px] font-medium bg-secondary/30 text-muted-foreground">
-                +{extraStreams} more
-              </span>
-            )}
-          </div>
-        )}
+        {/* Stream Badges - Pinned to bottom with mt-auto */}
+        <div className="mt-auto pt-3">
+          {streams.length > 0 && (
+            <div className="flex flex-wrap gap-1.5 overflow-hidden max-h-[52px]">
+              {streams.slice(0, 4).map((stream) => (
+                <StreamBadge
+                  key={stream.id}
+                  stream={stream}
+                  clickable
+                  className="text-[11px]"
+                />
+              ))}
+              {extraStreams > 0 && (
+                <span className="inline-flex items-center px-2 py-1 rounded-md text-[11px] font-medium bg-secondary/30 text-muted-foreground">
+                  +{extraStreams} more
+                </span>
+              )}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

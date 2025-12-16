@@ -10,6 +10,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { shouldCreateNotification } from '@/lib/notifications/check-preferences';
+import { extractMentions } from '@/lib/utils/mentions';
 
 interface RouteContext {
   params: Promise<{
@@ -220,6 +221,8 @@ export async function POST(
       if (parentComment && 
           parentComment.user_id !== user.id && 
           !attemptedUsers.has(parentComment.user_id)) {
+        attemptedUsers.add(parentComment.user_id);
+        
         const shouldNotify = await shouldCreateNotification(supabase, parentComment.user_id, 'reply_comment');
         
         if (shouldNotify) {
@@ -235,6 +238,49 @@ export async function POST(
 
           if (replyNotificationError) {
             console.warn('[POST /api/assets/[id]/comments] Failed to create reply notification:', replyNotificationError);
+          }
+        }
+      }
+    }
+
+    // 3. Notify mentioned users
+    const mentionedUsernames = extractMentions(content.trim());
+    
+    if (mentionedUsernames.length > 0) {
+      // Look up mentioned users by username
+      const { data: mentionedUsers } = await supabase
+        .from('users')
+        .select('id, username')
+        .in('username', mentionedUsernames);
+
+      if (mentionedUsers && mentionedUsers.length > 0) {
+        // Create notifications for each mentioned user
+        for (const mentionedUser of mentionedUsers) {
+          // Skip if:
+          // - Mentioned user is the comment author (don't notify yourself)
+          // - Already attempted notification (asset owner or parent author)
+          if (mentionedUser.id === user.id || attemptedUsers.has(mentionedUser.id)) {
+            continue;
+          }
+
+          attemptedUsers.add(mentionedUser.id);
+
+          const shouldNotify = await shouldCreateNotification(supabase, mentionedUser.id, 'mention');
+          
+          if (shouldNotify) {
+            const { error: mentionNotificationError } = await supabase.from('notifications').insert({
+              type: 'mention',
+              recipient_id: mentionedUser.id,
+              actor_id: user.id,
+              resource_id: assetId,
+              resource_type: 'asset',
+              content: commentPreview,
+              comment_id: comment.id,
+            });
+
+            if (mentionNotificationError) {
+              console.warn('[POST /api/assets/[id]/comments] Failed to create mention notification:', mentionNotificationError);
+            }
           }
         }
       }

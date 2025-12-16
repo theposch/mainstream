@@ -91,7 +91,8 @@ app/
 ├── home/              # Main feed with masonry grid
 ├── e/[id]/            # Asset detail pages
 ├── stream/[slug]/     # Stream pages
-├── streams/           # All streams listing
+├── streams/           # All streams listing (All Streams + Following tabs)
+├── people/            # People listing (All People + Following tabs)
 ├── u/[username]/      # User profiles
 ├── auth/              # Signup/Login
 └── api/               # API routes

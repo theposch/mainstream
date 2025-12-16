@@ -127,7 +127,7 @@ Storage policies allow:
 - `DELETE /api/streams/[id]/assets?asset_id=xxx` - Remove asset
 
 #### Users
-- `GET /api/users` - List users with pagination (People page)
+- `GET /api/users` - List users with pagination, `filter=following` support (People page tabs)
 - `GET /api/users/[username]` - Get user profile
 - `POST /api/users/[username]/follow` - Follow user (respects notification settings)
 - `DELETE /api/users/[username]/follow` - Unfollow user

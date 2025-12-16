@@ -62,6 +62,7 @@ Design collaboration platform for internal teams to share work and organize into
 ✅ **Complete** - Feed layout toggle (grid vs detailed view)  
 ✅ **Complete** - Performance optimizations (React Query, memoization, error boundaries, dynamic imports)  
 ✅ **Complete** - Centralized constants (cache times, page sizes, timing)  
+✅ **Complete** - People page tabs (All People / Following with consistent card heights)  
 
 ## Project Structure
 
@@ -71,7 +72,8 @@ mainstream/
 │   ├── home/              # Main feed
 │   ├── e/[id]/            # Asset detail pages
 │   ├── stream/[slug]/     # Stream pages
-│   ├── streams/           # All streams listing
+│   ├── streams/           # All streams listing (All Streams + Following)
+│   ├── people/            # People listing (All People + Following)
 │   ├── drops/             # Drops (AI newsletters)
 │   │   └── [id]/edit/     # Block-based drop editor
 │   ├── u/[username]/      # User profiles
@@ -82,7 +84,7 @@ mainstream/
 │   ├── streams/          # Stream components
 │   ├── drops/            # Drop components and block editor
 │   │   └── blocks/       # Notion-like block components
-│   ├── users/            # User profile components
+│   ├── users/            # User profile/card components
 │   ├── layout/           # Navigation, search, etc.
 │   └── ui/               # Base UI components (shadcn)
 ├── lib/                  # Utilities and business logic
@@ -137,6 +139,13 @@ The main feed has two tabs (Recent/Following) with:
 
 ### Following Feed
 See assets from users and streams you follow.
+
+### People Page
+Browse all users or filter to see just who you follow:
+- **All People** - Discover designers and creators
+- **Following** - People you follow (with cache invalidation on follow/unfollow)
+- **Consistent card heights** - Fixed 280px height for visual consistency
+- **Infinite scroll** - Separate queries per tab for efficient loading
 
 ### Real-time Features
 - Live notification updates

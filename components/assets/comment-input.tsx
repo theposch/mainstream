@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import type { User } from "@/lib/types/database";
 import { useTypingIndicator } from "@/lib/hooks/use-typing-indicator";
 import { TypingIndicator } from "./typing-indicator";
+import { useDebounce } from "@/lib/hooks/use-debounce";
 
 interface CommentInputProps {
   currentUser: any; // User from database with snake_case fields
@@ -40,14 +41,49 @@ export const CommentInput = React.memo(function CommentInput({
   const [mentionQuery, setMentionQuery] = React.useState("");
   const [mentionIndex, setMentionIndex] = React.useState(-1);
   const [selectedMentionIndex, setSelectedMentionIndex] = React.useState(0);
+  const [mentionUsers, setMentionUsers] = React.useState<User[]>([]);
+  const [isMentionLoading, setIsMentionLoading] = React.useState(false);
 
   const useIsomorphicLayoutEffect = typeof window !== 'undefined' ? React.useLayoutEffect : React.useEffect;
 
-  // Filter users for mentions - TODO: Replace with API call
-  const filteredUsers = React.useMemo((): User[] => {
-    // For now, return empty array until we implement user search API
-    return [];
-  }, [mentionQuery]);
+  // Debounce the mention query to avoid excessive API calls
+  const debouncedMentionQuery = useDebounce(mentionQuery, 200);
+
+  // Fetch users for mention suggestions
+  React.useEffect(() => {
+    if (!showMentions) {
+      setMentionUsers([]);
+      return;
+    }
+
+    const fetchUsers = async () => {
+      setIsMentionLoading(true);
+      try {
+        const searchParam = debouncedMentionQuery 
+          ? `&search=${encodeURIComponent(debouncedMentionQuery)}`
+          : '';
+        const response = await fetch(`/api/users?limit=8${searchParam}`);
+        if (response.ok) {
+          const data = await response.json();
+          // Filter out current user from suggestions
+          const users = (data.users || []).filter(
+            (u: User) => u.id !== currentUser?.id
+          );
+          setMentionUsers(users);
+          setSelectedMentionIndex(0);
+        }
+      } catch (error) {
+        console.error('[CommentInput] Failed to fetch mention users:', error);
+      } finally {
+        setIsMentionLoading(false);
+      }
+    };
+
+    fetchUsers();
+  }, [showMentions, debouncedMentionQuery, currentUser?.id]);
+
+  // Alias for compatibility with existing code
+  const filteredUsers = mentionUsers;
 
   // Auto-expand textarea
   useIsomorphicLayoutEffect(() => {
@@ -176,33 +212,42 @@ export const CommentInput = React.memo(function CommentInput({
   return (
     <div className="flex gap-3 relative">
         {/* Mention Popover */}
-        {showMentions && filteredUsers.length > 0 && (
+        {showMentions && (
           <div className="absolute bottom-full left-10 mb-2 w-64 bg-popover border border-border rounded-lg shadow-xl overflow-hidden z-50 animate-in fade-in slide-in-from-bottom-2 duration-100">
             <div className="py-1">
-              <div className="px-2 py-1.5 text-xs font-medium text-muted-foreground uppercase tracking-wider bg-muted/50 border-b border-border/50">
-                Mention
+              <div className="px-2 py-1.5 text-xs font-medium text-muted-foreground uppercase tracking-wider bg-muted/50 border-b border-border/50 flex items-center justify-between">
+                <span>Mention</span>
+                {isMentionLoading && (
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                )}
               </div>
-              {filteredUsers.map((user, index) => (
-                <button
-                  key={user.id}
-                  onClick={() => insertMention(user)}
-                  className={cn(
-                    "w-full flex items-center gap-3 px-3 py-2 text-sm transition-colors text-left cursor-pointer",
-                    index === selectedMentionIndex 
-                      ? "bg-accent text-accent-foreground" 
-                      : "text-popover-foreground hover:bg-accent/50 hover:text-accent-foreground"
-                  )}
-                >
-                  <Avatar className="h-6 w-6 border border-border">
-                    <AvatarImage src={user.avatar_url} />
-                    <AvatarFallback>{user.username?.charAt(0).toUpperCase()}</AvatarFallback>
-                  </Avatar>
-                  <div className="flex flex-col overflow-hidden">
-                    <span className="truncate font-medium">{user.display_name}</span>
-                    <span className="truncate text-xs text-muted-foreground">@{user.username}</span>
-                  </div>
-                </button>
-              ))}
+              {filteredUsers.length > 0 ? (
+                filteredUsers.map((user, index) => (
+                  <button
+                    key={user.id}
+                    onClick={() => insertMention(user)}
+                    className={cn(
+                      "w-full flex items-center gap-3 px-3 py-2 text-sm transition-colors text-left cursor-pointer",
+                      index === selectedMentionIndex 
+                        ? "bg-accent text-accent-foreground" 
+                        : "text-popover-foreground hover:bg-accent/50 hover:text-accent-foreground"
+                    )}
+                  >
+                    <Avatar className="h-6 w-6 border border-border">
+                      <AvatarImage src={user.avatar_url} />
+                      <AvatarFallback>{user.username?.charAt(0).toUpperCase()}</AvatarFallback>
+                    </Avatar>
+                    <div className="flex flex-col overflow-hidden">
+                      <span className="truncate font-medium">{user.display_name}</span>
+                      <span className="truncate text-xs text-muted-foreground">@{user.username}</span>
+                    </div>
+                  </button>
+                ))
+              ) : !isMentionLoading ? (
+                <div className="px-3 py-4 text-sm text-muted-foreground text-center">
+                  {mentionQuery ? `No users found matching "${mentionQuery}"` : "No users available"}
+                </div>
+              ) : null}
             </div>
           </div>
         )}
@@ -250,9 +295,32 @@ export const CommentInput = React.memo(function CommentInput({
                         </button>
                         <button 
                             type="button" 
-                            disabled 
-                            className="p-1.5 text-muted-foreground/50 hover:text-muted-foreground transition-colors cursor-not-allowed"
-                            title="Mention (coming soon)"
+                            onClick={() => {
+                              // Insert @ at cursor position and trigger mention mode
+                              if (textareaRef.current) {
+                                const cursorPos = textareaRef.current.selectionStart;
+                                const beforeCursor = content.slice(0, cursorPos);
+                                const afterCursor = content.slice(cursorPos);
+                                // Add space before @ if needed
+                                const needsSpace = beforeCursor.length > 0 && !/\s$/.test(beforeCursor);
+                                const newContent = `${beforeCursor}${needsSpace ? ' ' : ''}@${afterCursor}`;
+                                setContent(newContent);
+                                setMentionIndex(cursorPos + (needsSpace ? 1 : 0));
+                                setMentionQuery("");
+                                setShowMentions(true);
+                                setSelectedMentionIndex(0);
+                                // Focus and position cursor after @
+                                setTimeout(() => {
+                                  if (textareaRef.current) {
+                                    textareaRef.current.focus();
+                                    const newPos = cursorPos + (needsSpace ? 2 : 1);
+                                    textareaRef.current.setSelectionRange(newPos, newPos);
+                                  }
+                                }, 0);
+                              }
+                            }}
+                            className="p-1.5 text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                            title="Mention someone"
                         >
                             <AtSign className="h-4 w-4" />
                         </button>

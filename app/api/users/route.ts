@@ -20,6 +20,7 @@ export const dynamic = 'force-dynamic';
  * - limit: number of users per page (default: 20)
  * - offset: pagination offset (default: 0)
  * - search: optional search query for username/display_name
+ * - filter: 'following' to only return users the current user follows
  */
 export async function GET(request: NextRequest) {
   try {
@@ -29,12 +30,50 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '20', 10);
     const offset = parseInt(searchParams.get('offset') || '0', 10);
     const search = searchParams.get('search') || '';
+    const filter = searchParams.get('filter') || '';
+
+    // Get current user for 'following' filter
+    const { data: { user: authUser } } = await supabase.auth.getUser();
+
+    // If filtering by 'following', get the list of followed user IDs first
+    let followedUserIds: string[] = [];
+    if (filter === 'following') {
+      if (!authUser) {
+        // Unauthenticated users can't have a following list
+        return NextResponse.json({
+          users: [],
+          total: 0,
+          hasMore: false,
+        });
+      }
+
+      const { data: follows } = await supabase
+        .from('user_follows')
+        .select('following_id')
+        .eq('follower_id', authUser.id);
+
+      followedUserIds = (follows || []).map(f => f.following_id);
+
+      // If user follows no one, return empty
+      if (followedUserIds.length === 0) {
+        return NextResponse.json({
+          users: [],
+          total: 0,
+          hasMore: false,
+        });
+      }
+    }
 
     // Build base query for users
     let usersQuery = supabase
       .from('users')
       .select('id, username, display_name, avatar_url, bio, job_title, location, created_at', { count: 'exact' })
       .order('created_at', { ascending: false });
+
+    // Apply 'following' filter
+    if (filter === 'following' && followedUserIds.length > 0) {
+      usersQuery = usersQuery.in('id', followedUserIds);
+    }
 
     // Add search filter if provided (sanitize to prevent SQL injection)
     if (search) {
