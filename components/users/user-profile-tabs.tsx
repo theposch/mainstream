@@ -65,7 +65,7 @@ export const UserProfileTabs = React.memo(function UserProfileTabs({
             className={cn(
               "px-4 py-2 rounded-full text-sm font-medium transition-all whitespace-nowrap",
               activeTab === tab.id
-                ? "bg-foreground text-background"
+                ? "bg-muted text-foreground"
                 : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
             )}
           >
