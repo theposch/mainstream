@@ -361,7 +361,7 @@ services:
       - -c
       - |
         apk add --no-cache curl
-        echo "*/15 * * * * curl -sf -X POST \$${APP_URL}/api/cron/process-schedules -H 'Authorization: Bearer '\$${CRON_SECRET} >> /proc/1/fd/1 2>&1" > /etc/crontabs/root
+        echo "*/15 * * * * curl -sf -X POST $${APP_URL}/api/cron/process-schedules -H 'Authorization: Bearer '$${CRON_SECRET} >> /proc/1/fd/1 2>&1" > /etc/crontabs/root
         crond -f -l 2
     depends_on:
       mainstream:
