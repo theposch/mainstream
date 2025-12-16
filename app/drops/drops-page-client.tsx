@@ -18,9 +18,9 @@ import { ManageSchedulesModal } from "@/components/drops/manage-schedules-modal"
 import type { Drop, User, DropSchedule } from "@/lib/types/database";
 
 type EnrichedDrop = Drop & {
-  creator?: User;
-  post_count?: number;
-  preview_images?: string[];
+    creator?: User;
+    post_count?: number;
+    preview_images?: string[];
 };
 
 interface DropsPageClientProps {
@@ -113,30 +113,30 @@ export function DropsPageClient({
       <div className="flex items-center justify-between gap-4 py-2">
         <div className="flex items-center gap-1">
           {visibleTabs.map((tab) => {
-            // Hide "My Drafts" for unauthenticated users
-            if (tab.id === "drafts" && !isAuthenticated) return null;
+          // Hide "My Drafts" for unauthenticated users
+          if (tab.id === "drafts" && !isAuthenticated) return null;
+          
+          const isActive = currentTab === tab.id;
             
-            const isActive = currentTab === tab.id;
-            
-            return (
-              <button
-                key={tab.id}
-                onClick={() => handleTabChange(tab.id)}
-                className={`
+          return (
+            <button
+              key={tab.id}
+              onClick={() => handleTabChange(tab.id)}
+              className={`
                   px-4 py-2 text-sm font-medium transition-all rounded-full whitespace-nowrap
-                  ${isActive
+                ${isActive
                     ? "bg-foreground text-background"
                     : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
-                  }
-                `}
-              >
+                }
+              `}
+            >
                 <span className="flex items-center gap-2">
                   {tab.isSchedule && <CalendarClock className="h-3.5 w-3.5" />}
-                  {tab.label}
+              {tab.label}
                 </span>
-              </button>
-            );
-          })}
+            </button>
+          );
+        })}
           
           {/* Overflow tabs dropdown */}
           {overflowTabs.length > 0 && (
@@ -256,11 +256,11 @@ export function DropsPageClient({
           scheduleTabContent
         ) : (
           // All other tabs show DropsGrid
-          <DropsGrid
-            drops={drops}
-            currentUserId={currentUserId}
-            onDropDeleted={handleDropDeleted}
-          />
+      <DropsGrid 
+        drops={drops}
+        currentUserId={currentUserId}
+        onDropDeleted={handleDropDeleted}
+      />
         )}
       </div>
 
