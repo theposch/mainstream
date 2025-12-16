@@ -81,7 +81,7 @@ export function CreateDialog({ children }: { children: React.ReactNode }) {
       setIsValidUrl(valid);
       
       if (valid) {
-        // Auto-populate title from URL
+        // Auto-populate title from URL (only if title is empty)
         if (!title) {
           if (detected === 'figma') {
             const extractedTitle = getFigmaTitle(url);
@@ -95,6 +95,7 @@ export function CreateDialog({ children }: { children: React.ReactNode }) {
         setMode('url-valid');
       } else {
         // URL is present but invalid - revert to initial mode
+        setProvider(null);
         if (mode === 'url-valid') {
           setMode('initial');
         }
@@ -106,7 +107,7 @@ export function CreateDialog({ children }: { children: React.ReactNode }) {
         setMode('initial');
       }
     }
-  }, [url, mode]);
+  }, [url, mode, title]);
 
   const resetForm = () => {
     setMode('initial');
