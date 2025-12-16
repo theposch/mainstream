@@ -142,7 +142,7 @@ export async function POST(request: NextRequest) {
     
     if (result1.error?.message?.includes("use_blocks")) {
       // Column doesn't exist, try without it
-      const { use_blocks: _, ...insertDataWithoutBlocks } = insertData;
+      const { use_blocks: _use_blocks, ...insertDataWithoutBlocks } = insertData;
       const result2 = await supabase
         .from("drops")
         .insert(insertDataWithoutBlocks)
@@ -192,8 +192,8 @@ export async function POST(request: NextRequest) {
     }
 
     // Get stream associations for filtered assets to group them
-    let assetStreamMap: Record<string, { streamId: string; streamName: string }[]> = {};
-    let streamNames: Record<string, string> = {};
+    const assetStreamMap: Record<string, { streamId: string; streamName: string }[]> = {};
+    const streamNames: Record<string, string> = {};
     
     if (filteredAssetIds.length > 0) {
       const { data: assetStreams } = await supabase
@@ -204,6 +204,7 @@ export async function POST(request: NextRequest) {
         `)
         .in("asset_id", filteredAssetIds);
 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase join type inference issue
       assetStreams?.forEach((as: any) => {
         if (!assetStreamMap[as.asset_id]) {
           assetStreamMap[as.asset_id] = [];

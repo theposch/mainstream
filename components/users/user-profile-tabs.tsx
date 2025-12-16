@@ -1,7 +1,6 @@
 "use client";
 
 import * as React from "react";
-import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 
 export type UserProfileTab = "shots" | "streams" | "liked";
@@ -25,7 +24,7 @@ interface TabConfig {
 
 /**
  * Tab navigation component for user profiles.
- * Displays three tabs: Shots, Streams, and Liked with animated transitions.
+ * Displays three tabs: Shots, Streams, and Liked.
  * 
  * @param activeTab - Currently active tab
  * @param onTabChange - Callback when tab is changed
@@ -40,7 +39,6 @@ export const UserProfileTabs = React.memo(function UserProfileTabs({
   streamsCount,
   likedCount
 }: UserProfileTabsProps) {
-  // Issue #6 Fix: Reduce duplication with array mapping
   const tabs: TabConfig[] = React.useMemo(() => [
     { id: "shots" as const, label: "Shots", count: shotsCount },
     { id: "streams" as const, label: "Streams", count: streamsCount },
@@ -53,8 +51,8 @@ export const UserProfileTabs = React.memo(function UserProfileTabs({
   }, [onTabChange]);
 
   return (
-    <div className="flex justify-center w-full" role="tablist" aria-label="User profile content">
-      <div className="flex p-1.5 bg-muted/80 backdrop-blur-md rounded-full border border-border shadow-sm">
+    <div className="flex w-full" role="tablist" aria-label="User profile content">
+      <div className="flex items-center gap-1">
         {tabs.map((tab) => (
           <button
             key={tab.id}
@@ -65,18 +63,12 @@ export const UserProfileTabs = React.memo(function UserProfileTabs({
             aria-controls={`${tab.id}-panel`}
             onClick={(e) => handleTabChange(tab.id, e)}
             className={cn(
-              "relative px-8 py-2.5 rounded-full text-sm font-semibold transition-colors z-10 cursor-pointer",
-              activeTab === tab.id ? "text-foreground" : "text-muted-foreground hover:text-foreground"
+              "px-4 py-2 rounded-full text-sm font-medium transition-all whitespace-nowrap",
+              activeTab === tab.id
+                ? "bg-muted text-foreground"
+                : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
             )}
           >
-            {activeTab === tab.id && (
-              <motion.div
-                layoutId="activeUserProfileTab"
-                className="absolute inset-0 bg-secondary rounded-full shadow-sm"
-                transition={{ type: "spring", duration: 0.5 }}
-                style={{ zIndex: -1 }}
-              />
-            )}
             {tab.label} ({tab.count})
           </button>
         ))}

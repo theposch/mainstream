@@ -6,6 +6,7 @@ import { useQueryState } from "nuqs";
 import { useQuery } from "@tanstack/react-query";
 import { FeedTabs } from "./feed-tabs";
 import { WeekHeader } from "./week-header";
+import { ContributorAvatars } from "./contributor-avatars";
 import { MasonryGrid } from "@/components/assets/masonry-grid";
 import { AssetDetail } from "@/components/assets/asset-detail";
 import { Button } from "@/components/ui/button";
@@ -109,6 +110,10 @@ export const DashboardFeed = React.memo(function DashboardFeed({ initialAssets }
 
   const hasResults = displayedAssets.length > 0;
   const isEmpty = displayedAssets.length === 0;
+  
+  // Extract first week for inline header display
+  const firstWeek = weekGroups[0];
+  const remainingWeeks = weekGroups.slice(1);
 
   // Find selected asset from current assets for modal
   const assetFromCache = React.useMemo(() => {
@@ -153,32 +158,57 @@ export const DashboardFeed = React.memo(function DashboardFeed({ initialAssets }
 
   return (
     <div className="w-full min-h-screen">
-      <div className="relative mb-8 flex items-center justify-center">
-      <FeedTabs activeTab={activeTab} onTabChange={setActiveTab} />
+      <div className="mb-6 flex items-center justify-between">
+        {/* Left: First week info */}
+        {firstWeek ? (
+          <div className="flex items-center gap-3">
+            <span className="text-sm font-medium text-muted-foreground">
+              <span className="font-semibold text-foreground">{firstWeek.postCount}</span>
+              {" "}
+              {firstWeek.postCount === 1 ? "post" : "posts"}
+              {" · "}
+              {firstWeek.label === "This week" || firstWeek.label === "Last week" 
+                ? firstWeek.label.toLowerCase() 
+                : firstWeek.label}
+            </span>
+            <ContributorAvatars
+              contributors={firstWeek.contributors}
+              maxVisible={5}
+              size="default"
+            />
+          </div>
+        ) : (
+          <div />
+        )}
         
-        <div className="absolute right-0 top-1/2 -translate-y-1/2 hidden md:flex items-center gap-1 bg-muted/50 p-1 rounded-lg border border-border">
-          <button
-            onClick={() => setLayout("grid")}
-            className={`p-1.5 rounded-md transition-all ${
-              layout === "grid" 
-                ? "bg-background shadow-sm text-foreground" 
-                : "text-muted-foreground hover:text-foreground"
-            }`}
-            title="Grid view"
-          >
-            <LayoutGrid className="w-4 h-4" />
-          </button>
-          <button
-            onClick={() => setLayout("detailed")}
-            className={`p-1.5 rounded-md transition-all ${
-              layout === "detailed" 
-                ? "bg-background shadow-sm text-foreground" 
-                : "text-muted-foreground hover:text-foreground"
-            }`}
-            title="Detailed view"
-          >
-            <Rows className="w-4 h-4" />
-          </button>
+        {/* Right: Tabs and layout toggle */}
+        <div className="flex items-center gap-3">
+          <FeedTabs activeTab={activeTab} onTabChange={setActiveTab} />
+          
+          <div className="hidden md:flex items-center gap-1">
+            <button
+              onClick={() => setLayout("grid")}
+              className={`p-2 rounded-full transition-all ${
+                layout === "grid" 
+                  ? "bg-muted text-foreground" 
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+              }`}
+              title="Grid view"
+            >
+              <LayoutGrid className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => setLayout("detailed")}
+              className={`p-2 rounded-full transition-all ${
+                layout === "detailed" 
+                  ? "bg-muted text-foreground" 
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+              }`}
+              title="Detailed view"
+            >
+              <Rows className="w-4 h-4" />
+            </button>
+          </div>
         </div>
       </div>
 
@@ -227,7 +257,19 @@ export const DashboardFeed = React.memo(function DashboardFeed({ initialAssets }
           <>
             {/* Weekly grouped feed */}
             <div className="space-y-1">
-              {weekGroups.map((week) => (
+              {/* First week - header is shown above */}
+              {firstWeek && (
+                <div key={firstWeek.key}>
+                  <MasonryGrid 
+                    assets={firstWeek.assets} 
+                    layout={layout}
+                    onAssetClick={handleAssetClick}
+                  />
+                </div>
+              )}
+              
+              {/* Remaining weeks with their headers */}
+              {remainingWeeks.map((week) => (
                 <div key={week.key}>
                   <WeekHeader
                     label={week.label}

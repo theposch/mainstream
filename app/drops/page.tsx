@@ -1,7 +1,8 @@
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/auth/get-user";
-import { DropsGrid } from "@/components/drops/drops-grid";
 import { DropsPageClient } from "./drops-page-client";
+import { SeriesTabContent } from "@/components/drops/series-tab-content";
+import type { DropSchedule } from "@/lib/types/database";
 
 export default async function DropsPage({
   searchParams,
@@ -12,6 +13,92 @@ export default async function DropsPage({
   const supabase = await createClient();
   const user = await getCurrentUser();
 
+  // Fetch user's schedules for dynamic tabs
+  let schedules: DropSchedule[] = [];
+  if (user) {
+    const { data: schedulesData } = await supabase
+      .from("drop_schedules")
+      .select("*")
+      .eq("created_by", user.id)
+      .order("created_at", { ascending: true });
+    schedules = (schedulesData || []) as DropSchedule[];
+  }
+
+  // Check if the tab is a schedule ID
+  const isScheduleTab = schedules.some(s => s.id === tab);
+
+  if (isScheduleTab) {
+    // Render schedule tab content
+    const schedule = schedules.find(s => s.id === tab)!;
+
+    // Fetch all drops for this schedule (both drafts and published)
+    const { data: seriesDrops } = await supabase
+      .from("drops")
+      .select(`
+        *,
+        creator:users!created_by(id, username, display_name, avatar_url)
+      `)
+      .eq("schedule_id", schedule.id)
+      .order("created_at", { ascending: false });
+
+    // Enrich with post counts and preview images
+    const allSeriesDrops = seriesDrops || [];
+    const seriesDropIds = allSeriesDrops.map((d) => d.id);
+    let enrichedSeriesDrops = allSeriesDrops;
+
+    if (seriesDropIds.length > 0) {
+      const dropData: Record<string, { count: number; previews: string[] }> = {};
+      seriesDropIds.forEach((id) => {
+        dropData[id] = { count: 0, previews: [] };
+      });
+
+      // Get post counts from drop_blocks
+      const { data: dropBlocks } = await supabase
+        .from("drop_blocks")
+        .select(`
+          drop_id,
+          type,
+          asset:assets(thumbnail_url)
+        `)
+        .in("drop_id", seriesDropIds)
+        .in("type", ["post", "featured_post"])
+        .order("position", { ascending: true });
+
+      dropBlocks?.forEach((db: any) => {
+        const data = dropData[db.drop_id];
+        if (data) {
+          data.count++;
+          if (data.previews.length < 3 && db.asset?.thumbnail_url) {
+            data.previews.push(db.asset.thumbnail_url);
+          }
+        }
+      });
+
+      enrichedSeriesDrops = allSeriesDrops.map((drop) => ({
+        ...drop,
+        post_count: dropData[drop.id]?.count || 0,
+        preview_images: dropData[drop.id]?.previews || [],
+      }));
+    }
+
+    return (
+      <DropsPageClient
+        initialDrops={[]}
+        currentTab={tab}
+        isAuthenticated={!!user}
+        currentUserId={user?.id}
+        schedules={schedules}
+        scheduleTabContent={
+          <SeriesTabContent
+            schedule={schedule}
+            drops={enrichedSeriesDrops}
+            currentUserId={user?.id}
+          />
+        }
+      />
+    );
+  }
+
   // Build query based on tab
   let query = supabase
     .from("drops")
@@ -21,21 +108,23 @@ export default async function DropsPage({
     `)
     .order("created_at", { ascending: false });
 
-  if (tab === "weekly") {
-    query = query.eq("is_weekly", true).eq("status", "published");
-  } else if (tab === "drafts") {
-    if (user) {
-      query = query.eq("status", "draft").eq("created_by", user.id);
-    } else {
+  if (tab === "drafts") {
+    if (!user) {
       // No drafts for unauthenticated users
       return (
         <DropsPageClient
           initialDrops={[]}
           currentTab={tab}
           isAuthenticated={false}
+          schedules={[]}
         />
       );
     }
+    // Drafts tab shows only manually created drafts (not scheduled ones)
+    query = query
+      .eq("status", "draft")
+      .eq("created_by", user.id)
+      .is("schedule_id", null);
   } else {
     // "all" tab shows published drops
     query = query.eq("status", "published");
@@ -116,7 +205,7 @@ export default async function DropsPage({
       currentTab={tab}
       isAuthenticated={!!user}
       currentUserId={user?.id}
+      schedules={schedules}
     />
   );
 }
-

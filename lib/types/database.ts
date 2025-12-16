@@ -123,8 +123,8 @@ export interface Comment {
 }
 
 // Notification types
-export type NotificationType = 'like_asset' | 'like_comment' | 'reply_comment' | 'follow' | 'mention' | 'comment';
-export type ResourceType = 'asset' | 'comment' | 'user' | 'stream';
+export type NotificationType = 'like_asset' | 'like_comment' | 'reply_comment' | 'follow' | 'mention' | 'comment' | 'scheduled_drop_ready';
+export type ResourceType = 'asset' | 'comment' | 'user' | 'stream' | 'drop';
 
 // Notification type (single source of truth)
 export interface Notification {
@@ -186,6 +186,39 @@ export interface StreamBookmark {
   position: number;
 }
 
+// Drop Schedule (recurring drop configuration)
+export type ScheduleFrequency = 'weekly' | 'biweekly' | 'monthly' | 'custom';
+export type DateRangeMode = 'last_n_days' | 'since_last';
+export type ScheduleStatus = 'active' | 'paused';
+
+export interface DropSchedule {
+  id: string;
+  created_by: string;
+  name: string; // Becomes tab title
+  
+  // Schedule timing
+  frequency: ScheduleFrequency;
+  day_of_week?: number; // 0=Sunday, 1=Monday, etc. (for weekly/biweekly)
+  day_of_month?: number; // 1-31 (for monthly)
+  custom_interval_days?: number; // (for custom frequency)
+  generation_time: string; // HH:MM:SS
+  timezone: string;
+  
+  // Content filters
+  stream_ids: string[];
+  user_ids: string[];
+  date_range_mode: DateRangeMode;
+  date_range_days?: number;
+  
+  // State
+  status: ScheduleStatus;
+  next_run_at: string | null;
+  last_run_at: string | null;
+  
+  created_at: string;
+  updated_at: string;
+}
+
 // Drop (AI-powered newsletter)
 export interface Drop {
   id: string;
@@ -202,8 +235,11 @@ export interface Drop {
   use_blocks: boolean; // Whether this drop uses the block-based editor
   created_at: string;
   updated_at: string;
+  // Schedule reference (for recurring drops)
+  schedule_id?: string | null;
   // Joined data
   creator?: User;
+  schedule?: DropSchedule; // Joined schedule data
   blocks?: DropBlock[]; // Blocks when use_blocks is true
 }
 

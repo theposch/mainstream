@@ -40,17 +40,18 @@ All operations use optimistic updates with rollback on error.
 
 **Location**: `app/drops/page.tsx`, `app/drops/drops-page-client.tsx`
 
-Three tabs for filtering drops:
+Dynamic tabs for filtering drops:
 
 | Tab | Description |
 |-----|-------------|
 | All Drops | Published drops from everyone |
-| Weekly | Auto-generated weekly summaries |
 | My Drafts | Your unpublished drops |
+| [Series Tabs] | User-created scheduled series (dynamic) |
 
 **Components**:
 - `DropsGrid` - Grid layout for drop cards
 - `DropCard` - Individual drop preview card
+- `SeriesTabContent` - Schedule management view for series tabs
 
 ### 2. Create Drop Dialog
 
@@ -233,6 +234,101 @@ Group multiple images with two layout options.
 - Multi-select from existing posts
 - Upload new images directly with drag & drop
 - Toggle layout mode on hover (like Fit/Cover controls)
+
+---
+
+## Scheduled Drops (Series)
+
+### Overview
+Series are recurring drop schedules that automatically generate draft drops on a configured cadence. Users receive notifications when drafts are ready to review.
+
+### Creating a Series
+**Location**: `components/drops/create-series-dialog.tsx`
+
+Configuration options:
+- **Name**: Becomes the tab title and default drop title
+- **Frequency**: Weekly, Biweekly, Monthly, or Custom interval
+- **Day**: Day of week (weekly/biweekly) or day of month (monthly)
+- **Time**: Generation time in user's timezone
+- **Date Range Mode**: 
+  - `last_n_days` - Include posts from last N days
+  - `since_last` - Include posts since last generated drop
+- **Stream/User Filters**: Optional content filters
+- **Generate Now**: Option to create first draft immediately
+
+### Series Tab Content
+**Location**: `components/drops/series-tab-content.tsx`
+
+Each series creates a dedicated tab showing:
+- Schedule status (Active/Paused) and next generation date
+- Action buttons: Generate Now, Pause/Resume, Edit, Delete
+- Current draft card with link to editor
+- Warning if draft unpublished and next generation soon
+- List of superseded (old) drafts
+- Recent published drops from this series
+
+### Database Schema
+
+#### drop_schedules
+```sql
+CREATE TABLE drop_schedules (
+  id UUID PRIMARY KEY,
+  created_by UUID REFERENCES users(id),
+  name TEXT NOT NULL,
+  frequency TEXT NOT NULL,  -- 'weekly' | 'biweekly' | 'monthly' | 'custom'
+  day_of_week INT,          -- 0-6 (Sunday=0)
+  day_of_month INT,         -- 1-31
+  custom_interval_days INT,
+  generation_time TIME DEFAULT '09:00:00',
+  timezone TEXT DEFAULT 'America/New_York',
+  stream_ids UUID[],
+  user_ids UUID[],
+  date_range_mode TEXT DEFAULT 'last_n_days',
+  date_range_days INT DEFAULT 7,
+  status TEXT DEFAULT 'active',  -- 'active' | 'paused'
+  next_run_at TIMESTAMPTZ,
+  last_run_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ,
+  updated_at TIMESTAMPTZ
+);
+```
+
+#### drops (additions)
+```sql
+ALTER TABLE drops ADD COLUMN schedule_id UUID REFERENCES drop_schedules(id);
+ALTER TABLE drops ADD COLUMN is_superseded BOOLEAN DEFAULT FALSE;
+```
+
+### Background Job (pg_cron)
+**Location**: `scripts/migrations/038_add_schedule_cron.sql`
+
+A PostgreSQL function `process_scheduled_drops()` runs every 15 minutes via pg_cron:
+1. Finds active schedules where `next_run_at <= NOW()`
+2. Marks existing drafts as superseded
+3. Creates new draft drop with schedule's filters
+4. Creates `scheduled_drop_ready` notification
+5. Updates schedule's `last_run_at` and `next_run_at`
+
+Manual trigger function `trigger_schedule_now(schedule_id)` available for "Generate Now" button.
+
+### API Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/schedules` | List user's schedules |
+| POST | `/api/schedules` | Create new schedule |
+| GET | `/api/schedules/[id]` | Get schedule with drafts |
+| PATCH | `/api/schedules/[id]` | Update schedule |
+| DELETE | `/api/schedules/[id]` | Delete schedule |
+| POST | `/api/schedules/[id]/pause` | Pause schedule |
+| POST | `/api/schedules/[id]/resume` | Resume schedule |
+| POST | `/api/schedules/[id]/generate` | Generate draft now |
+
+### Notifications
+When a scheduled drop is generated, the user receives a `scheduled_drop_ready` notification with:
+- Calendar icon (instead of user avatar)
+- Link to the new draft's editor
+- Content: "Your [Series Name] is ready to review"
 
 ---
 
@@ -457,13 +553,16 @@ components/drops/blocks/
 ### Drop Components
 ```
 components/drops/
-  create-drop-dialog.tsx      # New drop creation with filters (DatePicker, StreamPicker, UserPicker)
+  create-drop-dialog.tsx      # New drop creation with filters
+  create-series-dialog.tsx    # New series/schedule creation (NEW)
+  edit-series-dialog.tsx      # Edit series settings (NEW)
+  series-tab-content.tsx      # Series tab view with status/actions (NEW)
   drop-card.tsx               # Grid card preview with delete menu
-  drop-editor-header.tsx      # Editor header with save status, undo/redo, preview toggle (NEW)
+  drop-editor-header.tsx      # Editor header with save status, undo/redo
   drop-publish-dialog.tsx     # Publish confirmation
   delete-drop-dialog.tsx      # Delete confirmation with error handling
-  unpublish-drop-dialog.tsx   # Unpublish confirmation (NEW)
-  published-drop-header.tsx   # Header for published drop view page (NEW)
+  unpublish-drop-dialog.tsx   # Unpublish confirmation
+  published-drop-header.tsx   # Header for published drop view page
   drop-view.tsx               # Classic layout view
   drops-grid.tsx              # Grid container
 ```
@@ -518,7 +617,6 @@ If FFmpeg is unavailable, uploads still succeed but fall back to using the video
 ## Future Enhancements
 
 Planned features not yet implemented:
-- Auto-generate weekly drops every Friday (cron job)
 - Link embed blocks (URL preview cards)
 - Workspace-specific drops
 - Email recipient management
@@ -527,4 +625,6 @@ Planned features not yet implemented:
 - Rich text editing (bold, italic, links in text blocks)
 - Block duplication
 - Recipient preview before sending
+- Series-specific email designs
+- External scheduler support (Vercel Cron)
 

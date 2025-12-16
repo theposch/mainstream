@@ -81,15 +81,15 @@ export default async function DropPage({ params }: DropPageProps) {
           <PublishedDropHeader dropId={drop.id} dropTitle={drop.title} />
         )}
         <div className="max-w-3xl mx-auto py-10 px-4">
-          <DropBlocksView
-            title={drop.title}
-            description={drop.description}
-            blocks={blocks || []}
-            contributors={contributors}
-            dateRangeStart={drop.date_range_start}
-            dateRangeEnd={drop.date_range_end}
-          />
-        </div>
+        <DropBlocksView
+          title={drop.title}
+          description={drop.description}
+          blocks={blocks || []}
+          contributors={contributors}
+          dateRangeStart={drop.date_range_start}
+          dateRangeEnd={drop.date_range_end}
+        />
+      </div>
       </>
     );
   }
@@ -170,15 +170,15 @@ export default async function DropPage({ params }: DropPageProps) {
         <PublishedDropHeader dropId={drop.id} dropTitle={drop.title} />
       )}
       <div className="max-w-3xl mx-auto py-10 px-4">
-        <DropView
-          title={drop.title}
-          description={drop.description}
-          dateRangeStart={drop.date_range_start}
-          dateRangeEnd={drop.date_range_end}
-          posts={enrichedPosts}
-          contributors={contributors}
-        />
-      </div>
+      <DropView
+        title={drop.title}
+        description={drop.description}
+        dateRangeStart={drop.date_range_start}
+        dateRangeEnd={drop.date_range_end}
+        posts={enrichedPosts}
+        contributors={contributors}
+      />
+    </div>
     </>
   );
 }
