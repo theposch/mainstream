@@ -12,8 +12,10 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { createAdminClient } from "@/lib/supabase/server";
 import { calculateNextRun } from "@/lib/utils/schedule-helpers";
+import type { DropSchedule } from "@/lib/types/database";
 
 // Allow both GET and POST for flexibility with different cron services
 export async function GET(request: NextRequest) {
@@ -85,7 +87,7 @@ async function processSchedules(request: NextRequest) {
   }
 }
 
-async function processSchedule(supabase: any, schedule: any) {
+async function processSchedule(supabase: SupabaseClient, schedule: DropSchedule) {
   // Calculate date range for content
   const dateEnd = new Date();
   let dateStart: Date;
@@ -150,7 +152,7 @@ async function processSchedule(supabase: any, schedule: any) {
   }
 
   const { data: assets } = await assetsQuery;
-  let filteredAssetIds = assets?.map((a: any) => a.id) || [];
+  let filteredAssetIds = assets?.map((a: { id: string }) => a.id) || [];
   
   if (filter_stream_ids?.length && filteredAssetIds.length > 0) {
     const { data: streamAssets } = await supabase
@@ -159,12 +161,12 @@ async function processSchedule(supabase: any, schedule: any) {
       .in("stream_id", filter_stream_ids)
       .in("asset_id", filteredAssetIds);
     
-    filteredAssetIds = [...new Set(streamAssets?.map((sa: any) => sa.asset_id) || [])];
+    filteredAssetIds = [...new Set(streamAssets?.map((sa: { asset_id: string }) => sa.asset_id) || [])];
   }
 
   // Get stream associations for grouping
-  let assetStreamMap: Record<string, { streamId: string; streamName: string }[]> = {};
-  let streamNames: Record<string, string> = {};
+  const assetStreamMap: Record<string, { streamId: string; streamName: string }[]> = {};
+  const streamNames: Record<string, string> = {};
   
   if (filteredAssetIds.length > 0) {
     const { data: assetStreams } = await supabase
@@ -172,6 +174,7 @@ async function processSchedule(supabase: any, schedule: any) {
       .select(`asset_id, stream:streams(id, name)`)
       .in("asset_id", filteredAssetIds);
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase join type inference issue
     assetStreams?.forEach((as: any) => {
       if (!assetStreamMap[as.asset_id]) {
         assetStreamMap[as.asset_id] = [];

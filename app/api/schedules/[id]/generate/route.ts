@@ -132,8 +132,8 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
   }
 
   // Get stream associations for filtered assets to group them
-  let assetStreamMap: Record<string, { streamId: string; streamName: string }[]> = {};
-  let streamNames: Record<string, string> = {};
+  const assetStreamMap: Record<string, { streamId: string; streamName: string }[]> = {};
+  const streamNames: Record<string, string> = {};
   
   if (filteredAssetIds.length > 0) {
     const { data: assetStreams } = await supabase
@@ -144,6 +144,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       `)
       .in("asset_id", filteredAssetIds);
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase join type inference issue
     assetStreams?.forEach((as: any) => {
       if (!assetStreamMap[as.asset_id]) {
         assetStreamMap[as.asset_id] = [];
