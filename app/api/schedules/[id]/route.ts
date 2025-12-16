@@ -9,7 +9,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/auth/get-user";
-import { calculateNextRun, VALIDATION } from "@/lib/utils/schedule-helpers";
+import { calculateNextRun, VALIDATION, isValidTimezone } from "@/lib/utils/schedule-helpers";
 
 type RouteParams = {
   params: Promise<{ id: string }>;
@@ -142,10 +142,20 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     }
     
     if (body.generation_time !== undefined) updates.generation_time = body.generation_time;
-    if (body.timezone !== undefined) updates.timezone = body.timezone;
+    if (body.timezone !== undefined) {
+      if (!isValidTimezone(body.timezone)) {
+        return NextResponse.json({ error: "Invalid timezone value" }, { status: 400 });
+      }
+      updates.timezone = body.timezone;
+    }
     if (body.stream_ids !== undefined) updates.stream_ids = body.stream_ids;
     if (body.user_ids !== undefined) updates.user_ids = body.user_ids;
-    if (body.date_range_mode !== undefined) updates.date_range_mode = body.date_range_mode;
+    if (body.date_range_mode !== undefined) {
+      if (!['last_n_days', 'since_last'].includes(body.date_range_mode)) {
+        return NextResponse.json({ error: "Invalid date_range_mode value" }, { status: 400 });
+      }
+      updates.date_range_mode = body.date_range_mode;
+    }
     
     // Validate date_range_days
     if (body.date_range_days !== undefined) {

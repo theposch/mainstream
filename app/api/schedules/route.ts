@@ -8,7 +8,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/auth/get-user";
-import { calculateNextRun, VALIDATION } from "@/lib/utils/schedule-helpers";
+import { calculateNextRun, VALIDATION, isValidTimezone } from "@/lib/utils/schedule-helpers";
 
 /**
  * GET /api/schedules
@@ -77,6 +77,16 @@ export async function POST(request: NextRequest) {
     }
     if (!frequency || !['weekly', 'biweekly', 'monthly', 'custom'].includes(frequency)) {
       return NextResponse.json({ error: "Valid frequency is required" }, { status: 400 });
+    }
+    
+    // Validate date_range_mode
+    if (date_range_mode && !['last_n_days', 'since_last'].includes(date_range_mode)) {
+      return NextResponse.json({ error: "Invalid date_range_mode value" }, { status: 400 });
+    }
+    
+    // Validate timezone
+    if (timezone && !isValidTimezone(timezone)) {
+      return NextResponse.json({ error: "Invalid timezone value" }, { status: 400 });
     }
     
     // Validate date range days

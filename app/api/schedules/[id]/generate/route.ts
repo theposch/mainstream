@@ -308,13 +308,20 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     schedule.timezone
   );
   
-  await supabase
+  const { error: scheduleUpdateError } = await supabase
     .from("drop_schedules")
     .update({ 
       last_run_at: newLastRunAt.toISOString(),
       next_run_at: newNextRunAt.toISOString(),
     })
     .eq("id", id);
+  
+  if (scheduleUpdateError) {
+    // This is serious - schedule won't advance to next run correctly
+    console.error('[POST /api/schedules/[id]/generate] Failed to update schedule:', scheduleUpdateError);
+    // Don't fail the request since the drop was created successfully
+    // but log the error for monitoring
+  }
   
   return NextResponse.json({
     drop,

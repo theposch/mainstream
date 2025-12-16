@@ -51,13 +51,15 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
   }
   
   // Calculate next run time
+  // Pass lastRunAt for biweekly tracking to ensure correct 2-week spacing
   const nextRunAt = calculateNextRun(
     existingSchedule.frequency,
     existingSchedule.day_of_week,
     existingSchedule.day_of_month,
     existingSchedule.custom_interval_days,
     existingSchedule.generation_time,
-    existingSchedule.timezone
+    existingSchedule.timezone,
+    existingSchedule.last_run_at ? new Date(existingSchedule.last_run_at) : undefined
   );
   
   // Resume the schedule

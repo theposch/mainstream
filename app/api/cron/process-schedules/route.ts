@@ -83,6 +83,22 @@ export async function POST(request: NextRequest) {
 }
 
 async function processSchedule(supabase: SupabaseClient, schedule: DropSchedule) {
+  // Race condition protection: Immediately claim this schedule by setting next_run_at to null
+  // This prevents other cron instances from processing it simultaneously
+  const { error: claimError, data: claimResult } = await supabase
+    .from("drop_schedules")
+    .update({ next_run_at: null })
+    .eq("id", schedule.id)
+    .eq("next_run_at", schedule.next_run_at) // Only update if next_run_at hasn't changed
+    .select("id")
+    .single();
+  
+  if (claimError || !claimResult) {
+    // Another instance already claimed this schedule, skip it
+    console.log(`[processSchedule] Schedule ${schedule.id} already claimed by another instance, skipping`);
+    return;
+  }
+  
   // Calculate date range for content
   const dateEnd = new Date();
   let dateStart: Date;
