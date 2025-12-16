@@ -5,7 +5,8 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/server";
+import { getCurrentUser } from "@/lib/auth/get-user";
 import { ScheduleFrequency } from "@/lib/types/database";
 
 type RouteParams = {
@@ -76,13 +77,15 @@ function calculateNextRun(
  */
 export async function POST(request: NextRequest, { params }: RouteParams) {
   const { id } = await params;
-  const supabase = await createClient();
   
-  // Verify authentication
-  const { data: { user }, error: authError } = await supabase.auth.getUser();
-  if (authError || !user) {
+  // Use getCurrentUser for authentication
+  const user = await getCurrentUser();
+  if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  
+  // Use admin client to bypass RLS
+  const supabase = await createAdminClient();
   
   // Fetch existing schedule
   const { data: existingSchedule, error: fetchError } = await supabase
