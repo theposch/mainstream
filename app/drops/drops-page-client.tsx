@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Plus, CalendarClock, MoreVertical } from "lucide-react";
+import { CalendarClock, MoreVertical } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -96,40 +96,9 @@ export function DropsPageClient({
 
   return (
     <div className="w-full min-h-screen pb-20">
-      {/* Page Header */}
-      <div className="pt-10 pb-8 flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-4xl font-bold text-foreground">Drops</h1>
-          <p className="text-lg text-muted-foreground mt-2 max-w-2xl">
-            AI-powered newsletters summarizing your team&apos;s design work.
-          </p>
-        </div>
-        {isAuthenticated && (
-          <div className="flex items-center gap-2">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="icon">
-                  <MoreVertical className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => setManageSchedulesOpen(true)}>
-                  <CalendarClock className="h-4 w-4 mr-2" />
-                  Manage Scheduled Drops
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-            
-            <Button onClick={() => setCreateDialogOpen(true)} className="gap-2">
-              <Plus className="h-4 w-4" />
-              Create Drop
-            </Button>
-          </div>
-        )}
-      </div>
-
-      {/* Tabs */}
-      <div className="flex items-center gap-1 mb-8 border-b border-border overflow-x-auto">
+      {/* Tabs + Actions Row */}
+      <div className="flex items-center justify-between gap-4 border-b border-border">
+        <div className="flex items-center gap-1 overflow-x-auto">
         {tabs.map((tab) => {
           // Hide "My Drafts" for unauthenticated users
           if (tab.id === "drafts" && !isAuthenticated) return null;
@@ -159,9 +128,34 @@ export function DropsPageClient({
             </button>
           );
         })}
+        </div>
+
+        {/* Actions */}
+        {isAuthenticated && (
+          <div className="flex items-center gap-2 shrink-0 py-1">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="icon">
+                  <MoreVertical className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => setManageSchedulesOpen(true)}>
+                  <CalendarClock className="h-4 w-4 mr-2" />
+                  Manage Scheduled Drops
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            
+            <Button onClick={() => setCreateDialogOpen(true)} className="gap-2">
+              Create Drop
+            </Button>
+          </div>
+        )}
       </div>
 
       {/* Content */}
+      <div className="pt-8">
       {isScheduleTab && scheduleTabContent ? (
         // Schedule tab shows SeriesTabContent
         scheduleTabContent
@@ -205,6 +199,7 @@ export function DropsPageClient({
           onDropDeleted={handleDropDeleted}
         />
       )}
+      </div>
 
       {/* Create Drop Dialog */}
       <CreateDropDialog
