@@ -166,8 +166,8 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
   filteredAssetIds.forEach((assetId) => {
     const streams = assetStreamMap[assetId];
     if (streams && streams.length > 0) {
-      let groupingStream;
-      
+      // Default to first stream, override if filter matches
+      let groupingStream = streams[0];
       if (filter_stream_ids?.length) {
         // Find first filtered stream this asset belongs to (in filter order)
         for (const filteredId of filter_stream_ids) {
@@ -177,11 +177,6 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
             break;
           }
         }
-      }
-      
-      // Fall back to primary stream if no filter or no match found
-      if (!groupingStream) {
-        groupingStream = streams[0];
       }
       
       if (!assetsByStream[groupingStream.streamId]) {

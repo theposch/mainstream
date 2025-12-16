@@ -315,7 +315,17 @@ export async function POST(request: NextRequest) {
         }
 
         if (blocks.length > 0) {
-          await adminClient.from("drop_blocks").insert(blocks);
+          const { error: blocksError } = await adminClient.from("drop_blocks").insert(blocks);
+          
+          if (blocksError) {
+            console.error("Error adding blocks to drop:", blocksError);
+            // Delete the drop to avoid inconsistent state
+            await adminClient.from("drops").delete().eq("id", drop.id);
+            return NextResponse.json(
+              { error: "Failed to create drop content blocks" },
+              { status: 500 }
+            );
+          }
         }
         
         postCount = filteredAssetIds.length;
