@@ -9,7 +9,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/auth/get-user";
-import { calculateNextRun } from "@/lib/utils/schedule-helpers";
+import { calculateNextRun, VALIDATION } from "@/lib/utils/schedule-helpers";
 
 type RouteParams = {
   params: Promise<{ id: string }>;
@@ -112,17 +112,43 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     // Build update object with only provided fields
     const updates: Record<string, any> = {};
     
-    if (body.name !== undefined) updates.name = body.name.trim();
+    // Validate and set name
+    if (body.name !== undefined) {
+      const trimmedName = body.name.trim();
+      if (!trimmedName) {
+        return NextResponse.json({ error: "Name cannot be empty" }, { status: 400 });
+      }
+      if (trimmedName.length > VALIDATION.NAME_MAX_LENGTH) {
+        return NextResponse.json({ error: `Name must be ${VALIDATION.NAME_MAX_LENGTH} characters or less` }, { status: 400 });
+      }
+      updates.name = trimmedName;
+    }
+    
     if (body.frequency !== undefined) updates.frequency = body.frequency;
     if (body.day_of_week !== undefined) updates.day_of_week = body.day_of_week;
     if (body.day_of_month !== undefined) updates.day_of_month = body.day_of_month;
-    if (body.custom_interval_days !== undefined) updates.custom_interval_days = body.custom_interval_days;
+    
+    // Validate custom_interval_days
+    if (body.custom_interval_days !== undefined) {
+      updates.custom_interval_days = Math.min(
+        Math.max(body.custom_interval_days, VALIDATION.CUSTOM_INTERVAL_MIN),
+        VALIDATION.CUSTOM_INTERVAL_MAX
+      );
+    }
+    
     if (body.generation_time !== undefined) updates.generation_time = body.generation_time;
     if (body.timezone !== undefined) updates.timezone = body.timezone;
     if (body.stream_ids !== undefined) updates.stream_ids = body.stream_ids;
     if (body.user_ids !== undefined) updates.user_ids = body.user_ids;
     if (body.date_range_mode !== undefined) updates.date_range_mode = body.date_range_mode;
-    if (body.date_range_days !== undefined) updates.date_range_days = body.date_range_days;
+    
+    // Validate date_range_days
+    if (body.date_range_days !== undefined) {
+      updates.date_range_days = Math.min(
+        Math.max(body.date_range_days, VALIDATION.DATE_RANGE_DAYS_MIN),
+        VALIDATION.DATE_RANGE_DAYS_MAX
+      );
+    }
     
     // If schedule timing changed, recalculate next_run_at
     if (existingSchedule.status === 'active' && (

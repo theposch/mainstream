@@ -8,7 +8,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/auth/get-user";
-import { calculateNextRun } from "@/lib/utils/schedule-helpers";
+import { calculateNextRun, VALIDATION } from "@/lib/utils/schedule-helpers";
 
 /**
  * GET /api/schedules
@@ -72,16 +72,33 @@ export async function POST(request: NextRequest) {
     if (!name?.trim()) {
       return NextResponse.json({ error: "Name is required" }, { status: 400 });
     }
+    if (name.trim().length > VALIDATION.NAME_MAX_LENGTH) {
+      return NextResponse.json({ error: `Name must be ${VALIDATION.NAME_MAX_LENGTH} characters or less` }, { status: 400 });
+    }
     if (!frequency || !['weekly', 'biweekly', 'monthly', 'custom'].includes(frequency)) {
       return NextResponse.json({ error: "Valid frequency is required" }, { status: 400 });
     }
+    
+    // Validate date range days
+    const validatedDateRangeDays = Math.min(
+      Math.max(date_range_days || 7, VALIDATION.DATE_RANGE_DAYS_MIN),
+      VALIDATION.DATE_RANGE_DAYS_MAX
+    );
+    
+    // Validate custom interval
+    const validatedCustomInterval = frequency === 'custom' 
+      ? Math.min(
+          Math.max(custom_interval_days || 7, VALIDATION.CUSTOM_INTERVAL_MIN),
+          VALIDATION.CUSTOM_INTERVAL_MAX
+        )
+      : null;
     
     // Calculate next run time
     const nextRunAt = calculateNextRun(
       frequency,
       day_of_week,
       day_of_month,
-      custom_interval_days,
+      validatedCustomInterval ?? undefined,
       generation_time,
       timezone
     );
@@ -96,15 +113,15 @@ export async function POST(request: NextRequest) {
         created_by: user.id,
         name: name.trim(),
         frequency,
-        day_of_week,
-        day_of_month,
-        custom_interval_days,
+        day_of_week: frequency === 'weekly' || frequency === 'biweekly' ? day_of_week : null,
+        day_of_month: frequency === 'monthly' ? day_of_month : null,
+        custom_interval_days: validatedCustomInterval,
         generation_time,
         timezone,
         stream_ids,
         user_ids,
         date_range_mode,
-        date_range_days,
+        date_range_days: validatedDateRangeDays,
         status: "active",
         next_run_at: nextRunAt.toISOString(),
       })
@@ -126,7 +143,7 @@ export async function POST(request: NextRequest) {
       let dateStart: Date;
       
       if (date_range_mode === 'last_n_days') {
-        dateStart = new Date(dateEnd.getTime() - (date_range_days || 7) * 24 * 60 * 60 * 1000);
+        dateStart = new Date(dateEnd.getTime() - validatedDateRangeDays * 24 * 60 * 60 * 1000);
       } else {
         dateStart = new Date(dateEnd.getTime() - 7 * 24 * 60 * 60 * 1000);
       }

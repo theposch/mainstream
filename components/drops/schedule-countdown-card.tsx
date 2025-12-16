@@ -1,10 +1,11 @@
 "use client";
 
 import * as React from "react";
-import { differenceInDays, differenceInHours } from "date-fns";
+import { differenceInDays, differenceInHours, differenceInMinutes } from "date-fns";
 import { Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { EditSeriesDialog } from "./edit-series-dialog";
+import { toast } from "sonner";
 import type { DropSchedule } from "@/lib/types/database";
 
 interface ScheduleCountdownCardProps {
@@ -30,6 +31,16 @@ export function ScheduleCountdownCard({
   onScheduleUpdated,
 }: ScheduleCountdownCardProps) {
   const [editDialogOpen, setEditDialogOpen] = React.useState(false);
+  const [, setTick] = React.useState(0);
+
+  // Auto-refresh countdown every minute
+  React.useEffect(() => {
+    const interval = setInterval(() => {
+      setTick(t => t + 1);
+    }, 60000); // Refresh every minute
+    
+    return () => clearInterval(interval);
+  }, []);
 
   // Calculate countdown
   const getCountdown = () => {
@@ -41,6 +52,7 @@ export function ScheduleCountdownCard({
     const nextRun = new Date(schedule.next_run_at);
     const daysUntil = differenceInDays(nextRun, now);
     const hoursUntil = differenceInHours(nextRun, now);
+    const minutesUntil = differenceInMinutes(nextRun, now);
 
     if (daysUntil > 1) {
       return { value: daysUntil, unit: "days" };
@@ -50,6 +62,10 @@ export function ScheduleCountdownCard({
       return { value: hoursUntil, unit: "hours" };
     } else if (hoursUntil === 1) {
       return { value: 1, unit: "hour" };
+    } else if (minutesUntil > 1) {
+      return { value: minutesUntil, unit: "minutes" };
+    } else if (minutesUntil === 1) {
+      return { value: 1, unit: "minute" };
     } else {
       return { value: 0, unit: "soon" };
     }
@@ -57,12 +73,17 @@ export function ScheduleCountdownCard({
 
   const countdown = getCountdown();
 
-  const handleRemindTeam = () => {
-    // TODO: Implement Slack reminder integration
-    // For now, could open a share dialog or copy a reminder message
+  const handleRemindTeam = async () => {
     const message = `📢 Reminder: The next ${schedule.name} is coming up! Share your work-in-progress to be included.`;
-    navigator.clipboard.writeText(message);
-    // Could show a toast here
+    
+    try {
+      await navigator.clipboard.writeText(message);
+      toast.success("Message copied to clipboard", {
+        description: "Paste it in Slack to remind your team",
+      });
+    } catch {
+      toast.error("Failed to copy message");
+    }
   };
 
   const handleEditSchedule = () => {

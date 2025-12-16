@@ -6,6 +6,7 @@ import { SearchProvider } from "@/lib/contexts/search-context";
 import { QueryProvider } from "@/lib/providers/query-provider";
 import { ThemeProvider } from "@/lib/providers/theme-provider";
 import { NuqsAdapter } from "nuqs/adapters/next/app";
+import { Toaster } from "@/components/ui/sonner";
 
 // Validate environment variables at startup (server-side only)
 import "./env-validation";
@@ -29,6 +30,7 @@ export default function RootLayout({
         <QueryProvider>
         <NuqsAdapter>
         <SearchProvider>
+          <Toaster position="bottom-right" />
           {/* Skip to main content link for accessibility */}
           <a
             href="#main-content"

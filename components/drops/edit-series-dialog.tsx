@@ -26,6 +26,7 @@ import {
   DAYS_OF_WEEK, 
   DAYS_OF_MONTH, 
   FREQUENCIES,
+  VALIDATION,
   getOrdinalSuffix 
 } from "@/lib/utils/schedule-helpers";
 import type { DropSchedule, ScheduleFrequency, DateRangeMode } from "@/lib/types/database";
@@ -79,8 +80,29 @@ export function EditSeriesDialog({
     e.preventDefault();
     setError(null);
 
+    // Validate name
     if (!name.trim()) {
       setError("Name is required");
+      return;
+    }
+    if (name.trim().length > VALIDATION.NAME_MAX_LENGTH) {
+      setError(`Name must be ${VALIDATION.NAME_MAX_LENGTH} characters or less`);
+      return;
+    }
+
+    // Validate custom interval
+    if (frequency === "custom") {
+      const interval = parseInt(customIntervalDays);
+      if (isNaN(interval) || interval < VALIDATION.CUSTOM_INTERVAL_MIN || interval > VALIDATION.CUSTOM_INTERVAL_MAX) {
+        setError(`Custom interval must be between ${VALIDATION.CUSTOM_INTERVAL_MIN} and ${VALIDATION.CUSTOM_INTERVAL_MAX} days`);
+        return;
+      }
+    }
+
+    // Validate date range days
+    const days = parseInt(dateRangeDays);
+    if (isNaN(days) || days < VALIDATION.DATE_RANGE_DAYS_MIN || days > VALIDATION.DATE_RANGE_DAYS_MAX) {
+      setError(`Date range must be between ${VALIDATION.DATE_RANGE_DAYS_MIN} and ${VALIDATION.DATE_RANGE_DAYS_MAX} days`);
       return;
     }
 
@@ -223,8 +245,8 @@ export function EditSeriesDialog({
                   <Input
                     id="customInterval"
                     type="number"
-                    min="1"
-                    max="365"
+                    min={VALIDATION.CUSTOM_INTERVAL_MIN}
+                    max={VALIDATION.CUSTOM_INTERVAL_MAX}
                     value={customIntervalDays}
                     onChange={(e) => setCustomIntervalDays(e.target.value)}
                     disabled={isLoading}
@@ -281,8 +303,8 @@ export function EditSeriesDialog({
                   <div className="flex items-center gap-2">
                     <Input
                       type="number"
-                      min="1"
-                      max="90"
+                      min={VALIDATION.DATE_RANGE_DAYS_MIN}
+                      max={VALIDATION.DATE_RANGE_DAYS_MAX}
                       value={dateRangeDays}
                       onChange={(e) => setDateRangeDays(e.target.value)}
                       disabled={isLoading}
