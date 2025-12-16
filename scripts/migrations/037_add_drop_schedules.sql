@@ -4,9 +4,9 @@
 -- Creates tables for scheduled/recurring drops (series)
 --
 -- To apply:
---   psql -h localhost -p 5432 -U postgres < 029_add_drop_schedules.sql
+--   psql -h localhost -p 5432 -U postgres < 037_add_drop_schedules.sql
 -- Or via Docker:
---   docker exec -i supabase-db psql -U postgres < scripts/migrations/029_add_drop_schedules.sql
+--   docker exec -i supabase-db psql -U postgres < scripts/migrations/037_add_drop_schedules.sql
 
 -- =====================================================
 -- Drop Schedules Table
@@ -51,13 +51,10 @@ CREATE INDEX IF NOT EXISTS idx_drop_schedules_next_run ON drop_schedules(next_ru
 -- =====================================================
 -- Modify Drops Table
 -- =====================================================
--- Add schedule reference and superseded flag
+-- Add schedule reference for recurring drops
 
 -- Add schedule_id column to link drops to their schedule
 ALTER TABLE drops ADD COLUMN IF NOT EXISTS schedule_id UUID REFERENCES drop_schedules(id) ON DELETE SET NULL;
-
--- Add is_superseded flag for old drafts that were replaced by newer ones
-ALTER TABLE drops ADD COLUMN IF NOT EXISTS is_superseded BOOLEAN DEFAULT FALSE;
 
 -- Index for finding drops by schedule
 CREATE INDEX IF NOT EXISTS idx_drops_schedule_id ON drops(schedule_id) WHERE schedule_id IS NOT NULL;
