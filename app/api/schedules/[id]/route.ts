@@ -48,24 +48,15 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
   }
   
   // Fetch current draft (if any) for this schedule
+  // With simplified logic, there's only ever 1 draft per schedule
   const { data: currentDraft } = await supabase
     .from("drops")
-    .select("id, title, status, created_at, is_superseded")
+    .select("id, title, status, created_at")
     .eq("schedule_id", id)
     .eq("status", "draft")
-    .eq("is_superseded", false)
     .order("created_at", { ascending: false })
     .limit(1)
     .single();
-  
-  // Fetch superseded drafts (old ones not yet published)
-  const { data: supersededDrafts } = await supabase
-    .from("drops")
-    .select("id, title, status, created_at, is_superseded")
-    .eq("schedule_id", id)
-    .eq("status", "draft")
-    .eq("is_superseded", true)
-    .order("created_at", { ascending: false });
   
   // Fetch recent published drops for this schedule
   const { data: recentPublished } = await supabase
@@ -79,7 +70,6 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
   return NextResponse.json({
     schedule,
     currentDraft,
-    supersededDrafts: supersededDrafts || [],
     recentPublished: recentPublished || [],
   });
 }
