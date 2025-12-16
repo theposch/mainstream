@@ -1,8 +1,12 @@
 import { createClient } from "@/lib/supabase/server";
-import { StreamsGrid, StreamGridData } from "@/components/streams/streams-grid";
+import { StreamGridData } from "@/components/streams/streams-grid";
+import { StreamsPageClient } from "./streams-page-client";
 
 export default async function StreamsPage() {
   const supabase = await createClient();
+  
+  // Get current user for following streams
+  const { data: { user } } = await supabase.auth.getUser();
 
   // Fetch all active streams with asset relations in a SINGLE query
   // This eliminates the N+1 problem - previously we had O(n*2) queries, now O(1)
@@ -18,6 +22,17 @@ export default async function StreamsPage() {
 
   const allStreams = streams || [];
   const streamIds = allStreams.map(s => s.id);
+
+  // Fetch followed stream IDs for current user
+  let followedStreamIds: string[] = [];
+  if (user) {
+    const { data: followData } = await supabase
+      .from('stream_follows')
+      .select('stream_id')
+      .eq('user_id', user.id);
+    
+    followedStreamIds = (followData || []).map(f => f.stream_id);
+  }
 
   // Single batch query: get all asset relations for all streams at once
   let assetRelationsMap = new Map<string, { count: number; posts: any[] }>();
@@ -67,29 +82,15 @@ export default async function StreamsPage() {
     };
   });
 
+  // Filter to get only followed streams
+  const followingStreams = streamsData.filter(stream => 
+    followedStreamIds.includes(stream.id)
+  );
 
   return (
-    <div className="w-full min-h-screen pb-20">
-      {/* Page Header */}
-      <div className="pt-10 pb-12 space-y-3">
-        <h1 className="text-4xl font-bold text-foreground">Streams</h1>
-        <p className="text-lg text-muted-foreground max-w-2xl">
-          Browse all streams and discover creative work across teams and individuals.
-        </p>
-      </div>
-
-      {/* Streams Grid */}
-      {streamsData.length > 0 ? (
-        <StreamsGrid streams={streamsData} />
-      ) : (
-        <div className="text-center py-20">
-          <p className="text-lg font-medium text-muted-foreground">No streams yet.</p>
-          <p className="text-sm text-muted-foreground mt-2">
-            Create your first stream to get started.
-          </p>
-        </div>
-      )}
-    </div>
+    <StreamsPageClient 
+      allStreams={streamsData} 
+      followingStreams={followingStreams} 
+    />
   );
 }
-
