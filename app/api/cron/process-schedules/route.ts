@@ -308,13 +308,15 @@ async function processSchedule(supabase: SupabaseClient, schedule: DropSchedule)
   }
   
   // Update schedule: last_run_at and calculate next_run_at
+  // Pass lastRunAt for biweekly tracking to ensure correct 2-week spacing
   const nextRunAt = calculateNextRun(
     schedule.frequency,
     schedule.day_of_week,
     schedule.day_of_month,
     schedule.custom_interval_days,
     schedule.generation_time,
-    schedule.timezone
+    schedule.timezone,
+    schedule.last_run_at ? new Date(schedule.last_run_at) : undefined
   );
   
   const { error: updateError } = await supabase

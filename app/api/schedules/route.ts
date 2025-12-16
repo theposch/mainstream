@@ -330,10 +330,25 @@ export async function POST(request: NextRequest) {
         
         postCount = filteredAssetIds.length;
         
-        // Update last_run_at on the schedule
+        // Update last_run_at and recalculate next_run_at on the schedule
+        // Must recalculate next_run_at to account for the immediate generation
+        const newLastRunAt = new Date();
+        const newNextRunAt = calculateNextRun(
+          schedule.frequency,
+          schedule.day_of_week,
+          schedule.day_of_month,
+          schedule.custom_interval_days,
+          schedule.generation_time,
+          schedule.timezone,
+          newLastRunAt
+        );
+        
         await adminClient
           .from("drop_schedules")
-          .update({ last_run_at: new Date().toISOString() })
+          .update({ 
+            last_run_at: newLastRunAt.toISOString(),
+            next_run_at: newNextRunAt.toISOString(),
+          })
           .eq("id", schedule.id);
       }
     }
