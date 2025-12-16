@@ -7,6 +7,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/auth/get-user";
+import { calculateNextRun } from "@/lib/utils/schedule-helpers";
 
 type RouteParams = {
   params: Promise<{ id: string }>;
@@ -294,10 +295,26 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     // Continue anyway - drop was created successfully
   }
   
-  // Update last_run_at (but keep next_run_at unchanged for manual triggers)
+  // Update last_run_at and recalculate next_run_at
+  // Must recalculate to prevent: 1) cron re-triggering if old next_run_at passed,
+  // 2) breaking biweekly spacing since last_run_at changed
+  const newLastRunAt = new Date();
+  const newNextRunAt = calculateNextRun(
+    schedule.frequency,
+    schedule.day_of_week,
+    schedule.day_of_month,
+    schedule.custom_interval_days,
+    schedule.generation_time,
+    schedule.timezone,
+    newLastRunAt
+  );
+  
   await supabase
     .from("drop_schedules")
-    .update({ last_run_at: new Date().toISOString() })
+    .update({ 
+      last_run_at: newLastRunAt.toISOString(),
+      next_run_at: newNextRunAt.toISOString(),
+    })
     .eq("id", id);
   
   return NextResponse.json({

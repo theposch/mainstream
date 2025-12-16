@@ -166,13 +166,15 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       const newTime = body.generation_time ?? existingSchedule.generation_time;
       const newTimezone = body.timezone ?? existingSchedule.timezone;
       
+      // Pass lastRunAt to maintain biweekly 2-week spacing
       updates.next_run_at = calculateNextRun(
         newFrequency,
         newDayOfWeek,
         newDayOfMonth,
         newCustomInterval,
         newTime,
-        newTimezone
+        newTimezone,
+        existingSchedule.last_run_at ? new Date(existingSchedule.last_run_at) : undefined
       ).toISOString();
     }
     
