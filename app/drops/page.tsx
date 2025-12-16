@@ -120,8 +120,11 @@ export default async function DropsPage({
         />
       );
     }
-    // For drafts tab, we handle separately below to group scheduled vs other
-    query = query.eq("status", "draft").eq("created_by", user.id);
+    // Drafts tab shows only manually created drafts (not scheduled ones)
+    query = query
+      .eq("status", "draft")
+      .eq("created_by", user.id)
+      .is("schedule_id", null);
   } else {
     // "all" tab shows published drops
     query = query.eq("status", "published");
@@ -194,23 +197,6 @@ export default async function DropsPage({
       post_count: dropData[drop.id]?.count || 0,
       preview_images: dropData[drop.id]?.previews || [],
     }));
-  }
-
-  // For drafts tab, separate scheduled from other drafts
-  if (tab === "drafts") {
-    const scheduledDrops = enrichedDrops.filter((d) => d.schedule_id != null);
-    const otherDrops = enrichedDrops.filter((d) => d.schedule_id == null);
-    
-    return (
-      <DropsPageClient
-        initialDrops={otherDrops}
-        scheduledDrops={scheduledDrops}
-        currentTab={tab}
-        isAuthenticated={!!user}
-        currentUserId={user?.id}
-        schedules={schedules}
-      />
-    );
   }
 
   return (
