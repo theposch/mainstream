@@ -110,8 +110,8 @@ export function DropsPageClient({
   return (
     <div className="w-full min-h-screen pb-20">
       {/* Tabs + Actions Row */}
-      <div className="flex items-center justify-between gap-4 border-b border-border">
-        <div className="flex items-center gap-1 overflow-x-auto">
+      <div className="flex items-end justify-between gap-4 border-b border-border">
+        <div className="flex items-end">
           {visibleTabs.map((tab) => {
             // Hide "My Drafts" for unauthenticated users
             if (tab.id === "drafts" && !isAuthenticated) return null;
@@ -123,7 +123,7 @@ export function DropsPageClient({
                 key={tab.id}
                 onClick={() => handleTabChange(tab.id)}
                 className={`
-                  px-4 py-3 text-sm font-medium transition-colors relative whitespace-nowrap
+                  px-4 pb-3 pt-2 text-sm font-medium transition-colors relative whitespace-nowrap
                   ${isActive
                     ? "text-foreground"
                     : "text-muted-foreground hover:text-foreground"
@@ -147,7 +147,7 @@ export function DropsPageClient({
               <DropdownMenuTrigger asChild>
                 <button
                   className={`
-                    px-4 py-3 text-sm font-medium transition-colors relative whitespace-nowrap
+                    px-4 pb-3 pt-2 text-sm font-medium transition-colors relative whitespace-nowrap
                     flex items-center gap-1
                     ${isOverflowTabActive
                       ? "text-foreground"
@@ -185,7 +185,7 @@ export function DropsPageClient({
 
         {/* Actions */}
         {isAuthenticated && (
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex items-center gap-2 shrink-0 pb-2">
             {/* Create dropdown with both options */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
