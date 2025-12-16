@@ -169,15 +169,17 @@ export function ManageSchedulesModal({
         throw new Error(data.error || "Failed to delete series");
       }
 
-      // Clear loading state BEFORE closing dialog to prevent brief clickable state
-      setLoading(scheduleId, null);
+      // Update state in correct order to prevent brief clickable window:
+      // 1. First remove from list (optimistic)
+      // 2. Clear loading state
+      // 3. Close dialog LAST
       setSchedules(prev => prev.filter(s => s.id !== scheduleId));
+      setLoading(scheduleId, null);
       setDeletingSchedule(null);
       onSchedulesChange?.();
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to delete series");
-      // Only clear loading on error, not in finally (already cleared on success)
       setLoading(scheduleId, null);
     }
   };

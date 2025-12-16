@@ -139,7 +139,7 @@ export function calculateNextRun(
       const currentDay = nowInTz.getDay();
       const targetDay = dayOfWeek ?? 1;
       
-      // Calculate the week number since epoch (used as fallback when no lastRunAt)
+      // Calculate the week number since epoch
       const msPerWeek = 7 * 24 * 60 * 60 * 1000;
       const weeksSinceEpoch = Math.floor(nowInTz.getTime() / msPerWeek);
       
@@ -151,20 +151,23 @@ export function calculateNextRun(
         const targetTime = new Date(nowInTz);
         targetTime.setHours(hours, minutes, 0, 0);
         if (targetTime <= nowInTz) {
-          daysUntil = 14; // Move to 2 weeks from now
+          daysUntil = 7; // Move to next week (we'll check spacing below)
         }
-      } else if (lastRunAt) {
-        // If we have lastRunAt, use it to determine if we should skip a week
+      }
+      
+      // Now check if we need to skip a week based on lastRunAt or parity
+      if (lastRunAt) {
+        // Use lastRunAt to determine if we should skip a week
         const lastRunWeek = Math.floor(lastRunAt.getTime() / msPerWeek);
         const weeksSinceLastRun = weeksSinceEpoch - lastRunWeek;
-        // If last run was less than 2 weeks ago, skip to maintain 2-week spacing
-        if (weeksSinceLastRun < 2) {
+        // If last run was less than 2 weeks ago, ensure we skip to maintain 2-week spacing
+        if (weeksSinceLastRun < 2 && daysUntil < 14) {
           daysUntil += 7;
         }
       } else {
         // No lastRunAt - use epoch week parity as fallback for initial scheduling
         const isEvenWeek = weeksSinceEpoch % 2 === 0;
-        if (!isEvenWeek) {
+        if (!isEvenWeek && daysUntil < 14) {
           daysUntil += 7;
         }
       }

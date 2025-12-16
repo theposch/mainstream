@@ -33,14 +33,19 @@ export function ScheduleCountdownCard({
   const [editDialogOpen, setEditDialogOpen] = React.useState(false);
   const [, setTick] = React.useState(0);
 
-  // Auto-refresh countdown every minute
+  // Auto-refresh countdown every minute (only when active)
   React.useEffect(() => {
+    // Don't run interval if schedule is paused - no countdown to display
+    if (schedule.status === "paused") {
+      return;
+    }
+    
     const interval = setInterval(() => {
       setTick(t => t + 1);
     }, 60000); // Refresh every minute
     
     return () => clearInterval(interval);
-  }, []);
+  }, [schedule.status]);
 
   // Calculate countdown
   const getCountdown = () => {
@@ -56,7 +61,7 @@ export function ScheduleCountdownCard({
 
     // Handle overdue schedules (next_run_at is in the past)
     if (minutesUntil < 0) {
-      return { value: 0, unit: "processing" };
+      return { value: 0, unit: "processing" as const };
     }
 
     if (daysUntil > 1) {
