@@ -5,6 +5,7 @@ import { format, formatDistanceToNow } from "date-fns";
 import { Clock, Calendar } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { DropsGrid } from "./drops-grid";
+import { getScheduleDescription } from "@/lib/utils/schedule-helpers";
 import type { DropSchedule, Drop, User } from "@/lib/types/database";
 
 interface SeriesTabContentProps {
@@ -18,27 +19,19 @@ interface SeriesTabContentProps {
   onDropDeleted?: (dropId: string) => void;
 }
 
-const DAYS_OF_WEEK = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-
 export function SeriesTabContent({
   schedule,
   drops,
   currentUserId,
   onDropDeleted,
 }: SeriesTabContentProps) {
-  const getScheduleDescription = () => {
-    const time = schedule.generation_time.slice(0, 5); // HH:MM
-    switch (schedule.frequency) {
-      case "weekly":
-        return `Every ${DAYS_OF_WEEK[schedule.day_of_week ?? 1]} at ${time}`;
-      case "biweekly":
-        return `Every other ${DAYS_OF_WEEK[schedule.day_of_week ?? 1]} at ${time}`;
-      case "monthly":
-        return `On the ${schedule.day_of_month}${getOrdinalSuffix(schedule.day_of_month ?? 1)} of each month at ${time}`;
-      case "custom":
-        return `Every ${schedule.custom_interval_days} days at ${time}`;
-    }
-  };
+  const scheduleDescription = getScheduleDescription(
+    schedule.frequency,
+    schedule.day_of_week,
+    schedule.day_of_month,
+    schedule.custom_interval_days,
+    schedule.generation_time
+  );
 
   return (
     <div className="space-y-6">
@@ -50,7 +43,7 @@ export function SeriesTabContent({
         
         <div className="flex items-center gap-1.5">
           <Clock className="h-3.5 w-3.5" />
-          <span>{getScheduleDescription()}</span>
+          <span>{scheduleDescription}</span>
         </div>
 
         {schedule.status === "active" && schedule.next_run_at && (
@@ -74,11 +67,4 @@ export function SeriesTabContent({
       />
     </div>
   );
-}
-
-// Helper function for ordinal suffixes
-function getOrdinalSuffix(n: number): string {
-  const s = ["th", "st", "nd", "rd"];
-  const v = n % 100;
-  return s[(v - 20) % 10] || s[v] || s[0];
 }
