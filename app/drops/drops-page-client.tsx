@@ -110,8 +110,8 @@ export function DropsPageClient({
   return (
     <div className="w-full min-h-screen pb-20">
       {/* Tabs + Actions Row */}
-      <div className="flex items-end justify-between gap-4 border-b border-border">
-        <div className="flex items-end">
+      <div className="flex items-center justify-between gap-4 py-2">
+        <div className="flex items-center gap-1">
           {visibleTabs.map((tab) => {
             // Hide "My Drafts" for unauthenticated users
             if (tab.id === "drafts" && !isAuthenticated) return null;
@@ -123,10 +123,10 @@ export function DropsPageClient({
                 key={tab.id}
                 onClick={() => handleTabChange(tab.id)}
                 className={`
-                  px-4 pb-3 pt-2 text-sm font-medium transition-colors relative whitespace-nowrap
+                  px-4 py-2 text-sm font-medium transition-all rounded-full whitespace-nowrap
                   ${isActive
-                    ? "text-foreground"
-                    : "text-muted-foreground hover:text-foreground"
+                    ? "bg-foreground text-background"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
                   }
                 `}
               >
@@ -134,9 +134,6 @@ export function DropsPageClient({
                   {tab.isSchedule && <CalendarClock className="h-3.5 w-3.5" />}
                   {tab.label}
                 </span>
-                {isActive && (
-                  <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-foreground" />
-                )}
               </button>
             );
           })}
@@ -147,19 +144,16 @@ export function DropsPageClient({
               <DropdownMenuTrigger asChild>
                 <button
                   className={`
-                    px-4 pb-3 pt-2 text-sm font-medium transition-colors relative whitespace-nowrap
+                    px-4 py-2 text-sm font-medium transition-all rounded-full whitespace-nowrap
                     flex items-center gap-1
                     ${isOverflowTabActive
-                      ? "text-foreground"
-                      : "text-muted-foreground hover:text-foreground"
+                      ? "bg-foreground text-background"
+                      : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
                     }
                   `}
                 >
                   <MoreHorizontal className="h-4 w-4" />
                   <span>More</span>
-                  {isOverflowTabActive && (
-                    <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-foreground" />
-                  )}
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start">
@@ -185,7 +179,7 @@ export function DropsPageClient({
 
         {/* Actions */}
         {isAuthenticated && (
-          <div className="flex items-center gap-2 shrink-0 pb-2">
+          <div className="flex items-center gap-2 shrink-0">
             {/* Create dropdown with both options */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
