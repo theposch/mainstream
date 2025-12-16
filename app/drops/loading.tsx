@@ -1,20 +1,17 @@
 export default function DropsLoading() {
   return (
     <div className="w-full min-h-screen pb-20">
-      {/* Header skeleton */}
-      <div className="pt-10 pb-8 flex items-start justify-between gap-4">
-        <div>
-          <div className="h-10 w-32 bg-muted rounded-lg animate-pulse" />
-          <div className="h-6 w-64 bg-muted/50 rounded-lg animate-pulse mt-3" />
+      {/* Header row: tabs on left, New button on right */}
+      <div className="mb-8 flex items-end justify-between">
+        {/* Left: Tabs skeleton */}
+        <div className="flex items-center gap-1">
+          <div className="h-9 w-24 bg-muted rounded-full animate-pulse" />
+          <div className="h-9 w-24 bg-muted/50 rounded-full animate-pulse" />
+          <div className="h-9 w-20 bg-muted/50 rounded-full animate-pulse" />
         </div>
-        <div className="h-10 w-28 bg-muted rounded-lg animate-pulse" />
-      </div>
-
-      {/* Tabs skeleton */}
-      <div className="flex items-center gap-4 mb-8 border-b border-border pb-2">
-        <div className="h-5 w-20 bg-muted rounded animate-pulse" />
-        <div className="h-5 w-16 bg-muted/50 rounded animate-pulse" />
-        <div className="h-5 w-20 bg-muted/50 rounded animate-pulse" />
+        
+        {/* Right: New button skeleton */}
+        <div className="h-9 w-20 bg-muted/50 rounded-md animate-pulse border border-border" />
       </div>
 
       {/* Grid skeleton */}

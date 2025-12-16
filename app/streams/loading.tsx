@@ -1,10 +1,16 @@
 export default function StreamsLoading() {
   return (
     <div className="w-full min-h-screen pb-20">
-      {/* Page Header skeleton */}
-      <div className="pt-10 pb-12 space-y-3">
-        <div className="h-10 w-40 bg-muted rounded animate-pulse" />
-        <div className="h-6 w-96 max-w-full bg-muted rounded animate-pulse" />
+      {/* Header row: tabs on left, New Stream button on right */}
+      <div className="mb-8 flex items-center justify-between">
+        {/* Left: Tabs skeleton */}
+        <div className="flex items-center gap-1">
+          <div className="h-9 w-28 bg-muted rounded-full animate-pulse" />
+          <div className="h-9 w-24 bg-muted/50 rounded-full animate-pulse" />
+        </div>
+        
+        {/* Right: New Stream button skeleton */}
+        <div className="h-9 w-32 bg-muted/50 rounded-md animate-pulse border border-border" />
       </div>
 
       {/* Streams Grid skeleton */}
@@ -24,4 +30,3 @@ export default function StreamsLoading() {
     </div>
   );
 }
-
