@@ -2,23 +2,59 @@
 
 import * as React from "react";
 import { cn } from "@/lib/utils";
-import { StreamsGrid, StreamGridData } from "@/components/streams/streams-grid";
-import { Plus, Users } from "lucide-react";
+import { StreamsList, StreamListData } from "@/components/streams/streams-list";
+import { Plus, Users, ArrowUpDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { StreamDialog } from "@/components/layout/stream-dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 type Tab = "all" | "following";
+type SortOption = "recent" | "posts" | "followers" | "alphabetical";
+
+const sortLabels: Record<SortOption, string> = {
+  recent: "Recent Activity",
+  posts: "Most Posts",
+  followers: "Most Followers",
+  alphabetical: "A-Z",
+};
 
 interface StreamsPageClientProps {
-  allStreams: StreamGridData[];
-  followingStreams: StreamGridData[];
+  allStreams: StreamListData[];
+  followingStreams: StreamListData[];
 }
 
 export function StreamsPageClient({ allStreams, followingStreams }: StreamsPageClientProps) {
   const [activeTab, setActiveTab] = React.useState<Tab>("all");
   const [createDialogOpen, setCreateDialogOpen] = React.useState(false);
+  const [sortBy, setSortBy] = React.useState<SortOption>("recent");
 
-  const displayedStreams = activeTab === "all" ? allStreams : followingStreams;
+  const sortStreams = React.useCallback((streams: StreamListData[]) => {
+    const sorted = [...streams];
+    switch (sortBy) {
+      case "recent":
+        return sorted.sort((a, b) => 
+          new Date(b.updated_at || b.created_at).getTime() - new Date(a.updated_at || a.created_at).getTime()
+        );
+      case "posts":
+        return sorted.sort((a, b) => b.assetsCount - a.assetsCount);
+      case "followers":
+        return sorted.sort((a, b) => b.followerCount - a.followerCount);
+      case "alphabetical":
+        return sorted.sort((a, b) => a.name.localeCompare(b.name));
+      default:
+        return sorted;
+    }
+  }, [sortBy]);
+
+  const displayedStreams = React.useMemo(() => {
+    const streams = activeTab === "all" ? allStreams : followingStreams;
+    return sortStreams(streams);
+  }, [activeTab, allStreams, followingStreams, sortStreams]);
 
   return (
     <div className="w-full min-h-screen pb-20">
@@ -55,15 +91,38 @@ export function StreamsPageClient({ allStreams, followingStreams }: StreamsPageC
           </button>
         </div>
 
-        <Button variant="outline" className="gap-2" onClick={() => setCreateDialogOpen(true)}>
-          <Plus className="h-4 w-4" />
-          New Stream
-        </Button>
+        <div className="flex items-center gap-2">
+          {/* Sort Dropdown */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" className="gap-2">
+                <ArrowUpDown className="h-4 w-4" />
+                <span className="hidden sm:inline">{sortLabels[sortBy]}</span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              {(Object.keys(sortLabels) as SortOption[]).map((option) => (
+                <DropdownMenuItem
+                  key={option}
+                  onClick={() => setSortBy(option)}
+                  className={cn(sortBy === option && "bg-muted")}
+                >
+                  {sortLabels[option]}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          <Button variant="outline" className="gap-2" onClick={() => setCreateDialogOpen(true)}>
+            <Plus className="h-4 w-4" />
+            <span className="hidden sm:inline">New Stream</span>
+          </Button>
+        </div>
       </div>
 
-      {/* Streams Grid */}
+      {/* Streams List */}
       {displayedStreams.length > 0 ? (
-        <StreamsGrid streams={displayedStreams} />
+        <StreamsList streams={displayedStreams} />
       ) : activeTab === "following" ? (
         <div className="flex flex-col items-center justify-center py-20 text-center">
           <div className="w-20 h-20 rounded-full bg-muted flex items-center justify-center mb-6">

@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import { StreamGridData } from "@/components/streams/streams-grid";
+import { StreamListData } from "@/components/streams/streams-list";
 import { StreamsPageClient } from "./streams-page-client";
 
 export default async function StreamsPage() {
@@ -34,8 +34,8 @@ export default async function StreamsPage() {
     followedStreamIds = (followData || []).map(f => f.stream_id);
   }
 
-  // Single batch query: get all asset relations for all streams at once
-  let assetRelationsMap = new Map<string, { count: number; posts: any[] }>();
+  // Single batch query: get all asset relations for all streams at once (with uploader info)
+  let assetRelationsMap = new Map<string, { count: number; posts: any[]; contributorIds: Set<string>; contributors: any[] }>();
   
   if (streamIds.length > 0) {
     const { data: allAssetRelations } = await supabase
@@ -47,14 +47,18 @@ export default async function StreamsPage() {
           id,
           url,
           thumbnail_url,
-          title
+          title,
+          uploader_id
         )
       `)
       .in('stream_id', streamIds)
       .order('added_at', { ascending: false });
 
     // Group results by stream_id (O(n) instead of O(n*m) queries)
-    streamIds.forEach(id => assetRelationsMap.set(id, { count: 0, posts: [] }));
+    streamIds.forEach(id => assetRelationsMap.set(id, { count: 0, posts: [], contributorIds: new Set(), contributors: [] }));
+    
+    // Collect all unique uploader IDs
+    const allUploaderIds = new Set<string>();
     
     (allAssetRelations || []).forEach((rel: any) => {
       const entry = assetRelationsMap.get(rel.stream_id);
@@ -68,17 +72,56 @@ export default async function StreamsPage() {
             title: rel.assets.title || '',
           });
         }
+        // Track unique contributors
+        if (rel.assets?.uploader_id) {
+          entry.contributorIds.add(rel.assets.uploader_id);
+          allUploaderIds.add(rel.assets.uploader_id);
+        }
       }
+    });
+
+    // Batch fetch all contributor user data
+    if (allUploaderIds.size > 0) {
+      const { data: users } = await supabase
+        .from('users')
+        .select('id, username, display_name, avatar_url')
+        .in('id', Array.from(allUploaderIds));
+
+      const usersMap = new Map((users || []).map(u => [u.id, u]));
+
+      // Assign contributors to each stream
+      assetRelationsMap.forEach((entry) => {
+        entry.contributors = Array.from(entry.contributorIds)
+          .map(id => usersMap.get(id))
+          .filter(Boolean)
+          .slice(0, 5); // Limit to 5 contributors
+      });
+    }
+  }
+
+  // Fetch follower counts for all streams
+  let followerCountsMap = new Map<string, number>();
+  if (streamIds.length > 0) {
+    const { data: followerCounts } = await supabase
+      .from('stream_follows')
+      .select('stream_id')
+      .in('stream_id', streamIds);
+    
+    // Count followers per stream
+    (followerCounts || []).forEach((f: any) => {
+      followerCountsMap.set(f.stream_id, (followerCountsMap.get(f.stream_id) || 0) + 1);
     });
   }
 
   // Build enriched streams using the pre-fetched data
-  const streamsData: StreamGridData[] = allStreams.map(stream => {
-    const data = assetRelationsMap.get(stream.id) || { count: 0, posts: [] };
+  const streamsData: StreamListData[] = allStreams.map(stream => {
+    const data = assetRelationsMap.get(stream.id) || { count: 0, posts: [], contributors: [] };
     return {
       ...stream,
       assetsCount: data.count,
       recentPosts: data.posts,
+      contributors: data.contributors,
+      followerCount: followerCountsMap.get(stream.id) || 0,
     };
   });
 
