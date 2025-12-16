@@ -133,8 +133,8 @@ async function processSchedule(supabase: SupabaseClient, schedule: DropSchedule)
     .select()
     .single();
   
-  if (createError) {
-    throw new Error(`Failed to create drop: ${createError.message}`);
+  if (createError || !drop) {
+    throw new Error(`Failed to create drop: ${createError?.message || 'No data returned'}`);
   }
   
   // ============================================
