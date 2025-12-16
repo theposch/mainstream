@@ -64,16 +64,16 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
   const filter_stream_ids = schedule.stream_ids?.length > 0 ? schedule.stream_ids : null;
   const filter_user_ids = schedule.user_ids?.length > 0 ? schedule.user_ids : null;
   
-  // Mark existing drafts for this schedule as superseded
-  const { error: supersedError } = await supabase
+  // Delete existing draft for this schedule (only 1 auto-generated draft per series)
+  // The drop_blocks will be cascade deleted due to foreign key
+  const { error: deleteError } = await supabase
     .from("drops")
-    .update({ is_superseded: true })
+    .delete()
     .eq("schedule_id", id)
-    .eq("status", "draft")
-    .eq("is_superseded", false);
+    .eq("status", "draft");
   
-  if (supersedError) {
-    console.error("Error superseding old drafts:", supersedError);
+  if (deleteError) {
+    console.error("Error deleting old draft:", deleteError);
     // Continue anyway, not critical
   }
   
