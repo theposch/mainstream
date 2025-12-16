@@ -8,7 +8,7 @@
  * - pg_cron via pg_net (self-hosted)
  * - External cron service (Vercel cron, GitHub Actions, etc.)
  * 
- * Security: Requires CRON_SECRET header for external calls
+ * Security: Always requires CRON_SECRET header - endpoint is disabled if not configured
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -17,22 +17,17 @@ import { createAdminClient } from "@/lib/supabase/server";
 import { calculateNextRun } from "@/lib/utils/schedule-helpers";
 import type { DropSchedule } from "@/lib/types/database";
 
-// Allow both GET and POST for flexibility with different cron services
-export async function GET(request: NextRequest) {
-  return processSchedules(request);
-}
-
+// Only POST - GET should not trigger side effects (REST best practice)
 export async function POST(request: NextRequest) {
-  return processSchedules(request);
-}
-
-async function processSchedules(request: NextRequest) {
-  // Verify cron secret for external calls
+  // Always require CRON_SECRET - endpoint is disabled if not configured
   const cronSecret = process.env.CRON_SECRET;
-  const authHeader = request.headers.get("authorization");
+  if (!cronSecret) {
+    console.error("[POST /api/cron/process-schedules] CRON_SECRET not configured - endpoint disabled");
+    return NextResponse.json({ error: "Endpoint not configured" }, { status: 503 });
+  }
   
-  // If CRON_SECRET is set, require it
-  if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
+  const authHeader = request.headers.get("authorization");
+  if (authHeader !== `Bearer ${cronSecret}`) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   
