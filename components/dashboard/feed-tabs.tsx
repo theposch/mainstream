@@ -12,8 +12,7 @@ interface FeedTabsProps {
 
 export const FeedTabs = React.memo(function FeedTabs({ activeTab, onTabChange }: FeedTabsProps) {
   return (
-    <div className="flex w-full" role="tablist" aria-label="Feed content">
-      <div className="flex items-center gap-1">
+    <div className="flex items-center gap-1" role="tablist" aria-label="Feed content">
         <button
           type="button"
           role="tab"
@@ -42,7 +41,6 @@ export const FeedTabs = React.memo(function FeedTabs({ activeTab, onTabChange }:
         >
           Following
         </button>
-      </div>
     </div>
   );
 });
