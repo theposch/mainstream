@@ -1,0 +1,280 @@
+/**
+ * Single Schedule API
+ * 
+ * GET /api/schedules/[id] - Get schedule details with current draft
+ * PATCH /api/schedules/[id] - Update schedule settings
+ * DELETE /api/schedules/[id] - Delete schedule
+ */
+
+import { NextRequest, NextResponse } from "next/server";
+import { createClient } from "@/lib/supabase/server";
+import { ScheduleFrequency } from "@/lib/types/database";
+
+type RouteParams = {
+  params: Promise<{ id: string }>;
+};
+
+// Helper to calculate next run time (same as in main route)
+function calculateNextRun(
+  frequency: ScheduleFrequency,
+  dayOfWeek: number | undefined,
+  dayOfMonth: number | undefined,
+  customIntervalDays: number | undefined,
+  generationTime: string,
+  timezone: string
+): Date {
+  const now = new Date();
+  const [hours, minutes] = generationTime.split(':').map(Number);
+  let nextRun = new Date(now);
+  
+  switch (frequency) {
+    case 'weekly': {
+      const currentDay = now.getDay();
+      const targetDay = dayOfWeek ?? 1;
+      let daysUntil = targetDay - currentDay;
+      if (daysUntil <= 0) daysUntil += 7;
+      nextRun.setDate(now.getDate() + daysUntil);
+      nextRun.setHours(hours, minutes, 0, 0);
+      if (nextRun <= now) {
+        nextRun.setDate(nextRun.getDate() + 7);
+      }
+      break;
+    }
+    case 'biweekly': {
+      const currentDay = now.getDay();
+      const targetDay = dayOfWeek ?? 1;
+      let daysUntil = targetDay - currentDay;
+      if (daysUntil <= 0) daysUntil += 7;
+      nextRun.setDate(now.getDate() + daysUntil);
+      nextRun.setHours(hours, minutes, 0, 0);
+      if (nextRun <= now) {
+        nextRun.setDate(nextRun.getDate() + 14);
+      }
+      break;
+    }
+    case 'monthly': {
+      const targetDay = Math.min(dayOfMonth ?? 1, 28);
+      nextRun.setDate(targetDay);
+      nextRun.setHours(hours, minutes, 0, 0);
+      if (nextRun <= now) {
+        nextRun.setMonth(nextRun.getMonth() + 1);
+      }
+      break;
+    }
+    case 'custom': {
+      const days = customIntervalDays ?? 7;
+      nextRun.setDate(now.getDate() + days);
+      nextRun.setHours(hours, minutes, 0, 0);
+      break;
+    }
+  }
+  
+  return nextRun;
+}
+
+/**
+ * GET /api/schedules/[id]
+ * Get schedule details with current draft info
+ */
+export async function GET(request: NextRequest, { params }: RouteParams) {
+  const { id } = await params;
+  const supabase = await createClient();
+  
+  // Verify authentication
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (authError || !user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  
+  // Fetch the schedule
+  const { data: schedule, error: scheduleError } = await supabase
+    .from("drop_schedules")
+    .select("*")
+    .eq("id", id)
+    .single();
+  
+  if (scheduleError || !schedule) {
+    return NextResponse.json({ error: "Schedule not found" }, { status: 404 });
+  }
+  
+  // Verify ownership
+  if (schedule.created_by !== user.id) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+  
+  // Fetch current draft (if any) for this schedule
+  const { data: currentDraft } = await supabase
+    .from("drops")
+    .select("id, title, status, created_at, is_superseded")
+    .eq("schedule_id", id)
+    .eq("status", "draft")
+    .eq("is_superseded", false)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .single();
+  
+  // Fetch superseded drafts (old ones not yet published)
+  const { data: supersededDrafts } = await supabase
+    .from("drops")
+    .select("id, title, status, created_at, is_superseded")
+    .eq("schedule_id", id)
+    .eq("status", "draft")
+    .eq("is_superseded", true)
+    .order("created_at", { ascending: false });
+  
+  // Fetch recent published drops for this schedule
+  const { data: recentPublished } = await supabase
+    .from("drops")
+    .select("id, title, status, published_at, created_at")
+    .eq("schedule_id", id)
+    .eq("status", "published")
+    .order("published_at", { ascending: false })
+    .limit(5);
+  
+  return NextResponse.json({
+    schedule,
+    currentDraft,
+    supersededDrafts: supersededDrafts || [],
+    recentPublished: recentPublished || [],
+  });
+}
+
+/**
+ * PATCH /api/schedules/[id]
+ * Update schedule settings
+ */
+export async function PATCH(request: NextRequest, { params }: RouteParams) {
+  const { id } = await params;
+  const supabase = await createClient();
+  
+  // Verify authentication
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (authError || !user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  
+  // Fetch existing schedule
+  const { data: existingSchedule, error: fetchError } = await supabase
+    .from("drop_schedules")
+    .select("*")
+    .eq("id", id)
+    .single();
+  
+  if (fetchError || !existingSchedule) {
+    return NextResponse.json({ error: "Schedule not found" }, { status: 404 });
+  }
+  
+  // Verify ownership
+  if (existingSchedule.created_by !== user.id) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+  
+  try {
+    const body = await request.json();
+    
+    // Build update object with only provided fields
+    const updates: Record<string, any> = {};
+    
+    if (body.name !== undefined) updates.name = body.name.trim();
+    if (body.frequency !== undefined) updates.frequency = body.frequency;
+    if (body.day_of_week !== undefined) updates.day_of_week = body.day_of_week;
+    if (body.day_of_month !== undefined) updates.day_of_month = body.day_of_month;
+    if (body.custom_interval_days !== undefined) updates.custom_interval_days = body.custom_interval_days;
+    if (body.generation_time !== undefined) updates.generation_time = body.generation_time;
+    if (body.timezone !== undefined) updates.timezone = body.timezone;
+    if (body.stream_ids !== undefined) updates.stream_ids = body.stream_ids;
+    if (body.user_ids !== undefined) updates.user_ids = body.user_ids;
+    if (body.date_range_mode !== undefined) updates.date_range_mode = body.date_range_mode;
+    if (body.date_range_days !== undefined) updates.date_range_days = body.date_range_days;
+    
+    // If schedule timing changed, recalculate next_run_at
+    if (existingSchedule.status === 'active' && (
+      body.frequency !== undefined ||
+      body.day_of_week !== undefined ||
+      body.day_of_month !== undefined ||
+      body.custom_interval_days !== undefined ||
+      body.generation_time !== undefined ||
+      body.timezone !== undefined
+    )) {
+      const newFrequency = body.frequency ?? existingSchedule.frequency;
+      const newDayOfWeek = body.day_of_week ?? existingSchedule.day_of_week;
+      const newDayOfMonth = body.day_of_month ?? existingSchedule.day_of_month;
+      const newCustomInterval = body.custom_interval_days ?? existingSchedule.custom_interval_days;
+      const newTime = body.generation_time ?? existingSchedule.generation_time;
+      const newTimezone = body.timezone ?? existingSchedule.timezone;
+      
+      updates.next_run_at = calculateNextRun(
+        newFrequency,
+        newDayOfWeek,
+        newDayOfMonth,
+        newCustomInterval,
+        newTime,
+        newTimezone
+      ).toISOString();
+    }
+    
+    // Update the schedule
+    const { data: schedule, error: updateError } = await supabase
+      .from("drop_schedules")
+      .update(updates)
+      .eq("id", id)
+      .select()
+      .single();
+    
+    if (updateError) {
+      console.error("Error updating schedule:", updateError);
+      return NextResponse.json({ error: "Failed to update schedule" }, { status: 500 });
+    }
+    
+    return NextResponse.json(schedule);
+    
+  } catch (error) {
+    console.error("Error in PATCH /api/schedules/[id]:", error);
+    return NextResponse.json({ error: "Invalid request" }, { status: 400 });
+  }
+}
+
+/**
+ * DELETE /api/schedules/[id]
+ * Delete a schedule
+ */
+export async function DELETE(request: NextRequest, { params }: RouteParams) {
+  const { id } = await params;
+  const supabase = await createClient();
+  
+  // Verify authentication
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (authError || !user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  
+  // Fetch existing schedule
+  const { data: existingSchedule, error: fetchError } = await supabase
+    .from("drop_schedules")
+    .select("created_by")
+    .eq("id", id)
+    .single();
+  
+  if (fetchError || !existingSchedule) {
+    return NextResponse.json({ error: "Schedule not found" }, { status: 404 });
+  }
+  
+  // Verify ownership
+  if (existingSchedule.created_by !== user.id) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+  
+  // Delete the schedule (drops will have schedule_id set to NULL due to ON DELETE SET NULL)
+  const { error: deleteError } = await supabase
+    .from("drop_schedules")
+    .delete()
+    .eq("id", id);
+  
+  if (deleteError) {
+    console.error("Error deleting schedule:", deleteError);
+    return NextResponse.json({ error: "Failed to delete schedule" }, { status: 500 });
+  }
+  
+  return NextResponse.json({ success: true });
+}
+
