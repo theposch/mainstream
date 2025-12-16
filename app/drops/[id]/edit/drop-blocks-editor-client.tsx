@@ -142,17 +142,17 @@ export function DropBlocksEditorClient({
     } else {
       // For drafts, use auto-save
       setSaveStatus('pending');
-    
-    if (titleSaveTimeoutRef.current) {
-      clearTimeout(titleSaveTimeoutRef.current);
-    }
-    titleSaveTimeoutRef.current = setTimeout(() => {
-      if (newTitle !== drop.title && newTitle.trim()) {
-        saveField("title", newTitle);
+      
+      if (titleSaveTimeoutRef.current) {
+        clearTimeout(titleSaveTimeoutRef.current);
+      }
+      titleSaveTimeoutRef.current = setTimeout(() => {
+        if (newTitle !== drop.title && newTitle.trim()) {
+          saveField("title", newTitle);
         } else {
           setSaveStatus('idle');
-      }
-    }, 1000);
+        }
+      }, 1000);
     }
   };
 
@@ -167,17 +167,17 @@ export function DropBlocksEditorClient({
     } else {
       // For drafts, use auto-save
       setSaveStatus('pending');
-    
-    if (descSaveTimeoutRef.current) {
-      clearTimeout(descSaveTimeoutRef.current);
-    }
-    descSaveTimeoutRef.current = setTimeout(() => {
-      if (newDescription !== drop.description) {
-        saveField("description", newDescription);
+      
+      if (descSaveTimeoutRef.current) {
+        clearTimeout(descSaveTimeoutRef.current);
+      }
+      descSaveTimeoutRef.current = setTimeout(() => {
+        if (newDescription !== drop.description) {
+          saveField("description", newDescription);
         } else {
           setSaveStatus('idle');
-      }
-    }, 1000);
+        }
+      }, 1000);
     }
   };
 
