@@ -343,13 +343,25 @@ export async function POST(request: NextRequest) {
           newLastRunAt
         );
         
-        await adminClient
+        const { error: updateScheduleError } = await adminClient
           .from("drop_schedules")
           .update({ 
             last_run_at: newLastRunAt.toISOString(),
             next_run_at: newNextRunAt.toISOString(),
           })
           .eq("id", schedule.id);
+        
+        if (updateScheduleError) {
+          console.error("Error updating schedule timing after generation:", updateScheduleError);
+          // Delete the generated drop to maintain consistency
+          if (firstDrop) {
+            await adminClient.from("drops").delete().eq("id", firstDrop.id);
+          }
+          return NextResponse.json(
+            { error: "Failed to update schedule timing" },
+            { status: 500 }
+          );
+        }
       }
     }
     
