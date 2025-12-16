@@ -2,7 +2,8 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTrigger, DialogTitle } from "@/components/ui/dialog";
+import * as VisuallyHidden from "@radix-ui/react-visually-hidden";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { 
@@ -294,7 +295,7 @@ export function CreateDialog({ children }: { children: React.ReactNode }) {
         {mode === 'initial' && (
           <div className="space-y-4">
             <div className="space-y-1">
-              <h2 className="text-lg font-semibold">Post</h2>
+              <DialogTitle className="text-lg font-semibold">Post</DialogTitle>
               <p className="text-sm text-muted-foreground">Share an image or embed a link</p>
             </div>
 
@@ -370,6 +371,9 @@ export function CreateDialog({ children }: { children: React.ReactNode }) {
         {/* File Selected State */}
         {mode === 'file-selected' && file && preview && (
           <form onSubmit={handleSubmit} className="flex flex-col">
+            <VisuallyHidden.Root>
+              <DialogTitle>Upload Post</DialogTitle>
+            </VisuallyHidden.Root>
             {/* Preview Area */}
             <div className="p-6 pb-0">
               <div className="relative w-full aspect-[1.85/1] rounded-t-xl overflow-hidden bg-muted border border-border border-b-0">
@@ -463,6 +467,9 @@ export function CreateDialog({ children }: { children: React.ReactNode }) {
         {/* URL Valid State */}
         {mode === 'url-valid' && isValidUrl && providerInfo && (
           <form onSubmit={handleSubmit} className="flex flex-col">
+            <VisuallyHidden.Root>
+              <DialogTitle>Embed Link</DialogTitle>
+            </VisuallyHidden.Root>
             {/* Preview Area */}
             <div className="p-6 pb-0">
               <div className="relative w-full aspect-video rounded-t-xl overflow-hidden bg-muted border border-border border-b-0">
