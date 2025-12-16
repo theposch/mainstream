@@ -110,7 +110,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     const body = await request.json();
     
     // Build update object with only provided fields
-    const updates: Record<string, any> = {};
+    const updates: Record<string, string | number | string[] | null> = {};
     
     // Validate and set name
     if (body.name !== undefined) {
