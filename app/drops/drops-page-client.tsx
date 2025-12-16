@@ -23,7 +23,6 @@ type EnrichedDrop = Drop & {
 
 interface DropsPageClientProps {
   initialDrops: EnrichedDrop[];
-  scheduledDrops?: EnrichedDrop[];
   currentTab: string;
   isAuthenticated: boolean;
   currentUserId?: string;
@@ -39,7 +38,6 @@ const STATIC_TABS = [
 
 export function DropsPageClient({
   initialDrops,
-  scheduledDrops: initialScheduledDrops,
   currentTab,
   isAuthenticated,
   currentUserId,
@@ -53,13 +51,11 @@ export function DropsPageClient({
   
   // Local state for optimistic updates
   const [drops, setDrops] = React.useState(initialDrops);
-  const [scheduledDrops, setScheduledDrops] = React.useState(initialScheduledDrops || []);
 
   // Sync with server data when initialDrops changes (e.g., tab change)
   React.useEffect(() => {
     setDrops(initialDrops);
-    setScheduledDrops(initialScheduledDrops || []);
-  }, [initialDrops, initialScheduledDrops]);
+  }, [initialDrops]);
 
   // Build tabs: static tabs + user's schedules
   const tabs = React.useMemo(() => {
@@ -87,7 +83,6 @@ export function DropsPageClient({
   // Optimistic delete - remove from local state immediately
   const handleDropDeleted = React.useCallback((dropId: string) => {
     setDrops((prev) => prev.filter((drop) => drop.id !== dropId));
-    setScheduledDrops((prev) => prev.filter((drop) => drop.id !== dropId));
   }, []);
 
   // Check if current tab is a schedule
@@ -155,49 +150,17 @@ export function DropsPageClient({
 
       {/* Content */}
       <div className="pt-8">
-      {isScheduleTab && scheduleTabContent ? (
-        // Schedule tab shows SeriesTabContent
-        scheduleTabContent
-      ) : currentTab === "drafts" && scheduledDrops.length > 0 ? (
-        // Drafts tab with scheduled drops section
-        <div className="space-y-8">
-          {/* Scheduled Drafts Section */}
-          <div>
-            <div className="flex items-center gap-2 mb-4">
-              <CalendarClock className="h-4 w-4 text-muted-foreground" />
-              <h2 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
-                Scheduled
-              </h2>
-            </div>
-            <DropsGrid
-              drops={scheduledDrops}
-              currentUserId={currentUserId}
-              onDropDeleted={handleDropDeleted}
-            />
-          </div>
-
-          {/* Other Drafts Section */}
-          {drops.length > 0 && (
-            <div>
-              <h2 className="text-sm font-medium text-muted-foreground uppercase tracking-wide mb-4">
-                Other
-              </h2>
-              <DropsGrid
-                drops={drops}
-                currentUserId={currentUserId}
-                onDropDeleted={handleDropDeleted}
-              />
-            </div>
-          )}
-        </div>
-      ) : (
-        // Standard tabs show DropsGrid
-        <DropsGrid
-          drops={drops}
-          currentUserId={currentUserId}
-          onDropDeleted={handleDropDeleted}
-        />
-      )}
+        {isScheduleTab && scheduleTabContent ? (
+          // Schedule tab shows SeriesTabContent
+          scheduleTabContent
+        ) : (
+          // All other tabs show DropsGrid
+          <DropsGrid
+            drops={drops}
+            currentUserId={currentUserId}
+            onDropDeleted={handleDropDeleted}
+          />
+        )}
       </div>
 
       {/* Create Drop Dialog */}
