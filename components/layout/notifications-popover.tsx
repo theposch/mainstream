@@ -57,10 +57,10 @@ const NotificationItem = React.memo(function NotificationItem({
           <CalendarClock className="h-4 w-4 text-primary" />
         </div>
       ) : (
-        <Avatar className="h-8 w-8 border border-border mt-0.5">
-          <AvatarImage src={data.actor.avatar_url} />
-          <AvatarFallback>{data.actor.username.charAt(0).toUpperCase()}</AvatarFallback>
-        </Avatar>
+      <Avatar className="h-8 w-8 border border-border mt-0.5">
+        <AvatarImage src={data.actor.avatar_url} />
+        <AvatarFallback>{data.actor.username.charAt(0).toUpperCase()}</AvatarFallback>
+      </Avatar>
       )}
       <div className="flex-1 space-y-1">
         <p className="text-sm text-muted-foreground leading-snug">
@@ -68,8 +68,8 @@ const NotificationItem = React.memo(function NotificationItem({
             <span className="text-foreground">{data.content}</span>
           ) : (
             <>
-              <span className="font-medium text-foreground">{data.actor.display_name}</span>{" "}
-              {data.content}
+          <span className="font-medium text-foreground">{data.actor.display_name}</span>{" "}
+          {data.content}
             </>
           )}
         </p>

@@ -59,6 +59,11 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     }
   }
   
+  const date_range_start = dateStart.toISOString();
+  const date_range_end = dateEnd.toISOString();
+  const filter_stream_ids = schedule.stream_ids?.length > 0 ? schedule.stream_ids : null;
+  const filter_user_ids = schedule.user_ids?.length > 0 ? schedule.user_ids : null;
+  
   // Mark existing drafts for this schedule as superseded
   const { error: supersedError } = await supabase
     .from("drops")
@@ -81,10 +86,10 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       created_by: user.id,
       status: "draft",
       use_blocks: true,
-      date_range_start: dateStart.toISOString(),
-      date_range_end: dateEnd.toISOString(),
-      filter_stream_ids: schedule.stream_ids?.length > 0 ? schedule.stream_ids : null,
-      filter_user_ids: schedule.user_ids?.length > 0 ? schedule.user_ids : null,
+      date_range_start,
+      date_range_end,
+      filter_stream_ids,
+      filter_user_ids,
     })
     .select()
     .single();
@@ -93,6 +98,188 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     console.error("Error creating drop:", createError);
     return NextResponse.json({ error: "Failed to create drop" }, { status: 500 });
   }
+  
+  // ============================================
+  // Query assets and create blocks (same as POST /api/drops)
+  // ============================================
+  
+  // Query assets matching the criteria
+  let assetsQuery = supabase
+    .from("assets")
+    .select("id")
+    .gte("created_at", date_range_start)
+    .lte("created_at", date_range_end)
+    .order("created_at", { ascending: false });
+
+  // Filter by uploaders if specified
+  if (filter_user_ids?.length) {
+    assetsQuery = assetsQuery.in("uploader_id", filter_user_ids);
+  }
+
+  const { data: assets } = await assetsQuery;
+
+  // If stream filters are specified, further filter by streams
+  let filteredAssetIds = assets?.map((a) => a.id) || [];
+  
+  if (filter_stream_ids?.length && filteredAssetIds.length > 0) {
+    const { data: streamAssets } = await supabase
+      .from("asset_streams")
+      .select("asset_id")
+      .in("stream_id", filter_stream_ids)
+      .in("asset_id", filteredAssetIds);
+    
+    filteredAssetIds = [...new Set(streamAssets?.map((sa) => sa.asset_id) || [])];
+  }
+
+  // Get stream associations for filtered assets to group them
+  let assetStreamMap: Record<string, { streamId: string; streamName: string }[]> = {};
+  let streamNames: Record<string, string> = {};
+  
+  if (filteredAssetIds.length > 0) {
+    const { data: assetStreams } = await supabase
+      .from("asset_streams")
+      .select(`
+        asset_id,
+        stream:streams(id, name)
+      `)
+      .in("asset_id", filteredAssetIds);
+
+    assetStreams?.forEach((as: any) => {
+      if (!assetStreamMap[as.asset_id]) {
+        assetStreamMap[as.asset_id] = [];
+      }
+      if (as.stream) {
+        assetStreamMap[as.asset_id].push({
+          streamId: as.stream.id,
+          streamName: as.stream.name,
+        });
+        streamNames[as.stream.id] = as.stream.name;
+      }
+    });
+  }
+
+  // Group assets by stream
+  const assetsByStream: Record<string, string[]> = {};
+  const uncategorized: string[] = [];
+  
+  filteredAssetIds.forEach((assetId) => {
+    const streams = assetStreamMap[assetId];
+    if (streams && streams.length > 0) {
+      let groupingStream;
+      
+      if (filter_stream_ids?.length) {
+        // Find first filtered stream this asset belongs to (in filter order)
+        for (const filteredId of filter_stream_ids) {
+          const match = streams.find(s => s.streamId === filteredId);
+          if (match) {
+            groupingStream = match;
+            break;
+          }
+        }
+      }
+      
+      // Fall back to primary stream if no filter or no match found
+      if (!groupingStream) {
+        groupingStream = streams[0];
+      }
+      
+      if (!assetsByStream[groupingStream.streamId]) {
+        assetsByStream[groupingStream.streamId] = [];
+      }
+      assetsByStream[groupingStream.streamId].push(assetId);
+    } else {
+      uncategorized.push(assetId);
+    }
+  });
+
+  // Create blocks: heading for each stream, then posts under it
+  const blocks: Array<{
+    drop_id: string;
+    type: string;
+    content?: string;
+    heading_level?: number;
+    asset_id?: string;
+    position: number;
+  }> = [];
+  
+  let position = 0;
+
+  // Add blocks for each stream group
+  const streamOrder = filter_stream_ids?.length 
+    ? filter_stream_ids.filter((streamId: string) => assetsByStream[streamId])
+    : Object.keys(assetsByStream);
+  
+  // Add any streams not in filter
+  for (const streamId of Object.keys(assetsByStream)) {
+    if (!streamOrder.includes(streamId)) {
+      streamOrder.push(streamId);
+    }
+  }
+  
+  for (const streamId of streamOrder) {
+    const assetIds = assetsByStream[streamId];
+    if (!assetIds || assetIds.length === 0) continue;
+    
+    // Add heading for the stream
+    blocks.push({
+      drop_id: drop.id,
+      type: "heading",
+      content: streamNames[streamId],
+      heading_level: 2,
+      position: position++,
+    });
+
+    // Add post blocks for assets in this stream
+    for (const assetId of assetIds) {
+      blocks.push({
+        drop_id: drop.id,
+        type: "post",
+        asset_id: assetId,
+        position: position++,
+      });
+    }
+  }
+
+  // Add uncategorized assets at the end
+  if (uncategorized.length > 0) {
+    blocks.push({
+      drop_id: drop.id,
+      type: "heading",
+      content: "Other",
+      heading_level: 2,
+      position: position++,
+    });
+
+    for (const assetId of uncategorized) {
+      blocks.push({
+        drop_id: drop.id,
+        type: "post",
+        asset_id: assetId,
+        position: position++,
+      });
+    }
+  }
+
+  // Insert all blocks
+  if (blocks.length > 0) {
+    const { error: blocksError } = await supabase
+      .from("drop_blocks")
+      .insert(blocks);
+
+    if (blocksError) {
+      console.error("Error adding blocks to drop:", blocksError);
+      // Delete the drop to avoid inconsistent state
+      await supabase.from("drops").delete().eq("id", drop.id);
+      return NextResponse.json(
+        { error: "Failed to create drop content blocks" },
+        { status: 500 }
+      );
+    }
+  }
+  
+  // ============================================
+  // Create notification and update schedule
+  // ============================================
   
   // Create notification
   await supabase
@@ -115,6 +302,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
   return NextResponse.json({
     drop,
     schedule,
+    post_count: filteredAssetIds.length,
   }, { status: 201 });
 }
 

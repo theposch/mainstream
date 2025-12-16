@@ -101,7 +101,7 @@ export function DropsPageClient({
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button className="gap-2">
-                <Plus className="h-4 w-4" />
+            <Plus className="h-4 w-4" />
                 New
                 <ChevronDown className="h-3 w-3" />
               </Button>
@@ -109,7 +109,7 @@ export function DropsPageClient({
             <DropdownMenuContent align="end">
               <DropdownMenuItem onClick={() => setCreateDialogOpen(true)}>
                 <Plus className="h-4 w-4 mr-2" />
-                New Drop
+            New Drop
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={() => setCreateSeriesDialogOpen(true)}>
@@ -144,7 +144,7 @@ export function DropsPageClient({
             >
               <span className="flex items-center gap-2">
                 {isSchedule && <CalendarClock className="h-3.5 w-3.5" />}
-                {tab.label}
+              {tab.label}
               </span>
               {isActive && (
                 <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-white" />
@@ -160,11 +160,11 @@ export function DropsPageClient({
         scheduleTabContent
       ) : (
         // Standard tabs show DropsGrid
-        <DropsGrid 
-          drops={drops}
-          currentUserId={currentUserId}
-          onDropDeleted={handleDropDeleted}
-        />
+      <DropsGrid 
+        drops={drops}
+        currentUserId={currentUserId}
+        onDropDeleted={handleDropDeleted}
+      />
       )}
 
       {/* Create Drop Dialog */}
