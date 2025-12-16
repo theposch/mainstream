@@ -185,13 +185,13 @@ export const DashboardFeed = React.memo(function DashboardFeed({ initialAssets }
         <div className="flex items-center gap-3">
           <FeedTabs activeTab={activeTab} onTabChange={setActiveTab} />
           
-          <div className="hidden md:flex items-center gap-1 bg-muted/50 p-1 rounded-lg border border-border">
+          <div className="hidden md:flex items-center gap-1">
             <button
               onClick={() => setLayout("grid")}
-              className={`p-1.5 rounded-md transition-all ${
+              className={`p-2 rounded-full transition-all ${
                 layout === "grid" 
-                  ? "bg-background shadow-sm text-foreground" 
-                  : "text-muted-foreground hover:text-foreground"
+                  ? "bg-muted text-foreground" 
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
               }`}
               title="Grid view"
             >
@@ -199,10 +199,10 @@ export const DashboardFeed = React.memo(function DashboardFeed({ initialAssets }
             </button>
             <button
               onClick={() => setLayout("detailed")}
-              className={`p-1.5 rounded-md transition-all ${
+              className={`p-2 rounded-full transition-all ${
                 layout === "detailed" 
-                  ? "bg-background shadow-sm text-foreground" 
-                  : "text-muted-foreground hover:text-foreground"
+                  ? "bg-muted text-foreground" 
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
               }`}
               title="Detailed view"
             >
