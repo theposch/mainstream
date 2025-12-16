@@ -168,7 +168,7 @@ export function calculateNextRun(
         // No lastRunAt - use epoch week parity as fallback for initial scheduling
         const isEvenWeek = weeksSinceEpoch % 2 === 0;
         if (!isEvenWeek && daysUntil < 14) {
-        daysUntil += 7;
+          daysUntil += 7;
         }
       }
       
