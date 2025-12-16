@@ -12,6 +12,11 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 type Tab = "all" | "following";
 type SortOption = "recent" | "posts" | "followers" | "alphabetical";
@@ -94,12 +99,23 @@ export function StreamsPageClient({ allStreams, followingStreams }: StreamsPageC
         <div className="flex items-center gap-2">
           {/* Sort Dropdown */}
           <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" className="gap-2">
-                <ArrowUpDown className="h-4 w-4" />
-                <span className="hidden sm:inline">{sortLabels[sortBy]}</span>
-              </Button>
-            </DropdownMenuTrigger>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <DropdownMenuTrigger asChild>
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className="h-9 w-9"
+                    aria-label={`Sort by ${sortLabels[sortBy]}`}
+                  >
+                    <ArrowUpDown className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">
+                <p>Sort: {sortLabels[sortBy]}</p>
+              </TooltipContent>
+            </Tooltip>
             <DropdownMenuContent align="end">
               {(Object.keys(sortLabels) as SortOption[]).map((option) => (
                 <DropdownMenuItem
