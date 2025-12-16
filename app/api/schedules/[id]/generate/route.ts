@@ -324,9 +324,14 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     // but log the error for monitoring
   }
   
+  // Return updated schedule with fresh timestamps
   return NextResponse.json({
     drop,
-    schedule,
+    schedule: {
+      ...schedule,
+      last_run_at: newLastRunAt.toISOString(),
+      next_run_at: newNextRunAt.toISOString(),
+    },
     post_count: filteredAssetIds.length,
   }, { status: 201 });
 }
