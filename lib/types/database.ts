@@ -237,7 +237,6 @@ export interface Drop {
   updated_at: string;
   // Schedule reference (for recurring drops)
   schedule_id?: string | null;
-  is_superseded?: boolean; // True if a newer draft exists for this schedule
   // Joined data
   creator?: User;
   schedule?: DropSchedule; // Joined schedule data
