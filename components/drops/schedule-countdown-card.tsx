@@ -54,6 +54,11 @@ export function ScheduleCountdownCard({
     const hoursUntil = differenceInHours(nextRun, now);
     const minutesUntil = differenceInMinutes(nextRun, now);
 
+    // Handle overdue schedules (next_run_at is in the past)
+    if (minutesUntil < 0) {
+      return { value: 0, unit: "processing" };
+    }
+
     if (daysUntil > 1) {
       return { value: daysUntil, unit: "days" };
     } else if (daysUntil === 1) {
@@ -137,7 +142,9 @@ export function ScheduleCountdownCard({
         <div>
           <h3 className="font-semibold text-foreground mb-2">
             {countdown ? (
-              countdown.unit === "soon" ? (
+              countdown.unit === "processing" ? (
+                "Processing drop..."
+              ) : countdown.unit === "soon" ? (
                 "Drop coming soon"
               ) : (
                 `${countdown.value} ${countdown.unit} til the next drop`
@@ -147,7 +154,12 @@ export function ScheduleCountdownCard({
             )}
           </h3>
           <p className="text-sm text-muted-foreground leading-relaxed">
-            {countdown && countdown.value > 0 ? (
+            {countdown?.unit === "processing" ? (
+              <>
+                Your scheduled drop is being generated. 
+                You&apos;ll be notified when it&apos;s ready to review.
+              </>
+            ) : countdown && countdown.value > 0 ? (
               <>
                 The next drop is going out in {countdown.value} {countdown.unit}. 
                 Post your work-in-progress before then to have it included.

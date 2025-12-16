@@ -135,36 +135,38 @@ export function calculateNextRun(
       break;
     }
     case 'biweekly': {
-      // For biweekly, we need to track which week we're in
-      // Use epoch week number to determine odd/even weeks
+      // For biweekly, we need to ensure 2-week spacing between runs
       const currentDay = nowInTz.getDay();
       const targetDay = dayOfWeek ?? 1;
       
-      // Calculate the week number since epoch
+      // Calculate the week number since epoch (used as fallback when no lastRunAt)
       const msPerWeek = 7 * 24 * 60 * 60 * 1000;
       const weeksSinceEpoch = Math.floor(nowInTz.getTime() / msPerWeek);
-      const isEvenWeek = weeksSinceEpoch % 2 === 0;
-      
-      // If we have a lastRunAt, check if we should skip a week
-      let shouldSkipWeek = false;
-      if (lastRunAt) {
-        const lastRunWeek = Math.floor(lastRunAt.getTime() / msPerWeek);
-        const weeksSinceLastRun = weeksSinceEpoch - lastRunWeek;
-        // If last run was this week or last week, skip to 2 weeks from last run
-        shouldSkipWeek = weeksSinceLastRun < 2;
-      }
       
       let daysUntil = targetDay - currentDay;
       if (daysUntil < 0) daysUntil += 7;
+      
+      // Check if we're on the target day and time has passed
       if (daysUntil === 0) {
         const targetTime = new Date(nowInTz);
         targetTime.setHours(hours, minutes, 0, 0);
         if (targetTime <= nowInTz) {
           daysUntil = 14; // Move to 2 weeks from now
         }
-      } else if (shouldSkipWeek || !isEvenWeek) {
-        // Add another week to make it biweekly
-        daysUntil += 7;
+      } else if (lastRunAt) {
+        // If we have lastRunAt, use it to determine if we should skip a week
+        const lastRunWeek = Math.floor(lastRunAt.getTime() / msPerWeek);
+        const weeksSinceLastRun = weeksSinceEpoch - lastRunWeek;
+        // If last run was less than 2 weeks ago, skip to maintain 2-week spacing
+        if (weeksSinceLastRun < 2) {
+          daysUntil += 7;
+        }
+      } else {
+        // No lastRunAt - use epoch week parity as fallback for initial scheduling
+        const isEvenWeek = weeksSinceEpoch % 2 === 0;
+        if (!isEvenWeek) {
+          daysUntil += 7;
+        }
       }
       
       nextRun.setDate(nowInTz.getDate() + daysUntil);

@@ -93,6 +93,11 @@ export function CreateDialog({ children }: { children: React.ReactNode }) {
         }
         setError(null);
         setMode('url-valid');
+      } else {
+        // URL is present but invalid - revert to initial mode
+        if (mode === 'url-valid') {
+          setMode('initial');
+        }
       }
     } else {
       setProvider(null);
@@ -101,7 +106,7 @@ export function CreateDialog({ children }: { children: React.ReactNode }) {
         setMode('initial');
       }
     }
-  }, [url]);
+  }, [url, mode]);
 
   const resetForm = () => {
     setMode('initial');

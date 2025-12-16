@@ -130,8 +130,22 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       }
       updates.frequency = body.frequency;
     }
-    if (body.day_of_week !== undefined) updates.day_of_week = body.day_of_week;
-    if (body.day_of_month !== undefined) updates.day_of_month = body.day_of_month;
+    
+    // Validate day_of_week (0-6, Sunday to Saturday)
+    if (body.day_of_week !== undefined) {
+      if (body.day_of_week !== null && (typeof body.day_of_week !== 'number' || body.day_of_week < 0 || body.day_of_week > 6)) {
+        return NextResponse.json({ error: "day_of_week must be 0-6 (Sunday-Saturday)" }, { status: 400 });
+      }
+      updates.day_of_week = body.day_of_week;
+    }
+    
+    // Validate day_of_month (1-28)
+    if (body.day_of_month !== undefined) {
+      if (body.day_of_month !== null && (typeof body.day_of_month !== 'number' || body.day_of_month < 1 || body.day_of_month > 28)) {
+        return NextResponse.json({ error: "day_of_month must be 1-28" }, { status: 400 });
+      }
+      updates.day_of_month = body.day_of_month;
+    }
     
     // Validate custom_interval_days
     if (body.custom_interval_days !== undefined) {
@@ -141,7 +155,15 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       );
     }
     
-    if (body.generation_time !== undefined) updates.generation_time = body.generation_time;
+    // Validate generation_time format (HH:MM or HH:MM:SS)
+    if (body.generation_time !== undefined) {
+      const timeRegex = /^([01]?[0-9]|2[0-3]):[0-5][0-9](:[0-5][0-9])?$/;
+      if (!timeRegex.test(body.generation_time)) {
+        return NextResponse.json({ error: "generation_time must be in HH:MM or HH:MM:SS format" }, { status: 400 });
+      }
+      updates.generation_time = body.generation_time;
+    }
+    
     if (body.timezone !== undefined) {
       if (!isValidTimezone(body.timezone)) {
         return NextResponse.json({ error: "Invalid timezone value" }, { status: 400 });
