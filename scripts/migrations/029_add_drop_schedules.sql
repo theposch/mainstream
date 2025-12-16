@@ -124,5 +124,5 @@ END $$;
 
 -- Add updated constraint with new type
 ALTER TABLE notifications ADD CONSTRAINT notifications_type_check 
-  CHECK (type IN ('like', 'comment', 'follow', 'mention', 'reply', 'scheduled_drop_ready'));
+  CHECK (type IN ('like_asset', 'like_comment', 'reply_comment', 'follow', 'mention', 'comment', 'scheduled_drop_ready'));
 
