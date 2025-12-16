@@ -5,9 +5,9 @@
 -- automated schedule processing
 --
 -- To apply:
---   psql -h localhost -p 5432 -U postgres < 030_add_schedule_cron.sql
+--   psql -h localhost -p 5432 -U postgres < 038_add_schedule_cron.sql
 -- Or via Docker:
---   docker exec -i supabase-db psql -U postgres < scripts/migrations/030_add_schedule_cron.sql
+--   docker exec -i supabase-db psql -U postgres < scripts/migrations/038_add_schedule_cron.sql
 --
 -- NOTE: pg_cron extension must be available in your PostgreSQL instance.
 -- For self-hosted Supabase, this is typically pre-installed.
