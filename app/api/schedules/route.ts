@@ -343,13 +343,21 @@ export async function POST(request: NextRequest) {
           newLastRunAt
         );
         
-        await adminClient
+        const { error: scheduleUpdateError } = await adminClient
           .from("drop_schedules")
           .update({ 
             last_run_at: newLastRunAt.toISOString(),
             next_run_at: newNextRunAt.toISOString(),
           })
           .eq("id", schedule.id);
+        
+        if (scheduleUpdateError) {
+          console.error("Error updating schedule timing:", scheduleUpdateError);
+          return NextResponse.json(
+            { error: "Failed to update schedule timing after generation" },
+            { status: 500 }
+          );
+        }
       }
     }
     
