@@ -3,9 +3,9 @@
 import * as React from "react";
 import { cn } from "@/lib/utils";
 import { StreamsGrid, StreamGridData } from "@/components/streams/streams-grid";
-import { Users } from "lucide-react";
+import { Plus, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useRouter } from "next/navigation";
+import { StreamDialog } from "@/components/layout/stream-dialog";
 
 type Tab = "all" | "following";
 
@@ -15,15 +15,15 @@ interface StreamsPageClientProps {
 }
 
 export function StreamsPageClient({ allStreams, followingStreams }: StreamsPageClientProps) {
-  const router = useRouter();
   const [activeTab, setActiveTab] = React.useState<Tab>("all");
+  const [createDialogOpen, setCreateDialogOpen] = React.useState(false);
 
   const displayedStreams = activeTab === "all" ? allStreams : followingStreams;
 
   return (
     <div className="w-full min-h-screen pb-20">
-      {/* Tabs */}
-      <div className="mb-8 flex items-center">
+      {/* Tabs and New Button */}
+      <div className="mb-8 flex items-center justify-between">
         <div className="flex items-center gap-1" role="tablist" aria-label="Streams content">
           <button
             type="button"
@@ -54,6 +54,11 @@ export function StreamsPageClient({ allStreams, followingStreams }: StreamsPageC
             Following
           </button>
         </div>
+
+        <Button variant="outline" className="gap-2" onClick={() => setCreateDialogOpen(true)}>
+          <Plus className="h-4 w-4" />
+          New Stream
+        </Button>
       </div>
 
       {/* Streams Grid */}
@@ -85,6 +90,13 @@ export function StreamsPageClient({ allStreams, followingStreams }: StreamsPageC
           </p>
         </div>
       )}
+
+      {/* Create Stream Dialog */}
+      <StreamDialog 
+        open={createDialogOpen} 
+        onOpenChange={setCreateDialogOpen}
+        mode="create"
+      />
     </div>
   );
 }
