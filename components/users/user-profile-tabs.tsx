@@ -51,7 +51,7 @@ export const UserProfileTabs = React.memo(function UserProfileTabs({
   }, [onTabChange]);
 
   return (
-    <div className="flex justify-center w-full" role="tablist" aria-label="User profile content">
+    <div className="flex w-full" role="tablist" aria-label="User profile content">
       <div className="flex items-center gap-1">
         {tabs.map((tab) => (
           <button
