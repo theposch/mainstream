@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Plus, CalendarClock, ChevronDown } from "lucide-react";
+import { Plus, CalendarClock, MoreVertical } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -13,15 +13,18 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { DropsGrid } from "@/components/drops/drops-grid";
 import { CreateDropDialog } from "@/components/drops/create-drop-dialog";
-import { CreateSeriesDialog } from "@/components/drops/create-series-dialog";
+import { ManageSchedulesModal } from "@/components/drops/manage-schedules-modal";
 import type { Drop, User, DropSchedule } from "@/lib/types/database";
 
+type EnrichedDrop = Drop & {
+  creator?: User;
+  post_count?: number;
+  preview_images?: string[];
+};
+
 interface DropsPageClientProps {
-  initialDrops: Array<Drop & {
-    creator?: User;
-    post_count?: number;
-    preview_images?: string[];
-  }>;
+  initialDrops: EnrichedDrop[];
+  scheduledDrops?: EnrichedDrop[];
   currentTab: string;
   isAuthenticated: boolean;
   currentUserId?: string;
@@ -37,6 +40,7 @@ const STATIC_TABS = [
 
 export function DropsPageClient({
   initialDrops,
+  scheduledDrops: initialScheduledDrops,
   currentTab,
   isAuthenticated,
   currentUserId,
@@ -46,15 +50,17 @@ export function DropsPageClient({
   const router = useRouter();
   const searchParams = useSearchParams();
   const [createDialogOpen, setCreateDialogOpen] = React.useState(false);
-  const [createSeriesDialogOpen, setCreateSeriesDialogOpen] = React.useState(false);
+  const [manageSchedulesOpen, setManageSchedulesOpen] = React.useState(false);
   
   // Local state for optimistic updates
   const [drops, setDrops] = React.useState(initialDrops);
+  const [scheduledDrops, setScheduledDrops] = React.useState(initialScheduledDrops || []);
 
   // Sync with server data when initialDrops changes (e.g., tab change)
   React.useEffect(() => {
     setDrops(initialDrops);
-  }, [initialDrops]);
+    setScheduledDrops(initialScheduledDrops || []);
+  }, [initialDrops, initialScheduledDrops]);
 
   // Build tabs: static tabs + user's schedules
   const tabs = React.useMemo(() => {
@@ -82,6 +88,7 @@ export function DropsPageClient({
   // Optimistic delete - remove from local state immediately
   const handleDropDeleted = React.useCallback((dropId: string) => {
     setDrops((prev) => prev.filter((drop) => drop.id !== dropId));
+    setScheduledDrops((prev) => prev.filter((drop) => drop.id !== dropId));
   }, []);
 
   // Check if current tab is a schedule
@@ -98,26 +105,26 @@ export function DropsPageClient({
           </p>
         </div>
         {isAuthenticated && (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button className="gap-2">
-            <Plus className="h-4 w-4" />
-                New
-                <ChevronDown className="h-3 w-3" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => setCreateDialogOpen(true)}>
-                <Plus className="h-4 w-4 mr-2" />
-            New Drop
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => setCreateSeriesDialogOpen(true)}>
-                <CalendarClock className="h-4 w-4 mr-2" />
-                New Series
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <div className="flex items-center gap-2">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="icon">
+                  <MoreVertical className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => setManageSchedulesOpen(true)}>
+                  <CalendarClock className="h-4 w-4 mr-2" />
+                  Manage Scheduled Drops
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            
+            <Button onClick={() => setCreateDialogOpen(true)} className="gap-2">
+              <Plus className="h-4 w-4" />
+              Create Drop
+            </Button>
+          </div>
         )}
       </div>
 
@@ -158,13 +165,45 @@ export function DropsPageClient({
       {isScheduleTab && scheduleTabContent ? (
         // Schedule tab shows SeriesTabContent
         scheduleTabContent
+      ) : currentTab === "drafts" && scheduledDrops.length > 0 ? (
+        // Drafts tab with scheduled drops section
+        <div className="space-y-8">
+          {/* Scheduled Drafts Section */}
+          <div>
+            <div className="flex items-center gap-2 mb-4">
+              <CalendarClock className="h-4 w-4 text-muted-foreground" />
+              <h2 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
+                Scheduled
+              </h2>
+            </div>
+            <DropsGrid
+              drops={scheduledDrops}
+              currentUserId={currentUserId}
+              onDropDeleted={handleDropDeleted}
+            />
+          </div>
+
+          {/* Other Drafts Section */}
+          {drops.length > 0 && (
+            <div>
+              <h2 className="text-sm font-medium text-muted-foreground uppercase tracking-wide mb-4">
+                Other
+              </h2>
+              <DropsGrid
+                drops={drops}
+                currentUserId={currentUserId}
+                onDropDeleted={handleDropDeleted}
+              />
+            </div>
+          )}
+        </div>
       ) : (
         // Standard tabs show DropsGrid
-      <DropsGrid 
-        drops={drops}
-        currentUserId={currentUserId}
-        onDropDeleted={handleDropDeleted}
-      />
+        <DropsGrid
+          drops={drops}
+          currentUserId={currentUserId}
+          onDropDeleted={handleDropDeleted}
+        />
       )}
 
       {/* Create Drop Dialog */}
@@ -173,10 +212,12 @@ export function DropsPageClient({
         onOpenChange={setCreateDialogOpen}
       />
 
-      {/* Create Series Dialog */}
-      <CreateSeriesDialog
-        open={createSeriesDialogOpen}
-        onOpenChange={setCreateSeriesDialogOpen}
+      {/* Manage Schedules Modal */}
+      <ManageSchedulesModal
+        open={manageSchedulesOpen}
+        onOpenChange={setManageSchedulesOpen}
+        schedules={schedules}
+        onSchedulesChange={() => router.refresh()}
       />
     </div>
   );

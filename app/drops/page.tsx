@@ -31,34 +31,55 @@ export default async function DropsPage({
     // Render schedule tab content
     const schedule = schedules.find(s => s.id === tab)!;
 
-    // Fetch current draft for this schedule
-    const { data: currentDraft } = await supabase
+    // Fetch all drops for this schedule (both drafts and published)
+    const { data: seriesDrops } = await supabase
       .from("drops")
-      .select("id, title, status, created_at, is_superseded")
+      .select(`
+        *,
+        creator:users!created_by(id, username, display_name, avatar_url)
+      `)
       .eq("schedule_id", schedule.id)
-      .eq("status", "draft")
-      .eq("is_superseded", false)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .single();
-
-    // Fetch superseded drafts
-    const { data: supersededDrafts } = await supabase
-      .from("drops")
-      .select("id, title, status, created_at, is_superseded")
-      .eq("schedule_id", schedule.id)
-      .eq("status", "draft")
-      .eq("is_superseded", true)
       .order("created_at", { ascending: false });
 
-    // Fetch recent published drops for this schedule
-    const { data: recentPublished } = await supabase
-      .from("drops")
-      .select("id, title, status, published_at, created_at")
-      .eq("schedule_id", schedule.id)
-      .eq("status", "published")
-      .order("published_at", { ascending: false })
-      .limit(5);
+    // Enrich with post counts and preview images
+    const allSeriesDrops = seriesDrops || [];
+    const seriesDropIds = allSeriesDrops.map((d) => d.id);
+    let enrichedSeriesDrops = allSeriesDrops;
+
+    if (seriesDropIds.length > 0) {
+      const dropData: Record<string, { count: number; previews: string[] }> = {};
+      seriesDropIds.forEach((id) => {
+        dropData[id] = { count: 0, previews: [] };
+      });
+
+      // Get post counts from drop_blocks
+      const { data: dropBlocks } = await supabase
+        .from("drop_blocks")
+        .select(`
+          drop_id,
+          type,
+          asset:assets(thumbnail_url)
+        `)
+        .in("drop_id", seriesDropIds)
+        .in("type", ["post", "featured_post"])
+        .order("position", { ascending: true });
+
+      dropBlocks?.forEach((db: any) => {
+        const data = dropData[db.drop_id];
+        if (data) {
+          data.count++;
+          if (data.previews.length < 3 && db.asset?.thumbnail_url) {
+            data.previews.push(db.asset.thumbnail_url);
+          }
+        }
+      });
+
+      enrichedSeriesDrops = allSeriesDrops.map((drop) => ({
+        ...drop,
+        post_count: dropData[drop.id]?.count || 0,
+        preview_images: dropData[drop.id]?.previews || [],
+      }));
+    }
 
     return (
       <DropsPageClient
@@ -70,9 +91,8 @@ export default async function DropsPage({
         scheduleTabContent={
           <SeriesTabContent
             schedule={schedule}
-            currentDraft={currentDraft}
-            supersededDrafts={supersededDrafts || []}
-            recentPublished={recentPublished || []}
+            drops={enrichedSeriesDrops}
+            currentUserId={user?.id}
           />
         }
       />
@@ -89,9 +109,7 @@ export default async function DropsPage({
     .order("created_at", { ascending: false });
 
   if (tab === "drafts") {
-    if (user) {
-      query = query.eq("status", "draft").eq("created_by", user.id);
-    } else {
+    if (!user) {
       // No drafts for unauthenticated users
       return (
         <DropsPageClient
@@ -102,6 +120,8 @@ export default async function DropsPage({
         />
       );
     }
+    // For drafts tab, we handle separately below to group scheduled vs other
+    query = query.eq("status", "draft").eq("created_by", user.id);
   } else {
     // "all" tab shows published drops
     query = query.eq("status", "published");
@@ -174,6 +194,23 @@ export default async function DropsPage({
       post_count: dropData[drop.id]?.count || 0,
       preview_images: dropData[drop.id]?.previews || [],
     }));
+  }
+
+  // For drafts tab, separate scheduled from other drafts
+  if (tab === "drafts") {
+    const scheduledDrops = enrichedDrops.filter((d) => d.schedule_id != null);
+    const otherDrops = enrichedDrops.filter((d) => d.schedule_id == null);
+    
+    return (
+      <DropsPageClient
+        initialDrops={otherDrops}
+        scheduledDrops={scheduledDrops}
+        currentTab={tab}
+        isAuthenticated={!!user}
+        currentUserId={user?.id}
+        schedules={schedules}
+      />
+    );
   }
 
   return (
