@@ -130,10 +130,7 @@ export function DropsPageClient({
                 }
               `}
             >
-                <span className="flex items-center gap-2">
-                  {tab.isSchedule && <CalendarClock className="h-3.5 w-3.5" />}
               {tab.label}
-                </span>
             </button>
           );
         })}
@@ -163,7 +160,6 @@ export function DropsPageClient({
                     onClick={() => handleTabChange(tab.id)}
                     className={currentTab === tab.id ? "bg-accent" : ""}
                   >
-                    <CalendarClock className="h-4 w-4 mr-2" />
                     {tab.label}
                   </DropdownMenuItem>
                 ))}
