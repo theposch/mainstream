@@ -369,9 +369,21 @@ export async function POST(request: NextRequest) {
             { status: 500 }
           );
         }
+        
+        // Return response with updated schedule timestamps
+        return NextResponse.json({
+          schedule: {
+            ...schedule,
+            last_run_at: newLastRunAt.toISOString(),
+            next_run_at: newNextRunAt.toISOString(),
+          },
+          drop: firstDrop,
+          post_count: postCount,
+        }, { status: 201 });
       }
     }
     
+    // No generation happened - return original schedule
     return NextResponse.json({
       schedule,
       drop: firstDrop,
