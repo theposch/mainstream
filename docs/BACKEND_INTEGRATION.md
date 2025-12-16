@@ -46,6 +46,8 @@ All tables created with Row Level Security:
 - `stream_members` - Private stream membership (role-based access)
 - `notifications` - Activity feed (+ `content`, `comment_id` for deep linking)
 - `user_notification_settings` - Notification preferences (toggles per type)
+- `drop_schedules` - Recurring drop schedules (frequency, timing, filters)
+- `drops.schedule_id` - Links drops to their generating schedule
 
 **Migration Files:**
 - `scripts/migrations/001_initial_schema.sql`
@@ -67,6 +69,10 @@ All tables created with Row Level Security:
 - `scripts/migrations/030_record_asset_view_rpc.sql` - Atomic view recording RPC
 - `scripts/migrations/032_stream_members_rls_policies.sql` - Stream members RLS
 - `scripts/migrations/033_fix_streams_rls_for_members.sql` - Streams RLS for members
+- `scripts/migrations/037_add_drop_schedules.sql` - Scheduled drops tables and RLS
+- `scripts/migrations/038_add_schedule_cron.sql` - pg_cron job for schedule processing
+- `scripts/migrations/039_simplify_schedule_drafts.sql` - Delete-and-replace logic
+- `scripts/migrations/040_fix_schedule_cron.sql` - Cron fixes
 
 ### ✅ Storage
 Configured buckets:
@@ -135,6 +141,19 @@ Storage policies allow:
 - `POST /api/users/me/integrations` - Connect/disconnect integrations
 - `GET /api/users/me/notification-settings` - Get notification preferences
 - `PUT /api/users/me/notification-settings` - Update notification preferences
+
+#### Schedules
+- `GET /api/schedules` - List user's schedules
+- `POST /api/schedules` - Create schedule (with optional generate_now)
+- `GET /api/schedules/[id]` - Get schedule with drafts
+- `PATCH /api/schedules/[id]` - Update schedule (recalculates next_run_at)
+- `DELETE /api/schedules/[id]` - Delete schedule
+- `POST /api/schedules/[id]/pause` - Pause schedule
+- `POST /api/schedules/[id]/resume` - Resume schedule
+- `POST /api/schedules/[id]/generate` - Generate draft now
+
+#### Cron
+- `POST /api/cron/process-schedules` - Process due schedules (requires CRON_SECRET)
 
 #### Other
 - `GET /api/search` - Search with total counts

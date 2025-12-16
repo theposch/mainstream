@@ -8,6 +8,7 @@ Design collaboration platform for internal teams to share work and organize into
 - **[Supabase Setup](./SUPABASE_SETUP.md)** - Database configuration
 - **[Streams Feature](./STREAMS_FEATURE.md)** - Core organizational system
 - **[Drops Feature](./DROPS_FEATURE.md)** - AI-powered newsletters
+- **[Scheduled Drops](./SCHEDULED_DROPS_PLAN.md)** - Recurring newsletter automation
 - **[Backend Integration](./BACKEND_INTEGRATION.md)** - API and database details
 - **[AI Agent Guide](./AI_AGENT_GUIDE.md)** - For AI assistants working on this codebase
 
@@ -50,6 +51,7 @@ Design collaboration platform for internal teams to share work and organize into
 ✅ **Complete** - Comment deep linking (click notification → jump to comment)  
 ✅ **Complete** - Token encryption (AES-256-GCM for API tokens)  
 ✅ **Complete** - Drops (AI-powered newsletters with block-based editor)  
+✅ **Complete** - Scheduled Drops (recurring newsletter generation with cron service)  
 ✅ **Complete** - AI description generation (LiteLLM + Gemini 2.5 Flash)  
 ✅ **Complete** - Image galleries in drops (grid and featured layouts)  
 ✅ **Complete** - Unlisted assets (drop-only images hidden from feed)  
@@ -156,6 +158,9 @@ AI-powered newsletters that summarize your team's weekly design work. Features:
 - **Email Preview** - React Email components for cross-client compatibility
 - **Unlisted Assets** - Upload images that only appear in drops (not in feed)
 - **Display Controls** - Fit/Cover modes with adjustable crop position
+- **Scheduled Drops** - Recurring newsletter generation (weekly, biweekly, monthly, custom)
+- **Schedule Management** - Pause/resume schedules, generate now, edit settings
+- **Cron Service** - Docker container for automated drop generation
 
 ## Development
 

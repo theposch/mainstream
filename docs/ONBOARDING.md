@@ -19,6 +19,8 @@ A Pinterest-style design sharing platform with:
 - **Following** - See work from people and streams you follow
 - **Search** - Find assets, users, and streams
 - **Real-time** - Live notifications, typing indicators, instant updates
+- **Drops** - AI-powered newsletters with block-based editor
+- **Scheduled Drops** - Recurring drop generation (weekly, biweekly, monthly)
 
 ## Tech Stack
 
@@ -412,6 +414,10 @@ After schema changes:
 - `017_add_figma_integration.sql` - Figma token storage
 - `032_stream_members_rls_policies.sql` - Stream members RLS
 - `033_fix_streams_rls_for_members.sql` - Streams visibility for members
+- `037_add_drop_schedules.sql` - Scheduled drops tables and RLS
+- `038_add_schedule_cron.sql` - pg_cron job for schedule processing
+- `039_simplify_schedule_drafts.sql` - Delete-and-replace logic
+- `040_fix_schedule_cron.sql` - Cron fixes
 
 ### Component Changes
 

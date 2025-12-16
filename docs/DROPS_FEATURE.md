@@ -239,8 +239,15 @@ Group multiple images with two layout options.
 
 ## Scheduled Drops (Series)
 
+**Status:** ✅ Fully implemented
+
 ### Overview
 Series are recurring drop schedules that automatically generate draft drops on a configured cadence. Users receive notifications when drafts are ready to review.
+
+### Design Philosophy
+- **One Draft Per Schedule**: New generation deletes existing draft (not superseded)
+- **Skipped Weeks**: Unpublished drafts = user intentionally skipped (holidays, closures)
+- **Biweekly Tracking**: Uses `last_run_at` for accurate 2-week spacing
 
 ### Creating a Series
 **Location**: `components/drops/create-series-dialog.tsx`
@@ -260,12 +267,19 @@ Configuration options:
 **Location**: `components/drops/series-tab-content.tsx`
 
 Each series creates a dedicated tab showing:
-- Schedule status (Active/Paused) and next generation date
+- Schedule status (Active/Paused) and countdown to next generation
 - Action buttons: Generate Now, Pause/Resume, Edit, Delete
 - Current draft card with link to editor
 - Warning if draft unpublished and next generation soon
-- List of superseded (old) drafts
 - Recent published drops from this series
+
+### Manage Schedules Modal
+**Location**: `components/drops/manage-schedules-modal.tsx`
+
+Accessed from the "Drops" page dropdown menu:
+- Lists all user's schedules with status indicators
+- Quick actions: Generate, Pause/Resume, Edit, Delete
+- Shows next run date for each schedule
 
 ### Database Schema
 
@@ -277,7 +291,7 @@ CREATE TABLE drop_schedules (
   name TEXT NOT NULL,
   frequency TEXT NOT NULL,  -- 'weekly' | 'biweekly' | 'monthly' | 'custom'
   day_of_week INT,          -- 0-6 (Sunday=0)
-  day_of_month INT,         -- 1-31
+  day_of_month INT,         -- 1-28 (capped for all-month compatibility)
   custom_interval_days INT,
   generation_time TIME DEFAULT '09:00:00',
   timezone TEXT DEFAULT 'America/New_York',
@@ -296,39 +310,72 @@ CREATE TABLE drop_schedules (
 #### drops (additions)
 ```sql
 ALTER TABLE drops ADD COLUMN schedule_id UUID REFERENCES drop_schedules(id);
-ALTER TABLE drops ADD COLUMN is_superseded BOOLEAN DEFAULT FALSE;
 ```
 
-### Background Job (pg_cron)
-**Location**: `scripts/migrations/038_add_schedule_cron.sql`
+### Background Job
 
-A PostgreSQL function `process_scheduled_drops()` runs every 15 minutes via pg_cron:
+#### Primary: Docker Cron Service
+A lightweight Alpine container runs `crond` to call the `/api/cron/process-schedules` endpoint every 15 minutes:
+
+```yaml
+# docker-compose.yml
+cron:
+  image: alpine:3.19
+  environment:
+    - CRON_SECRET=${CRON_SECRET}
+    - APP_URL=http://mainstream:3000
+```
+
+**Environment Variable Required:**
+```env
+CRON_SECRET=your-secure-random-string
+```
+
+#### Processing Logic
+**Location**: `app/api/cron/process-schedules/route.ts`
+
 1. Finds active schedules where `next_run_at <= NOW()`
-2. Marks existing drafts as superseded
-3. Creates new draft drop with schedule's filters
-4. Creates `scheduled_drop_ready` notification
-5. Updates schedule's `last_run_at` and `next_run_at`
+2. Claims schedule via optimistic locking (`next_run_at = null`)
+3. Deletes existing draft drop (if any)
+4. Creates new draft drop with schedule's filters
+5. Creates `scheduled_drop_ready` notification
+6. Updates schedule's `last_run_at` and `next_run_at`
+7. On failure: Restores `next_run_at` to prevent orphaned schedules
 
-Manual trigger function `trigger_schedule_now(schedule_id)` available for "Generate Now" button.
+#### Alternative: pg_cron (Self-hosted)
+PostgreSQL function available in `scripts/migrations/038_add_schedule_cron.sql` for environments with pg_cron extension.
 
 ### API Endpoints
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | GET | `/api/schedules` | List user's schedules |
-| POST | `/api/schedules` | Create new schedule |
+| POST | `/api/schedules` | Create new schedule (+ optional generate_now) |
 | GET | `/api/schedules/[id]` | Get schedule with drafts |
-| PATCH | `/api/schedules/[id]` | Update schedule |
+| PATCH | `/api/schedules/[id]` | Update schedule (recalculates next_run_at) |
 | DELETE | `/api/schedules/[id]` | Delete schedule |
 | POST | `/api/schedules/[id]/pause` | Pause schedule |
 | POST | `/api/schedules/[id]/resume` | Resume schedule |
 | POST | `/api/schedules/[id]/generate` | Generate draft now |
+
+### Input Validation
+- `frequency`: Must be `weekly`, `biweekly`, `monthly`, or `custom`
+- `day_of_week`: Must be 0-6 (Sunday=0)
+- `day_of_month`: Must be 1-28 (supports all months)
+- `generation_time`: Must be HH:MM or HH:MM:SS format
 
 ### Notifications
 When a scheduled drop is generated, the user receives a `scheduled_drop_ready` notification with:
 - Calendar icon (instead of user avatar)
 - Link to the new draft's editor
 - Content: "Your [Series Name] is ready to review"
+
+### Key Files
+- `lib/utils/schedule-helpers.ts` - `calculateNextRun()`, `getScheduleDescription()`
+- `lib/types/database.ts` - `DropSchedule`, `ScheduleFrequency`, `DateRangeMode` types
+- `app/api/cron/process-schedules/route.ts` - Cron processing endpoint
+- `components/drops/create-series-dialog.tsx` - Create schedule UI
+- `components/drops/manage-schedules-modal.tsx` - Schedule management UI
 
 ---
 
@@ -626,5 +673,5 @@ Planned features not yet implemented:
 - Block duplication
 - Recipient preview before sending
 - Series-specific email designs
-- External scheduler support (Vercel Cron)
+- Vercel Cron support (alternative to Docker cron)
 

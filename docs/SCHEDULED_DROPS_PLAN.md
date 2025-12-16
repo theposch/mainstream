@@ -1,4 +1,9 @@
-# Scheduled Drops Feature Plan
+# Scheduled Drops Feature
+
+**Status:** ✅ Fully implemented and merged to main  
+**Last Updated:** December 2025
+
+---
 
 ## Architecture Overview
 
@@ -344,17 +349,76 @@ Update `components/layout/notifications-popover.tsx` to handle new type with app
 
 ## Implementation Order
 
-1. [ ] Create feature branch `feature/scheduled-drops`
+1. [x] Create feature branch `feature/scheduled-drops`
 2. [x] Migration: `037_add_drop_schedules.sql` - tables and RLS
-3. [ ] Types: Add `DropSchedule` to `database.ts`
-4. [ ] API: CRUD endpoints for schedules
-5. [ ] API: Action endpoints (pause/resume/generate)
-6. [ ] UI: `CreateSeriesDialog` component
-7. [ ] UI: `SeriesTabContent` component
-8. [ ] UI: `EditSeriesDialog` component
-9. [ ] UI: Dynamic tabs in `drops-page-client.tsx`
-10. [ ] Server: Update `drops/page.tsx` for schedule fetching
+3. [x] Types: Add `DropSchedule` to `database.ts`
+4. [x] API: CRUD endpoints for schedules
+5. [x] API: Action endpoints (pause/resume/generate)
+6. [x] UI: `CreateSeriesDialog` component
+7. [x] UI: `SeriesTabContent` component
+8. [x] UI: `EditSeriesDialog` component
+9. [x] UI: Dynamic tabs in `drops-page-client.tsx`
+10. [x] Server: Update `drops/page.tsx` for schedule fetching
 11. [x] Migration: `038_add_schedule_cron.sql` - pg_cron job
-12. [ ] Notifications: Add type and update popover
-13. [ ] Docs: Update `DROPS_FEATURE.md`
+12. [x] Migration: `039_simplify_schedule_drafts.sql` - Delete-and-replace logic
+13. [x] Migration: `040_fix_schedule_cron.sql` - Cron fixes
+14. [x] Notifications: Add type and update popover
+15. [x] Cron service: Docker container for HTTP cron
+16. [x] Docs: Update `DROPS_FEATURE.md`
+
+---
+
+## Key Implementation Details
+
+### Design Decisions
+
+1. **One Draft Per Schedule**: New generation deletes existing draft (not superseded)
+   - Unpublished drafts = user intentionally skipped that week (holidays, etc.)
+   - Simpler than maintaining draft history
+
+2. **Biweekly Tracking**: Uses `last_run_at` for accurate 2-week spacing
+   - Falls back to epoch week parity when no history exists
+   - Properly handles edge cases (immediate generation, schedule updates)
+
+3. **Cron Recovery**: If processing fails after claiming, `next_run_at` is restored
+   - Prevents permanently orphaned schedules
+
+4. **Timezone Support**: Full IANA timezone support for schedule generation times
+
+### API Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/schedules` | List user's schedules |
+| POST | `/api/schedules` | Create new schedule (+ optional generate_now) |
+| GET | `/api/schedules/[id]` | Get schedule with drafts |
+| PATCH | `/api/schedules/[id]` | Update schedule (recalculates next_run_at) |
+| DELETE | `/api/schedules/[id]` | Delete schedule |
+| POST | `/api/schedules/[id]/pause` | Pause schedule |
+| POST | `/api/schedules/[id]/resume` | Resume schedule |
+| POST | `/api/schedules/[id]/generate` | Generate draft now |
+| POST | `/api/cron/process-schedules` | Internal cron endpoint (requires CRON_SECRET) |
+
+### Environment Variables
+
+```env
+# Required for cron endpoint
+CRON_SECRET=your-secure-random-string
+```
+
+### Docker Cron Service
+
+A lightweight Alpine container runs `crond` to call the process-schedules endpoint every 15 minutes:
+
+```yaml
+cron:
+  image: alpine:3.19
+  environment:
+    - CRON_SECRET=${CRON_SECRET}
+    - APP_URL=http://mainstream:3000
+  command: |
+    apk add --no-cache curl
+    echo "*/15 * * * * curl -sf -X POST $${APP_URL}/api/cron/process-schedules -H 'Authorization: Bearer '$${CRON_SECRET}" > /etc/crontabs/root
+    crond -f -l 2
+```
 

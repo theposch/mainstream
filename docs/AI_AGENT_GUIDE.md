@@ -12,10 +12,13 @@ Quick onboarding guide for AI assistants working on the Mainstream codebase.
 ## Critical Context
 
 ### Recent Major Changes
-- ✅ **Drop Undo/Redo** - Full undo/redo for title, description, and blocks with keyboard shortcuts (NEW)
-- ✅ **Published Drop Management** - Edit, unpublish, delete published drops (NEW)
-- ✅ **Drop Editor Header** - Sticky, translucent header with save status, undo/redo buttons (NEW)
-- ✅ **Unsaved Changes Warning** - Browser warns before leaving with unsaved changes (NEW)
+- ✅ **Scheduled Drops** - Recurring newsletter generation (weekly, biweekly, monthly, custom) (NEW)
+- ✅ **Schedule Management** - Create, pause, resume, generate now, edit, delete schedules (NEW)
+- ✅ **Cron Service** - Docker container for automated drop generation every 15 minutes (NEW)
+- ✅ **Drop Undo/Redo** - Full undo/redo for title, description, and blocks with keyboard shortcuts
+- ✅ **Published Drop Management** - Edit, unpublish, delete published drops
+- ✅ **Drop Editor Header** - Sticky, translucent header with save status, undo/redo buttons
+- ✅ **Unsaved Changes Warning** - Browser warns before leaving with unsaved changes
 - ✅ **React Query Cache Invalidation** - Following feed auto-refreshes after follow/unfollow
 - ✅ **Centralized Constants** - Cache times, page sizes, and timing in `lib/constants/cache.ts`
 - ✅ **String Utilities** - Shared `getInitials`, `truncate`, etc. in `lib/utils/string.ts`
@@ -135,6 +138,16 @@ drops/
   [id]/posts/route.ts  - POST: Add posts (legacy)
   [id]/posts/[postId]/route.ts - DELETE: Remove post (legacy)
 
+schedules/
+  route.ts             - GET/POST: List/create schedules
+  [id]/route.ts        - GET/PATCH/DELETE: Schedule operations
+  [id]/pause/route.ts  - POST: Pause schedule
+  [id]/resume/route.ts - POST: Resume schedule
+  [id]/generate/route.ts - POST: Generate draft now
+
+cron/
+  process-schedules/route.ts - POST: Internal cron endpoint (requires CRON_SECRET)
+
 ai/
   describe/route.ts    - POST: Generate AI asset description
 
@@ -188,14 +201,19 @@ users/
 
 drops/
   create-drop-dialog.tsx      - New drop creation with DatePicker, StreamPicker, UserPicker
+  create-series-dialog.tsx    - New schedule/series creation (NEW)
+  edit-series-dialog.tsx      - Edit schedule settings (NEW)
+  manage-schedules-modal.tsx  - List and manage all schedules (NEW)
+  series-tab-content.tsx      - Schedule tab view with countdown (NEW)
+  schedule-countdown-card.tsx - Countdown to next drop with actions (NEW)
   drop-card.tsx               - Drop preview card with delete menu
-  drop-editor-header.tsx      - Editor header with save status, undo/redo, actions (NEW)
+  drop-editor-header.tsx      - Editor header with save status, undo/redo, actions
   drops-grid.tsx              - Grid layout for drops
   drop-view.tsx               - Classic drop view (legacy)
   drop-publish-dialog.tsx     - Publish confirmation dialog
   delete-drop-dialog.tsx      - Confirm delete with error handling
-  unpublish-drop-dialog.tsx   - Unpublish confirmation (NEW)
-  published-drop-header.tsx   - Header for published drop view with edit/unpublish/delete (NEW)
+  unpublish-drop-dialog.tsx   - Unpublish confirmation
+  published-drop-header.tsx   - Header for published drop view with edit/unpublish/delete
   blocks/
     block-editor.tsx          - Notion-like interactive block editor with rollback
     block-renderer.tsx        - Client-side block rendering
@@ -668,6 +686,58 @@ RESEND_API_KEY=re_your-resend-key
 ### Documentation
 See `docs/DROPS_FEATURE.md` for comprehensive documentation.
 
+## Scheduled Drops
+
+### Overview
+Scheduled Drops allow users to create recurring newsletter schedules that automatically generate draft drops.
+
+### Key Features
+- **Frequencies**: Weekly, biweekly, monthly, or custom interval
+- **Timezone Support**: Full IANA timezone support for generation times
+- **Content Filters**: Filter by streams and/or users
+- **Date Range Modes**: `last_n_days` or `since_last` run
+- **One Draft Per Schedule**: New generation replaces existing draft
+- **Notifications**: `scheduled_drop_ready` notification when drafts are ready
+
+### Schedule States
+- **Active**: Processing normally, `next_run_at` calculated
+- **Paused**: Not processing, `next_run_at` is null
+
+### Key Components
+- `CreateSeriesDialog` - Create new schedule with all configuration options
+- `EditSeriesDialog` - Edit existing schedule settings
+- `ManageSchedulesModal` - List all schedules with actions
+- `ScheduleCountdownCard` - Shows countdown and "Remind team" button
+- `SeriesTabContent` - Tab content showing schedule's drops
+
+### API Endpoints
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/schedules` | List user's schedules |
+| POST | `/api/schedules` | Create schedule (+ optional generate_now) |
+| PATCH | `/api/schedules/[id]` | Update schedule |
+| DELETE | `/api/schedules/[id]` | Delete schedule |
+| POST | `/api/schedules/[id]/pause` | Pause schedule |
+| POST | `/api/schedules/[id]/resume` | Resume schedule |
+| POST | `/api/schedules/[id]/generate` | Generate draft now |
+
+### Cron Processing
+The `/api/cron/process-schedules` endpoint is called every 15 minutes by a Docker cron service:
+- Requires `CRON_SECRET` authorization header
+- Uses optimistic locking to prevent concurrent processing
+- Restores `next_run_at` on failure to prevent orphaned schedules
+
+### Environment Variables
+```env
+CRON_SECRET=your-secure-random-string
+```
+
+### Key Files
+- `lib/utils/schedule-helpers.ts` - `calculateNextRun()`, validation constants
+- `lib/types/database.ts` - `DropSchedule`, `ScheduleFrequency`, `DateRangeMode` types
+- `app/api/cron/process-schedules/route.ts` - Cron endpoint
+- `docker-compose.yml` - Cron service configuration
+
 ---
 
 ## Where Things Are
@@ -697,6 +767,8 @@ See `docs/DROPS_FEATURE.md` for comprehensive documentation.
 | Drops | `app/drops/page.tsx` | `api/drops/route.ts` | - | `drops/drop-*.tsx` |
 | Drop Editor | `app/drops/[id]/edit/page.tsx` | `api/drops/[id]/blocks/route.ts` | - | `drops/blocks/*.tsx` |
 | Create Drop | - | `api/drops/route.ts` | - | `create-drop-dialog.tsx` |
+| Schedules | `app/drops/page.tsx` | `api/schedules/route.ts` | - | `drops/*-series-*.tsx` |
+| Cron Processing | - | `api/cron/process-schedules/route.ts` | - | - |
 | DatePicker | - | - | - | `ui/date-picker.tsx`, `ui/calendar.tsx` |
 | UserPicker | - | `api/users/route.ts` | - | `users/user-picker.tsx` |
 | AI Describe | - | `api/ai/describe/route.ts` | `use-ai-description.ts` | `post-metadata-form.tsx` |
@@ -992,6 +1064,10 @@ When working on a feature, review:
    - `030_record_asset_view_rpc.sql` - Atomic view recording function
    - `032_stream_members_rls_policies.sql` - RLS for stream_members table
    - `033_fix_streams_rls_for_members.sql` - Allow members to see private streams
+   - `037_add_drop_schedules.sql` - Scheduled drops tables and RLS
+   - `038_add_schedule_cron.sql` - pg_cron job for schedule processing
+   - `039_simplify_schedule_drafts.sql` - Delete-and-replace logic
+   - `040_fix_schedule_cron.sql` - Cron fixes
 3. Type definitions: `lib/types/database.ts`
 4. Related API route: `app/api/[feature]/route.ts`
 5. Related hook: `lib/hooks/use-[feature].ts`
