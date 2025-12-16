@@ -300,7 +300,7 @@ ALTER TABLE drops ADD COLUMN is_superseded BOOLEAN DEFAULT FALSE;
 ```
 
 ### Background Job (pg_cron)
-**Location**: `scripts/migrations/030_add_schedule_cron.sql`
+**Location**: `scripts/migrations/038_add_schedule_cron.sql`
 
 A PostgreSQL function `process_scheduled_drops()` runs every 15 minutes via pg_cron:
 1. Finds active schedules where `next_run_at <= NOW()`

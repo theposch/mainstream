@@ -59,45 +59,6 @@ export function getOrdinalSuffix(n: number): string {
 }
 
 /**
- * Convert a date to a specific timezone
- * Uses Intl.DateTimeFormat for timezone conversion
- */
-function getDateInTimezone(date: Date, timezone: string): Date {
-  try {
-    // Get the date parts in the target timezone
-    const formatter = new Intl.DateTimeFormat('en-US', {
-      timeZone: timezone,
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-      hour12: false,
-    });
-    
-    const parts = formatter.formatToParts(date);
-    const values: Record<string, string> = {};
-    parts.forEach(part => {
-      values[part.type] = part.value;
-    });
-    
-    // Create a new date with the timezone-adjusted values
-    return new Date(
-      parseInt(values.year),
-      parseInt(values.month) - 1,
-      parseInt(values.day),
-      parseInt(values.hour),
-      parseInt(values.minute),
-      parseInt(values.second)
-    );
-  } catch {
-    // Fallback to server time if timezone is invalid
-    return date;
-  }
-}
-
-/**
  * Get timezone offset in milliseconds
  */
 function getTimezoneOffset(timezone: string): number {
@@ -140,7 +101,7 @@ export function calculateNextRun(
   // Parse generation time (HH:MM:SS or HH:MM)
   const [hours, minutes] = generationTime.split(':').map(Number);
   
-  let nextRun = new Date(nowInTz);
+  const nextRun = new Date(nowInTz);
   
   switch (frequency) {
     case 'weekly': {

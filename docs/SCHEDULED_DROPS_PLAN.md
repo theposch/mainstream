@@ -39,7 +39,7 @@ flowchart TB
 
 ## Phase 1: Database Schema
 
-### Migration: `029_add_drop_schedules.sql`
+### Migration: `037_add_drop_schedules.sql`
 
 Create new `drop_schedules` table:
 - `id`, `created_by`, `name` (tab title)
@@ -163,7 +163,7 @@ When `tab` param matches a schedule ID:
 
 ### Primary: Supabase pg_cron (self-hosted)
 
-Create PostgreSQL function and pg_cron job in migration `030_add_schedule_cron.sql`:
+Create PostgreSQL function and pg_cron job in migration `038_add_schedule_cron.sql`:
 
 ```sql
 -- Helper function to calculate next run time
@@ -320,8 +320,10 @@ Update `components/layout/notifications-popover.tsx` to handle new type with app
 ## File Summary
 
 **New files:**
-- `scripts/migrations/029_add_drop_schedules.sql`
-- `scripts/migrations/030_add_schedule_cron.sql`
+- `scripts/migrations/037_add_drop_schedules.sql`
+- `scripts/migrations/038_add_schedule_cron.sql`
+- `scripts/migrations/039_simplify_schedule_drafts.sql`
+- `scripts/migrations/040_fix_schedule_cron.sql`
 - `app/api/schedules/route.ts`
 - `app/api/schedules/[id]/route.ts`
 - `app/api/schedules/[id]/pause/route.ts`
@@ -343,7 +345,7 @@ Update `components/layout/notifications-popover.tsx` to handle new type with app
 ## Implementation Order
 
 1. [ ] Create feature branch `feature/scheduled-drops`
-2. [ ] Migration: `029_add_drop_schedules.sql` - tables and RLS
+2. [x] Migration: `037_add_drop_schedules.sql` - tables and RLS
 3. [ ] Types: Add `DropSchedule` to `database.ts`
 4. [ ] API: CRUD endpoints for schedules
 5. [ ] API: Action endpoints (pause/resume/generate)
@@ -352,7 +354,7 @@ Update `components/layout/notifications-popover.tsx` to handle new type with app
 8. [ ] UI: `EditSeriesDialog` component
 9. [ ] UI: Dynamic tabs in `drops-page-client.tsx`
 10. [ ] Server: Update `drops/page.tsx` for schedule fetching
-11. [ ] Migration: `030_add_schedule_cron.sql` - pg_cron job
+11. [x] Migration: `038_add_schedule_cron.sql` - pg_cron job
 12. [ ] Notifications: Add type and update popover
 13. [ ] Docs: Update `DROPS_FEATURE.md`
 
