@@ -124,7 +124,12 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       updates.name = trimmedName;
     }
     
-    if (body.frequency !== undefined) updates.frequency = body.frequency;
+    if (body.frequency !== undefined) {
+      if (!['weekly', 'biweekly', 'monthly', 'custom'].includes(body.frequency)) {
+        return NextResponse.json({ error: "Invalid frequency value" }, { status: 400 });
+      }
+      updates.frequency = body.frequency;
+    }
     if (body.day_of_week !== undefined) updates.day_of_week = body.day_of_week;
     if (body.day_of_month !== undefined) updates.day_of_month = body.day_of_month;
     
