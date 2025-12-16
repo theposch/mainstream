@@ -104,11 +104,17 @@ async function processSchedule(supabase: SupabaseClient, schedule: DropSchedule)
   const filter_user_ids = schedule.user_ids?.length > 0 ? schedule.user_ids : null;
   
   // Delete existing draft for this schedule (only 1 draft per series)
-  await supabase
+  // The drop_blocks will be cascade deleted due to foreign key
+  const { error: deleteError } = await supabase
     .from("drops")
     .delete()
     .eq("schedule_id", schedule.id)
     .eq("status", "draft");
+  
+  if (deleteError) {
+    console.warn('[processSchedule] Error deleting old draft:', deleteError);
+    // Continue anyway, not critical - we can still create the new draft
+  }
   
   // Create new draft drop
   const { data: drop, error: createError } = await supabase
@@ -311,12 +317,18 @@ async function processSchedule(supabase: SupabaseClient, schedule: DropSchedule)
     schedule.timezone
   );
   
-  await supabase
+  const { error: updateError } = await supabase
     .from("drop_schedules")
     .update({
       last_run_at: new Date().toISOString(),
       next_run_at: nextRunAt.toISOString(),
     })
     .eq("id", schedule.id);
+  
+  if (updateError) {
+    // This is more serious - schedule won't advance to next run
+    console.error('[processSchedule] Failed to update schedule:', updateError);
+    throw new Error(`Failed to update schedule: ${updateError.message}`);
+  }
 }
 
