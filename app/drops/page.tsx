@@ -1,7 +1,8 @@
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/auth/get-user";
-import { DropsGrid } from "@/components/drops/drops-grid";
 import { DropsPageClient } from "./drops-page-client";
+import { SeriesTabContent } from "@/components/drops/series-tab-content";
+import type { DropSchedule } from "@/lib/types/database";
 
 export default async function DropsPage({
   searchParams,
@@ -12,6 +13,72 @@ export default async function DropsPage({
   const supabase = await createClient();
   const user = await getCurrentUser();
 
+  // Fetch user's schedules for dynamic tabs
+  let schedules: DropSchedule[] = [];
+  if (user) {
+    const { data: schedulesData } = await supabase
+      .from("drop_schedules")
+      .select("*")
+      .eq("created_by", user.id)
+      .order("created_at", { ascending: true });
+    schedules = (schedulesData || []) as DropSchedule[];
+  }
+
+  // Check if the tab is a schedule ID
+  const isScheduleTab = schedules.some(s => s.id === tab);
+
+  if (isScheduleTab) {
+    // Render schedule tab content
+    const schedule = schedules.find(s => s.id === tab)!;
+
+    // Fetch current draft for this schedule
+    const { data: currentDraft } = await supabase
+      .from("drops")
+      .select("id, title, status, created_at, is_superseded")
+      .eq("schedule_id", schedule.id)
+      .eq("status", "draft")
+      .eq("is_superseded", false)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .single();
+
+    // Fetch superseded drafts
+    const { data: supersededDrafts } = await supabase
+      .from("drops")
+      .select("id, title, status, created_at, is_superseded")
+      .eq("schedule_id", schedule.id)
+      .eq("status", "draft")
+      .eq("is_superseded", true)
+      .order("created_at", { ascending: false });
+
+    // Fetch recent published drops for this schedule
+    const { data: recentPublished } = await supabase
+      .from("drops")
+      .select("id, title, status, published_at, created_at")
+      .eq("schedule_id", schedule.id)
+      .eq("status", "published")
+      .order("published_at", { ascending: false })
+      .limit(5);
+
+    return (
+      <DropsPageClient
+        initialDrops={[]}
+        currentTab={tab}
+        isAuthenticated={!!user}
+        currentUserId={user?.id}
+        schedules={schedules}
+        scheduleTabContent={
+          <SeriesTabContent
+            schedule={schedule}
+            currentDraft={currentDraft}
+            supersededDrafts={supersededDrafts || []}
+            recentPublished={recentPublished || []}
+          />
+        }
+      />
+    );
+  }
+
   // Build query based on tab
   let query = supabase
     .from("drops")
@@ -21,9 +88,7 @@ export default async function DropsPage({
     `)
     .order("created_at", { ascending: false });
 
-  if (tab === "weekly") {
-    query = query.eq("is_weekly", true).eq("status", "published");
-  } else if (tab === "drafts") {
+  if (tab === "drafts") {
     if (user) {
       query = query.eq("status", "draft").eq("created_by", user.id);
     } else {
@@ -33,6 +98,7 @@ export default async function DropsPage({
           initialDrops={[]}
           currentTab={tab}
           isAuthenticated={false}
+          schedules={[]}
         />
       );
     }
@@ -116,7 +182,7 @@ export default async function DropsPage({
       currentTab={tab}
       isAuthenticated={!!user}
       currentUserId={user?.id}
+      schedules={schedules}
     />
   );
 }
-

@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Bell } from "lucide-react";
+import { Bell, CalendarClock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Popover,
@@ -21,6 +21,7 @@ interface NotificationData {
   content: string;
   link: string;
   preview?: string | null;
+  isSystemNotification?: boolean; // For scheduled drops, etc.
 }
 
 // Memoized notification item component
@@ -51,14 +52,26 @@ const NotificationItem = React.memo(function NotificationItem({
         !notification.is_read && "bg-accent/30"
       )}
     >
-      <Avatar className="h-8 w-8 border border-border mt-0.5">
-        <AvatarImage src={data.actor.avatar_url} />
-        <AvatarFallback>{data.actor.username.charAt(0).toUpperCase()}</AvatarFallback>
-      </Avatar>
+      {data.isSystemNotification ? (
+        <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center mt-0.5">
+          <CalendarClock className="h-4 w-4 text-primary" />
+        </div>
+      ) : (
+        <Avatar className="h-8 w-8 border border-border mt-0.5">
+          <AvatarImage src={data.actor.avatar_url} />
+          <AvatarFallback>{data.actor.username.charAt(0).toUpperCase()}</AvatarFallback>
+        </Avatar>
+      )}
       <div className="flex-1 space-y-1">
         <p className="text-sm text-muted-foreground leading-snug">
-          <span className="font-medium text-foreground">{data.actor.display_name}</span>{" "}
-          {data.content}
+          {data.isSystemNotification ? (
+            <span className="text-foreground">{data.content}</span>
+          ) : (
+            <>
+              <span className="font-medium text-foreground">{data.actor.display_name}</span>{" "}
+              {data.content}
+            </>
+          )}
         </p>
         {data.preview && (
           <p className="text-sm text-muted-foreground/80 line-clamp-2 italic">
@@ -153,6 +166,13 @@ export function NotificationsPopover() {
           link = buildAssetLink(notification.resource_id, notification.comment_id);
           preview = notification.content;
           break;
+        case 'scheduled_drop_ready':
+          // For scheduled drops, the notification is self-triggered (actor = recipient)
+          // and links to the drop editor
+          content = notification.content || "Your scheduled drop is ready to review";
+          link = notification.resource_id ? `/drops/${notification.resource_id}/edit` : "/drops?tab=drafts";
+          map.set(notification.id, { actor, content, link, preview, isSystemNotification: true });
+          continue; // Skip the default map.set below
       }
 
       map.set(notification.id, { actor, content, link, preview });
