@@ -85,6 +85,7 @@ export async function POST(request: NextRequest) {
 async function processSchedule(supabase: SupabaseClient, schedule: DropSchedule) {
   // Race condition protection: Immediately claim this schedule by setting next_run_at to null
   // This prevents other cron instances from processing it simultaneously
+  const originalNextRunAt = schedule.next_run_at;
   const { error: claimError, data: claimResult } = await supabase
     .from("drop_schedules")
     .update({ next_run_at: null })
@@ -99,6 +100,25 @@ async function processSchedule(supabase: SupabaseClient, schedule: DropSchedule)
     return;
   }
   
+  try {
+    await processScheduleContent(supabase, schedule);
+  } catch (err) {
+    // CRITICAL: Restore next_run_at on failure to prevent orphaned schedules
+    // Without this, the schedule would be stuck with next_run_at = NULL forever
+    console.error(`[processSchedule] Processing failed for schedule ${schedule.id}, restoring next_run_at`);
+    await supabase
+      .from("drop_schedules")
+      .update({ next_run_at: originalNextRunAt })
+      .eq("id", schedule.id);
+    throw err; // Re-throw to be caught by the outer handler
+  }
+}
+
+/**
+ * Internal function that processes the schedule content.
+ * Separated from processSchedule to allow proper error recovery of the claiming mechanism.
+ */
+async function processScheduleContent(supabase: SupabaseClient, schedule: DropSchedule) {
   // Calculate date range for content
   const dateEnd = new Date();
   let dateStart: Date;
