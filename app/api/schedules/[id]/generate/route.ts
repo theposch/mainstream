@@ -94,7 +94,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     .select()
     .single();
   
-  if (createError) {
+  if (createError || !drop) {
     console.error("Error creating drop:", createError);
     return NextResponse.json({ error: "Failed to create drop" }, { status: 500 });
   }

@@ -128,7 +128,7 @@ export async function POST(request: NextRequest) {
       .select()
       .single();
     
-    if (createError) {
+    if (createError || !schedule) {
       console.error("Error creating schedule:", createError);
       return NextResponse.json({ error: "Failed to create schedule" }, { status: 500 });
     }
