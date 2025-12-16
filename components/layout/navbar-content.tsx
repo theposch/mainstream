@@ -51,9 +51,9 @@ export function Navbar() {
                 <Button 
                   variant="default"
                   className="h-9 px-5"
-                  aria-label="Create new project or upload asset"
+                  aria-label="Post new content"
                 >
-                  Create
+                  Post
                 </Button>
             </CreateDialog>
             
