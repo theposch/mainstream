@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { format, formatDistanceToNow } from "date-fns";
+import { format } from "date-fns";
 import {
   Calendar,
   Clock,
@@ -68,7 +68,8 @@ export function ManageSchedulesModal({
   const setLoading = (id: string, action: string | null) => {
     setLoadingStates(prev => {
       if (action === null) {
-        const { [id]: _, ...rest } = prev;
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const { [id]: _removed, ...rest } = prev;
         return rest;
       }
       return { ...prev, [id]: action };
