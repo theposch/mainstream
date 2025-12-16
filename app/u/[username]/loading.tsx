@@ -19,12 +19,12 @@ export default function UserProfileLoading() {
         </div>
       </div>
 
-      {/* Tabs skeleton */}
-      <div className="flex justify-center mb-10">
-        <div className="flex gap-1 p-1 bg-muted/80 rounded-full">
-          <div className="px-6 py-2 rounded-full bg-secondary w-20 h-9" />
-          <div className="px-6 py-2 rounded-full w-24 h-9" />
-          <div className="px-6 py-2 rounded-full w-20 h-9" />
+      {/* Tabs skeleton - left aligned pill buttons */}
+      <div className="flex mb-10">
+        <div className="flex items-center gap-1">
+          <div className="h-9 w-20 bg-muted rounded-full animate-pulse" />
+          <div className="h-9 w-24 bg-muted/50 rounded-full animate-pulse" />
+          <div className="h-9 w-20 bg-muted/50 rounded-full animate-pulse" />
         </div>
       </div>
 
@@ -33,4 +33,3 @@ export default function UserProfileLoading() {
     </div>
   );
 }
-
