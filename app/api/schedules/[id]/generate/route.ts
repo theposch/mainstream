@@ -296,8 +296,8 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
   }
   
   // Update last_run_at and recalculate next_run_at
-  // Don't pass lastRunAt - for biweekly, passing current time causes 3-week spacing
-  // because it thinks "we just ran this week, skip to 2 weeks from now"
+  // Pass the EXISTING last_run_at (before we update it) for biweekly spacing calculation
+  // This ensures consistent behavior with the cron endpoint
   const newLastRunAt = new Date();
   const newNextRunAt = calculateNextRun(
     schedule.frequency,
@@ -305,7 +305,8 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     schedule.day_of_month,
     schedule.custom_interval_days,
     schedule.generation_time,
-    schedule.timezone
+    schedule.timezone,
+    schedule.last_run_at ? new Date(schedule.last_run_at) : undefined
   );
   
   const { error: scheduleUpdateError } = await supabase
