@@ -1,11 +1,9 @@
 "use client";
 
 import * as React from "react";
-import { format, formatDistanceToNow } from "date-fns";
-import { Clock, Calendar } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
-import { DropsGrid } from "./drops-grid";
-import { getScheduleDescription } from "@/lib/utils/schedule-helpers";
+import { useRouter } from "next/navigation";
+import { DropCard } from "./drop-card";
+import { ScheduleCountdownCard } from "./schedule-countdown-card";
 import type { DropSchedule, Drop, User } from "@/lib/types/database";
 
 interface SeriesTabContentProps {
@@ -25,46 +23,29 @@ export function SeriesTabContent({
   currentUserId,
   onDropDeleted,
 }: SeriesTabContentProps) {
-  const scheduleDescription = getScheduleDescription(
-    schedule.frequency,
-    schedule.day_of_week,
-    schedule.day_of_month,
-    schedule.custom_interval_days,
-    schedule.generation_time
-  );
+  const router = useRouter();
+
+  const handleScheduleUpdated = () => {
+    router.refresh();
+  };
 
   return (
-    <div className="space-y-6">
-      {/* Compact Info Bar */}
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-muted-foreground">
-        <Badge variant={schedule.status === "active" ? "default" : "secondary"}>
-          {schedule.status === "active" ? "Active" : "Paused"}
-        </Badge>
-        
-        <div className="flex items-center gap-1.5">
-          <Clock className="h-3.5 w-3.5" />
-          <span>{scheduleDescription}</span>
-        </div>
-
-        {schedule.status === "active" && schedule.next_run_at && (
-          <div className="flex items-center gap-1.5">
-            <Calendar className="h-3.5 w-3.5" />
-            <span>
-              Next: {format(new Date(schedule.next_run_at), "MMM d")}
-              <span className="text-muted-foreground/70 ml-1">
-                ({formatDistanceToNow(new Date(schedule.next_run_at), { addSuffix: false })})
-              </span>
-            </span>
-          </div>
-        )}
-      </div>
-
-      {/* Drops Grid - same as other tabs */}
-      <DropsGrid
-        drops={drops}
-        currentUserId={currentUserId}
-        onDropDeleted={onDropDeleted}
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+      {/* Countdown Card as first item */}
+      <ScheduleCountdownCard
+        schedule={schedule}
+        onScheduleUpdated={handleScheduleUpdated}
       />
+      
+      {/* Drop Cards */}
+      {drops.map((drop) => (
+        <DropCard
+          key={drop.id}
+          drop={drop}
+          currentUserId={currentUserId}
+          onDelete={onDropDeleted}
+        />
+      ))}
     </div>
   );
 }
