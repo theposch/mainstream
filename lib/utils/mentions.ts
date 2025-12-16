@@ -34,7 +34,9 @@ export function extractMentions(text: string): string[] {
  * Check if text contains any mentions
  */
 export function hasMentions(text: string): boolean {
-  return MENTION_PATTERN.test(text);
+  // Create new regex instance to avoid global state issues
+  const regex = new RegExp(MENTION_PATTERN.source);
+  return regex.test(text);
 }
 
 /**

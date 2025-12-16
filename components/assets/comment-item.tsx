@@ -73,6 +73,12 @@ export const CommentItem = React.memo(function CommentItem({
     onToggleLike(comment.id);
   }, [onToggleLike, comment.id]);
 
+  // Memoize mention parsing to avoid re-parsing on every render
+  const parsedContent = React.useMemo(
+    () => parseTextWithMentions(comment.content),
+    [comment.content]
+  );
+
   if (isEditing) {
     return (
       <div className="py-2 pl-11">
@@ -148,7 +154,7 @@ export const CommentItem = React.memo(function CommentItem({
         </div>
 
         <p className="text-sm text-foreground/90 mt-0.5 whitespace-pre-wrap leading-relaxed break-words">
-          {parseTextWithMentions(comment.content).map((segment, index) => 
+          {parsedContent.map((segment, index) => 
             segment.type === 'mention' ? (
               <Link
                 key={index}

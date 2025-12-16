@@ -56,13 +56,17 @@ export const CommentInput = React.memo(function CommentInput({
       return;
     }
 
+    const abortController = new AbortController();
+
     const fetchUsers = async () => {
       setIsMentionLoading(true);
       try {
         const searchParam = debouncedMentionQuery 
           ? `&search=${encodeURIComponent(debouncedMentionQuery)}`
           : '';
-        const response = await fetch(`/api/users?limit=8${searchParam}`);
+        const response = await fetch(`/api/users?limit=8${searchParam}`, {
+          signal: abortController.signal,
+        });
         if (response.ok) {
           const data = await response.json();
           // Filter out current user from suggestions
@@ -73,13 +77,19 @@ export const CommentInput = React.memo(function CommentInput({
           setSelectedMentionIndex(0);
         }
       } catch (error) {
+        // Ignore abort errors
+        if (error instanceof Error && error.name === 'AbortError') return;
         console.error('[CommentInput] Failed to fetch mention users:', error);
       } finally {
-        setIsMentionLoading(false);
+        if (!abortController.signal.aborted) {
+          setIsMentionLoading(false);
+        }
       }
     };
 
     fetchUsers();
+
+    return () => abortController.abort();
   }, [showMentions, debouncedMentionQuery, currentUser?.id]);
 
   // Alias for compatibility with existing code
