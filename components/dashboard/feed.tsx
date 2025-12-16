@@ -153,10 +153,10 @@ export const DashboardFeed = React.memo(function DashboardFeed({ initialAssets }
 
   return (
     <div className="w-full min-h-screen">
-      <div className="relative mb-8 flex items-center justify-center">
-      <FeedTabs activeTab={activeTab} onTabChange={setActiveTab} />
+      <div className="mb-8 flex items-center justify-end gap-3">
+        <FeedTabs activeTab={activeTab} onTabChange={setActiveTab} />
         
-        <div className="absolute right-0 top-1/2 -translate-y-1/2 hidden md:flex items-center gap-1 bg-muted/50 p-1 rounded-lg border border-border">
+        <div className="hidden md:flex items-center gap-1 bg-muted/50 p-1 rounded-lg border border-border">
           <button
             onClick={() => setLayout("grid")}
             className={`p-1.5 rounded-md transition-all ${
