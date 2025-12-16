@@ -5,9 +5,9 @@
 -- This ensures there's only ever 1 auto-generated draft per schedule
 --
 -- To apply:
---   psql -h localhost -p 5432 -U postgres < 031_simplify_schedule_drafts.sql
+--   psql -h localhost -p 5432 -U postgres < 039_simplify_schedule_drafts.sql
 -- Or via Docker:
---   docker exec -i supabase_db_cosmos psql -U postgres < scripts/migrations/031_simplify_schedule_drafts.sql
+--   docker exec -i supabase_db_cosmos psql -U postgres < scripts/migrations/039_simplify_schedule_drafts.sql
 
 -- =====================================================
 -- Update: Process Scheduled Drops Function

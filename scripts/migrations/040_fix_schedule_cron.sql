@@ -6,7 +6,7 @@
 -- that handles the full drop generation with content.
 --
 -- To apply:
---   docker exec -i supabase_db_cosmos psql -U postgres < scripts/migrations/032_fix_schedule_cron.sql
+--   docker exec -i supabase_db_cosmos psql -U postgres < scripts/migrations/040_fix_schedule_cron.sql
 
 -- =====================================================
 -- Update: Process Scheduled Drops Function
