@@ -290,7 +290,7 @@ async function processSchedule(supabase: SupabaseClient, schedule: DropSchedule)
   }
   
   // Create notification
-  await supabase
+  const { error: notificationError } = await supabase
     .from("notifications")
     .insert({
       type: "scheduled_drop_ready",
@@ -300,6 +300,11 @@ async function processSchedule(supabase: SupabaseClient, schedule: DropSchedule)
       resource_id: drop.id,
       content: `Your ${schedule.name} is ready to review`,
     });
+  
+  if (notificationError) {
+    console.warn('[processSchedule] Failed to create notification:', notificationError);
+    // Continue anyway - drop was created successfully
+  }
   
   // Update schedule: last_run_at and calculate next_run_at
   const nextRunAt = calculateNextRun(

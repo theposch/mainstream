@@ -283,7 +283,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
   // ============================================
   
   // Create notification
-  await supabase
+  const { error: notificationError } = await supabase
     .from("notifications")
     .insert({
       type: "scheduled_drop_ready",
@@ -293,6 +293,11 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       resource_id: drop.id,
       content: `Your ${schedule.name} is ready to review`,
     });
+  
+  if (notificationError) {
+    console.warn('[POST /api/schedules/[id]/generate] Failed to create notification:', notificationError);
+    // Continue anyway - drop was created successfully
+  }
   
   // Update last_run_at (but keep next_run_at unchanged for manual triggers)
   await supabase
