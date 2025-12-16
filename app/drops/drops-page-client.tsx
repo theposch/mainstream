@@ -8,7 +8,6 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { DropsGrid } from "@/components/drops/drops-grid";
@@ -111,7 +110,7 @@ export function DropsPageClient({
               key={tab.id}
               onClick={() => handleTabChange(tab.id)}
               className={`
-                px-4 py-2.5 text-sm font-medium transition-colors relative whitespace-nowrap
+                px-4 py-3 text-sm font-medium transition-colors relative whitespace-nowrap
                 ${isActive
                   ? "text-foreground"
                   : "text-muted-foreground hover:text-foreground"
@@ -120,10 +119,10 @@ export function DropsPageClient({
             >
               <span className="flex items-center gap-2">
                 {isSchedule && <CalendarClock className="h-3.5 w-3.5" />}
-              {tab.label}
+                {tab.label}
               </span>
               {isActive && (
-                <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-white" />
+                <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-foreground" />
               )}
             </button>
           );
@@ -132,7 +131,7 @@ export function DropsPageClient({
 
         {/* Actions */}
         {isAuthenticated && (
-          <div className="flex items-center gap-2 shrink-0 py-1">
+          <div className="flex items-center gap-2 shrink-0">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="icon">

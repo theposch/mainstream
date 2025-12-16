@@ -78,12 +78,12 @@ export function ScheduleCountdownCard({
   if (schedule.status === "paused") {
     return (
       <>
-        <div className="bg-card/50 rounded-xl border border-border p-5 flex flex-col justify-between min-h-[200px]">
+        <div className="bg-card/50 rounded-xl border border-border overflow-hidden hover:border-border/80 transition-colors p-4 flex flex-col justify-between">
           <div>
-            <h3 className="text-lg font-semibold text-foreground mb-2">
+            <h3 className="font-semibold text-foreground mb-2">
               Schedule paused
             </h3>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-sm text-muted-foreground leading-relaxed">
               This schedule is currently paused. Resume it to continue generating drops automatically.
             </p>
           </div>
@@ -112,9 +112,9 @@ export function ScheduleCountdownCard({
 
   return (
     <>
-      <div className="bg-card/50 rounded-xl border border-border p-5 flex flex-col justify-between min-h-[200px]">
+      <div className="bg-card/50 rounded-xl border border-border overflow-hidden hover:border-border/80 transition-colors p-4 flex flex-col justify-between">
         <div>
-          <h3 className="text-lg font-semibold text-foreground mb-2">
+          <h3 className="font-semibold text-foreground mb-2">
             {countdown ? (
               countdown.unit === "soon" ? (
                 "Drop coming soon"
@@ -125,7 +125,7 @@ export function ScheduleCountdownCard({
               "Next drop scheduled"
             )}
           </h3>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-sm text-muted-foreground leading-relaxed">
             {countdown && countdown.value > 0 ? (
               <>
                 The next drop is going out in {countdown.value} {countdown.unit}. 
