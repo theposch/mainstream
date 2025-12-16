@@ -7,69 +7,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/auth/get-user";
-import { ScheduleFrequency } from "@/lib/types/database";
+import { calculateNextRun } from "@/lib/utils/schedule-helpers";
 
 type RouteParams = {
   params: Promise<{ id: string }>;
 };
-
-// Helper to calculate next run time
-function calculateNextRun(
-  frequency: ScheduleFrequency,
-  dayOfWeek: number | undefined,
-  dayOfMonth: number | undefined,
-  customIntervalDays: number | undefined,
-  generationTime: string,
-  timezone: string
-): Date {
-  const now = new Date();
-  const [hours, minutes] = generationTime.split(':').map(Number);
-  let nextRun = new Date(now);
-  
-  switch (frequency) {
-    case 'weekly': {
-      const currentDay = now.getDay();
-      const targetDay = dayOfWeek ?? 1;
-      let daysUntil = targetDay - currentDay;
-      if (daysUntil <= 0) daysUntil += 7;
-      nextRun.setDate(now.getDate() + daysUntil);
-      nextRun.setHours(hours, minutes, 0, 0);
-      if (nextRun <= now) {
-        nextRun.setDate(nextRun.getDate() + 7);
-      }
-      break;
-    }
-    case 'biweekly': {
-      const currentDay = now.getDay();
-      const targetDay = dayOfWeek ?? 1;
-      let daysUntil = targetDay - currentDay;
-      if (daysUntil <= 0) daysUntil += 7;
-      nextRun.setDate(now.getDate() + daysUntil);
-      nextRun.setHours(hours, minutes, 0, 0);
-      if (nextRun <= now) {
-        nextRun.setDate(nextRun.getDate() + 14);
-      }
-      break;
-    }
-    case 'monthly': {
-      const targetDay = Math.min(dayOfMonth ?? 1, 28);
-      nextRun.setDate(targetDay);
-      nextRun.setHours(hours, minutes, 0, 0);
-      if (nextRun <= now) {
-        nextRun.setMonth(nextRun.getMonth() + 1);
-      }
-      break;
-    }
-    case 'custom': {
-      const days = customIntervalDays ?? 7;
-      nextRun.setDate(now.getDate() + days);
-      nextRun.setHours(hours, minutes, 0, 0);
-      break;
-    }
-  }
-  
-  return nextRun;
-}
 
 /**
  * POST /api/schedules/[id]/resume

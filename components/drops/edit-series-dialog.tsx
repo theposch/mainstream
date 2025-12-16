@@ -22,6 +22,12 @@ import {
 import { Loader2, Hash, Users, Clock, Calendar } from "lucide-react";
 import { StreamPicker } from "@/components/streams/stream-picker";
 import { UserPicker } from "@/components/users/user-picker";
+import { 
+  DAYS_OF_WEEK, 
+  DAYS_OF_MONTH, 
+  FREQUENCIES,
+  getOrdinalSuffix 
+} from "@/lib/utils/schedule-helpers";
 import type { DropSchedule, ScheduleFrequency, DateRangeMode } from "@/lib/types/database";
 
 interface EditSeriesDialogProps {
@@ -30,28 +36,6 @@ interface EditSeriesDialogProps {
   schedule: DropSchedule;
   onSuccess?: (schedule: DropSchedule) => void;
 }
-
-const DAYS_OF_WEEK = [
-  { value: "0", label: "Sunday" },
-  { value: "1", label: "Monday" },
-  { value: "2", label: "Tuesday" },
-  { value: "3", label: "Wednesday" },
-  { value: "4", label: "Thursday" },
-  { value: "5", label: "Friday" },
-  { value: "6", label: "Saturday" },
-];
-
-const DAYS_OF_MONTH = Array.from({ length: 28 }, (_, i) => ({
-  value: String(i + 1),
-  label: String(i + 1),
-}));
-
-const FREQUENCIES: { value: ScheduleFrequency; label: string }[] = [
-  { value: "weekly", label: "Weekly" },
-  { value: "biweekly", label: "Biweekly" },
-  { value: "monthly", label: "Monthly" },
-  { value: "custom", label: "Custom" },
-];
 
 export function EditSeriesDialog({
   open,
@@ -372,12 +356,5 @@ export function EditSeriesDialog({
       </DialogContent>
     </Dialog>
   );
-}
-
-// Helper function for ordinal suffixes
-function getOrdinalSuffix(n: number): string {
-  const s = ["th", "st", "nd", "rd"];
-  const v = n % 100;
-  return s[(v - 20) % 10] || s[v] || s[0];
 }
 

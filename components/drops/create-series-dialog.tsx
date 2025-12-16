@@ -24,6 +24,12 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Loader2, Hash, Users, Clock, Calendar } from "lucide-react";
 import { StreamPicker } from "@/components/streams/stream-picker";
 import { UserPicker } from "@/components/users/user-picker";
+import { 
+  DAYS_OF_WEEK, 
+  DAYS_OF_MONTH, 
+  FREQUENCIES,
+  getOrdinalSuffix 
+} from "@/lib/utils/schedule-helpers";
 import type { ScheduleFrequency, DateRangeMode } from "@/lib/types/database";
 
 interface CreateSeriesDialogProps {
@@ -31,28 +37,6 @@ interface CreateSeriesDialogProps {
   onOpenChange: (open: boolean) => void;
   onSuccess?: (scheduleId: string, dropId?: string) => void;
 }
-
-const DAYS_OF_WEEK = [
-  { value: "0", label: "Sunday" },
-  { value: "1", label: "Monday" },
-  { value: "2", label: "Tuesday" },
-  { value: "3", label: "Wednesday" },
-  { value: "4", label: "Thursday" },
-  { value: "5", label: "Friday" },
-  { value: "6", label: "Saturday" },
-];
-
-const DAYS_OF_MONTH = Array.from({ length: 28 }, (_, i) => ({
-  value: String(i + 1),
-  label: String(i + 1),
-}));
-
-const FREQUENCIES: { value: ScheduleFrequency; label: string; description: string }[] = [
-  { value: "weekly", label: "Weekly", description: "Every week" },
-  { value: "biweekly", label: "Biweekly", description: "Every two weeks" },
-  { value: "monthly", label: "Monthly", description: "Once a month" },
-  { value: "custom", label: "Custom", description: "Custom interval" },
-];
 
 export function CreateSeriesDialog({
   open,
@@ -408,12 +392,5 @@ export function CreateSeriesDialog({
       </DialogContent>
     </Dialog>
   );
-}
-
-// Helper function for ordinal suffixes
-function getOrdinalSuffix(n: number): string {
-  const s = ["th", "st", "nd", "rd"];
-  const v = n % 100;
-  return s[(v - 20) % 10] || s[v] || s[0];
 }
 

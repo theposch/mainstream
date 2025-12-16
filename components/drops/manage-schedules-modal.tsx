@@ -36,6 +36,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { CreateSeriesDialog } from "./create-series-dialog";
 import { EditSeriesDialog } from "./edit-series-dialog";
+import { DAYS_OF_WEEK_NAMES, getOrdinalSuffix } from "@/lib/utils/schedule-helpers";
 import type { DropSchedule } from "@/lib/types/database";
 
 interface ManageSchedulesModalProps {
@@ -43,14 +44,6 @@ interface ManageSchedulesModalProps {
   onOpenChange: (open: boolean) => void;
   schedules: DropSchedule[];
   onSchedulesChange?: () => void;
-}
-
-const DAYS_OF_WEEK = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-
-function getOrdinalSuffix(n: number): string {
-  const s = ["th", "st", "nd", "rd"];
-  const v = n % 100;
-  return s[(v - 20) % 10] || s[v] || s[0];
 }
 
 export function ManageSchedulesModal({
@@ -159,11 +152,14 @@ export function ManageSchedulesModal({
   const handleDelete = async () => {
     if (!deletingSchedule) return;
     
-    setLoading(deletingSchedule.id, "deleting");
+    // Capture ID before any state changes
+    const scheduleId = deletingSchedule.id;
+    
+    setLoading(scheduleId, "deleting");
     setError(null);
 
     try {
-      const response = await fetch(`/api/schedules/${deletingSchedule.id}`, {
+      const response = await fetch(`/api/schedules/${scheduleId}`, {
         method: "DELETE",
       });
 
@@ -172,14 +168,14 @@ export function ManageSchedulesModal({
         throw new Error(data.error || "Failed to delete series");
       }
 
-      setSchedules(prev => prev.filter(s => s.id !== deletingSchedule.id));
+      setSchedules(prev => prev.filter(s => s.id !== scheduleId));
       setDeletingSchedule(null);
       onSchedulesChange?.();
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to delete series");
     } finally {
-      setLoading(deletingSchedule.id, null);
+      setLoading(scheduleId, null);
     }
   };
 
@@ -199,9 +195,9 @@ export function ManageSchedulesModal({
     const time = schedule.generation_time.slice(0, 5);
     switch (schedule.frequency) {
       case "weekly":
-        return `Every ${DAYS_OF_WEEK[schedule.day_of_week ?? 1]} at ${time}`;
+        return `Every ${DAYS_OF_WEEK_NAMES[schedule.day_of_week ?? 1]} at ${time}`;
       case "biweekly":
-        return `Every other ${DAYS_OF_WEEK[schedule.day_of_week ?? 1]} at ${time}`;
+        return `Every other ${DAYS_OF_WEEK_NAMES[schedule.day_of_week ?? 1]} at ${time}`;
       case "monthly":
         return `${schedule.day_of_month}${getOrdinalSuffix(schedule.day_of_month ?? 1)} of each month at ${time}`;
       case "custom":
