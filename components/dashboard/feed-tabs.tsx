@@ -1,7 +1,6 @@
 "use client";
 
 import * as React from "react";
-import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 
 type Tab = "recent" | "following";
@@ -14,25 +13,19 @@ interface FeedTabsProps {
 export const FeedTabs = React.memo(function FeedTabs({ activeTab, onTabChange }: FeedTabsProps) {
   return (
     <div className="flex justify-center w-full" role="tablist" aria-label="Feed content">
-      <div className="flex p-1.5 bg-muted/80 backdrop-blur-md rounded-full border border-border shadow-sm">
+      <div className="flex items-center gap-1">
         <button
           type="button"
           role="tab"
           aria-selected={activeTab === "recent"}
           onClick={() => onTabChange("recent")}
           className={cn(
-            "relative px-8 py-2.5 rounded-full text-sm font-semibold transition-colors z-10 cursor-pointer",
-            activeTab === "recent" ? "text-foreground" : "text-muted-foreground hover:text-foreground"
+            "px-4 py-2 rounded-full text-sm font-medium transition-all whitespace-nowrap",
+            activeTab === "recent"
+              ? "bg-foreground text-background"
+              : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
           )}
         >
-          {activeTab === "recent" && (
-            <motion.div
-              layoutId="activeFeedTab"
-              className="absolute inset-0 bg-secondary rounded-full shadow-sm"
-              transition={{ type: "spring", duration: 0.5 }}
-              style={{ zIndex: -1 }}
-            />
-          )}
           Recent
         </button>
         <button
@@ -41,18 +34,12 @@ export const FeedTabs = React.memo(function FeedTabs({ activeTab, onTabChange }:
           aria-selected={activeTab === "following"}
           onClick={() => onTabChange("following")}
           className={cn(
-            "relative px-8 py-2.5 rounded-full text-sm font-semibold transition-colors z-10 cursor-pointer",
-            activeTab === "following" ? "text-foreground" : "text-muted-foreground hover:text-foreground"
+            "px-4 py-2 rounded-full text-sm font-medium transition-all whitespace-nowrap",
+            activeTab === "following"
+              ? "bg-foreground text-background"
+              : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
           )}
         >
-          {activeTab === "following" && (
-            <motion.div
-              layoutId="activeFeedTab"
-              className="absolute inset-0 bg-secondary rounded-full shadow-sm"
-              transition={{ type: "spring", duration: 0.5 }}
-              style={{ zIndex: -1 }}
-            />
-          )}
           Following
         </button>
       </div>
