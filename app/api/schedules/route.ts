@@ -6,8 +6,9 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
-import { DropSchedule, ScheduleFrequency, DateRangeMode } from "@/lib/types/database";
+import { createClient, createAdminClient } from "@/lib/supabase/server";
+import { getCurrentUser } from "@/lib/auth/get-user";
+import { ScheduleFrequency } from "@/lib/types/database";
 
 // Helper to calculate next run time
 function calculateNextRun(
@@ -104,11 +105,9 @@ export async function GET(request: NextRequest) {
  * Create a new schedule
  */
 export async function POST(request: NextRequest) {
-  const supabase = await createClient();
-  
-  // Verify authentication
-  const { data: { user }, error: authError } = await supabase.auth.getUser();
-  if (authError || !user) {
+  // Use getCurrentUser for authentication (consistent with other APIs)
+  const user = await getCurrentUser();
+  if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   
@@ -148,8 +147,11 @@ export async function POST(request: NextRequest) {
       timezone
     );
     
+    // Use admin client to bypass RLS for server-side insert
+    const adminClient = await createAdminClient();
+    
     // Create the schedule
-    const { data: schedule, error: createError } = await supabase
+    const { data: schedule, error: createError } = await adminClient
       .from("drop_schedules")
       .insert({
         created_by: user.id,
@@ -189,7 +191,7 @@ export async function POST(request: NextRequest) {
       }
       
       // Create the drop
-      const { data: drop, error: dropError } = await supabase
+      const { data: drop, error: dropError } = await adminClient
         .from("drops")
         .insert({
           title: name.trim(),
@@ -212,7 +214,7 @@ export async function POST(request: NextRequest) {
         firstDrop = drop;
         
         // Update last_run_at on the schedule
-        await supabase
+        await adminClient
           .from("drop_schedules")
           .update({ last_run_at: new Date().toISOString() })
           .eq("id", schedule.id);
