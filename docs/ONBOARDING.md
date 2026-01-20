@@ -1,4 +1,10 @@
-# Mainstream - Quick Start Guide
+# ⚠️ DEPRECATED - See QUICK_START.md
+
+**This document is outdated.** Please use **[QUICK_START.md](./QUICK_START.md)** instead.
+
+---
+
+# Mainstream - Quick Start Guide (ARCHIVED)
 
 Design collaboration platform for internal teams. Share work, organize into streams, and collaborate.
 

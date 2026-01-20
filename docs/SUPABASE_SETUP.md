@@ -1,6 +1,10 @@
 # Supabase Setup Guide
 
+**Last Updated:** January 2026
+
 Complete setup guide for running Supabase locally with Docker.
+
+> **💡 Quick Setup:** Run `./setup.sh` to automatically generate secure secrets and JWT tokens. See [Quick Start Guide](./QUICK_START.md) for the fastest setup path.
 
 ## Overview
 
@@ -52,26 +56,41 @@ Open http://localhost:8000
 
 ### 4. Configure Environment
 
+**Option A: Use setup script (Recommended)**
+```bash
+./setup.sh
+```
+This automatically generates secure secrets and JWT tokens.
+
+**Option B: Manual Configuration**
+
 Create `.env.local` in project root:
 
 ```env
 NEXT_PUBLIC_SUPABASE_URL=http://localhost:8000
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your_anon_key_here
-SUPABASE_SERVICE_ROLE_KEY=your_service_role_key_here
+NEXT_PUBLIC_SUPABASE_ANON_KEY=<from-env-file>
+SUPABASE_SERVICE_ROLE_KEY=<from-env-file>
 
 # Optional: For encrypting API tokens (Figma, etc.)
 # Generate with: openssl rand -hex 32
 ENCRYPTION_KEY=your_64_char_hex_key_here
 ```
 
-**Get keys:** Studio → Settings → API
+**⚠️ Critical:** JWT tokens in `.env.local` **MUST** match the tokens in `.env`. See [Database Setup - JWT Token Matching](./DATABASE_SETUP.md#jwt-token-matching).
 
-### 5. Apply Schema
+### 5. Apply Migrations
 
+**Option A: Use migration script (Recommended)**
+```bash
+./migrate.sh
+```
+
+**Option B: Manual application**
 ```bash
 cd scripts/migrations
-docker-compose -f ../../supabase-docker/docker-compose.yml exec db psql -U postgres < 001_initial_schema.sql
-docker-compose -f ../../supabase-docker/docker-compose.yml exec db psql -U postgres < 002_seed_data.sql
+docker compose exec -T db psql -U postgres -d postgres < 001_initial_schema.sql
+docker compose exec -T db psql -U postgres -d postgres < 002_seed_data.sql
+# Continue with remaining migrations...
 ```
 
 Or paste into Studio SQL Editor.
