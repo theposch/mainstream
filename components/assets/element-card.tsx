@@ -312,7 +312,7 @@ export const ElementCard = React.memo(
                 {/* User Info */}
                 <div className="flex items-center gap-2 flex-1 min-w-0">
                   <Avatar className="h-8 w-8 border-2 border-white/20 shrink-0">
-                    <AvatarImage src={uploader?.avatar_url} />
+                    <AvatarImage src={uploader?.avatar_url ?? undefined} />
                     <AvatarFallback className="text-xs">
                       {uploader?.username?.substring(0, 2).toUpperCase() || 'UN'}
                     </AvatarFallback>
@@ -359,7 +359,7 @@ export const ElementCard = React.memo(
               {uploader ? (
                 <Link href={`/u/${uploader.username}`}>
                   <Avatar className="h-5 w-5 border border-border/50 shrink-0">
-                    <AvatarImage src={uploader.avatar_url} />
+                    <AvatarImage src={uploader.avatar_url ?? undefined} />
                     <AvatarFallback className="text-[10px]">
                       {uploader.username?.substring(0, 2).toUpperCase() || 'UN'}
                     </AvatarFallback>

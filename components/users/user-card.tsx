@@ -99,7 +99,7 @@ export const UserCard = React.memo(function UserCard({
           {/* Avatar */}
           <Link href={`/u/${user.username}`}>
             <Avatar className="h-12 w-12 rounded-full border border-border/50 transition-transform hover:scale-105">
-              <AvatarImage src={user.avatar_url} alt={user.display_name} />
+              <AvatarImage src={user.avatar_url ?? undefined} alt={user.display_name} />
               <AvatarFallback className="bg-secondary text-sm">
                 {user.display_name?.substring(0, 2).toUpperCase() || "US"}
               </AvatarFallback>

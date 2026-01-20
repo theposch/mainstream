@@ -111,7 +111,7 @@ export const StreamFollowers = React.memo(function StreamFollowers({
             className={cn("ring-2 ring-background cursor-pointer", sizeClass)}
             title={user.display_name || user.username}
           >
-            <AvatarImage src={user.avatar_url} alt={user.display_name || user.username} />
+            <AvatarImage src={user.avatar_url ?? undefined} alt={user.display_name || user.username} />
             <AvatarFallback className={cn("bg-secondary text-secondary-foreground", textSize)}>
               {(user.display_name || user.username)?.substring(0, 2).toUpperCase()}
             </AvatarFallback>

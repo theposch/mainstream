@@ -13,7 +13,7 @@ export interface User {
   id: string;
   username: string;
   display_name: string;
-  avatar_url: string;
+  avatar_url: string | null;
   bio?: string;
   email?: string;
   job_title?: string;
@@ -49,7 +49,7 @@ export interface Team {
   slug: string;
   name: string;
   description?: string;
-  avatar_url: string;
+  avatar_url: string | null;
   member_count?: number;
   created_at: string;
   updated_at?: string;

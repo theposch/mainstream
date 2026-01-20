@@ -244,7 +244,7 @@ export const CommentInput = React.memo(function CommentInput({
                     )}
                   >
                     <Avatar className="h-6 w-6 border border-border">
-                      <AvatarImage src={user.avatar_url} />
+                      <AvatarImage src={user.avatar_url ?? undefined} />
                       <AvatarFallback>{user.username?.charAt(0).toUpperCase()}</AvatarFallback>
                     </Avatar>
                     <div className="flex flex-col overflow-hidden">
@@ -263,7 +263,7 @@ export const CommentInput = React.memo(function CommentInput({
         )}
 
         <Avatar className="h-8 w-8 shrink-0 border border-border">
-            <AvatarImage src={currentUser?.avatar_url} alt={currentUser?.display_name} />
+            <AvatarImage src={currentUser?.avatar_url ?? undefined} alt={currentUser?.display_name} />
             <AvatarFallback>{currentUser?.username?.charAt(0).toUpperCase() || 'U'}</AvatarFallback>
         </Avatar>
         

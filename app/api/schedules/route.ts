@@ -109,17 +109,15 @@ export async function POST(request: NextRequest) {
       day_of_week,
       day_of_month,
       validatedCustomInterval ?? undefined,
-      generation_time,
-      timezone
-    );
-    
-    // Use admin client to bypass RLS for server-side insert
-    const adminClient = await createAdminClient();
+    generation_time,
+    timezone
+  );
+  
+  // Use admin client to bypass RLS for server-side insert
+  const adminClient = await createAdminClient();
     
     // Create the schedule
-    const { data: schedule, error: createError } = await adminClient
-      .from("drop_schedules")
-      .insert({
+    const insertData = {
         created_by: user.id,
         name: name.trim(),
         frequency,
@@ -134,7 +132,10 @@ export async function POST(request: NextRequest) {
         date_range_days: validatedDateRangeDays,
         status: "active",
         next_run_at: nextRunAt.toISOString(),
-      })
+      };
+    const { data: schedule, error: createError } = await adminClient
+      .from("drop_schedules")
+      .insert(insertData)
       .select()
       .single();
     

@@ -17,7 +17,7 @@ import Link from "next/link";
 
 // Notification content data type
 interface NotificationData {
-  actor: { username: string; display_name: string; avatar_url?: string };
+  actor: { username: string; display_name: string; avatar_url?: string | null };
   content: string;
   link: string;
   preview?: string | null;
@@ -58,7 +58,7 @@ const NotificationItem = React.memo(function NotificationItem({
         </div>
       ) : (
       <Avatar className="h-8 w-8 border border-border mt-0.5">
-        <AvatarImage src={data.actor.avatar_url} />
+        <AvatarImage src={data.actor.avatar_url ?? undefined} />
         <AvatarFallback>{data.actor.username.charAt(0).toUpperCase()}</AvatarFallback>
       </Avatar>
       )}

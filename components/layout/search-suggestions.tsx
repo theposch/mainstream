@@ -378,7 +378,7 @@ export function SearchSuggestions({
           id: user.id,
           label: user.display_name,
           href: `/u/${user.username}`,
-          thumbnail: user.avatar_url,
+          thumbnail: user.avatar_url ?? undefined,
           subtitle: `@${user.username}`,
         });
       });

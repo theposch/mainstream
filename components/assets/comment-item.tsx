@@ -104,7 +104,7 @@ export const CommentItem = React.memo(function CommentItem({
       )}
     >
       <Avatar className="h-8 w-8 shrink-0 border border-border mt-0.5 cursor-pointer hover:opacity-80 transition-opacity">
-        <AvatarImage src={author?.avatar_url} alt={author?.display_name} />
+        <AvatarImage src={author?.avatar_url ?? undefined} alt={author?.display_name} />
         <AvatarFallback>{author?.username?.charAt(0).toUpperCase() || "?"}</AvatarFallback>
       </Avatar>
 

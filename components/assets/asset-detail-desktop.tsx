@@ -637,7 +637,7 @@ export function AssetDetailDesktop({ asset, previousAsset = null, nextAsset = nu
                 <div className="flex items-center gap-3">
                   <Link href={`/u/${uploader?.username}`}>
                     <Avatar className="h-10 w-10 border border-border hover:opacity-80 transition-opacity">
-                      <AvatarImage src={uploader?.avatar_url} />
+                      <AvatarImage src={uploader?.avatar_url ?? undefined} />
                       <AvatarFallback>{uploader?.username?.charAt(0).toUpperCase()}</AvatarFallback>
                     </Avatar>
                   </Link>

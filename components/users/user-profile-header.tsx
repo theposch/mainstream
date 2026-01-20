@@ -19,7 +19,7 @@ interface UserProfileHeaderProps {
     id: string;
     username: string;
     display_name: string;
-    avatar_url?: string;
+    avatar_url?: string | null;
     bio?: string;
     job_title?: string;
     location?: string;
@@ -51,7 +51,7 @@ export function UserProfileHeader({
           <div className="flex gap-5 items-start flex-1 min-w-0">
           {/* Avatar */}
           <Avatar className="h-24 w-24 rounded-xl border border-border/50 bg-background shadow-md flex-shrink-0">
-            <AvatarImage src={user.avatar_url} alt={user.display_name} />
+            <AvatarImage src={user.avatar_url ?? undefined} alt={user.display_name} />
             <AvatarFallback className="text-2xl bg-secondary rounded-xl">
               {user.display_name?.substring(0, 2).toUpperCase() || 'U'}
             </AvatarFallback>

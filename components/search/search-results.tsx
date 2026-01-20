@@ -198,7 +198,7 @@ export const SearchResults = React.memo(function SearchResults({ initialQuery }:
                       className="flex items-center gap-3 p-4 rounded-lg border border-border hover:border-input hover:bg-muted/50 transition-all"
                     >
                       <Avatar className="h-10 w-10">
-                        <img src={user.avatar_url} alt={user.display_name} />
+                        <img src={user.avatar_url ?? undefined} alt={user.display_name} />
                       </Avatar>
                       <div className="flex-1 min-w-0">
                         <div className="font-medium truncate">{user.display_name}</div>

@@ -70,7 +70,7 @@ export function ContributorAvatars({
             >
               <Avatar className={sizeClasses[size]}>
                 <AvatarImage
-                  src={contributor.avatar_url}
+                  src={contributor.avatar_url ?? undefined}
                   alt={contributor.display_name}
                 />
                 <AvatarFallback className="bg-muted text-muted-foreground">

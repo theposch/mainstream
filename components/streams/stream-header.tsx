@@ -243,7 +243,7 @@ export const StreamHeader = React.memo(function StreamHeader({
                       {contributors.slice(0, 8).map((contributor) => (
                         <div key={contributor.id} className="flex items-center gap-2">
                           <Avatar className="h-6 w-6">
-                            <AvatarImage src={contributor.avatar_url} alt={contributor.display_name || contributor.username} />
+                            <AvatarImage src={contributor.avatar_url ?? undefined} alt={contributor.display_name || contributor.username} />
                             <AvatarFallback className="text-[10px] bg-secondary">
                               {(contributor.display_name || contributor.username)?.substring(0, 2).toUpperCase()}
                             </AvatarFallback>
