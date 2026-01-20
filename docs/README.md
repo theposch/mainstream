@@ -1,195 +1,260 @@
-# Mainstream - Documentation
+# Mainstream Documentation
 
-Design collaboration platform for internal teams to share work and organize into streams.
+**Version:** 2.0  
+**Last Updated:** January 2026
 
-## Quick Links
+Design collaboration platform for internal teams to share work, organize into streams, and create AI-powered newsletters.
 
-- **[Getting Started](./ONBOARDING.md)** - Project overview and setup
-- **[Supabase Setup](./SUPABASE_SETUP.md)** - Database configuration
-- **[Streams Feature](./STREAMS_FEATURE.md)** - Core organizational system
+---
+
+## 📚 Documentation Index
+
+### Getting Started
+- **[Quick Start Guide](./QUICK_START.md)** - Get up and running in 10 minutes
+- **[Setup Guide](./SETUP.md)** - Complete installation and configuration
+- **[Database Setup](./DATABASE_SETUP.md)** - Database configuration, migrations, and troubleshooting
+
+### Core Features
+- **[Streams Feature](./STREAMS_FEATURE.md)** - Organizational system and stream management
 - **[Drops Feature](./DROPS_FEATURE.md)** - AI-powered newsletters
-- **[Scheduled Drops](./SCHEDULED_DROPS_PLAN.md)** - Recurring newsletter automation
-- **[Backend Integration](./BACKEND_INTEGRATION.md)** - API and database details
+- **[Scheduled Drops](./SCHEDULED_DROPS.md)** - Recurring newsletter automation
+
+### Technical Documentation
+- **[Architecture Overview](./ARCHITECTURE.md)** - System design and patterns
+- **[API Reference](./API_REFERENCE.md)** - Complete API endpoint documentation
+- **[Database Schema](./DATABASE_SCHEMA.md)** - Tables, relationships, and RLS policies
+
+### Development
+- **[Development Guide](./DEVELOPMENT.md)** - Best practices and workflows
+- **[Migration Guide](./MIGRATIONS.md)** - Database migration procedures
 - **[AI Agent Guide](./AI_AGENT_GUIDE.md)** - For AI assistants working on this codebase
 
-## Tech Stack
+---
 
-- **Next.js 15** - React framework with App Router
+## 🚀 Quick Links
+
+| What You Want | Where to Go |
+|---------------|-------------|
+| Set up project for first time | [Quick Start Guide](./QUICK_START.md) |
+| Database connection issues | [Database Setup](./DATABASE_SETUP.md#troubleshooting) |
+| Create API endpoint | [API Reference](./API_REFERENCE.md) |
+| Understand streams | [Streams Feature](./STREAMS_FEATURE.md) |
+| Add new migration | [Migration Guide](./MIGRATIONS.md) |
+| Deploy to production | [Setup Guide](./SETUP.md#production-deployment) |
+
+---
+
+## 🎯 Project Overview
+
+### What is Mainstream?
+
+Mainstream is a Pinterest-style design collaboration platform that helps internal teams:
+- **Share Work** - Upload designs, GIFs, videos, and embed Figma/Loom
+- **Organize** - Use streams (flexible tags + collections)
+- **Collaborate** - Comment, like, follow users and streams
+- **Summarize** - Generate AI-powered newsletters from weekly work
+- **Automate** - Schedule recurring newsletter generation
+
+### Key Features
+
+✅ **Complete Feature Set:**
+- Multi-format asset upload (images, GIFs, videos, Figma, Loom)
+- Flexible stream organization (many-to-many relationships)
+- Real-time likes, comments, and notifications
+- AI-powered newsletter generation with block editor
+- Scheduled recurring drops (weekly, biweekly, monthly, custom)
+- User and stream following with personalized feeds
+- Private streams with role-based access
+- Search across assets, users, and streams
+- View tracking and analytics
+- Notification preferences
+
+---
+
+## 🛠 Tech Stack
+
+### Frontend
+- **Next.js 15** - React framework with App Router and Turbopack
 - **TypeScript** - Type safety
-- **Tailwind CSS** - Styling
-- **shadcn/ui** - Component library
-- **Supabase** - PostgreSQL database + Auth + Storage
-- **React Query** - Data fetching, caching, and cache invalidation
+- **Tailwind CSS** + **shadcn/ui** - Styling and components
+- **React Query** - Data fetching and caching
 - **Framer Motion** - Animations
-- **canvas-confetti** - Celebration animations
-- **@tanstack/react-virtual** - UI virtualization for long lists
+- **canvas-confetti** - Celebration effects
+
+### Backend
+- **Supabase** (Self-hosted via Docker)
+  - PostgreSQL database with RLS
+  - GoTrue authentication
+  - Storage (S3-compatible)
+  - Realtime (WebSocket subscriptions)
+- **FFmpeg** - Video thumbnail generation
 - **LiteLLM** - AI integration (Gemini 2.5 Flash)
-- **React Email** - Email-compatible components
-- **Resend** - Email delivery
-- **FFmpeg** - Video thumbnail generation (via fluent-ffmpeg)
+- **React Email** + **Resend** - Email delivery
 
-## Current Status
+### Infrastructure
+- **Docker Compose** - Local development environment
+- **pg_cron** - Schedule processing
+- **Node.js** cron service - Alternative scheduler
 
-✅ **Complete** - Data migration from mock data to Supabase  
-✅ **Complete** - Authentication (signup/login/logout)  
-✅ **Complete** - Streams feature (many-to-many asset relationships)  
-✅ **Complete** - Stream following (follow streams, see posts in Following tab)  
-✅ **Complete** - Stream bookmarks (external links with favicons)  
-✅ **Complete** - Private stream members (add/remove users with role-based access)  
-✅ **Complete** - Stream editing (edit name, description, privacy toggle)  
-✅ **Complete** - Real-time likes and comments  
-✅ **Complete** - Comment likes  
-✅ **Complete** - View tracking ("Seen by X people" with viewer tooltip)  
-✅ **Complete** - Following feed (users + streams)  
-✅ **Complete** - User profiles and settings  
-✅ **Complete** - Performance optimizations (N+1 fixes, memoization, server prefetch)  
-✅ **Complete** - Asset and stream deletion  
-✅ **Complete** - Draft deletion (delete drafts from cards and editor)  
-✅ **Complete** - Animated GIF support (upload, preview, badge, hover animation)  
-✅ **Complete** - Figma embeds (paste URL, auto-thumbnails, frame-specific previews)  
-✅ **Complete** - Real-time notifications with typing indicators  
-✅ **Complete** - Comment deep linking (click notification → jump to comment)  
-✅ **Complete** - Token encryption (AES-256-GCM for API tokens)  
-✅ **Complete** - Drops (AI-powered newsletters with block-based editor)  
-✅ **Complete** - Scheduled Drops (recurring newsletter generation with cron service)  
-✅ **Complete** - AI description generation (LiteLLM + Gemini 2.5 Flash)  
-✅ **Complete** - Image galleries in drops (grid and featured layouts)  
-✅ **Complete** - Unlisted assets (drop-only images hidden from feed)  
-✅ **Complete** - Notification settings (toggle by type: likes, comments, follows, mentions)  
-✅ **Complete** - View tracking improvements (atomic RPC, real-time count updates)  
-✅ **Complete** - Micro-animations and delightful interactions (confetti, animated like button)  
-✅ **Complete** - Weekly feed grouping (posts grouped by week with contributor avatars)  
-✅ **Complete** - Feed layout toggle (grid vs detailed view)  
-✅ **Complete** - Performance optimizations (React Query, memoization, error boundaries, dynamic imports)  
-✅ **Complete** - Centralized constants (cache times, page sizes, timing)  
-✅ **Complete** - People page tabs (All People / Following with consistent card heights)  
+---
 
-## Project Structure
+## 📂 Project Structure
 
 ```
 mainstream/
-├── app/                    # Next.js pages and API routes
-│   ├── home/              # Main feed
-│   ├── e/[id]/            # Asset detail pages
-│   ├── stream/[slug]/     # Stream pages
-│   ├── streams/           # All streams listing (All Streams + Following)
-│   ├── people/            # People listing (All People + Following)
-│   ├── drops/             # Drops (AI newsletters)
-│   │   └── [id]/edit/     # Block-based drop editor
-│   ├── u/[username]/      # User profiles
-│   ├── auth/              # Auth pages (signup/login)
-│   └── api/               # API routes
-├── components/            # React components
-│   ├── assets/           # Asset cards and detail views
-│   ├── streams/          # Stream components
-│   ├── drops/            # Drop components and block editor
-│   │   └── blocks/       # Notion-like block components
-│   ├── users/            # User profile/card components
-│   ├── layout/           # Navigation, search, etc.
-│   └── ui/               # Base UI components (shadcn)
-├── lib/                  # Utilities and business logic
-│   ├── supabase/        # Database clients
-│   ├── auth/            # Auth utilities
-│   ├── hooks/           # Custom React hooks
-│   ├── contexts/        # React contexts
-│   ├── constants/       # Centralized constants (cache, page sizes, timing)
-│   ├── queries/         # React Query key factories and fetch functions
-│   ├── utils/           # Utilities (AI, encryption, confetti, week-grouping, string, etc.)
-│   └── types/           # TypeScript types
-└── docs/                # Documentation
+├── app/                      # Next.js App Router
+│   ├── home/                # Main feed (Recent/Following)
+│   ├── e/[id]/              # Asset detail pages
+│   ├── stream/[slug]/       # Stream pages
+│   ├── streams/             # All streams (All/Following tabs)
+│   ├── people/              # People listing (All/Following tabs)
+│   ├── drops/               # Drops listing with dynamic tabs
+│   │   └── [id]/edit/       # Block-based drop editor
+│   ├── mainframe/           # Alias for /drops
+│   ├── u/[username]/        # User profiles
+│   ├── auth/                # Signup/Login pages
+│   └── api/                 # API routes
+│       ├── assets/          # Asset CRUD
+│       ├── streams/         # Stream CRUD
+│       ├── schedules/       # Schedule CRUD
+│       ├── drops/           # Drop CRUD
+│       └── cron/            # Schedule processing
+│
+├── components/              # React components
+│   ├── assets/             # Asset cards and detail views
+│   ├── streams/            # Stream components
+│   ├── drops/              # Drop components and block editor
+│   ├── users/              # User profile components
+│   ├── layout/             # Navigation, search, notifications
+│   └── ui/                 # Base UI components (shadcn)
+│
+├── lib/                     # Core utilities
+│   ├── supabase/           # Database clients (client, server, admin)
+│   ├── auth/               # Authentication utilities
+│   ├── hooks/              # Custom React hooks
+│   ├── contexts/           # React contexts
+│   ├── constants/          # Centralized constants
+│   ├── queries/            # React Query factories
+│   ├── utils/              # Utility functions
+│   └── types/              # TypeScript interfaces
+│
+├── docs/                    # Documentation (you are here)
+├── scripts/                 # Utility scripts
+│   └── migrations/         # Database migrations
+├── supabase-docker/        # Supabase Docker setup
+└── public/                 # Static assets
 ```
 
-## Core Features
+---
 
-### Streams
-Organizational units that support many-to-many relationships with assets. An asset can belong to multiple streams (e.g., #mobile-app, #onboarding, #design-system).
+## 🔐 Environment Setup
 
-**Features:**
-- Follow streams to see their posts in your Following feed
-- Add bookmarks (external links to Jira, Figma, Notion) with favicons
-- Contributor tooltip showing who has posted to the stream
-- Private stream member management (owner, admin, member roles)
-- Edit stream name, description, and privacy settings
+### Required Environment Variables
 
-### Assets
-Uploaded designs and images organized by streams. Supports likes, comments, view tracking ("Seen by X people" with hover tooltip), and deletion by owner.
+**`.env` (Docker/Supabase):**
+```env
+POSTGRES_PASSWORD=<generated>
+JWT_SECRET=<generated>
+ANON_KEY=<generated-jwt>
+SERVICE_ROLE_KEY=<generated-jwt>
+```
 
-**New Asset Types:**
-- **Images** - Standard image upload with optimization
-- **Animated GIFs** - Animation preserved, GIF badge in feed, hover to play
-- **WebM Videos** - Up to 50MB, auto-thumbnails via FFmpeg for cards/previews
-- **Figma Embeds** - Paste Figma URL, auto-thumbnails (frame-specific with token)
-- **Loom Embeds** - Paste Loom URL, auto-thumbnails via oEmbed
+**`.env.local` (Next.js):**
+```env
+NEXT_PUBLIC_SUPABASE_URL=http://localhost:8000
+NEXT_PUBLIC_SUPABASE_ANON_KEY=<must-match-anon-key-from-env>
+SUPABASE_SERVICE_ROLE_KEY=<must-match-service-role-key-from-env>
+```
 
-### Figma Integration
-Paste a Figma URL to embed designs directly. Features:
-- Automatic thumbnails via oEmbed API
-- Frame-specific thumbnails (connect Figma in Settings)
-- Interactive embed viewer in detail page
-- Thumbnails stored locally (never expire)
+**⚠️ Critical:** JWT tokens in `.env.local` **MUST** be signed with the same `JWT_SECRET` from `.env`. See [Database Setup](./DATABASE_SETUP.md#jwt-token-matching) for details.
 
-### Search
-Real-time search across assets, users, and streams with auto-suggest and accurate total counts.
-
-### Home Feed
-The main feed has two tabs (Recent/Following) with:
-- **Weekly Grouping** - Posts organized by week ("This week", "Last week", etc.)
-- **Contributor Avatars** - Stacked avatars showing who posted each week
-- **Layout Toggle** - Switch between grid (visual) and detailed (list) views
-
-### Following Feed
-See assets from users and streams you follow.
-
-### People Page
-Browse all users or filter to see just who you follow:
-- **All People** - Discover designers and creators
-- **Following** - People you follow (with cache invalidation on follow/unfollow)
-- **Consistent card heights** - Fixed 280px height for visual consistency
-- **Infinite scroll** - Separate queries per tab for efficient loading
-
-### Real-time Features
-- Live notification updates
-- Typing indicators in comments
-- Comment deep linking (click notification → jump to comment)
-- Real-time view count updates (via callback)
-
-### Notification Settings
-Control which notifications you receive:
-- **Master toggle** - Enable/disable all in-app notifications
-- **By type** - Likes, Comments, Follows, Mentions
-- Settings persist and are respected when notifications are created
-
-### Drops (AI Newsletter)
-AI-powered newsletters that summarize your team's weekly design work. Features:
-- **Block-based Editor** - Notion-like interface with text, headings, posts, galleries
-- **AI Generation** - Generate summaries using LiteLLM (Gemini 2.5 Flash)
-- **Image Galleries** - Multi-image blocks with grid/featured layouts
-- **Email Preview** - React Email components for cross-client compatibility
-- **Unlisted Assets** - Upload images that only appear in drops (not in feed)
-- **Display Controls** - Fit/Cover modes with adjustable crop position
-- **Scheduled Drops** - Recurring newsletter generation (weekly, biweekly, monthly, custom)
-- **Schedule Management** - Pause/resume schedules, generate now, edit settings
-- **Cron Service** - Docker container for automated drop generation
-
-## Development
-
+**Quick Setup:**
 ```bash
-# Install dependencies
-npm install
+# Use setup script to generate matching tokens automatically
+./setup.sh
 
-# Install FFmpeg (required for video thumbnails)
-brew install ffmpeg  # macOS
-# or: apt-get install ffmpeg  # Ubuntu
-
-# Start Supabase (Docker required)
-cd supabase-docker && docker-compose up -d
-
-# Start dev server
-npm run dev
-
-# Open http://localhost:3000
+# Or copy example file and update manually
+cp .env.local.example .env.local
 ```
 
-## Documentation
+---
 
-For authentication setup details, see `docs/auth/`.
+## 🚦 Service Status
+
+All features are production-ready:
+
+| Feature | Status | Documentation |
+|---------|--------|---------------|
+| Authentication | ✅ Complete | [Setup Guide](./SETUP.md#authentication) |
+| Asset Upload/Management | ✅ Complete | [API Reference](./API_REFERENCE.md#assets) |
+| Streams (Organization) | ✅ Complete | [Streams Feature](./STREAMS_FEATURE.md) |
+| Real-time Updates | ✅ Complete | [Architecture](./ARCHITECTURE.md#realtime) |
+| Search | ✅ Complete | [API Reference](./API_REFERENCE.md#search) |
+| Drops (Newsletters) | ✅ Complete | [Drops Feature](./DROPS_FEATURE.md) |
+| Scheduled Drops | ✅ Complete | [Scheduled Drops](./SCHEDULED_DROPS.md) |
+| Notifications | ✅ Complete | [API Reference](./API_REFERENCE.md#notifications) |
+| Private Streams | ✅ Complete | [Streams Feature](./STREAMS_FEATURE.md#private-streams) |
+
+---
+
+## 📖 Common Tasks
+
+### For Developers
+- [Create a new API endpoint](./API_REFERENCE.md#creating-new-endpoints)
+- [Add a database migration](./MIGRATIONS.md#creating-migrations)
+- [Work with React Query cache](./DEVELOPMENT.md#data-fetching)
+- [Debug authentication issues](./DATABASE_SETUP.md#troubleshooting)
+
+### For Users
+- [Upload your first design](./QUICK_START.md#uploading-assets)
+- [Create and manage streams](./STREAMS_FEATURE.md#creating-streams)
+- [Generate a newsletter](./DROPS_FEATURE.md#creating-drops)
+- [Set up recurring drops](./SCHEDULED_DROPS.md#creating-schedules)
+
+---
+
+## 🐛 Troubleshooting
+
+Common issues and solutions:
+
+| Problem | Solution |
+|---------|----------|
+| JWT signature errors | [Fix JWT token mismatch](./DATABASE_SETUP.md#jwt-token-matching) |
+| Database connection failed | [Check Docker services](./SETUP.md#troubleshooting) |
+| Permission denied errors | [Verify RLS policies](./DATABASE_SCHEMA.md#row-level-security) |
+| Services won't start | [Docker troubleshooting](./SETUP.md#docker-issues) |
+
+---
+
+## 🤝 Contributing
+
+1. Read [Development Guide](./DEVELOPMENT.md)
+2. Check [Architecture Overview](./ARCHITECTURE.md)
+3. Follow [Git workflow](./DEVELOPMENT.md#git-workflow)
+4. Run tests before committing
+5. Update documentation for new features
+
+---
+
+## 📝 Documentation Standards
+
+When updating docs:
+- Keep code examples up to date
+- Include migration file references
+- Add troubleshooting sections
+- Update the "Last Updated" date
+- Cross-reference related docs
+
+---
+
+## 🔗 External Resources
+
+- [Next.js Documentation](https://nextjs.org/docs)
+- [Supabase Documentation](https://supabase.com/docs)
+- [React Query Documentation](https://tanstack.com/query/latest/docs/react/overview)
+- [shadcn/ui Components](https://ui.shadcn.com/)
+- [Tailwind CSS](https://tailwindcss.com/docs)
+
+---
+
+**Need help?** Check the specific feature documentation or see [Troubleshooting](./DATABASE_SETUP.md#troubleshooting).
