@@ -60,6 +60,20 @@ ALTER TABLE drops ADD COLUMN IF NOT EXISTS schedule_id UUID REFERENCES drop_sche
 CREATE INDEX IF NOT EXISTS idx_drops_schedule_id ON drops(schedule_id) WHERE schedule_id IS NOT NULL;
 
 -- =====================================================
+-- Table Permissions
+-- =====================================================
+-- Grant table-level permissions to Supabase roles
+-- Note: RLS policies below will control which rows each user can access
+
+-- Grant full access to service_role (for admin operations)
+GRANT ALL ON drop_schedules TO service_role;
+
+-- Grant basic operations to authenticated and anon users
+-- RLS policies will restrict which rows they can access
+GRANT SELECT, INSERT, UPDATE, DELETE ON drop_schedules TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON drop_schedules TO anon;
+
+-- =====================================================
 -- Row Level Security (RLS)
 -- =====================================================
 
