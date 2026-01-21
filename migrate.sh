@@ -99,6 +99,16 @@ else
 fi
 
 echo ""
+
+# Reload PostgREST schema cache
+print_step "Reloading PostgREST schema cache..."
+if docker compose exec -T db psql -U postgres -d postgres -c "NOTIFY pgrst, 'reload schema';" > /dev/null 2>&1; then
+    print_success "PostgREST schema cache reloaded"
+else
+    print_warning "Could not reload PostgREST schema cache (service may not be running)"
+fi
+
+echo ""
 echo -e "${GREEN}${BOLD}Database is ready!${NC}"
 echo ""
 echo "You can now access Mainstream at your configured URL."
