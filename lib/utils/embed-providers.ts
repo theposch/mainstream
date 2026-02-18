@@ -68,8 +68,7 @@ export function isSupportedUrl(url: string): boolean {
  * Gets the list of currently supported providers
  */
 export function getSupportedProviders(): EmbedProvider[] {
-  // Only return providers we've fully implemented
-  return ['figma', 'loom'];
+  return ['figma', 'loom', 'youtube', 'vimeo'];
 }
 
 /**
@@ -522,6 +521,76 @@ export async function fetchLoomOEmbed(loomUrl: string): Promise<LoomOEmbedRespon
 }
 
 // ============================================================================
+// Vimeo Specific
+// ============================================================================
+
+/**
+ * Validates if a URL is a valid Vimeo URL
+ */
+export function isVimeoUrl(url: string): boolean {
+  return PROVIDER_PATTERNS.vimeo?.test(url) ?? false;
+}
+
+/**
+ * Extracts the Vimeo video ID from a URL
+ */
+export function getVimeoVideoId(url: string): string | null {
+  const match = url.match(/vimeo\.com\/(\d+)/);
+  return match ? match[1] : null;
+}
+
+/**
+ * Converts a Vimeo URL to an embed URL
+ */
+export function getVimeoEmbedUrl(vimeoUrl: string): string | null {
+  const videoId = getVimeoVideoId(vimeoUrl);
+  if (!videoId) return null;
+  return `https://player.vimeo.com/video/${videoId}`;
+}
+
+/**
+ * Vimeo oEmbed response type
+ */
+export interface VimeoOEmbedResponse {
+  title: string;
+  thumbnail_url?: string;
+  thumbnail_width?: number;
+  thumbnail_height?: number;
+  author_name?: string;
+  provider_name: string;
+  provider_url: string;
+  html: string;
+  type: string;
+  version: string;
+  duration?: number;
+}
+
+/**
+ * Fetches Vimeo video metadata via oEmbed API
+ */
+export async function fetchVimeoOEmbed(vimeoUrl: string): Promise<VimeoOEmbedResponse | null> {
+  try {
+    const oembedUrl = `https://vimeo.com/api/oembed.json?url=${encodeURIComponent(vimeoUrl)}`;
+
+    const response = await fetch(oembedUrl, {
+      headers: { 'Accept': 'application/json' },
+      next: { revalidate: 3600 },
+    });
+
+    if (!response.ok) {
+      console.log(`[fetchVimeoOEmbed] Failed to fetch oEmbed: ${response.status}`);
+      return null;
+    }
+
+    const data = await response.json();
+    return data as VimeoOEmbedResponse;
+  } catch (error) {
+    console.error('[fetchVimeoOEmbed] Error:', error);
+    return null;
+  }
+}
+
+// ============================================================================
 // YouTube Specific (for future implementation)
 // ============================================================================
 
@@ -576,7 +645,8 @@ export function getEmbedUrl(url: string): string | null {
       return getLoomEmbedUrl(url);
     case 'youtube':
       return getYouTubeEmbedUrl(url);
-    // Add more providers here
+    case 'vimeo':
+      return getVimeoEmbedUrl(url);
     default:
       return null;
   }

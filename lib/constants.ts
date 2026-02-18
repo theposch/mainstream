@@ -63,10 +63,12 @@ export const KEYS = {
 // Routes
 export const ROUTES = {
   home: '/home',
-  library: '/library',
   asset: (id: string) => `/e/${id}`,
-  project: (id: string) => `/project/${id}`,
+  stream: (slug: string) => `/stream/${slug}`,
   user: (username: string) => `/u/${username}`,
-  team: (slug: string) => `/t/${slug}`,
+  streams: '/streams',
+  people: '/people',
+  search: '/search',
+  drops: '/drops',
 } as const;
 

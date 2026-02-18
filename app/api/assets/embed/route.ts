@@ -18,6 +18,9 @@ import {
   getLoomTitle,
   getLoomThumbnail,
   fetchLoomOEmbed,
+  getYouTubeVideoId,
+  getYouTubeThumbnail,
+  fetchVimeoOEmbed,
 } from '@/lib/utils/embed-providers';
 import { decrypt } from '@/lib/utils/encryption';
 import { saveImageToPublic, generateUniqueFilename } from '@/lib/utils/file-storage';
@@ -101,7 +104,7 @@ export async function POST(request: NextRequest) {
     const provider = detectProvider(url);
     
     if (!isSupportedUrl(url)) {
-      const supportedList = 'Figma, Loom';
+      const supportedList = 'Figma, Loom, YouTube, Vimeo';
       return NextResponse.json(
         { error: `Unsupported URL. Currently supported: ${supportedList}` },
         { status: 400 }
@@ -169,10 +172,10 @@ export async function POST(request: NextRequest) {
       }
     } else if (provider === 'loom') {
       console.log('[POST /api/assets/embed] Fetching Loom data...');
-      
+
       // Try oEmbed first for better metadata
       const oembedData = await fetchLoomOEmbed(url);
-      
+
       if (oembedData) {
         console.log('[POST /api/assets/embed] Loom oEmbed data received:', {
           title: oembedData.title,
@@ -180,17 +183,57 @@ export async function POST(request: NextRequest) {
         });
         thumbnailUrl = oembedData.thumbnail_url || null;
         oembedTitle = oembedData.title || null;
-        
+
         if (oembedData.thumbnail_width && oembedData.thumbnail_height) {
           frameWidth = oembedData.thumbnail_width;
           frameHeight = oembedData.thumbnail_height;
         }
       }
-      
+
       // Fall back to standard Loom thumbnail URL if oEmbed failed
       if (!thumbnailUrl) {
         thumbnailUrl = getLoomThumbnail(url);
         console.log('[POST /api/assets/embed] Using Loom standard thumbnail:', thumbnailUrl);
+      }
+    } else if (provider === 'youtube') {
+      console.log('[POST /api/assets/embed] Fetching YouTube data...');
+
+      // Fetch title via YouTube oEmbed (no API key required)
+      try {
+        const oembedUrl = `https://www.youtube.com/oembed?url=${encodeURIComponent(url)}&format=json`;
+        const oembedResp = await fetch(oembedUrl, { headers: { 'Accept': 'application/json' } });
+        if (oembedResp.ok) {
+          const oembedData = await oembedResp.json();
+          oembedTitle = oembedData.title || null;
+        }
+      } catch {
+        console.log('[POST /api/assets/embed] YouTube oEmbed failed, skipping title');
+      }
+
+      // Use high-quality YouTube thumbnail (no API key required)
+      const videoId = getYouTubeVideoId(url);
+      if (videoId) {
+        // Try maxresdefault first, fall back to hqdefault if download fails
+        thumbnailUrl = getYouTubeThumbnail(url);
+        console.log('[POST /api/assets/embed] YouTube thumbnail URL:', thumbnailUrl);
+      }
+    } else if (provider === 'vimeo') {
+      console.log('[POST /api/assets/embed] Fetching Vimeo data...');
+
+      const oembedData = await fetchVimeoOEmbed(url);
+
+      if (oembedData) {
+        console.log('[POST /api/assets/embed] Vimeo oEmbed data received:', {
+          title: oembedData.title,
+          hasThumbnail: !!oembedData.thumbnail_url,
+        });
+        thumbnailUrl = oembedData.thumbnail_url || null;
+        oembedTitle = oembedData.title || null;
+
+        if (oembedData.thumbnail_width && oembedData.thumbnail_height) {
+          frameWidth = oembedData.thumbnail_width;
+          frameHeight = oembedData.thumbnail_height;
+        }
       }
     }
 
@@ -201,6 +244,10 @@ export async function POST(request: NextRequest) {
         finalTitle = oembedTitle || getFigmaTitle(url) || 'Figma Design';
       } else if (provider === 'loom') {
         finalTitle = oembedTitle || getLoomTitle(url) || 'Loom Recording';
+      } else if (provider === 'youtube') {
+        finalTitle = oembedTitle || 'YouTube Video';
+      } else if (provider === 'vimeo') {
+        finalTitle = oembedTitle || 'Vimeo Video';
       } else {
         finalTitle = oembedTitle || 'Embedded Content';
       }
