@@ -130,7 +130,7 @@ export async function POST(request: NextRequest) {
     if (streamIdsRaw) {
       try {
         streamIds = JSON.parse(streamIdsRaw as string);
-      } catch (error) {
+      } catch {
         log.warn('Failed to parse streamIds, defaulting to empty array');
         streamIds = [];
       }

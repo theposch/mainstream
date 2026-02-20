@@ -212,7 +212,7 @@ Respond with ONLY the summary text, no formatting or additional commentary.`;
 
     if (!response.ok) {
       const errorText = await response.text();
-      log.error("LiteLLM request failed", new Error(errorText), { status: response.status });
+      log.error(`LiteLLM request failed (status ${response.status})`, new Error(errorText));
       throw new AIError("Failed to generate description", "LITELLM_ERROR", response.status);
     }
 

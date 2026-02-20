@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect } from 'vitest';
 
 // We test the rate-limit logic in isolation by importing the module
 // (the setInterval cleanup is benign in test environment)
@@ -71,7 +71,7 @@ describe('checkRateLimit', () => {
   });
 
   it('uses custom keyFn when provided', () => {
-    const customConfig = { ...config, keyFn: (_: NextRequest) => 'shared-key' };
+    const customConfig = { ...config, keyFn: () => 'shared-key' };
     const req1 = makeRequest('10.0.0.7');
     const req2 = makeRequest('10.0.0.8'); // different IP, same custom key
 

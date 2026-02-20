@@ -9,7 +9,7 @@ import { useDebounce } from "@/lib/hooks/use-debounce";
 import { TypingIndicator } from "./typing-indicator";
 
 interface CommentInputProps {
-  currentUser: User;
+  currentUser: User | null;
   onSubmit: (content: string) => Promise<void>;
   isSubmitting?: boolean;
   placeholder?: string;

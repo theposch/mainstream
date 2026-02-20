@@ -12,7 +12,9 @@ import { cn } from "@/lib/utils";
 import { getInitials } from "@/lib/utils/string";
 import type { User } from "@/lib/types/database";
 
-type Contributor = Pick<User, "id" | "username" | "display_name" | "avatar_url">;
+type Contributor = Omit<Pick<User, "id" | "username" | "display_name" | "avatar_url">, "avatar_url"> & {
+  avatar_url: string | null;
+};
 
 interface ContributorAvatarsProps {
   contributors: Contributor[];
@@ -70,7 +72,7 @@ export function ContributorAvatars({
             >
               <Avatar className={sizeClasses[size]}>
                 <AvatarImage
-                  src={contributor.avatar_url}
+                  src={contributor.avatar_url ?? undefined}
                   alt={contributor.display_name}
                 />
                 <AvatarFallback className="bg-muted text-muted-foreground">
