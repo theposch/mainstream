@@ -1,0 +1,22 @@
+import { defineConfig } from 'vitest/config';
+import path from 'path';
+
+export default defineConfig({
+  test: {
+    environment: 'node',
+    globals: true,
+    // Ensure NODE_ENV=test so logger is silent
+    env: { NODE_ENV: 'test' },
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'lcov'],
+      include: ['lib/**/*.ts'],
+      exclude: ['lib/supabase/**', 'lib/providers/**', 'lib/contexts/**'],
+    },
+  },
+  resolve: {
+    alias: {
+      '@': path.resolve(__dirname, '.'),
+    },
+  },
+});

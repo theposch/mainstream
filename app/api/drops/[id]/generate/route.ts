@@ -2,9 +2,35 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import { isAIConfigured, AIError } from "@/lib/utils/ai";
+import { createScopedLogger } from "@/lib/logger";
+import { checkRateLimit, rateLimitResponse, RATE_LIMITS } from "@/lib/middleware/rate-limit";
+
+const log = createScopedLogger("GenerateRoute");
 
 interface RouteParams {
   params: Promise<{ id: string }>;
+}
+
+interface PostAsset {
+  id: string;
+  title: string;
+  description: string | null;
+  thumbnail_url: string | null;
+  uploader: { display_name: string | null } | null;
+}
+
+interface BlockRow {
+  type: string;
+  asset: PostAsset | null;
+}
+
+interface DropPostRow {
+  asset: PostAsset | null;
+}
+
+interface AssetStreamRow {
+  asset_id: string;
+  stream: { name: string } | null;
 }
 
 const LITELLM_BASE_URL = process.env.LITELLM_BASE_URL;
@@ -13,8 +39,18 @@ const LITELLM_MODEL = process.env.LITELLM_MODEL || "gemini/gemini-2.5-flash";
 
 // POST /api/drops/[id]/generate - Generate AI description for a drop
 export async function POST(request: NextRequest, { params }: RouteParams) {
+  const start = Date.now();
+
+  const rl = checkRateLimit(request, RATE_LIMITS.aiGenerate);
+  if (!rl.success) {
+    log.warn("Rate limit exceeded for AI generate");
+    return rateLimitResponse(rl);
+  }
+
   try {
     const { id: dropId } = await params;
+    log.info("Generating AI description", { dropId });
+
     const user = await getCurrentUser();
     
     if (!user) {
@@ -72,7 +108,9 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       .order("position", { ascending: true });
 
     // Extract posts from blocks
-    let posts = blocks?.map((b: any) => b.asset).filter(Boolean) || [];
+    let posts: PostAsset[] = (blocks as BlockRow[] | null)
+      ?.map((b) => b.asset)
+      .filter((a): a is PostAsset => a !== null) || [];
 
     // Fallback: check drop_posts for legacy drops
     if (posts.length === 0) {
@@ -90,10 +128,13 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         .eq("drop_id", dropId)
         .order("position", { ascending: true });
 
-      posts = dropPosts?.map((dp: any) => dp.asset).filter(Boolean) || [];
+      posts = (dropPosts as DropPostRow[] | null)
+        ?.map((dp) => dp.asset)
+        .filter((a): a is PostAsset => a !== null) || [];
     }
 
     if (posts.length === 0) {
+      log.warn("No posts found in drop", { dropId });
       return NextResponse.json(
         { error: "No posts in this drop to summarize" },
         { status: 400 }
@@ -101,7 +142,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     }
 
     // Get streams for posts
-    const postIds = posts.map((p: any) => p.id);
+    const postIds = posts.map((p) => p.id);
     const { data: assetStreams } = await supabase
       .from("asset_streams")
       .select(`
@@ -111,7 +152,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       .in("asset_id", postIds);
 
     const postStreams: Record<string, string[]> = {};
-    assetStreams?.forEach((as: any) => {
+    (assetStreams as AssetStreamRow[] | null)?.forEach((as) => {
       if (!postStreams[as.asset_id]) {
         postStreams[as.asset_id] = [];
       }
@@ -120,8 +161,10 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       }
     });
 
+    log.info("Collected posts for generation", { count: posts.length });
+
     // Format posts for the prompt
-    const postsDescription = posts.map((post: any, index: number) => {
+    const postsDescription = posts.map((post, index) => {
       const streams = postStreams[post.id] || [];
       const streamStr = streams.length > 0 ? ` in #${streams.join(", #")}` : "";
       const descStr = post.description ? ` - ${post.description.slice(0, 100)}` : "";
@@ -169,7 +212,7 @@ Respond with ONLY the summary text, no formatting or additional commentary.`;
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error("[Drops Generate] LiteLLM error:", errorText);
+      log.error("LiteLLM request failed", new Error(errorText), { status: response.status });
       throw new AIError("Failed to generate description", "LITELLM_ERROR", response.status);
     }
 
@@ -180,9 +223,10 @@ Respond with ONLY the summary text, no formatting or additional commentary.`;
       throw new AIError("No content generated", "NO_CONTENT");
     }
 
+    log.request("POST", `/api/drops/${dropId}/generate`, 200, Date.now() - start);
     return NextResponse.json({ description });
   } catch (error) {
-    console.error("[Drops Generate] Error:", error);
+    log.error("Error generating drop description", error instanceof Error ? error : new Error(String(error)));
     
     if (error instanceof AIError) {
       return NextResponse.json(

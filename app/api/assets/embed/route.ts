@@ -8,6 +8,10 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { createScopedLogger } from '@/lib/logger';
+import { checkRateLimit, rateLimitResponse, RATE_LIMITS } from '@/lib/middleware/rate-limit';
+
+const log = createScopedLogger('EmbedRoute');
 import {
   detectProvider,
   isSupportedUrl,
@@ -34,11 +38,11 @@ export const dynamic = 'force-dynamic';
  */
 async function downloadAndSaveThumbnail(imageUrl: string): Promise<string | null> {
   try {
-    console.log('[downloadAndSaveThumbnail] Downloading from:', imageUrl);
-    
+    log.info('Downloading thumbnail', { imageUrl });
+
     const response = await fetch(imageUrl);
     if (!response.ok) {
-      console.log('[downloadAndSaveThumbnail] Failed to fetch:', response.status);
+      log.warn('Failed to fetch thumbnail', { status: response.status });
       return null;
     }
     
@@ -55,23 +59,31 @@ async function downloadAndSaveThumbnail(imageUrl: string): Promise<string | null
     const filename = generateUniqueFilename('embed-thumb.jpg');
     const localPath = await saveImageToPublic(processed, filename, 'thumbnails');
     
-    console.log('[downloadAndSaveThumbnail] Saved to:', localPath);
+    log.info('Thumbnail saved', { localPath });
     return localPath;
   } catch (error) {
-    console.error('[downloadAndSaveThumbnail] Error:', error);
+    log.error('Failed to save thumbnail', error instanceof Error ? error : new Error(String(error)));
     return null;
   }
 }
 
 export async function POST(request: NextRequest) {
-  console.log('[POST /api/assets/embed] Starting embed creation...');
+  const start = Date.now();
+
+  const rl = checkRateLimit(request, RATE_LIMITS.upload);
+  if (!rl.success) {
+    log.warn('Rate limit exceeded', { remaining: rl.remaining, reset: rl.reset });
+    return rateLimitResponse(rl);
+  }
+
+  log.info('Starting embed creation');
 
   const supabase = await createClient();
 
   // Check authentication
   const { data: { user }, error: authError } = await supabase.auth.getUser();
   if (authError || !user) {
-    console.log('[POST /api/assets/embed] Authentication failed');
+    log.warn('Authentication failed');
     return NextResponse.json(
       { error: 'Authentication required' },
       { status: 401 }
@@ -111,7 +123,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log(`[POST /api/assets/embed] Detected provider: ${provider}`);
+    log.info('Detected embed provider', { provider });
 
     // Fetch user profile to check for Figma token
     const { data: userData, error: userDataError } = await supabase
@@ -135,11 +147,11 @@ export async function POST(request: NextRequest) {
     if (provider === 'figma') {
       // Strategy: If user has Figma token AND URL has node-id, try frame-specific thumbnail first
       if (userFigmaToken && hasNodeId) {
-        console.log('[POST /api/assets/embed] User has Figma token and URL has node-id, trying frame-specific thumbnail...');
+        log.info('Trying frame-specific Figma thumbnail');
         const frameThumbnailResult = await fetchFigmaFrameThumbnail(url, userFigmaToken);
         
         if (frameThumbnailResult) {
-          console.log('[POST /api/assets/embed] Got frame-specific thumbnail!', {
+          log.info('Got frame-specific thumbnail', {
             width: frameThumbnailResult.width,
             height: frameThumbnailResult.height,
           });
@@ -148,17 +160,17 @@ export async function POST(request: NextRequest) {
           frameHeight = frameThumbnailResult.height;
           usedFrameSpecificThumbnail = true;
         } else {
-          console.log('[POST /api/assets/embed] Frame-specific thumbnail failed, falling back to oEmbed');
+          log.warn('Frame-specific thumbnail failed, falling back to oEmbed');
         }
       }
 
       // Fall back to oEmbed if we don't have a thumbnail yet
       if (!thumbnailUrl) {
-        console.log('[POST /api/assets/embed] Fetching Figma oEmbed data...');
+        log.info('Fetching Figma oEmbed data');
         const oembedData = await fetchFigmaOEmbed(url);
-        
+
         if (oembedData) {
-          console.log('[POST /api/assets/embed] oEmbed data received:', {
+          log.info('Figma oEmbed data received', {
             title: oembedData.title,
             hasThumbnail: !!oembedData.thumbnail_url,
           });
@@ -167,17 +179,17 @@ export async function POST(request: NextRequest) {
           }
           oembedTitle = oembedData.title || null;
         } else {
-          console.log('[POST /api/assets/embed] No oEmbed data available (file may be private)');
+          log.warn('No Figma oEmbed data available (file may be private)');
         }
       }
     } else if (provider === 'loom') {
-      console.log('[POST /api/assets/embed] Fetching Loom data...');
+      log.info('Fetching Loom data');
 
       // Try oEmbed first for better metadata
       const oembedData = await fetchLoomOEmbed(url);
 
       if (oembedData) {
-        console.log('[POST /api/assets/embed] Loom oEmbed data received:', {
+        log.info('Loom oEmbed data received', {
           title: oembedData.title,
           hasThumbnail: !!oembedData.thumbnail_url,
         });
@@ -193,10 +205,10 @@ export async function POST(request: NextRequest) {
       // Fall back to standard Loom thumbnail URL if oEmbed failed
       if (!thumbnailUrl) {
         thumbnailUrl = getLoomThumbnail(url);
-        console.log('[POST /api/assets/embed] Using Loom standard thumbnail:', thumbnailUrl);
+        log.info('Using Loom standard thumbnail', { thumbnailUrl });
       }
     } else if (provider === 'youtube') {
-      console.log('[POST /api/assets/embed] Fetching YouTube data...');
+      log.info('Fetching YouTube data');
 
       // Fetch title via YouTube oEmbed (no API key required)
       try {
@@ -207,7 +219,7 @@ export async function POST(request: NextRequest) {
           oembedTitle = oembedData.title || null;
         }
       } catch {
-        console.log('[POST /api/assets/embed] YouTube oEmbed failed, skipping title');
+        log.warn('YouTube oEmbed failed, skipping title');
       }
 
       // Use high-quality YouTube thumbnail (no API key required)
@@ -215,15 +227,15 @@ export async function POST(request: NextRequest) {
       if (videoId) {
         // Try maxresdefault first, fall back to hqdefault if download fails
         thumbnailUrl = getYouTubeThumbnail(url);
-        console.log('[POST /api/assets/embed] YouTube thumbnail URL:', thumbnailUrl);
+        log.info('YouTube thumbnail URL', { thumbnailUrl });
       }
     } else if (provider === 'vimeo') {
-      console.log('[POST /api/assets/embed] Fetching Vimeo data...');
+      log.info('Fetching Vimeo data');
 
       const oembedData = await fetchVimeoOEmbed(url);
 
       if (oembedData) {
-        console.log('[POST /api/assets/embed] Vimeo oEmbed data received:', {
+        log.info('Vimeo oEmbed data received', {
           title: oembedData.title,
           hasThumbnail: !!oembedData.thumbnail_url,
         });
@@ -256,14 +268,14 @@ export async function POST(request: NextRequest) {
     // Download and save thumbnail locally (never expires, fully under our control)
     let localThumbnailPath: string | null = null;
     if (thumbnailUrl) {
-      console.log(`[POST /api/assets/embed] Downloading ${usedFrameSpecificThumbnail ? 'frame-specific' : 'oEmbed'} thumbnail...`);
+      log.info('Downloading thumbnail', { type: usedFrameSpecificThumbnail ? 'frame-specific' : 'oEmbed' });
       localThumbnailPath = await downloadAndSaveThumbnail(thumbnailUrl);
-      
+
       if (localThumbnailPath) {
-        console.log('[POST /api/assets/embed] Thumbnail saved locally:', localThumbnailPath);
+        log.info('Thumbnail saved locally', { path: localThumbnailPath });
         thumbnailUrl = localThumbnailPath; // Use local path instead of CDN URL
       } else {
-        console.log('[POST /api/assets/embed] Failed to save thumbnail locally, will use CDN URL as fallback');
+        log.warn('Failed to save thumbnail locally, will use CDN URL as fallback');
       }
     }
 
@@ -283,7 +295,7 @@ export async function POST(request: NextRequest) {
         });
 
       if (createUserError) {
-        console.error('[POST /api/assets/embed] Error creating user profile:', createUserError);
+        log.error('Error creating user profile', new Error(createUserError.message));
       }
     }
 
@@ -304,17 +316,17 @@ export async function POST(request: NextRequest) {
       assetData.thumbnail_url = thumbnailUrl;
       // Use thumbnail as the main URL for feed display
       assetData.url = thumbnailUrl;
-      console.log('[POST /api/assets/embed] Using thumbnail:', thumbnailUrl);
+      log.info('Using thumbnail', { thumbnailUrl });
     }
 
     // Add frame dimensions if available (for proper aspect ratio in feed)
     if (frameWidth && frameHeight) {
       assetData.width = frameWidth;
       assetData.height = frameHeight;
-      console.log('[POST /api/assets/embed] Stored frame dimensions:', { frameWidth, frameHeight });
+      log.info('Stored frame dimensions', { frameWidth, frameHeight });
     }
 
-    console.log('[POST /api/assets/embed] Creating asset with data:', assetData);
+    log.info('Creating embed asset');
 
     const { data: asset, error: assetError } = await supabase
       .from('assets')
@@ -331,14 +343,14 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (assetError) {
-      console.error('[POST /api/assets/embed] Error creating asset:', assetError);
+      log.error('Error creating asset', new Error(assetError.message));
       return NextResponse.json(
         { error: 'Failed to create embed asset' },
         { status: 500 }
       );
     }
 
-    console.log('[POST /api/assets/embed] Asset created:', asset.id);
+    log.info('Asset created', { assetId: asset.id });
 
     // Associate with streams if provided
     if (streamIds && Array.isArray(streamIds) && streamIds.length > 0) {
@@ -352,10 +364,10 @@ export async function POST(request: NextRequest) {
         .insert(streamAssociations);
 
       if (streamError) {
-        console.error('[POST /api/assets/embed] Error associating streams:', streamError);
+        log.error('Error associating streams', new Error(streamError.message));
         // Non-fatal - continue
       } else {
-        console.log(`[POST /api/assets/embed] Associated with ${streamIds.length} stream(s)`);
+        log.info('Associated asset with streams', { count: streamIds.length });
       }
 
       // Fetch the streams for the response
@@ -369,7 +381,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    console.log('[POST /api/assets/embed] Embed creation complete');
+    log.request('POST', '/api/assets/embed', 200, Date.now() - start);
 
     return NextResponse.json({
       success: true,
@@ -382,7 +394,7 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('[POST /api/assets/embed] Unexpected error:', error);
+    log.error('Unexpected error', error instanceof Error ? error : new Error(String(error)));
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

@@ -37,6 +37,10 @@ import {
   isFFmpegAvailable,
 } from '@/lib/utils/video-processing';
 import { createClient } from '@/lib/supabase/server';
+import { createScopedLogger } from '@/lib/logger';
+import { checkRateLimit, rateLimitResponse, RATE_LIMITS } from '@/lib/middleware/rate-limit';
+
+const log = createScopedLogger('UploadRoute');
 
 export const runtime = 'nodejs';
 export const maxDuration = 60; // Allow up to 60 seconds for large uploads
@@ -60,12 +64,22 @@ export const maxDuration = 60; // Allow up to 60 seconds for large uploads
  * }
  */
 export async function POST(request: NextRequest) {
+  const start = Date.now();
+
+  // Rate limit before doing any auth or processing
+  const rl = checkRateLimit(request, RATE_LIMITS.upload);
+  if (!rl.success) {
+    log.warn('Rate limit exceeded', { remaining: rl.remaining, reset: rl.reset });
+    return rateLimitResponse(rl);
+  }
+
   try {
     // Check authentication
     const supabase = await createClient();
     const { data: { user: authUser }, error: authError } = await supabase.auth.getUser();
-    
+
     if (authError || !authUser) {
+      log.request('POST', '/api/assets/upload', 401, Date.now() - start);
       return NextResponse.json(
         { error: 'Authentication required', message: 'You must be logged in to upload assets' },
         { status: 401 }
@@ -96,7 +110,7 @@ export async function POST(request: NextRequest) {
     try {
       formData = await request.formData();
     } catch (formError) {
-      console.error('[POST /api/assets/upload] Failed to parse form data:', formError);
+      log.error('Failed to parse form data', formError instanceof Error ? formError : new Error(String(formError)));
       return NextResponse.json(
         { error: 'Failed to parse upload. File may be too large.' },
         { status: 413 }
@@ -117,7 +131,7 @@ export async function POST(request: NextRequest) {
       try {
         streamIds = JSON.parse(streamIdsRaw as string);
       } catch (error) {
-        console.warn('[POST /api/assets/upload] Failed to parse streamIds, defaulting to empty array');
+        log.warn('Failed to parse streamIds, defaulting to empty array');
         streamIds = [];
       }
     }
@@ -130,7 +144,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log(`[POST /api/assets/upload] File received: ${file.name}, size: ${(file.size / 1024 / 1024).toFixed(2)} MB, type: ${file.type}`);
+    log.info('File received', { name: file.name, sizeMb: (file.size / 1024 / 1024).toFixed(2), type: file.type });
 
     // Validate file type (images and WebM videos)
     const isImage = file.type.startsWith('image/');
@@ -166,7 +180,7 @@ export async function POST(request: NextRequest) {
         .in('id', streamIds);
       
       if (streamError) {
-        console.error('[POST /api/assets/upload] Error validating streams:', streamError);
+        log.error('Error validating streams', new Error(streamError.message));
         return NextResponse.json(
           { error: 'Failed to validate streams' },
           { status: 500 }
@@ -199,7 +213,7 @@ export async function POST(request: NextRequest) {
 
     if (isWebM) {
       // WebM video: save video + generate thumbnail images
-      console.log(`[POST /api/assets/upload] Processing WebM video (${(file.size / 1024 / 1024).toFixed(2)} MB)`);
+      log.info('Processing WebM video', { sizeMb: (file.size / 1024 / 1024).toFixed(2) });
       
       // Check if FFmpeg is available for thumbnail generation
       const ffmpegAvailable = await isFFmpegAvailable();
@@ -210,7 +224,7 @@ export async function POST(request: NextRequest) {
       if (ffmpegAvailable) {
         try {
           // Generate thumbnail images from video (extract frame at 1 second)
-          console.log(`[POST /api/assets/upload] Generating video thumbnails...`);
+          log.info('Generating video thumbnails');
           const { medium, thumbnail, metadata: videoMeta } = await generateVideoThumbnails(buffer, 1);
           
           // Save thumbnail images (JPEG format)
@@ -226,16 +240,16 @@ export async function POST(request: NextRequest) {
             isAnimated: true,
           };
           
-          console.log(`[POST /api/assets/upload] Video thumbnails generated successfully`);
+          log.info('Video thumbnails generated successfully');
         } catch (thumbError) {
-          console.error('[POST /api/assets/upload] Failed to generate video thumbnails:', thumbError);
+          log.error('Failed to generate video thumbnails', thumbError instanceof Error ? thumbError : new Error(String(thumbError)));
           // Fall back to video URL (better than failing the upload)
           mediumUrl = fullUrl;
           thumbnailUrl = fullUrl;
           metadata = { isAnimated: true };
         }
       } else {
-        console.warn('[POST /api/assets/upload] FFmpeg not available, skipping video thumbnail generation');
+        log.warn('FFmpeg not available, skipping video thumbnail generation');
         // Use video URL as fallback
         mediumUrl = fullUrl;
         thumbnailUrl = fullUrl;
@@ -261,7 +275,7 @@ export async function POST(request: NextRequest) {
 
       if (metadata.isAnimated) {
         // Animated GIF: preserve animation for full and medium, static thumbnail
-        console.log(`[POST /api/assets/upload] Processing animated GIF (${metadata.pages} frames)`);
+        log.info('Processing animated GIF', { frames: metadata.pages });
         [fullBuffer, mediumBuffer, thumbnailBuffer] = await Promise.all([
           optimizeAnimatedGif(buffer),      // Animated - all frames preserved
           generateAnimatedMedium(buffer),   // Animated - smaller size
@@ -310,7 +324,7 @@ export async function POST(request: NextRequest) {
         });
 
       if (userCreateError) {
-        console.error('[POST /api/assets/upload] Failed to create user profile:', userCreateError);
+        log.error('Failed to create user profile', new Error(userCreateError.message));
       }
     }
 
@@ -336,7 +350,7 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (insertError || !insertedAsset) {
-      console.error('[POST /api/assets/upload] Database insert failed:', insertError);
+      log.error('Database insert failed', insertError ? new Error(insertError.message) : new Error('No asset returned'));
       return NextResponse.json(
         { error: 'Failed to save asset to database', details: insertError?.message },
         { status: 500 }
@@ -356,17 +370,18 @@ export async function POST(request: NextRequest) {
         .insert(streamAssociations);
 
       if (streamError) {
-        console.error('[POST /api/assets/upload] Failed to create stream associations:', streamError);
+        log.error('Failed to create stream associations', new Error(streamError.message));
         // Don't fail the upload, just log the error
       }
     }
     
+    log.request('POST', '/api/assets/upload', 201, Date.now() - start);
     return NextResponse.json(
       { asset: insertedAsset },
       { status: 201 }
     );
   } catch (error) {
-    console.error('Error uploading asset:', error);
+    log.error('Unexpected error uploading asset', error instanceof Error ? error : new Error(String(error)));
     return NextResponse.json(
       { 
         error: 'Failed to upload asset',
