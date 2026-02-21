@@ -14,7 +14,7 @@ import { calculateNextRun, VALIDATION, isValidTimezone } from "@/lib/utils/sched
  * GET /api/schedules
  * List all schedules for the current user
  */
-export async function GET(_request: NextRequest) {
+export async function GET() {
   // Use getCurrentUser for authentication (consistent with other endpoints)
   const user = await getCurrentUser();
   if (!user) {

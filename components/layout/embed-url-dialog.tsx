@@ -74,11 +74,13 @@ export function EmbedUrlDialog({ open, onOpenChange, initialStreamId }: EmbedUrl
   }, [open, initialStreamId, streamSelection]);
 
   // Reset form when dialog closes
+  // resetForm is intentionally omitted from deps - it's not memoized and adding it causes infinite re-renders
   React.useEffect(() => {
     if (!open) {
       resetForm();
       hasInitializedStreamRef.current = false;
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
   // Detect provider when URL changes
@@ -111,7 +113,7 @@ export function EmbedUrlDialog({ open, onOpenChange, initialStreamId }: EmbedUrl
       setProvider(null);
       setIsValidUrl(false);
     }
-  }, [url]);
+  }, [url, title]);
 
   const resetForm = () => {
     setUrl("");

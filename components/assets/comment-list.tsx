@@ -96,6 +96,7 @@ export const CommentList = React.memo(function CommentList({
   }, [topLevelComments, repliesMap]);
 
   // Virtualize only when we have many comments
+  // eslint-disable-next-line react-hooks/incompatible-library -- useVirtualizer is a third-party hook that cannot be memoized but is intentionally used here
   const rowVirtualizer = useVirtualizer({
     count: topLevelComments.length,
     getScrollElement: () => parentRef.current,
@@ -114,7 +115,7 @@ export const CommentList = React.memo(function CommentList({
   }
 
   // Render a single comment thread (parent + replies)
-  const renderCommentThread = (comment: Comment, index: number) => {
+  const renderCommentThread = (comment: Comment) => {
     const replies = repliesMap.get(comment.id) || [];
     const author = userMap.get(comment.user_id);
     const likeState = getLikeState(comment.id);

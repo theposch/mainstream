@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Share2, Download, Flag, X, Trash2, Pencil } from "lucide-react";
+import { Share2, Download, Trash2, Pencil } from "lucide-react";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { cn } from "@/lib/utils";
 
@@ -22,7 +22,7 @@ export function MoreMenuSheet({
   onOpenChange,
   onShare,
   onDownload,
-  onReport,
+  onReport: _onReport, // eslint-disable-line @typescript-eslint/no-unused-vars
   onEdit,
   canEdit = false,
   onDelete,

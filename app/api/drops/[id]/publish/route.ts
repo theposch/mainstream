@@ -7,6 +7,40 @@ import { Resend } from "resend";
 import { DropView } from "@/components/drops/drop-view";
 import { EmailDropView } from "@/components/drops/blocks/email-drop-view";
 
+interface UploaderInfo {
+  id: string;
+  username: string;
+  display_name: string;
+  avatar_url: string;
+}
+
+interface BlockWithGallery {
+  asset?: {
+    id: string;
+    uploader?: UploaderInfo;
+    [key: string]: unknown;
+  };
+  gallery_images?: Array<{
+    asset?: {
+      id: string;
+      uploader?: UploaderInfo;
+      [key: string]: unknown;
+    };
+    [key: string]: unknown;
+  }>;
+  [key: string]: unknown;
+}
+
+interface DropPostWithAsset {
+  position: number;
+  asset?: {
+    id: string;
+    uploader?: UploaderInfo;
+    [key: string]: unknown;
+  };
+  [key: string]: unknown;
+}
+
 interface RouteParams {
   params: Promise<{ id: string }>;
 }
@@ -87,7 +121,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
         if (emails.length > 0) {
           let emailHtml: string;
-          let contributors: any[] = [];
+          let contributors: UploaderInfo[] = [];
 
           // Check if drop uses blocks or legacy posts
           if (drop.use_blocks) {
@@ -112,12 +146,12 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
               .order("position", { ascending: true });
 
             // Get contributors from blocks and gallery images
-            const contributorMap = new Map();
-            blocks?.forEach((block: any) => {
+            const contributorMap = new Map<string, UploaderInfo>();
+            (blocks as BlockWithGallery[] | null)?.forEach((block) => {
               if (block.asset?.uploader && !contributorMap.has(block.asset.uploader.id)) {
                 contributorMap.set(block.asset.uploader.id, block.asset.uploader);
               }
-              block.gallery_images?.forEach((galleryImage: any) => {
+              block.gallery_images?.forEach((galleryImage) => {
                 if (galleryImage.asset?.uploader && !contributorMap.has(galleryImage.asset.uploader.id)) {
                   contributorMap.set(galleryImage.asset.uploader.id, galleryImage.asset.uploader);
                 }
@@ -152,17 +186,18 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
               .eq("drop_id", dropId)
               .order("position", { ascending: true });
 
-            const posts = dropPosts?.map((dp: any) => ({
+            const posts = (dropPosts as DropPostWithAsset[] | null)?.map((dp) => ({
               ...dp.asset,
               position: dp.position,
               streams: [],
             })).filter(Boolean) || [];
 
             // Get contributors
-            const contributorMap = new Map();
-            posts.forEach((post: any) => {
-              if (post.uploader && !contributorMap.has(post.uploader.id)) {
-                contributorMap.set(post.uploader.id, post.uploader);
+            const contributorMap = new Map<string, UploaderInfo>();
+            posts.forEach((post) => {
+              const uploader = (post as { uploader?: UploaderInfo }).uploader;
+              if (uploader && !contributorMap.has(uploader.id)) {
+                contributorMap.set(uploader.id, uploader);
               }
             });
             contributors = Array.from(contributorMap.values());

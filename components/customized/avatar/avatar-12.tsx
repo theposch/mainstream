@@ -20,7 +20,7 @@ export const AvatarGroup = React.memo(function AvatarGroup({
   ...props
 }: AvatarGroupProps) {
   // Memoize computed values
-  const { totalAvatars, displayedAvatars, remainingAvatars } = React.useMemo(() => {
+  const { displayedAvatars, remainingAvatars } = React.useMemo(() => {
   const totalAvatars = React.Children.count(children);
   const displayedAvatars = React.Children.toArray(children)
     .slice(0, max)

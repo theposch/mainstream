@@ -3,6 +3,12 @@ import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import { DropBlocksEditorClient } from "./drop-blocks-editor-client";
 
+// Supabase query result types
+type UploaderRow = { id: string; username: string; display_name: string; avatar_url: string };
+type AssetRow = { id: string; title: string; url: string; medium_url?: string; thumbnail_url?: string; asset_type?: string; uploader?: UploaderRow | UploaderRow[] };
+type GalleryImageRow = { id: string; block_id: string; asset_id: string; position: number; asset?: AssetRow };
+type BlockRow = { id: string; type: string; asset?: AssetRow; gallery_images?: GalleryImageRow[] } & Record<string, unknown>;
+
 interface EditDropPageProps {
   params: Promise<{ id: string }>;
 }
@@ -61,8 +67,8 @@ export default async function EditDropPage({ params }: EditDropPageProps) {
   }
 
   // Fetch gallery images for gallery blocks
-  const galleryBlockIds = blocks?.filter((b: any) => b.type === "image_gallery").map((b: any) => b.id) || [];
-  let galleryImagesMap: Record<string, any[]> = {};
+  const galleryBlockIds = blocks?.filter((b: BlockRow) => b.type === "image_gallery").map((b: BlockRow) => b.id) || [];
+  const galleryImagesMap: Record<string, GalleryImageRow[]> = {};
   
   if (galleryBlockIds.length > 0) {
     const { data: galleryImages } = await supabase
@@ -86,7 +92,7 @@ export default async function EditDropPage({ params }: EditDropPageProps) {
       .order("position", { ascending: true });
 
     // Group by block_id
-    galleryImages?.forEach((img: any) => {
+    galleryImages?.forEach((img: GalleryImageRow) => {
       if (!galleryImagesMap[img.block_id]) {
         galleryImagesMap[img.block_id] = [];
       }
@@ -95,21 +101,23 @@ export default async function EditDropPage({ params }: EditDropPageProps) {
   }
 
   // Enrich blocks with gallery images
-  const enrichedBlocks = blocks?.map((block: any) => ({
+  const enrichedBlocks = blocks?.map((block: BlockRow) => ({
     ...block,
     gallery_images: block.type === "image_gallery" ? galleryImagesMap[block.id] || [] : undefined,
   })) || [];
 
   // Get contributors from blocks (including gallery images)
-  const contributorMap = new Map();
-  enrichedBlocks.forEach((block: any) => {
-    if (block.asset?.uploader && !contributorMap.has(block.asset.uploader.id)) {
-      contributorMap.set(block.asset.uploader.id, block.asset.uploader);
+  const contributorMap = new Map<string, UploaderRow>();
+  enrichedBlocks.forEach((block: BlockRow) => {
+    const uploader = Array.isArray(block.asset?.uploader) ? block.asset?.uploader[0] : block.asset?.uploader;
+    if (uploader && !contributorMap.has(uploader.id)) {
+      contributorMap.set(uploader.id, uploader);
     }
     // Also add contributors from gallery images
-    block.gallery_images?.forEach((img: any) => {
-      if (img.asset?.uploader && !contributorMap.has(img.asset.uploader.id)) {
-        contributorMap.set(img.asset.uploader.id, img.asset.uploader);
+    block.gallery_images?.forEach((img: GalleryImageRow) => {
+      const imgUploader = Array.isArray(img.asset?.uploader) ? img.asset?.uploader[0] : img.asset?.uploader;
+      if (imgUploader && !contributorMap.has(imgUploader.id)) {
+        contributorMap.set(imgUploader.id, imgUploader);
       }
     });
   });
@@ -139,7 +147,7 @@ export default async function EditDropPage({ params }: EditDropPageProps) {
 
   // Transform assets: Supabase returns uploader as array, unwrap to single object
   // Check array has elements to avoid undefined when empty
-  const availableAssets = (availableAssetsRaw || []).map((asset: any) => ({
+  const availableAssets = (availableAssetsRaw || []).map((asset: AssetRow) => ({
     ...asset,
     uploader: Array.isArray(asset.uploader) && asset.uploader.length > 0 
       ? asset.uploader[0] 

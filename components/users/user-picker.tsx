@@ -115,6 +115,7 @@ export function UserPicker({
     };
 
     fetchSelectedUsers();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- selectedUsers is intentionally excluded to avoid infinite re-renders (effect calls setSelectedUsers)
   }, [selectedUserIds, allUsers, searchResults]);
 
   // Filter/search users

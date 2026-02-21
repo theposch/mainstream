@@ -2,6 +2,12 @@ import { createClient } from "@/lib/supabase/server";
 import { StreamListData } from "@/components/streams/streams-list";
 import { StreamsPageClient } from "./streams-page-client";
 
+type PostPreview = { id: string; url: string; title: string };
+type ContributorPreview = { id: string; username: string; display_name: string; avatar_url: string };
+type AssetRelationEntry = { count: number; posts: PostPreview[]; contributorIds: Set<string>; contributors: ContributorPreview[] };
+type AssetRelationRow = { stream_id: string; assets?: { id?: string; url?: string; thumbnail_url?: string; title?: string; uploader_id?: string } };
+type FollowRow = { stream_id: string };
+
 export default async function StreamsPage() {
   const supabase = await createClient();
   
@@ -35,7 +41,7 @@ export default async function StreamsPage() {
   }
 
   // Single batch query: get all asset relations for all streams at once (with uploader info)
-  let assetRelationsMap = new Map<string, { count: number; posts: any[]; contributorIds: Set<string>; contributors: any[] }>();
+  const assetRelationsMap = new Map<string, AssetRelationEntry>();
   
   if (streamIds.length > 0) {
     const { data: allAssetRelations } = await supabase
@@ -60,7 +66,7 @@ export default async function StreamsPage() {
     // Collect all unique uploader IDs
     const allUploaderIds = new Set<string>();
     
-    (allAssetRelations || []).forEach((rel: any) => {
+    (allAssetRelations || []).forEach((rel: AssetRelationRow) => {
       const entry = assetRelationsMap.get(rel.stream_id);
       if (entry) {
         entry.count++;
@@ -100,7 +106,7 @@ export default async function StreamsPage() {
   }
 
   // Fetch follower counts for all streams
-  let followerCountsMap = new Map<string, number>();
+  const followerCountsMap = new Map<string, number>();
   if (streamIds.length > 0) {
     const { data: followerCounts } = await supabase
       .from('stream_follows')
@@ -108,7 +114,7 @@ export default async function StreamsPage() {
       .in('stream_id', streamIds);
     
     // Count followers per stream
-    (followerCounts || []).forEach((f: any) => {
+    (followerCounts || []).forEach((f: FollowRow) => {
       followerCountsMap.set(f.stream_id, (followerCountsMap.get(f.stream_id) || 0) + 1);
     });
   }

@@ -127,7 +127,7 @@ export function useStreamMentions(
 
     // ✨ SIMPLIFIED: No text-deletion sync - pills are independent!
     // Pills only removed via X button, which adds to excludedStreamNames
-  }, [text, parseHashtags, findOrMarkPending, selectedStreamIds, pendingStreamNames, onStreamsChange, onPendingStreamsChange, streams, excludedStreamNames]);
+  }, [text, parseHashtags, findOrMarkPending, selectedStreamIds, pendingStreamNames, onStreamsChange, onPendingStreamsChange, excludedStreamNames]);
 
   // Debounced sync (wait for user to stop typing)
   React.useEffect(() => {

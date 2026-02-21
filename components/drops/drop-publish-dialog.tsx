@@ -26,7 +26,6 @@ export function DropPublishDialog({
   open,
   onOpenChange,
   dropId,
-  dropTitle,
 }: DropPublishDialogProps) {
   const router = useRouter();
   const [isPublishing, setIsPublishing] = React.useState(false);

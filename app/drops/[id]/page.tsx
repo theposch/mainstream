@@ -5,6 +5,14 @@ import { DropView } from "@/components/drops/drop-view";
 import { DropBlocksView } from "@/components/drops/blocks/drop-blocks-view";
 import { PublishedDropHeader } from "@/components/drops/published-drop-header";
 
+type UploaderRow = { id: string; username: string; display_name: string; avatar_url: string };
+type AssetRow = { id: string; title: string; url: string; medium_url?: string; thumbnail_url?: string; uploader?: UploaderRow | UploaderRow[] };
+type GalleryImageRow = { id: string; position: number; asset?: AssetRow };
+type BlockRow = { id: string; asset?: AssetRow; gallery_images?: GalleryImageRow[] } & Record<string, unknown>;
+type StreamRow = { id: string; name: string };
+type AssetStreamRow = { asset_id: string; stream?: StreamRow | StreamRow[] };
+type DropPostRow = { position: number; display_mode?: string; crop_position_x?: number; crop_position_y?: number; asset?: AssetRow & { uploader?: UploaderRow | UploaderRow[] } };
+
 interface DropPageProps {
   params: Promise<{ id: string }>;
 }
@@ -62,14 +70,16 @@ export default async function DropPage({ params }: DropPageProps) {
       .order("position", { ascending: true });
 
     // Get contributors from blocks and gallery images
-    const contributorMap = new Map();
-    blocks?.forEach((block: any) => {
-      if (block.asset?.uploader && !contributorMap.has(block.asset.uploader.id)) {
-        contributorMap.set(block.asset.uploader.id, block.asset.uploader);
+    const contributorMap = new Map<string, UploaderRow>();
+    blocks?.forEach((block: BlockRow) => {
+      const uploader = Array.isArray(block.asset?.uploader) ? block.asset?.uploader[0] : block.asset?.uploader;
+      if (uploader && !contributorMap.has(uploader.id)) {
+        contributorMap.set(uploader.id, uploader);
       }
-      block.gallery_images?.forEach((galleryImage: any) => {
-        if (galleryImage.asset?.uploader && !contributorMap.has(galleryImage.asset.uploader.id)) {
-          contributorMap.set(galleryImage.asset.uploader.id, galleryImage.asset.uploader);
+      block.gallery_images?.forEach((galleryImage: GalleryImageRow) => {
+        const giUploader = Array.isArray(galleryImage.asset?.uploader) ? galleryImage.asset?.uploader[0] : galleryImage.asset?.uploader;
+        if (giUploader && !contributorMap.has(giUploader.id)) {
+          contributorMap.set(giUploader.id, giUploader);
         }
       });
     });
@@ -118,7 +128,7 @@ export default async function DropPage({ params }: DropPageProps) {
     .order("position", { ascending: true });
 
   // Flatten posts
-  const posts = dropPosts?.map((dp: any) => ({
+  const posts = dropPosts?.map((dp: DropPostRow) => ({
     ...dp.asset,
     position: dp.position,
     display_mode: dp.display_mode,
@@ -127,8 +137,8 @@ export default async function DropPage({ params }: DropPageProps) {
   })).filter(Boolean) || [];
 
   // Get streams for posts
-  const postIds = posts.map((p: any) => p.id);
-  let postStreams: Record<string, any[]> = {};
+  const postIds = posts.map((p) => (p as AssetRow).id);
+  const postStreams: Record<string, StreamRow[]> = {};
   
   if (postIds.length > 0) {
     const { data: assetStreams } = await supabase
@@ -139,27 +149,33 @@ export default async function DropPage({ params }: DropPageProps) {
       `)
       .in("asset_id", postIds);
 
-    assetStreams?.forEach((as: any) => {
+    assetStreams?.forEach((as: AssetStreamRow) => {
       if (!postStreams[as.asset_id]) {
         postStreams[as.asset_id] = [];
       }
       if (as.stream) {
-        postStreams[as.asset_id].push(as.stream);
+        const stream = Array.isArray(as.stream) ? as.stream[0] : as.stream;
+        if (stream) postStreams[as.asset_id].push(stream);
       }
     });
   }
 
   // Enrich posts with streams
-  const enrichedPosts = posts.map((post: any) => ({
-    ...post,
-    streams: postStreams[post.id] || [],
-  }));
+  const enrichedPosts = posts.map((post) => {
+    const p = post as AssetRow & { position?: number; display_mode?: string; crop_position_x?: number; crop_position_y?: number };
+    return {
+      ...p,
+      streams: postStreams[p.id] || [],
+    };
+  });
 
   // Get unique contributors
-  const contributorMap = new Map();
-  posts.forEach((post: any) => {
-    if (post.uploader && !contributorMap.has(post.uploader.id)) {
-      contributorMap.set(post.uploader.id, post.uploader);
+  const contributorMap = new Map<string, UploaderRow>();
+  posts.forEach((post) => {
+    const p = post as AssetRow & { uploader?: UploaderRow | UploaderRow[] };
+    const uploader = Array.isArray(p.uploader) ? p.uploader[0] : p.uploader;
+    if (uploader && !contributorMap.has(uploader.id)) {
+      contributorMap.set(uploader.id, uploader);
     }
   });
   const contributors = Array.from(contributorMap.values());

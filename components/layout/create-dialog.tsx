@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import NextImage from "next/image";
 import { useRouter } from "next/navigation";
 import { Dialog, DialogContent, DialogTrigger, DialogTitle } from "@/components/ui/dialog";
 import * as VisuallyHidden from "@radix-ui/react-visually-hidden";
@@ -66,10 +67,12 @@ export function CreateDialog({ children }: { children: React.ReactNode }) {
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   // Reset form when dialog closes
+  // resetForm is intentionally omitted from deps - it's not memoized and adding it causes infinite re-renders
   React.useEffect(() => {
     if (!open) {
       resetForm();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
   // Detect provider when URL changes
@@ -393,10 +396,11 @@ export function CreateDialog({ children }: { children: React.ReactNode }) {
                     playsInline
                   />
                 ) : (
-                  <img
+                  <NextImage
                     src={preview}
                     alt="Preview"
-                    className="w-full h-full object-cover"
+                    fill
+                    className="object-cover"
                   />
                 )}
                 <Button

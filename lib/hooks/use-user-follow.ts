@@ -127,7 +127,7 @@ export function useUserFollow(targetUsername: string): UseUserFollowReturn {
     } finally {
       setLoading(false);
     }
-  }, [currentUserId, targetUserId, targetUsername, isFollowing, loading]);
+  }, [currentUserId, targetUserId, targetUsername, isFollowing, loading, queryClient]);
 
   return {
     isFollowing,

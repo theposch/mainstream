@@ -42,6 +42,8 @@ export function EditAssetDialog({
   });
   
   // Reset form when dialog opens or asset changes
+  // streamSelection is intentionally excluded from deps - adding it causes infinite re-renders
+  // because the hook returns a new object reference on every render
   React.useEffect(() => {
     if (open) {
       setTitle(asset.title);
@@ -49,6 +51,7 @@ export function EditAssetDialog({
       streamSelection.reset({ streamIds: currentStreams.map(s => s.id) });
       setError(null);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, asset, currentStreams]);
   
   // Detect changes

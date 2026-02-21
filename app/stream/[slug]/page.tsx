@@ -186,8 +186,9 @@ export default async function StreamPage({ params }: StreamPageProps) {
   }
 
   // Extract and transform assets with like data
+  type AssetWithLikes = { id: string; asset_likes?: [{ count: number }] } & Record<string, unknown>;
   const streamAssets = (assetRelations?.map(relation => {
-    const asset = relation.assets as any;
+    const asset = relation.assets as AssetWithLikes | null;
     if (!asset) return null;
     return {
       ...asset,
@@ -195,7 +196,7 @@ export default async function StreamPage({ params }: StreamPageProps) {
       asset_likes: undefined,
       isLikedByCurrentUser: userLikedAssetIds.has(asset.id),
     };
-  }).filter(Boolean) || []) as any[];
+  }).filter(Boolean) || []) as AssetWithLikes[];
 
   // ═══════════════════════════════════════════════════════════════════════════
   // PREPARE INITIAL DATA FOR CLIENT COMPONENTS (avoids client-side fetching)
@@ -221,7 +222,7 @@ export default async function StreamPage({ params }: StreamPageProps) {
   const initialFollowData = {
     isFollowing: !!userFollowResult.data,
     followerCount: followCountResult.count || 0,
-    followers: (followersResult.data?.map((f: any) => f.users).filter(Boolean) || []) as User[],
+    followers: (followersResult.data?.map((f: { users?: User }) => f.users).filter(Boolean) || []) as User[],
     contributorCount: contributors.length,
     contributors: contributors.slice(0, 10),
     assetCount: assetCountResult.count || 0,

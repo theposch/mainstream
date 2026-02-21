@@ -4,6 +4,9 @@ import { DropsPageClient } from "./drops-page-client";
 import { SeriesTabContent } from "@/components/drops/series-tab-content";
 import type { DropSchedule } from "@/lib/types/database";
 
+type DropBlockRow = { drop_id: string; type: string; asset?: { thumbnail_url?: string } };
+type DropPostRow = { drop_id: string; asset?: { thumbnail_url?: string } };
+
 export default async function DropsPage({
   searchParams,
 }: {
@@ -64,7 +67,7 @@ export default async function DropsPage({
         .in("type", ["post", "featured_post"])
         .order("position", { ascending: true });
 
-      dropBlocks?.forEach((db: any) => {
+      dropBlocks?.forEach((db: DropBlockRow) => {
         const data = dropData[db.drop_id];
         if (data) {
           data.count++;
@@ -159,7 +162,7 @@ export default async function DropsPage({
       .in("drop_id", dropIds)
       .order("position", { ascending: true });
 
-    dropPosts?.forEach((dp: any) => {
+    dropPosts?.forEach((dp: DropPostRow) => {
       const data = dropData[dp.drop_id];
       if (data) {
         data.count++;
@@ -182,7 +185,7 @@ export default async function DropsPage({
       .in("type", ["post", "featured_post"])
       .order("position", { ascending: true });
 
-    dropBlocks?.forEach((db: any) => {
+    dropBlocks?.forEach((db: DropBlockRow) => {
       const data = dropData[db.drop_id];
       if (data) {
         data.count++;

@@ -50,7 +50,6 @@ export function DropBlocksView({
   description,
   blocks,
   contributors,
-  isEditing = false,
   dateRangeStart,
   dateRangeEnd,
 }: DropBlocksViewProps) {

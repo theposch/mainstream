@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import NextImage from "next/image";
 import { useRouter } from "next/navigation";
 import { Clock, Search, Image as ImageIcon, Hash, Users, X, TrendingUp } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -52,13 +53,14 @@ const AssetSuggestionItem = React.memo(function AssetSuggestionItem({
       )}
     >
       <div className="relative w-12 h-12 rounded overflow-hidden flex-shrink-0 bg-muted flex items-center justify-center">
-        <img 
-          src={suggestion.thumbnail} 
+        <NextImage
+          src={suggestion.thumbnail}
           alt={suggestion.label}
-          className="w-full h-full object-cover"
+          fill
+          className="object-cover"
           onError={(e) => {
-            e.currentTarget.style.display = 'none';
-            e.currentTarget.nextElementSibling?.classList.remove('hidden');
+            (e.currentTarget as HTMLElement).style.display = 'none';
+            (e.currentTarget as HTMLElement).nextElementSibling?.classList.remove('hidden');
           }}
         />
         <ImageIcon className="h-5 w-5 text-muted-foreground hidden" />
@@ -100,13 +102,14 @@ const UserSuggestionItem = React.memo(function UserSuggestionItem({
       )}
     >
       <Avatar className="w-8 h-8 flex-shrink-0">
-        <img 
-          src={suggestion.thumbnail} 
+        <NextImage
+          src={suggestion.thumbnail}
           alt={suggestion.label}
-          className="w-full h-full object-cover"
+          fill
+          className="object-cover"
           onError={(e) => {
-            e.currentTarget.style.display = 'none';
-            e.currentTarget.nextElementSibling?.classList.remove('hidden');
+            (e.currentTarget as HTMLElement).style.display = 'none';
+            (e.currentTarget as HTMLElement).nextElementSibling?.classList.remove('hidden');
           }}
         />
         <div className="hidden w-full h-full bg-muted flex items-center justify-center text-xs font-medium text-muted-foreground">

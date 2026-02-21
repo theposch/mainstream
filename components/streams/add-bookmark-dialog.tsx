@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import NextImage from "next/image";
 import {
   Dialog,
   DialogContent,
@@ -138,12 +139,13 @@ export function AddBookmarkDialog({ open, onOpenChange, onSubmit }: AddBookmarkD
             {/* Preview */}
             {previewDomain && (
               <div className="flex items-center gap-2 p-3 rounded-md bg-muted/50">
-                <img
+                <NextImage
                   src={getFaviconUrl(url, 32)}
                   alt=""
-                  className="w-4 h-4"
+                  width={16}
+                  height={16}
                   onError={(e) => {
-                    (e.target as HTMLImageElement).style.display = 'none';
+                    (e.currentTarget as HTMLElement).style.display = 'none';
                   }}
                 />
                 <LinkIcon className="w-4 h-4 text-muted-foreground" />

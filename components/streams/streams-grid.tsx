@@ -23,7 +23,7 @@ export const StreamsGrid = React.memo(function StreamsGrid({ streams }: StreamsG
       <div className="flex flex-col items-center justify-center py-20 text-center">
         <p className="text-lg text-muted-foreground">No streams found.</p>
         <p className="text-sm text-muted-foreground mt-2">
-          Streams will appear here once they're created.
+          Streams will appear here once they&apos;re created.
         </p>
       </div>
     );

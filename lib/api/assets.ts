@@ -94,6 +94,7 @@ export function transformAssetResponse(
   const likeCount = raw.asset_likes?.[0]?.count || 0;
   
   // Build clean asset without internal properties
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { asset_streams, asset_likes, ...rest } = raw;
   
   return {

@@ -62,7 +62,7 @@ export const UserCard = React.memo(function UserCard({
       <div className="relative">
         {recentAssets.length > 0 ? (
           <div className="flex md:grid md:grid-cols-5 gap-0.5 p-0.5 overflow-x-auto md:overflow-visible scrollbar-hide">
-            {recentAssets.slice(0, 5).map((asset, index) => (
+            {recentAssets.slice(0, 5).map((asset) => (
               <Link
                 key={asset.id}
                 href={`/e/${asset.id}`}

@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
+import NextImage from "next/image";
 import { useQueryState } from "nuqs";
 import { useQuery } from "@tanstack/react-query";
 import { SearchResultsTabs, SearchTab } from "./search-results-tabs";
@@ -198,7 +199,7 @@ export const SearchResults = React.memo(function SearchResults({ initialQuery }:
                       className="flex items-center gap-3 p-4 rounded-lg border border-border hover:border-input hover:bg-muted/50 transition-all"
                     >
                       <Avatar className="h-10 w-10">
-                        <img src={user.avatar_url} alt={user.display_name} />
+                        <NextImage src={user.avatar_url} alt={user.display_name} fill className="object-cover" />
                       </Avatar>
                       <div className="flex-1 min-w-0">
                         <div className="font-medium truncate">{user.display_name}</div>
@@ -227,8 +228,8 @@ export const SearchResults = React.memo(function SearchResults({ initialQuery }:
                 href={`/u/${user.username}`}
                 className="flex items-center gap-3 p-4 rounded-lg border border-border hover:border-input hover:bg-muted/50 transition-all"
               >
-                <Avatar className="h-12 w-12">
-                  <img src={user.avatar_url} alt={user.display_name} />
+                <Avatar className="h-12 w-12 relative">
+                  <NextImage src={user.avatar_url} alt={user.display_name} fill className="object-cover" />
                 </Avatar>
                 <div className="flex-1 min-w-0">
                   <div className="font-medium truncate">{user.display_name}</div>

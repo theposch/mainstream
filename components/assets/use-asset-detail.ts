@@ -13,10 +13,11 @@ import * as React from "react";
 import { useAssetComments } from "@/lib/hooks/use-asset-comments";
 import { useAssetLike } from "@/lib/hooks/use-asset-like";
 import { createClient } from "@/lib/supabase/client";
+import type { Asset, User } from "@/lib/types/database";
 
-export function useAssetDetail(asset: any) {
+export function useAssetDetail(asset: Asset) {
   // Use real hooks for comments and likes (pass server-fetched like data)
-  const { comments, addComment, updateComment, deleteComment, loading: commentsLoading } = useAssetComments(asset.id);
+  const { comments, addComment, updateComment, deleteComment } = useAssetComments(asset.id);
   const { isLiked, likeCount, toggleLike } = useAssetLike(
     asset.id,
     asset.isLikedByCurrentUser ?? false,
@@ -27,7 +28,7 @@ export function useAssetDetail(asset: any) {
   const [replyingToId, setReplyingToId] = React.useState<string | null>(null);
   const [editingCommentId, setEditingCommentId] = React.useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
-  const [currentUser, setCurrentUser] = React.useState<any>(null);
+  const [currentUser, setCurrentUser] = React.useState<User | null>(null);
 
   // Fetch current user
   React.useEffect(() => {

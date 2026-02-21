@@ -76,7 +76,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
   const [figmaToken, setFigmaToken] = React.useState("");
   const [figmaConnected, setFigmaConnected] = React.useState(false);
   const [figmaTokenPreview, setFigmaTokenPreview] = React.useState<string | null>(null);
-  const [figmaConnectedAt, setFigmaConnectedAt] = React.useState<string | null>(null);
+  const [, setFigmaConnectedAt] = React.useState<string | null>(null);
   const [figmaLoading, setFigmaLoading] = React.useState(false);
   const [figmaError, setFigmaError] = React.useState<string | null>(null);
   const [figmaSuccess, setFigmaSuccess] = React.useState<string | null>(null);
@@ -123,7 +123,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
           mentions_enabled: data.mentions_enabled ?? true,
         });
       }
-    } catch (error) {
+    } catch {
       console.error('Failed to fetch notification settings:', error);
     } finally {
       setNotificationLoading(false);
@@ -165,7 +165,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
         });
         console.error('Failed to save notification settings');
       }
-    } catch (error) {
+    } catch {
       // Revert to original values on error
       setNotificationSettings(prev => {
         const reverted = { ...prev };
@@ -253,7 +253,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
         setFigmaTokenPreview(data.integrations?.figma?.tokenPreview || null);
         setFigmaConnectedAt(data.integrations?.figma?.connectedAt || null);
       }
-    } catch (error) {
+    } catch {
       console.error('Failed to fetch Figma status:', error);
     }
   };
@@ -285,7 +285,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
 
       setEmailSuccess(data.message);
       setNewEmail("");
-    } catch (error) {
+    } catch {
       setEmailError('Failed to update email');
     } finally {
       setEmailLoading(false);
@@ -331,7 +331,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
-    } catch (error) {
+    } catch {
       setPasswordError('Failed to update password');
     } finally {
       setPasswordLoading(false);
@@ -370,7 +370,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
       // Redirect to login page after successful deletion
       onOpenChange(false);
       router.push('/auth/login');
-    } catch (error) {
+    } catch {
       setDeleteError('Failed to delete account');
     } finally {
       setDeleteLoading(false);
@@ -407,7 +407,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
       setFigmaSuccess('Figma connected successfully!');
       setFigmaToken('');
       setShowFigmaInput(false);
-    } catch (error) {
+    } catch {
       setFigmaError('Failed to connect Figma');
     } finally {
       setFigmaLoading(false);
@@ -436,7 +436,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
       setFigmaTokenPreview(null);
       setFigmaConnectedAt(null);
       setFigmaSuccess('Figma disconnected');
-    } catch (error) {
+    } catch {
       setFigmaError('Failed to disconnect Figma');
     } finally {
       setFigmaLoading(false);

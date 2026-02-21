@@ -20,7 +20,7 @@ import {
   Shield,
   User as UserIcon 
 } from "lucide-react";
-import { useStreamMembers, type StreamMember } from "@/lib/hooks/use-stream-members";
+import { useStreamMembers } from "@/lib/hooks/use-stream-members";
 import type { User } from "@/lib/types/database";
 
 interface ManageMembersDialogProps {
@@ -30,7 +30,7 @@ interface ManageMembersDialogProps {
   streamOwnerId: string;
 }
 
-interface SearchUser extends Pick<User, 'id' | 'username' | 'display_name' | 'avatar_url'> {}
+type SearchUser = Pick<User, 'id' | 'username' | 'display_name' | 'avatar_url'>;
 
 export function ManageMembersDialog({ 
   open, 

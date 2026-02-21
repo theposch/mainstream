@@ -159,7 +159,7 @@ export function useStreamFollow(
     } finally {
       setLoading(false);
     }
-  }, [streamId, isFollowing, loading]);
+  }, [streamId, isFollowing, loading, queryClient]);
 
   // Memoize return object to prevent unnecessary re-renders in consuming components
   return useMemo(() => ({

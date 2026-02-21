@@ -9,6 +9,51 @@ interface RouteParams {
   params: Promise<{ id: string }>;
 }
 
+interface UploaderInfo {
+  id: string;
+  username: string;
+  display_name: string;
+  avatar_url: string;
+}
+
+interface BlockAsset {
+  id: string;
+  title: string;
+  description?: string;
+  url: string;
+  medium_url?: string;
+  thumbnail_url?: string;
+  asset_type?: string;
+  embed_provider?: string;
+  created_at: string;
+  uploader?: UploaderInfo;
+}
+
+interface GalleryImage {
+  id: string;
+  block_id: string;
+  asset_id: string;
+  position: number;
+  asset?: BlockAsset;
+}
+
+interface DropBlock {
+  id: string;
+  type: string;
+  position: number;
+  asset?: BlockAsset;
+  gallery_images?: GalleryImage[];
+  [key: string]: unknown;
+}
+
+interface DropPost {
+  position: number;
+  display_mode?: string;
+  crop_position_x?: number;
+  crop_position_y?: number;
+  asset?: BlockAsset;
+}
+
 // GET /api/drops/[id]/email-preview - Generate email HTML preview
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
@@ -41,7 +86,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     const useBlocks = drop.use_blocks ?? false;
 
     let emailHtml: string;
-    let contributors: any[] = [];
+    let contributors: UploaderInfo[] = [];
 
     if (useBlocks) {
       // Fetch blocks with assets
@@ -66,8 +111,8 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         .order("position", { ascending: true });
 
       // Fetch gallery images for image_gallery blocks
-      const galleryBlockIds = blocks?.filter((b: any) => b.type === "image_gallery").map((b: any) => b.id) || [];
-      let galleryImagesMap: Record<string, any[]> = {};
+      const galleryBlockIds = (blocks as DropBlock[] | null)?.filter((b) => b.type === "image_gallery").map((b) => b.id) || [];
+      const galleryImagesMap: Record<string, GalleryImage[]> = {};
       
       if (galleryBlockIds.length > 0) {
         const { data: galleryImages } = await supabase
@@ -90,7 +135,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
           .order("position", { ascending: true });
 
         // Group by block_id
-        galleryImages?.forEach((img: any) => {
+        (galleryImages as GalleryImage[] | null)?.forEach((img) => {
           if (!galleryImagesMap[img.block_id]) {
             galleryImagesMap[img.block_id] = [];
           }
@@ -99,19 +144,19 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       }
 
       // Enrich blocks with gallery images
-      const enrichedBlocks = blocks?.map((block: any) => ({
+      const enrichedBlocks: DropBlock[] = (blocks as DropBlock[] | null)?.map((block) => ({
         ...block,
         gallery_images: block.type === "image_gallery" ? galleryImagesMap[block.id] || [] : undefined,
       })) || [];
 
       // Get contributors from blocks (including gallery images)
-      const contributorMap = new Map();
-      enrichedBlocks.forEach((block: any) => {
+      const contributorMap = new Map<string, UploaderInfo>();
+      enrichedBlocks.forEach((block) => {
         if (block.asset?.uploader && !contributorMap.has(block.asset.uploader.id)) {
           contributorMap.set(block.asset.uploader.id, block.asset.uploader);
         }
         // Also get contributors from gallery images
-        block.gallery_images?.forEach((img: any) => {
+        block.gallery_images?.forEach((img) => {
           if (img.asset?.uploader && !contributorMap.has(img.asset.uploader.id)) {
             contributorMap.set(img.asset.uploader.id, img.asset.uploader);
           }
@@ -156,7 +201,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         .order("position", { ascending: true });
 
       // Convert posts to block format for unified rendering
-      const blocks = dropPosts?.map((dp: any, index: number) => ({
+      const blocks: DropBlock[] = (dropPosts as DropPost[] | null)?.map((dp, index) => ({
         id: `post-${index}`,
         drop_id: dropId,
         type: "post" as const,
@@ -168,11 +213,11 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         crop_position_y: dp.crop_position_y,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
-      })).filter((b: any) => b.asset) || [];
+      })).filter((b) => b.asset) || [];
 
       // Get contributors
-      const contributorMap = new Map();
-      blocks.forEach((block: any) => {
+      const contributorMap = new Map<string, UploaderInfo>();
+      blocks.forEach((block) => {
         if (block.asset?.uploader && !contributorMap.has(block.asset.uploader.id)) {
           contributorMap.set(block.asset.uploader.id, block.asset.uploader);
         }

@@ -13,8 +13,17 @@ interface LikeButtonProps {
   className?: string;
 }
 
+// Generate random particle positions outside of render to avoid impure function calls
+function generateParticleData() {
+  return [...Array(6)].map(() => ({
+    x: (Math.random() - 0.5) * 40,
+    y: -20 - Math.random() * 30,
+    delay: Math.random() * 0.1,
+  }));
+}
+
 /**
- * A delightful Like button with a "heartbeat" spring animation and 
+ * A delightful Like button with a "heartbeat" spring animation and
  * upward floating particle effects when clicked.
  */
 export function LikeButton({ 
@@ -28,9 +37,15 @@ export function LikeButton({
 }: LikeButtonProps) {
   const [showParticles, setShowParticles] = React.useState(false);
 
+  // Particle positions stored in state so they can be updated in event handlers
+  // Initial value uses generateParticleData() called outside render cycle
+  const [particleData, setParticleData] = React.useState(generateParticleData);
+
   const handleClick = (e: React.MouseEvent) => {
     // Only trigger animation on "Like" (not unlike)
     if (!isLiked) {
+      // Re-randomize particle positions for each like (in event handler, not render)
+      setParticleData(generateParticleData());
       setShowParticles(true);
       // Reset after animation
       setTimeout(() => setShowParticles(false), 1000);
@@ -73,20 +88,20 @@ export function LikeButton({
         <AnimatePresence>
           {showParticles && (
             <>
-              {[...Array(6)].map((_, i) => (
+              {particleData.map((particle, i) => (
                 <motion.div
                   key={i}
                   initial={{ opacity: 0, scale: 0, x: 0, y: 0 }}
-                  animate={{ 
-                    opacity: [0, 1, 0], 
-                    scale: [0, 1.2, 0], 
-                    x: (Math.random() - 0.5) * 40,
-                    y: -20 - Math.random() * 30
+                  animate={{
+                    opacity: [0, 1, 0],
+                    scale: [0, 1.2, 0],
+                    x: particle.x,
+                    y: particle.y,
                   }}
-                  transition={{ 
-                    duration: 0.8, 
+                  transition={{
+                    duration: 0.8,
                     ease: "easeOut",
-                    delay: Math.random() * 0.1
+                    delay: particle.delay,
                   }}
                   className="absolute inset-0 flex items-center justify-center pointer-events-none"
                 >

@@ -1,8 +1,9 @@
 "use client";
 
 import * as React from "react";
+import NextImage from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
-import { Plus, GripVertical, Trash2, Type, Heading1, Minus, Quote, Image, Star, Images, Check, Upload, Loader2, X } from "lucide-react";
+import { Plus, GripVertical, Trash2, Type, Heading1, Minus, Quote, Image as ImageIcon, Star, Images, Check, Upload, Loader2, X } from "lucide-react";
 import { BlockRenderer } from "./block-renderer";
 import type { DropBlock, DropBlockType, Asset, GalleryLayout } from "@/lib/types/database";
 
@@ -25,7 +26,7 @@ const BLOCK_TYPES: Array<{
   { type: "heading", label: "Heading", icon: <Heading1 className="h-4 w-4" />, description: "Section header" },
   { type: "divider", label: "Divider", icon: <Minus className="h-4 w-4" />, description: "Horizontal line" },
   { type: "quote", label: "Quote", icon: <Quote className="h-4 w-4" />, description: "Callout or quote" },
-  { type: "post", label: "Post", icon: <Image className="h-4 w-4" />, description: "Embed a post" },
+  { type: "post", label: "Post", icon: <ImageIcon className="h-4 w-4" />, description: "Embed a post" },
   { type: "featured_post", label: "Featured Post", icon: <Star className="h-4 w-4" />, description: "Larger post display" },
   { type: "image_gallery", label: "Image Gallery", icon: <Images className="h-4 w-4" />, description: "Grid or featured layout" },
 ];
@@ -477,7 +478,6 @@ export function BlockEditor({ dropId, blocks, onBlocksChange, availableAssets = 
 
 // Add Block Button Component with delightful expansion animation
 function AddBlockButton({
-  position,
   showMenu,
   onToggleMenu,
   onSelectType,
@@ -834,10 +834,11 @@ function AssetPickerModal({
                         isSelected ? "ring-2 ring-violet-500" : "hover:ring-2 hover:ring-violet-500/50"
                       }`}
                     >
-                      <img
+                      <NextImage
                         src={asset.thumbnail_url || asset.url}
                         alt={asset.title}
-                        className="w-full h-full object-cover"
+                        fill
+                        className="object-cover"
                       />
                       {isSelected && (
                         <div className="absolute top-2 right-2 w-6 h-6 bg-violet-500 rounded-full flex items-center justify-center">
@@ -897,10 +898,11 @@ function AssetPickerModal({
                 // Preview
                 <div className="space-y-4">
                   <div className="relative aspect-video rounded-lg overflow-hidden bg-muted">
-                    <img
+                    <NextImage
                       src={preview!}
                       alt="Preview"
-                      className="w-full h-full object-contain"
+                      fill
+                      className="object-contain"
                     />
                     <button
                       onClick={clearUpload}

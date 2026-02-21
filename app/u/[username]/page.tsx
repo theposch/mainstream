@@ -16,6 +16,11 @@ import { createClient } from "@/lib/supabase/client";
 import { assetKeys, fetchAssetById } from "@/lib/queries/asset-queries";
 import type { Asset, User, Stream } from "@/lib/types/database";
 
+type SupabaseError = { code?: string; message?: string };
+type AssetWithLikes = { id: string; asset_likes?: [{ count: number }] } & Record<string, unknown>;
+type LikedAssetRelation = { asset_id: string; assets?: AssetWithLikes | null };
+type AssetRelationRow = { stream_id: string; assets?: { id?: string; url?: string; thumbnail_url?: string; title?: string } };
+
 interface UserProfileProps {
   params: Promise<{
     username: string;
@@ -161,7 +166,7 @@ export default function UserProfile({ params }: UserProfileProps) {
         
         const countError = assetsCountResult.error;
         const dataError = assetsDataResult.error;
-        const isColumnNotFoundError = (err: any) => err?.code === '42703' || err?.message?.includes('visibility');
+        const isColumnNotFoundError = (err: SupabaseError | null) => err?.code === '42703' || err?.message?.includes('visibility');
         
         if ((countError && isColumnNotFoundError(countError)) || (dataError && isColumnNotFoundError(dataError))) {
           const [countFallback, dataFallback] = await Promise.all([
@@ -179,8 +184,8 @@ export default function UserProfile({ params }: UserProfileProps) {
         });
 
         // Collect all asset IDs for batch like status check
-        const userAssetIds = assetsData?.map((a: any) => a.id) || [];
-        const likedAssetIds = likedData?.map((l: any) => l.asset_id) || [];
+        const userAssetIds = assetsData?.map((a: AssetWithLikes) => a.id) || [];
+        const likedAssetIds = likedData?.map((l: LikedAssetRelation) => l.asset_id) || [];
         const allAssetIds = [...new Set([...userAssetIds, ...likedAssetIds])];
         
         // Batch fetch which assets the current user has liked
@@ -198,7 +203,7 @@ export default function UserProfile({ params }: UserProfileProps) {
         }
 
         // Transform user assets with like count and status
-        const transformedAssets = (assetsData || []).map((asset: any) => ({
+        const transformedAssets = (assetsData || []).map((asset: AssetWithLikes) => ({
           ...asset,
           likeCount: asset.asset_likes?.[0]?.count || 0,
           asset_likes: undefined,
@@ -228,10 +233,10 @@ export default function UserProfile({ params }: UserProfileProps) {
             .order('added_at', { ascending: false });
 
           // Group results by stream_id
-          const streamAssetMap = new Map<string, { count: number; posts: any[] }>();
+          const streamAssetMap = new Map<string, { count: number; posts: { id: string; url: string; title: string }[] }>();
           streamIds.forEach(id => streamAssetMap.set(id, { count: 0, posts: [] }));
-          
-          (allAssetRelations || []).forEach((rel: any) => {
+
+          (allAssetRelations || []).forEach((rel: AssetRelationRow) => {
             const entry = streamAssetMap.get(rel.stream_id);
             if (entry) {
               entry.count++;

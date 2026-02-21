@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
+import Image from "next/image"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -48,7 +49,7 @@ export function LoginForm({
 
     try {
       const supabase = createClient()
-      const { data, error: signInError } = await supabase.auth.signInWithPassword({
+      const { error: signInError } = await supabase.auth.signInWithPassword({
         email,
         password,
       })
@@ -62,7 +63,7 @@ export function LoginForm({
       // Success - redirect to intended destination or home
       router.push(redirectTo)
       router.refresh()
-    } catch (err) {
+    } catch {
       setError("An unexpected error occurred. Please try again.")
       setLoading(false)
     }
@@ -135,10 +136,11 @@ export function LoginForm({
             </FieldGroup>
           </form>
           <div className="relative hidden md:block">
-            <img
+            <Image
               src="/auth-bg.jpg"
               alt="Ethereal clouds"
-              className="absolute inset-0 h-full w-full object-cover"
+              fill
+              className="object-cover"
             />
           </div>
         </CardContent>

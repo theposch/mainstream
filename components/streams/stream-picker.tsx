@@ -188,7 +188,7 @@ export function StreamPicker({
   );
 
   // Use shared hook for dropdown logic
-  const { allOptions, normalizedQuery } = useStreamDropdownOptions(searchQuery, activeStreams, {
+  const { allOptions } = useStreamDropdownOptions(searchQuery, activeStreams, {
     maxResults: 50, // Show more results for manual search
     includeInactive: false,
   });
@@ -490,7 +490,6 @@ export function StreamPicker({
           <div className="flex flex-wrap gap-2">
             {selectedStreams.map((stream) => {
               const isPending = stream.status === 'pending';
-              const totalSelected = selectedStreamIds.length + pendingStreamNames.length;
               return (
               <button
                 key={stream.id}

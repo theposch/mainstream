@@ -197,11 +197,17 @@ function DraggableImage({
         isDragging ? "cursor-grabbing" : "cursor-grab"
       )}
     >
-      <img
-        src={asset.medium_url || asset.url || asset.thumbnail_url}
+      <Image
+        src={asset.medium_url || asset.url || asset.thumbnail_url || ''}
         alt={asset.title}
-        className="w-full h-auto max-h-[400px] object-cover block rounded-xl"
+        width={800}
+        height={400}
+        className="block rounded-xl"
         style={{
+          width: '100%',
+          height: 'auto',
+          maxHeight: '400px',
+          objectFit: 'cover',
           objectPosition: `${cropPos.x}% ${cropPos.y}%`,
         }}
       />
@@ -286,16 +292,19 @@ function PostBlockView({ block, isEditing, onDisplayModeChange, onCropPositionCh
           />
         ) : (
           <Link href={`/e/${asset.id}`}>
-            <img
-              src={asset.medium_url || asset.url || asset.thumbnail_url}
+            <Image
+              src={asset.medium_url || asset.url || asset.thumbnail_url || ''}
               alt={asset.title}
-              className={cn(
-                "w-full h-auto max-h-[400px] block rounded-xl",
-                isFitMode ? "object-contain" : "object-cover"
-              )}
+              width={800}
+              height={400}
+              className="block rounded-xl"
               style={{
-                objectPosition: isFitMode 
-                  ? "center" 
+                width: '100%',
+                height: 'auto',
+                maxHeight: '400px',
+                objectFit: isFitMode ? 'contain' : 'cover',
+                objectPosition: isFitMode
+                  ? "center"
                   : `${block.crop_position_x ?? 50}% ${block.crop_position_y ?? 0}%`,
               }}
             />
@@ -364,16 +373,19 @@ function FeaturedPostBlockView({ block, isEditing, onDisplayModeChange, onCropPo
           />
         ) : (
           <Link href={`/e/${asset.id}`}>
-            <img
-              src={asset.medium_url || asset.url || asset.thumbnail_url}
+            <Image
+              src={asset.medium_url || asset.url || asset.thumbnail_url || ''}
               alt={asset.title}
-              className={cn(
-                "w-full h-auto max-h-[500px] block rounded-2xl",
-                isFitMode ? "object-contain" : "object-cover"
-              )}
+              width={1200}
+              height={500}
+              className="block rounded-2xl"
               style={{
-                objectPosition: isFitMode 
-                  ? "center" 
+                width: '100%',
+                height: 'auto',
+                maxHeight: '500px',
+                objectFit: isFitMode ? 'contain' : 'cover',
+                objectPosition: isFitMode
+                  ? "center"
                   : `${block.crop_position_x ?? 50}% ${block.crop_position_y ?? 0}%`,
               }}
             />
@@ -537,10 +549,11 @@ function ImageGalleryBlockView({
                 key={img.id}
                 className="gallery-item group/item aspect-square rounded-lg overflow-hidden bg-muted relative"
               >
-                <img
-                  src={img.asset?.medium_url || img.asset?.url || img.asset?.thumbnail_url}
+                <Image
+                  src={img.asset?.medium_url || img.asset?.url || img.asset?.thumbnail_url || ''}
                   alt={img.asset?.title || ''}
-                  className="w-full h-full object-cover"
+                  fill
+                  className="object-cover"
                 />
                 {isEditing && onGalleryRemoveImage && (
                   <button
@@ -567,10 +580,11 @@ function ImageGalleryBlockView({
                 className="gallery-item group/featured aspect-video rounded-xl overflow-hidden bg-muted relative cursor-pointer"
                 onClick={() => isEditing && onGalleryFeaturedIndexChange && onGalleryFeaturedIndexChange(featuredIndex)}
               >
-                <img
-                  src={featuredImage.asset?.medium_url || featuredImage.asset?.url || featuredImage.asset?.thumbnail_url}
+                <Image
+                  src={featuredImage.asset?.medium_url || featuredImage.asset?.url || featuredImage.asset?.thumbnail_url || ''}
                   alt={featuredImage.asset?.title || ''}
-                  className="w-full h-full object-cover"
+                  fill
+                  className="object-cover"
                 />
                 {isEditing && onGalleryRemoveImage && (
                   <button
@@ -596,10 +610,11 @@ function ImageGalleryBlockView({
                       className="gallery-item group/thumb flex-1 aspect-square rounded-lg overflow-hidden bg-muted relative cursor-pointer"
                       onClick={() => isEditing && onGalleryFeaturedIndexChange && onGalleryFeaturedIndexChange(actualIndex)}
                     >
-                      <img
-                        src={img.asset?.thumbnail_url || img.asset?.url}
+                      <Image
+                        src={img.asset?.thumbnail_url || img.asset?.url || ''}
                         alt={img.asset?.title || ''}
-                        className="w-full h-full object-cover"
+                        fill
+                        className="object-cover"
                       />
                       {isEditing && onGalleryRemoveImage && (
                         <button
@@ -930,10 +945,11 @@ function GalleryAddModal({
                         isSelected ? "border-2 border-violet-400" : "border-2 border-transparent"
                       )}
                     >
-                      <img
-                        src={asset.thumbnail_url || asset.url}
+                      <Image
+                        src={asset.thumbnail_url || asset.url || ''}
                         alt={asset.title}
-                        className="w-full h-full object-cover"
+                        fill
+                        className="object-cover"
                       />
                       {isSelected && (
                         <div className="absolute top-1 right-1 w-5 h-5 rounded-full bg-violet-400 flex items-center justify-center text-white text-xs">
@@ -983,10 +999,11 @@ function GalleryAddModal({
               ) : (
                 <div>
                   <div className="relative aspect-video rounded-xl overflow-hidden bg-muted mb-4">
-                    <img
+                    <Image
                       src={preview!}
                       alt="Preview"
-                      className="w-full h-full object-contain"
+                      fill
+                      className="object-contain"
                     />
                     <button
                       onClick={clearUpload}

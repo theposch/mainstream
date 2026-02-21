@@ -105,6 +105,7 @@ export function SearchBar() {
           <input
             ref={inputRef}
             type="text"
+            role="combobox"
             value={query}
             onChange={handleInputChange}
             onFocus={handleFocus}

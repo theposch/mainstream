@@ -67,7 +67,7 @@ export default async function HomePage() {
   // Transform the nested data to a flat structure
   const assetsWithData = (assets || []).map(asset => ({
     ...asset,
-    streams: asset.asset_streams?.map((rel: any) => rel.streams).filter(Boolean) || [],
+    streams: asset.asset_streams?.map((rel: { streams: unknown }) => rel.streams).filter(Boolean) || [],
     asset_streams: undefined,
     likeCount: asset.asset_likes?.[0]?.count || 0,
     asset_likes: undefined,

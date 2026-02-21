@@ -106,7 +106,7 @@ export function EditProfileDialog({ open, onOpenChange }: EditProfileDialogProps
       setAvatarUrl(data.avatarUrl);
       setAvatarPreview(null);
       setPendingAvatarFile(null);
-    } catch (error) {
+    } catch {
       setErrorMessage('Failed to remove avatar');
     } finally {
       setIsUploadingAvatar(false);

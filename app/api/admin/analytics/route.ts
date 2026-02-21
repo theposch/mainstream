@@ -189,7 +189,7 @@ export async function GET() {
     });
 
     // Count likes received (on user's assets)
-    (assetLikes || []).forEach((like: any) => {
+    (assetLikes || []).forEach((like: { assets?: { uploader_id?: string } }) => {
       const uploaderId = like.assets?.uploader_id;
       if (uploaderId) {
         const stats = userStats.get(uploaderId);

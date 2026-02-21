@@ -26,8 +26,6 @@ export function StreamResourcesList({
   resources,
   editable = false,
   onAdd,
-  onEdit,
-  onRemove,
 }: StreamResourcesListProps) {
   if (resources.length === 0 && !editable) {
     return null;

@@ -6,6 +6,19 @@ interface RouteParams {
   params: Promise<{ id: string }>;
 }
 
+interface DropPostRaw {
+  position: number;
+  display_mode?: string;
+  crop_position_x?: number;
+  crop_position_y?: number;
+  asset?: {
+    id: string;
+    title?: string;
+    uploader?: { id: string; [key: string]: unknown };
+    [key: string]: unknown;
+  };
+}
+
 // GET /api/drops/[id] - Get a single drop with all details
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
@@ -62,7 +75,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       .order("position", { ascending: true });
 
     // Flatten posts and get streams for each
-    const posts = dropPosts?.map((dp: any) => ({
+    const posts = (dropPosts as DropPostRaw[] | null)?.map((dp) => ({
       ...dp.asset,
       position: dp.position,
       display_mode: dp.display_mode,
@@ -72,7 +85,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
     // Get streams for all posts
     const postIds = posts.map((p) => p.id);
-    let postStreams: Record<string, any[]> = {};
+    const postStreams: Record<string, { id: string; name: string }[]> = {};
     
     if (postIds.length > 0) {
       const { data: assetStreams } = await supabase
@@ -166,7 +179,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     const body = await request.json();
     const { title, description, status } = body;
 
-    const updates: Record<string, any> = {};
+    const updates: Record<string, unknown> = {};
     if (title !== undefined) updates.title = title?.trim() || null;
     if (description !== undefined) updates.description = description?.trim() || null;
     

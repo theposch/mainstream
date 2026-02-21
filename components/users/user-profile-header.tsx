@@ -39,7 +39,7 @@ export function UserProfileHeader({
   user,
   isOwnProfile = false,
 }: UserProfileHeaderProps) {
-  const { isFollowing, followerCount, toggleFollow, loading } = useUserFollow(user.username);
+  const { isFollowing, toggleFollow, loading } = useUserFollow(user.username);
   const [editProfileOpen, setEditProfileOpen] = React.useState(false);
 
   return (

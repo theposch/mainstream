@@ -41,6 +41,33 @@ interface ActivityResponse {
 // Max activities to fetch per type (200 each = up to 800 total activities)
 const MAX_PER_TYPE = 200;
 
+// Supabase query result shapes for nested selects
+interface UploadResult {
+  id: string;
+  title: string;
+  thumbnail_url: string | null;
+  created_at: string;
+  asset_streams: Array<{ stream: { id: string; name: string } | null }>;
+}
+
+interface LikeResult {
+  created_at: string;
+  asset: { id: string; title: string; thumbnail_url: string | null } | null;
+}
+
+interface CommentResult {
+  created_at: string;
+  content: string;
+  asset: { id: string; title: string; thumbnail_url: string | null } | null;
+}
+
+interface StreamResult {
+  id: string;
+  name: string;
+  cover_image_url: string | null;
+  created_at: string;
+}
+
 /**
  * GET /api/admin/users/[id]/activity
  * 
@@ -149,12 +176,12 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     const activities: UserActivity[] = [];
 
     // Add uploads
-    (uploadsResult.data || []).forEach((upload: any) => {
+    (uploadsResult.data as UploadResult[] || []).forEach((upload) => {
       // Extract streams from nested asset_streams relation
       const streams = (upload.asset_streams || [])
-        .map((as: any) => as.stream)
-        .filter((s: any) => s !== null)
-        .map((s: any) => ({ id: s.id, name: s.name }));
+        .map((as) => as.stream)
+        .filter((s): s is { id: string; name: string } => s !== null)
+        .map((s) => ({ id: s.id, name: s.name }));
 
       activities.push({
         type: 'upload',
@@ -169,7 +196,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     });
 
     // Add likes
-    (likesResult.data || []).forEach((like: any) => {
+    (likesResult.data as LikeResult[] || []).forEach((like) => {
       if (like.asset) {
         activities.push({
           type: 'like',
@@ -184,7 +211,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     });
 
     // Add comments
-    (commentsResult.data || []).forEach((comment: any) => {
+    (commentsResult.data as CommentResult[] || []).forEach((comment) => {
       if (comment.asset) {
         activities.push({
           type: 'comment',
@@ -200,7 +227,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     });
 
     // Add stream creations
-    (streamsResult.data || []).forEach((stream: any) => {
+    (streamsResult.data as StreamResult[] || []).forEach((stream) => {
       activities.push({
         type: 'stream',
         timestamp: stream.created_at,

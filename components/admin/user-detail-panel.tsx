@@ -36,7 +36,6 @@ import {
   Eye,
   HardDrive,
   Calendar,
-  Mail,
   Briefcase,
   MapPin,
   ExternalLink,
@@ -569,7 +568,7 @@ function ActivityTab({
   // How many to currently show
   const [displayCount, setDisplayCount] = React.useState(30);
   const [loading, setLoading] = React.useState(false);
-  const [hasFetchedAll, setHasFetchedAll] = React.useState(false);
+  const [, setHasFetchedAll] = React.useState(false);
   
   // Track which user we last fetched for to prevent unnecessary re-fetches
   const lastFetchedUserId = React.useRef<string | null>(null);
@@ -708,7 +707,7 @@ function ActivityTab({
   );
 }
 
-function TimelineItem({ activity, isLast }: { activity: UserActivity; isLast: boolean }) {
+function TimelineItem({ activity }: { activity: UserActivity; isLast: boolean }) {
   const ActivityIcon = activityIcons[activity.type];
   const time = format(new Date(activity.timestamp), "h:mm a");
   
@@ -762,7 +761,7 @@ function TimelineItem({ activity, isLast }: { activity: UserActivity; isLast: bo
             </p>
             {activity.type === "comment" && activity.details.commentContent && (
               <p className="text-xs text-muted-foreground mt-1 line-clamp-2 bg-muted/50 rounded px-2 py-1">
-                "{activity.details.commentContent}"
+                &quot;{activity.details.commentContent}&quot;
               </p>
             )}
           </div>

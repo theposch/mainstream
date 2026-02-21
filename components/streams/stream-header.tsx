@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import dynamic from "next/dynamic";
+import NextImage from "next/image";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { 
@@ -368,12 +369,14 @@ export const StreamHeader = React.memo(function StreamHeader({
             rel="noopener noreferrer"
             className="group/bookmark inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-secondary hover:bg-secondary/80 text-sm text-foreground transition-colors shrink-0"
           >
-            <img
+            <NextImage
               src={getFaviconUrl(bookmark.url)}
               alt=""
-              className="w-4 h-4 shrink-0"
+              width={16}
+              height={16}
+              className="shrink-0"
               onError={(e) => {
-                (e.target as HTMLImageElement).style.display = 'none';
+                (e.currentTarget as HTMLElement).style.display = 'none';
               }}
             />
             <span className="truncate max-w-[150px]">
@@ -415,12 +418,14 @@ export const StreamHeader = React.memo(function StreamHeader({
                     rel="noopener noreferrer"
                     className="flex items-center gap-2 w-full"
                   >
-                    <img
+                    <NextImage
                       src={getFaviconUrl(bookmark.url)}
                       alt=""
-                      className="w-4 h-4 shrink-0"
+                      width={16}
+                      height={16}
+                      className="shrink-0"
                       onError={(e) => {
-                        (e.target as HTMLImageElement).style.display = 'none';
+                        (e.currentTarget as HTMLElement).style.display = 'none';
                       }}
                     />
                     <span className="truncate flex-1">
@@ -470,7 +475,7 @@ export const StreamHeader = React.memo(function StreamHeader({
             <AlertDialogTitle>Delete Stream?</AlertDialogTitle>
             <AlertDialogDescription>
               This action cannot be undone. This will permanently delete the stream. 
-              Assets in this stream will remain in your feed but won't be associated with this stream anymore.
+              Assets in this stream will remain in your feed but won&apos;t be associated with this stream anymore.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

@@ -25,7 +25,7 @@
  * ```
  */
 
-import { useEffect, useRef } from "react";
+import { useEffect, useLayoutEffect, useRef } from "react";
 
 /** Time user must view asset before recording (milliseconds) */
 const VIEW_THRESHOLD_MS = 2000;
@@ -53,7 +53,10 @@ export function useAssetView(
 ): void {
   // Store callback in ref to avoid effect re-runs when callback changes
   const callbackRef = useRef(onViewRecorded);
-  callbackRef.current = onViewRecorded;
+  // Update ref synchronously before paint to avoid stale closure issues
+  useLayoutEffect(() => {
+    callbackRef.current = onViewRecorded;
+  });
 
   useEffect(() => {
     // Skip if disabled or no asset ID

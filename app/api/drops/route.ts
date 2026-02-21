@@ -142,6 +142,7 @@ export async function POST(request: NextRequest) {
     
     if (result1.error?.message?.includes("use_blocks")) {
       // Column doesn't exist, try without it
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { use_blocks: _use_blocks, ...insertDataWithoutBlocks } = insertData;
       const result2 = await supabase
         .from("drops")

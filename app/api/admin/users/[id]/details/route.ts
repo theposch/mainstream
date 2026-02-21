@@ -71,6 +71,37 @@ interface UserDetailsResponse {
   recentUploads: UserUpload[];
 }
 
+// Supabase query result shapes for nested selects
+interface UploadWithStreams {
+  id: string;
+  title: string;
+  type: string;
+  url: string;
+  thumbnail_url: string | null;
+  file_size: number | null;
+  created_at: string;
+  view_count: number | null;
+  asset_streams: Array<{ stream: { id: string; name: string } | null }>;
+}
+
+interface LikeWithAsset {
+  created_at: string;
+  asset: { id: string; title: string; thumbnail_url: string | null } | null;
+}
+
+interface CommentWithAsset {
+  created_at: string;
+  content: string;
+  asset: { id: string; title: string; thumbnail_url: string | null } | null;
+}
+
+interface StreamRow {
+  id: string;
+  name: string;
+  cover_image_url: string | null;
+  created_at: string;
+}
+
 function formatBytes(bytes: number): string {
   if (bytes === 0) return '0 Bytes';
   if (bytes < 0) return 'Invalid size';
@@ -255,8 +286,8 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     // Get like and comment counts for recent uploads
     const uploadIds = (recentUploadsResult.data || []).map(u => u.id);
     
-    let likeCounts: Record<string, number> = {};
-    let commentCounts: Record<string, number> = {};
+    const likeCounts: Record<string, number> = {};
+    const commentCounts: Record<string, number> = {};
     
     if (uploadIds.length > 0) {
       const [likeCountsResult, commentCountsResult] = await Promise.all([
@@ -305,12 +336,12 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     const activities: UserActivity[] = [];
 
     // Add uploads to timeline
-    (recentUploadsResult.data || []).forEach((upload: any) => {
+    (recentUploadsResult.data as UploadWithStreams[] || []).forEach((upload) => {
       // Extract streams from nested asset_streams relation
       const streams = (upload.asset_streams || [])
-        .map((as: any) => as.stream)
-        .filter((s: any) => s !== null)
-        .map((s: any) => ({ id: s.id, name: s.name }));
+        .map((as) => as.stream)
+        .filter((s): s is { id: string; name: string } => s !== null)
+        .map((s) => ({ id: s.id, name: s.name }));
 
       activities.push({
         type: 'upload',
@@ -325,7 +356,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     });
 
     // Add likes to timeline
-    (recentLikesResult.data || []).forEach((like: any) => {
+    (recentLikesResult.data as LikeWithAsset[] || []).forEach((like) => {
       if (like.asset) {
         activities.push({
           type: 'like',
@@ -340,7 +371,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     });
 
     // Add comments to timeline
-    (recentCommentsResult.data || []).forEach((comment: any) => {
+    (recentCommentsResult.data as CommentWithAsset[] || []).forEach((comment) => {
       if (comment.asset) {
         activities.push({
           type: 'comment',
@@ -356,7 +387,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     });
 
     // Add stream creations to timeline
-    (recentStreamsResult.data || []).forEach((stream: any) => {
+    (recentStreamsResult.data as StreamRow[] || []).forEach((stream) => {
       activities.push({
         type: 'stream',
         timestamp: stream.created_at,

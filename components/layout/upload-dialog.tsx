@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import NextImage from "next/image";
 import { useRouter } from "next/navigation";
 import {
   Dialog,
@@ -56,11 +57,13 @@ export function UploadDialog({ open, onOpenChange, initialStreamId }: UploadDial
   }, [open, initialStreamId, streamSelection]);
 
   // Reset form when dialog closes
+  // resetForm is intentionally omitted from deps - it's not memoized and adding it causes infinite re-renders
   React.useEffect(() => {
     if (!open) {
       resetForm();
       hasInitializedStreamRef.current = false;
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
   const resetForm = () => {
@@ -311,10 +314,11 @@ export function UploadDialog({ open, onOpenChange, initialStreamId }: UploadDial
                     playsInline
                   />
                 ) : (
-                  <img
+                  <NextImage
                     src={preview}
                     alt="Preview"
-                    className="w-full h-full object-cover"
+                    fill
+                    className="object-cover"
                   />
                 )}
                 {/* Close Button */}
