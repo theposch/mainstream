@@ -222,7 +222,7 @@ export const CommentInput = React.memo(function CommentInput({
         )}
 
         <Avatar className="h-8 w-8 shrink-0 border border-border">
-            <AvatarImage src={currentUser?.avatar_url} alt={currentUser?.display_name} />
+            <AvatarImage src={currentUser?.avatar_url ?? undefined} alt={currentUser?.display_name ?? undefined} />
             <AvatarFallback>{currentUser?.username?.charAt(0).toUpperCase() || 'U'}</AvatarFallback>
         </Avatar>
         

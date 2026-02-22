@@ -315,7 +315,7 @@ export function AssetDetailMobile({ asset, allAssets: allAssetsProp, onClose, on
     }
   }, []);
 
-  const canDelete = currentUser && currentUser.id === currentAsset.uploader_id;
+  const canDelete = !!(currentUser && currentUser.id === currentAsset.uploader_id);
   const canEdit = canDelete; // Same permission as delete
 
   return (

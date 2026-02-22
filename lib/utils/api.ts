@@ -177,7 +177,7 @@ export async function deduplicatedRequest<T>(
 ): Promise<T> {
   // If request is already pending, return the existing promise
   if (pendingRequests.has(key)) {
-    return pendingRequests.get(key)!;
+    return pendingRequests.get(key)! as Promise<T>;
   }
 
   // Create new request

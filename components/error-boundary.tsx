@@ -3,6 +3,7 @@
 import React from "react";
 import { AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { logger } from "@/lib/logger";
 
 interface ErrorBoundaryProps {
   children: React.ReactNode;
@@ -24,8 +25,10 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
   }
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    // TODO: Log to error reporting service (Sentry, LogRocket, etc.)
-    console.error('Error caught by boundary:', error, errorInfo);
+    logger.error('ErrorBoundary', error.message, { error, componentStack: errorInfo.componentStack });
+    // To forward client-side errors to Sentry, add:
+    // import * as Sentry from '@sentry/nextjs';
+    // Sentry.captureException(error, { extra: errorInfo });
   }
 
   render() {

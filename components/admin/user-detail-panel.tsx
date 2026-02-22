@@ -568,7 +568,7 @@ function ActivityTab({
   // How many to currently show
   const [displayCount, setDisplayCount] = React.useState(30);
   const [loading, setLoading] = React.useState(false);
-  const [_hasFetchedAll, _setHasFetchedAll] = React.useState(false);
+  const [, setHasFetchedAll] = React.useState(false);
   
   // Track which user we last fetched for to prevent unnecessary re-fetches
   const lastFetchedUserId = React.useRef<string | null>(null);

@@ -94,32 +94,7 @@ export async function GET(request: NextRequest) {
     
     query = query.limit(fetchLimit);
     
-    let { data: assets, error } = await query;
-    
-    // Only fallback if error is specifically "column not found" (code 42703)
-    const isColumnNotFoundError = error?.code === '42703' || error?.message?.includes('visibility');
-    if (error && isColumnNotFoundError) {
-      let fallbackQuery = supabase
-        .from('assets')
-        .select(ASSET_BASE_SELECT)
-        .order('created_at', { ascending: false })
-        .order('id', { ascending: false });
-      
-      if (cursorTimestamp) {
-        if (cursorId) {
-          // Timestamp values must be quoted for proper PostgREST parsing
-          fallbackQuery = fallbackQuery.or(
-            `created_at.lt."${cursorTimestamp}",and(created_at.eq."${cursorTimestamp}",id.lt.${cursorId})`
-          );
-        } else {
-          fallbackQuery = fallbackQuery.lt('created_at', cursorTimestamp);
-        }
-      }
-      
-      const fallback = await fallbackQuery.limit(fetchLimit);
-      assets = fallback.data;
-      error = fallback.error;
-    }
+    const { data: assets, error } = await query;
 
     if (error) {
       console.error('[GET /api/assets] Database error:', error);

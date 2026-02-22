@@ -87,24 +87,11 @@ export async function GET(request: NextRequest) {
         .or(`and(title.ilike.%${searchTerm}%,visibility.is.null),and(title.ilike.%${searchTerm}%,visibility.eq.public)`)
         .order('created_at', { ascending: false })
         .limit(limit);
-      let assets = assetsResult.data;
+      const assets = assetsResult.data;
       const assetsError = assetsResult.error;
 
-      // Only fallback if error is specifically "column not found" (code 42703)
-      // Other errors (network, permissions) should not expose unlisted assets
-      const isColumnNotFoundError = (err: unknown) => (err as { code?: string; message?: string })?.code === '42703' || (err as { code?: string; message?: string })?.message?.includes('visibility');
-      if (assetsError && isColumnNotFoundError(assetsError)) {
-        const fallback = await supabase
-          .from('assets')
-          .select(`
-            *,
-            uploader:users!uploader_id(*),
-            asset_likes(count)
-          `)
-          .ilike('title', `%${searchTerm}%`)
-          .order('created_at', { ascending: false })
-          .limit(limit);
-        assets = fallback.data;
+      if (assetsError) {
+        console.error('[Search API] Error searching assets:', assetsError);
       }
 
       // Get total count (without limit) - must include same visibility filter as results query
@@ -116,19 +103,7 @@ export async function GET(request: NextRequest) {
       
       // Handle count query results
       if (countError) {
-        // Only fallback if error is specifically "column not found" (code 42703)
-        if (isColumnNotFoundError(countError)) {
-          const { count: fallbackCount } = await supabase
-            .from('assets')
-            .select('*', { count: 'exact', head: true })
-            .ilike('title', `%${searchTerm}%`);
-          totalAssets = fallbackCount || 0;
-        }
-        // For other errors (network, permissions), leave totalAssets as 0
-        // but log the error for debugging
-        else {
-          console.error('[Search API] Error getting asset count:', countError);
-        }
+        console.error('[Search API] Error getting asset count:', countError);
       } else {
         totalAssets = filteredCount || 0;
       }
@@ -151,15 +126,13 @@ export async function GET(request: NextRequest) {
       }
 
       // Transform assets with like count and status
-      results.assets = (assets || []).map((asset) => {
-        const a = asset as { id: string; asset_likes?: [{ count: number }]; [key: string]: unknown };
-        return {
-          ...a,
-          likeCount: a.asset_likes?.[0]?.count || 0,
-          asset_likes: undefined,
-          isLikedByCurrentUser: userLikedAssetIds.has(a.id),
-        };
-      });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      results.assets = ((assets || []) as any[]).map((asset) => ({
+        ...asset,
+        likeCount: asset.asset_likes?.[0]?.count || 0,
+        asset_likes: undefined,
+        isLikedByCurrentUser: userLikedAssetIds.has(asset.id),
+      }));
     }
 
     // Search users

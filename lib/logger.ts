@@ -29,7 +29,25 @@ interface LogEntry {
 }
 
 const isDev = process.env.NODE_ENV === 'development';
-const _isServer = typeof window === 'undefined';
+const isServer = typeof window === 'undefined';
+
+/**
+ * Pluggable error reporter.
+ * Register your own handler (e.g. Sentry) via setErrorReporter().
+ *
+ * Example with Sentry:
+ * ```ts
+ * import * as Sentry from '@sentry/nextjs';
+ * import { setErrorReporter } from '@/lib/logger';
+ * setErrorReporter((ctx, msg, err) => Sentry.captureException(err ?? new Error(msg), { extra: { ctx } }));
+ * ```
+ */
+type ErrorReporter = (context: string, message: string, error?: unknown) => void;
+let _errorReporter: ErrorReporter | null = null;
+
+export function setErrorReporter(reporter: ErrorReporter): void {
+  _errorReporter = reporter;
+}
 
 /**
  * Format a log entry for console output
@@ -98,11 +116,15 @@ export const logger = {
   error(context: string, message: string, error?: unknown) {
     const entry = createLogEntry('error', context, message, error);
     console.error(formatLogEntry(entry), message, error ?? '');
-    
-    // Future: Send to error tracking service in production
-    // if (!isDev && !isServer) {
-    //   sendToErrorTracker(entry);
-    // }
+
+    // Forward to the registered error reporter (e.g. Sentry) in production
+    if (!isDev && isServer && _errorReporter) {
+      try {
+        _errorReporter(context, message, error);
+      } catch {
+        // Never let the reporter crash the application
+      }
+    }
   },
   
   /**

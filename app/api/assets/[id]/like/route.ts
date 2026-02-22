@@ -10,6 +10,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { shouldCreateNotification } from '@/lib/notifications/check-preferences';
+import { rateLimit, RATE_LIMITS } from '@/lib/utils/rate-limit';
 
 interface RouteContext {
   params: Promise<{
@@ -38,6 +39,11 @@ export async function POST(
         { error: 'Authentication required' },
         { status: 401 }
       );
+    }
+
+    const rl = rateLimit(request, RATE_LIMITS.write, `like:${user.id}`);
+    if (!rl.success) {
+      return NextResponse.json({ error: 'Too many requests, please slow down' }, { status: 429 });
     }
 
     // Insert like (will fail if already exists due to primary key constraint)

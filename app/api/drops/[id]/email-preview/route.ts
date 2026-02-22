@@ -45,6 +45,8 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       username: string;
       display_name: string;
       avatar_url: string | null;
+      created_at?: string;
+      [key: string]: unknown;
     }
 
     interface GalleryImageRecord {
@@ -65,8 +67,11 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
     interface BlockRecord {
       id: string;
+      drop_id: string;
       type: string;
       position: number;
+      created_at: string;
+      updated_at: string;
       asset?: {
         id: string;
         title: string;
@@ -167,8 +172,10 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         React.createElement(EmailDropView, {
           title: drop.title,
           description: drop.description,
-          blocks: enrichedBlocks,
-          contributors,
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any -- BlockRecord shape matches DropBlock at runtime; cast needed due to strict enum/null mismatches
+          blocks: enrichedBlocks as any,
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          contributors: contributors as any,
           dateRangeStart: drop.date_range_start,
           dateRangeEnd: drop.date_range_end,
         })
@@ -246,8 +253,10 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         React.createElement(EmailDropView, {
           title: drop.title,
           description: drop.description,
-          blocks,
-          contributors,
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any -- BlockRecord shape matches DropBlock at runtime; cast needed due to strict enum/null mismatches
+          blocks: blocks as any,
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          contributors: contributors as any,
           dateRangeStart: drop.date_range_start,
           dateRangeEnd: drop.date_range_end,
         })

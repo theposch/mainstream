@@ -113,7 +113,9 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
             postStreams[as.asset_id] = [];
           }
           if (as.stream) {
-            postStreams[as.asset_id].push(as.stream);
+            // Supabase may return the join as an array or single object
+            const streams = Array.isArray(as.stream) ? as.stream : [as.stream];
+            streams.forEach((s) => postStreams[as.asset_id].push(s as StreamRef));
           }
         });
       }
@@ -122,7 +124,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     // Enrich posts with streams
     const enrichedPosts = posts.map((post) => ({
       ...post,
-      streams: postStreams[post.id] || [],
+      streams: postStreams[(post as { id?: string }).id ?? ''] || [],
     }));
 
     // Get unique contributors

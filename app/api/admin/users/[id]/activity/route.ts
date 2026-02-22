@@ -149,11 +149,15 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     const activities: UserActivity[] = [];
 
     // Add uploads
-    (uploadsResult.data || []).forEach((upload: { id: string; title: string; thumbnail_url?: string | null; created_at: string; asset_streams?: Array<{ stream?: { id: string; name: string } | null }> }) => {
+    type StreamJoinResult = { id: string; name: string }[] | { id: string; name: string } | null;
+    (uploadsResult.data || []).forEach((upload: { id: string; title: string; thumbnail_url?: string | null; created_at: string; asset_streams?: Array<{ stream?: StreamJoinResult }> }) => {
       // Extract streams from nested asset_streams relation
+      // Supabase returns joined rows as arrays for to-many relations
       const streams = (upload.asset_streams || [])
-        .map((as) => as.stream)
-        .filter((s): s is { id: string; name: string } => s !== null && s !== undefined)
+        .flatMap((as) => {
+          if (!as.stream) return [];
+          return Array.isArray(as.stream) ? as.stream : [as.stream];
+        })
         .map((s) => ({ id: s.id, name: s.name }));
 
       activities.push({
@@ -168,31 +172,36 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       });
     });
 
+    type AssetJoinResult = { id: string; title: string; thumbnail_url?: string | null }[] | { id: string; title: string; thumbnail_url?: string | null } | null;
+    const resolveAsset = (a: AssetJoinResult) => Array.isArray(a) ? a[0] ?? null : a;
+
     // Add likes
-    (likesResult.data || []).forEach((like: { created_at: string; asset?: { id: string; title: string; thumbnail_url?: string | null } | null }) => {
-      if (like.asset) {
+    (likesResult.data || []).forEach((like: { created_at: string; asset?: AssetJoinResult }) => {
+      const asset = like.asset ? resolveAsset(like.asset) : null;
+      if (asset) {
         activities.push({
           type: 'like',
           timestamp: like.created_at,
           details: {
-            assetId: like.asset.id,
-            assetTitle: like.asset.title,
-            assetThumbnail: like.asset.thumbnail_url || undefined,
+            assetId: asset.id,
+            assetTitle: asset.title,
+            assetThumbnail: asset.thumbnail_url || undefined,
           },
         });
       }
     });
 
     // Add comments
-    (commentsResult.data || []).forEach((comment: { created_at: string; content: string; asset?: { id: string; title: string; thumbnail_url?: string | null } | null }) => {
-      if (comment.asset) {
+    (commentsResult.data || []).forEach((comment: { created_at: string; content: string; asset?: AssetJoinResult }) => {
+      const asset = comment.asset ? resolveAsset(comment.asset) : null;
+      if (asset) {
         activities.push({
           type: 'comment',
           timestamp: comment.created_at,
           details: {
-            assetId: comment.asset.id,
-            assetTitle: comment.asset.title,
-            assetThumbnail: comment.asset.thumbnail_url || undefined,
+            assetId: asset.id,
+            assetTitle: asset.title,
+            assetThumbnail: asset.thumbnail_url || undefined,
             commentContent: comment.content,
           },
         });

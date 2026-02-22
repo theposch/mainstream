@@ -15,102 +15,91 @@ const IV_LENGTH = 16;
 const _TAG_LENGTH = 16;
 
 /**
- * Gets the encryption key from environment
- * Returns null if not configured (allows graceful fallback)
+ * Gets the encryption key from environment.
+ * Throws if not configured or invalid — sensitive data must not be stored in plaintext.
  */
-function getEncryptionKey(): Buffer | null {
+function getEncryptionKey(): Buffer {
   const key = process.env.ENCRYPTION_KEY;
-  
+
   if (!key) {
-    console.warn('[encryption] ENCRYPTION_KEY not set - tokens will be stored in plaintext');
-    return null;
+    throw new Error(
+      '[encryption] ENCRYPTION_KEY is not set. ' +
+      'Generate one with: openssl rand -hex 32'
+    );
   }
-  
+
   if (key.length !== 64) {
-    console.error('[encryption] ENCRYPTION_KEY must be 64 hex characters (32 bytes)');
-    return null;
+    throw new Error(
+      '[encryption] ENCRYPTION_KEY must be exactly 64 hex characters (32 bytes). ' +
+      `Got ${key.length} characters.`
+    );
   }
-  
+
   return Buffer.from(key, 'hex');
 }
 
 /**
- * Encrypts a string using AES-256-GCM
- * 
+ * Encrypts a string using AES-256-GCM.
+ * Throws if ENCRYPTION_KEY is not configured.
+ *
  * @param plaintext - The string to encrypt
  * @returns Encrypted string in format: iv:tag:ciphertext (hex encoded)
- *          Returns original string if encryption key not configured
  */
 export function encrypt(plaintext: string): string {
   const key = getEncryptionKey();
-  
-  // Graceful fallback: return plaintext if no key configured
-  if (!key) {
-    return plaintext;
-  }
-  
-  try {
-    const iv = crypto.randomBytes(IV_LENGTH);
-    const cipher = crypto.createCipheriv(ALGORITHM, key, iv);
-    
-    const encrypted = Buffer.concat([
-      cipher.update(plaintext, 'utf8'),
-      cipher.final(),
-    ]);
-    
-    const tag = cipher.getAuthTag();
-    
-    // Format: iv:tag:ciphertext (all hex encoded)
-    return `${iv.toString('hex')}:${tag.toString('hex')}:${encrypted.toString('hex')}`;
-  } catch (error) {
-    console.error('[encryption] Encryption failed:', error);
-    // Return plaintext on error to avoid data loss
-    return plaintext;
-  }
+
+  const iv = crypto.randomBytes(IV_LENGTH);
+  const cipher = crypto.createCipheriv(ALGORITHM, key, iv);
+
+  const encrypted = Buffer.concat([
+    cipher.update(plaintext, 'utf8'),
+    cipher.final(),
+  ]);
+
+  const tag = cipher.getAuthTag();
+
+  // Format: iv:tag:ciphertext (all hex encoded)
+  return `${iv.toString('hex')}:${tag.toString('hex')}:${encrypted.toString('hex')}`;
 }
 
 /**
- * Decrypts a string encrypted with encrypt()
- * 
+ * Decrypts a string encrypted with encrypt().
+ * Falls back to returning the original string when ENCRYPTION_KEY is not set,
+ * to support reading legacy plaintext values already in the database.
+ *
  * @param ciphertext - The encrypted string (iv:tag:ciphertext format)
  * @returns Decrypted plaintext string
- *          Returns original string if not in encrypted format
  */
 export function decrypt(ciphertext: string): string {
-  const key = getEncryptionKey();
-  
-  // If no key configured, assume plaintext
-  if (!key) {
-    return ciphertext;
-  }
-  
-  // Check if it's in our encrypted format (iv:tag:data)
+  // Check if it's in our encrypted format (iv:tag:data) — three hex segments
   const parts = ciphertext.split(':');
   if (parts.length !== 3) {
-    // Not encrypted or different format - return as-is
+    // Not in encrypted format — treat as legacy plaintext
     return ciphertext;
   }
-  
+
+  const key = getEncryptionKey();
+
   try {
     const [ivHex, tagHex, encryptedHex] = parts;
-    
+
     const iv = Buffer.from(ivHex, 'hex');
     const tag = Buffer.from(tagHex, 'hex');
     const encrypted = Buffer.from(encryptedHex, 'hex');
-    
+
     const decipher = crypto.createDecipheriv(ALGORITHM, key, iv);
     decipher.setAuthTag(tag);
-    
+
     const decrypted = Buffer.concat([
       decipher.update(encrypted),
       decipher.final(),
     ]);
-    
+
     return decrypted.toString('utf8');
   } catch (error) {
-    console.error('[encryption] Decryption failed:', error);
-    // Return original on error (might be plaintext)
-    return ciphertext;
+    throw new Error(
+      `[encryption] Decryption failed — key may have changed or data is corrupt: ${error instanceof Error ? error.message : String(error)}`
+    );
   }
 }
 
@@ -118,6 +107,11 @@ export function decrypt(ciphertext: string): string {
  * Checks if encryption is properly configured
  */
 export function isEncryptionEnabled(): boolean {
-  return getEncryptionKey() !== null;
+  try {
+    getEncryptionKey();
+    return true;
+  } catch {
+    return false;
+  }
 }
 

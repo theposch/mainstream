@@ -107,9 +107,10 @@ export const StreamListItem = React.memo(function StreamListItem({
               className="hidden lg:block pt-1"
               onClick={(e) => e.stopPropagation()}
             >
-              <ContributorAvatars 
-                contributors={stream.contributors} 
-                size="sm" 
+              <ContributorAvatars
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                contributors={stream.contributors as any}
+                size="sm"
                 maxVisible={4}
               />
             </div>

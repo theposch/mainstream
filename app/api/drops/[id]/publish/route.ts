@@ -91,6 +91,8 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
             username: string;
             display_name: string;
             avatar_url: string | null;
+            created_at?: string;
+            [key: string]: unknown;
           }
 
           interface GalleryImageBlock {
@@ -172,8 +174,10 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
               React.createElement(EmailDropView, {
                 title: drop.title,
                 description: drop.description,
-                blocks: blocks || [],
-                contributors,
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any -- BlockRecord matches DropBlock shape at runtime
+                blocks: (blocks || []) as any,
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                contributors: contributors as any,
               })
             );
           } else {
@@ -229,8 +233,10 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
                 description: drop.description,
                 dateRangeStart: drop.date_range_start,
                 dateRangeEnd: drop.date_range_end,
-                posts,
-                contributors,
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                posts: posts as any,
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                contributors: contributors as any,
               })
             );
           }

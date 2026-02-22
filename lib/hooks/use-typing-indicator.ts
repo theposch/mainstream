@@ -90,8 +90,8 @@ export function useTypingIndicator(assetId: string): UseTypingIndicatorReturn {
           if (presence?.isTyping) {
             users.push({
               id: userId,
-              username: presence.username,
-              display_name: presence.display_name,
+              username: presence.username ?? '',
+              display_name: presence.display_name ?? '',
             });
           }
         });
