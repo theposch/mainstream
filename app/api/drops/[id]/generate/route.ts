@@ -71,8 +71,29 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       .in("type", ["post", "featured_post"])
       .order("position", { ascending: true });
 
+    interface PostAsset {
+      id: string;
+      title: string;
+      description: string | null;
+      thumbnail_url: string | null;
+      uploader?: { display_name: string };
+    }
+
+    interface BlockWithAsset {
+      asset?: PostAsset;
+    }
+
+    interface DropPostWithAsset {
+      asset?: PostAsset;
+    }
+
+    interface AssetStreamRecord {
+      asset_id: string;
+      stream?: { name: string };
+    }
+
     // Extract posts from blocks
-    let posts = blocks?.map((b: any) => b.asset).filter(Boolean) || [];
+    let posts: PostAsset[] = (blocks as BlockWithAsset[] | null)?.map((b) => b.asset).filter((a): a is PostAsset => Boolean(a)) || [];
 
     // Fallback: check drop_posts for legacy drops
     if (posts.length === 0) {
@@ -90,7 +111,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         .eq("drop_id", dropId)
         .order("position", { ascending: true });
 
-      posts = dropPosts?.map((dp: any) => dp.asset).filter(Boolean) || [];
+      posts = (dropPosts as DropPostWithAsset[] | null)?.map((dp) => dp.asset).filter((a): a is PostAsset => Boolean(a)) || [];
     }
 
     if (posts.length === 0) {
@@ -101,7 +122,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     }
 
     // Get streams for posts
-    const postIds = posts.map((p: any) => p.id);
+    const postIds = posts.map((p) => p.id);
     const { data: assetStreams } = await supabase
       .from("asset_streams")
       .select(`
@@ -111,7 +132,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       .in("asset_id", postIds);
 
     const postStreams: Record<string, string[]> = {};
-    assetStreams?.forEach((as: any) => {
+    (assetStreams as AssetStreamRecord[] | null)?.forEach((as) => {
       if (!postStreams[as.asset_id]) {
         postStreams[as.asset_id] = [];
       }
@@ -121,7 +142,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     });
 
     // Format posts for the prompt
-    const postsDescription = posts.map((post: any, index: number) => {
+    const postsDescription = posts.map((post, index: number) => {
       const streams = postStreams[post.id] || [];
       const streamStr = streams.length > 0 ? ` in #${streams.join(", #")}` : "";
       const descStr = post.description ? ` - ${post.description.slice(0, 100)}` : "";

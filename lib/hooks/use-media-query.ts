@@ -23,7 +23,7 @@
  * ```
  */
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 
 // Module-level cache and listener management
 const listenersByQuery = new Map<string, Set<() => void>>();

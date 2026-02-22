@@ -114,7 +114,7 @@ export const CommentList = React.memo(function CommentList({
   }
 
   // Render a single comment thread (parent + replies)
-  const renderCommentThread = (comment: Comment, index: number) => {
+  const renderCommentThread = (comment: Comment, _index: number) => {
     const replies = repliesMap.get(comment.id) || [];
     const author = userMap.get(comment.user_id);
     const likeState = getLikeState(comment.id);

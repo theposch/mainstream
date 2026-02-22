@@ -53,7 +53,9 @@ export function useAssetView(
 ): void {
   // Store callback in ref to avoid effect re-runs when callback changes
   const callbackRef = useRef(onViewRecorded);
-  callbackRef.current = onViewRecorded;
+  useEffect(() => {
+    callbackRef.current = onViewRecorded;
+  });
 
   useEffect(() => {
     // Skip if disabled or no asset ID

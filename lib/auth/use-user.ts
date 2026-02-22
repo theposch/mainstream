@@ -101,6 +101,7 @@ export function useUser(): UseUserReturn {
     }
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchUser()
 
     // Subscribe to auth state changes

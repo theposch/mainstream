@@ -470,7 +470,7 @@ export const StreamHeader = React.memo(function StreamHeader({
             <AlertDialogTitle>Delete Stream?</AlertDialogTitle>
             <AlertDialogDescription>
               This action cannot be undone. This will permanently delete the stream. 
-              Assets in this stream will remain in your feed but won't be associated with this stream anymore.
+              Assets in this stream will remain in your feed but won&apos;t be associated with this stream anymore.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

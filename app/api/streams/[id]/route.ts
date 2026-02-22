@@ -34,7 +34,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
     const { data: { user } } = await supabase.auth.getUser();
 
     // Fetch stream by ID or name (slug)
-    let query = supabase
+    const query = supabase
       .from('streams')
       .select('*')
       .or(`id.eq.${id},name.eq.${id}`)
@@ -154,7 +154,13 @@ export async function PUT(request: NextRequest, context: RouteContext) {
     const body = await request.json();
     const { name, description, is_private, cover_image_url } = body;
     
-    const updates: any = {};
+    const updates: {
+      name?: string;
+      description?: string | null;
+      is_private?: boolean;
+      cover_image_url?: string | null;
+      updated_at?: string;
+    } = {};
 
     // Validation for name
     if (name !== undefined) {

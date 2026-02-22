@@ -9,7 +9,7 @@ import { useDebounce } from "@/lib/hooks/use-debounce";
 import { TypingIndicator } from "./typing-indicator";
 
 interface CommentInputProps {
-  currentUser: any; // User from database with snake_case fields
+  currentUser: { id: string; username?: string | null; display_name?: string | null; avatar_url?: string | null } | null;
   onSubmit: (content: string) => Promise<void>;
   isSubmitting?: boolean;
   placeholder?: string;

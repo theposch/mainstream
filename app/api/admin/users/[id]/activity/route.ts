@@ -149,12 +149,12 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     const activities: UserActivity[] = [];
 
     // Add uploads
-    (uploadsResult.data || []).forEach((upload: any) => {
+    (uploadsResult.data || []).forEach((upload: { id: string; title: string; thumbnail_url?: string | null; created_at: string; asset_streams?: Array<{ stream?: { id: string; name: string } | null }> }) => {
       // Extract streams from nested asset_streams relation
       const streams = (upload.asset_streams || [])
-        .map((as: any) => as.stream)
-        .filter((s: any) => s !== null)
-        .map((s: any) => ({ id: s.id, name: s.name }));
+        .map((as) => as.stream)
+        .filter((s): s is { id: string; name: string } => s !== null && s !== undefined)
+        .map((s) => ({ id: s.id, name: s.name }));
 
       activities.push({
         type: 'upload',
@@ -169,7 +169,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     });
 
     // Add likes
-    (likesResult.data || []).forEach((like: any) => {
+    (likesResult.data || []).forEach((like: { created_at: string; asset?: { id: string; title: string; thumbnail_url?: string | null } | null }) => {
       if (like.asset) {
         activities.push({
           type: 'like',
@@ -184,7 +184,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     });
 
     // Add comments
-    (commentsResult.data || []).forEach((comment: any) => {
+    (commentsResult.data || []).forEach((comment: { created_at: string; content: string; asset?: { id: string; title: string; thumbnail_url?: string | null } | null }) => {
       if (comment.asset) {
         activities.push({
           type: 'comment',
@@ -200,7 +200,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     });
 
     // Add stream creations
-    (streamsResult.data || []).forEach((stream: any) => {
+    (streamsResult.data || []).forEach((stream: { id: string; name: string; cover_image_url?: string | null; created_at: string }) => {
       activities.push({
         type: 'stream',
         timestamp: stream.created_at,

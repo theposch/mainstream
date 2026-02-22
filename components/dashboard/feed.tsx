@@ -295,7 +295,7 @@ export const DashboardFeed = React.memo(function DashboardFeed({ initialAssets }
               )}
               {!currentHasMore && displayedAssets.length > 0 && (
                 <p className="text-sm text-muted-foreground">
-                  You've reached the end!
+                  You&apos;ve reached the end!
                 </p>
               )}
             </div>

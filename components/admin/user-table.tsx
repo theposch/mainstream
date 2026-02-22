@@ -31,7 +31,6 @@ import {
   Trash2,
   Loader2,
   UserX,
-  ChevronUp,
   ChevronDown,
   Eye,
 } from "lucide-react";

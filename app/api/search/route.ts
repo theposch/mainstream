@@ -40,10 +40,32 @@ export async function GET(request: NextRequest) {
     // Get current user for like status check
     const { data: { user } } = await supabase.auth.getUser();
     
+    interface AssetResult {
+      id: string;
+      title: string;
+      likeCount?: number;
+      asset_likes?: undefined;
+      isLikedByCurrentUser?: boolean;
+      [key: string]: unknown;
+    }
+
+    interface UserResult {
+      id: string;
+      username: string;
+      display_name: string | null;
+      [key: string]: unknown;
+    }
+
+    interface StreamResult {
+      id: string;
+      name: string;
+      [key: string]: unknown;
+    }
+
     const results: {
-      assets?: any[];
-      users?: any[];
-      streams?: any[];
+      assets?: AssetResult[];
+      users?: UserResult[];
+      streams?: StreamResult[];
       totalAssets?: number;
       totalUsers?: number;
       totalStreams?: number;
@@ -55,7 +77,7 @@ export async function GET(request: NextRequest) {
     if (type === 'all' || type === 'assets') {
       // Get limited results for display - try with visibility filter first
       // Use compound OR to ensure AND semantics with visibility filter
-      let { data: assets, error: assetsError } = await supabase
+      const assetsResult = await supabase
         .from('assets')
         .select(`
           *,
@@ -65,10 +87,12 @@ export async function GET(request: NextRequest) {
         .or(`and(title.ilike.%${searchTerm}%,visibility.is.null),and(title.ilike.%${searchTerm}%,visibility.eq.public)`)
         .order('created_at', { ascending: false })
         .limit(limit);
-      
+      let assets = assetsResult.data;
+      const assetsError = assetsResult.error;
+
       // Only fallback if error is specifically "column not found" (code 42703)
       // Other errors (network, permissions) should not expose unlisted assets
-      const isColumnNotFoundError = (err: any) => err?.code === '42703' || err?.message?.includes('visibility');
+      const isColumnNotFoundError = (err: unknown) => (err as { code?: string; message?: string })?.code === '42703' || (err as { code?: string; message?: string })?.message?.includes('visibility');
       if (assetsError && isColumnNotFoundError(assetsError)) {
         const fallback = await supabase
           .from('assets')
@@ -114,25 +138,28 @@ export async function GET(request: NextRequest) {
       // Batch fetch which assets the user has liked
       let userLikedAssetIds: Set<string> = new Set();
       if (user && assets && assets.length > 0) {
-        const assetIds = assets.map((a: any) => a.id);
+        const assetIds = (assets as { id: string }[]).map((a) => a.id);
         const { data: userLikes } = await supabase
           .from('asset_likes')
           .select('asset_id')
           .eq('user_id', user.id)
           .in('asset_id', assetIds);
-        
+
         if (userLikes) {
           userLikedAssetIds = new Set(userLikes.map(l => l.asset_id));
         }
       }
 
       // Transform assets with like count and status
-      results.assets = (assets || []).map((asset: any) => ({
-        ...asset,
-        likeCount: asset.asset_likes?.[0]?.count || 0,
-        asset_likes: undefined,
-        isLikedByCurrentUser: userLikedAssetIds.has(asset.id),
-      }));
+      results.assets = (assets || []).map((asset) => {
+        const a = asset as { id: string; asset_likes?: [{ count: number }]; [key: string]: unknown };
+        return {
+          ...a,
+          likeCount: a.asset_likes?.[0]?.count || 0,
+          asset_likes: undefined,
+          isLikedByCurrentUser: userLikedAssetIds.has(a.id),
+        };
+      });
     }
 
     // Search users

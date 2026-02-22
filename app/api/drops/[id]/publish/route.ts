@@ -86,8 +86,50 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         const emails = users?.map((u) => u.email).filter(Boolean) || [];
 
         if (emails.length > 0) {
+          interface Uploader {
+            id: string;
+            username: string;
+            display_name: string;
+            avatar_url: string | null;
+          }
+
+          interface GalleryImageBlock {
+            id: string;
+            position: number;
+            asset?: {
+              id: string;
+              title: string;
+              url: string;
+              medium_url: string;
+              thumbnail_url: string;
+              asset_type: string;
+              embed_provider: string | null;
+              uploader?: Uploader;
+            };
+          }
+
+          interface BlockRecord {
+            id: string;
+            type: string;
+            position: number;
+            asset?: {
+              id: string;
+              title: string;
+              description: string | null;
+              url: string;
+              medium_url: string;
+              thumbnail_url: string;
+              asset_type: string;
+              embed_provider: string | null;
+              created_at: string;
+              uploader?: Uploader;
+            };
+            gallery_images?: GalleryImageBlock[];
+            [key: string]: unknown;
+          }
+
           let emailHtml: string;
-          let contributors: any[] = [];
+          let contributors: Uploader[] = [];
 
           // Check if drop uses blocks or legacy posts
           if (drop.use_blocks) {
@@ -112,12 +154,12 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
               .order("position", { ascending: true });
 
             // Get contributors from blocks and gallery images
-            const contributorMap = new Map();
-            blocks?.forEach((block: any) => {
+            const contributorMap = new Map<string, Uploader>();
+            (blocks as BlockRecord[] | null)?.forEach((block) => {
               if (block.asset?.uploader && !contributorMap.has(block.asset.uploader.id)) {
                 contributorMap.set(block.asset.uploader.id, block.asset.uploader);
               }
-              block.gallery_images?.forEach((galleryImage: any) => {
+              block.gallery_images?.forEach((galleryImage) => {
                 if (galleryImage.asset?.uploader && !contributorMap.has(galleryImage.asset.uploader.id)) {
                   contributorMap.set(galleryImage.asset.uploader.id, galleryImage.asset.uploader);
                 }
@@ -152,17 +194,30 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
               .eq("drop_id", dropId)
               .order("position", { ascending: true });
 
-            const posts = dropPosts?.map((dp: any) => ({
+            interface DropPostRecord {
+              position: number;
+              asset?: {
+                id: string;
+                title: string;
+                description: string | null;
+                url: string;
+                thumbnail_url: string;
+                uploader?: Uploader;
+              };
+            }
+
+            const posts = (dropPosts as DropPostRecord[] | null)?.map((dp) => ({
               ...dp.asset,
               position: dp.position,
               streams: [],
             })).filter(Boolean) || [];
 
             // Get contributors
-            const contributorMap = new Map();
-            posts.forEach((post: any) => {
-              if (post.uploader && !contributorMap.has(post.uploader.id)) {
-                contributorMap.set(post.uploader.id, post.uploader);
+            const contributorMap = new Map<string, Uploader>();
+            posts.forEach((post) => {
+              const p = post as { uploader?: Uploader };
+              if (p.uploader && !contributorMap.has(p.uploader.id)) {
+                contributorMap.set(p.uploader.id, p.uploader);
               }
             });
             contributors = Array.from(contributorMap.values());

@@ -25,7 +25,7 @@ import { EditAssetDialog } from "./edit-asset-dialog";
 import { StreamBadge } from "@/components/streams/stream-badge";
 import { useUserFollow } from "@/lib/hooks/use-user-follow";
 import { formatRelativeTime } from "@/lib/utils/time";
-import { createClient } from "@/lib/supabase/client";
+
 import type { Asset } from "@/lib/types/database";
 import {
   AlertDialog,

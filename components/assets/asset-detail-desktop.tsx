@@ -16,7 +16,7 @@ import { LikeButton } from "@/components/ui/like-button";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { KEYS } from "@/lib/constants";
-import { X, Heart, MessageCircle, Share2, Download, MoreHorizontal, Reply, Trash2, Loader2, Pencil, ExternalLink } from "lucide-react";
+import { X, MessageCircle, Share2, Download, MoreHorizontal, Reply, Trash2, Loader2, Pencil, ExternalLink } from "lucide-react";
 import { getFigmaEmbedUrl, getLoomEmbedUrl, getProviderInfo, type EmbedProvider } from "@/lib/utils/embed-providers";
 import { Badge } from "@/components/ui/badge";
 import { CommentList } from "./comment-list";
@@ -126,7 +126,7 @@ export function AssetDetailDesktop({ asset, previousAsset = null, nextAsset = nu
   const commentsSectionRef = React.useRef<HTMLDivElement>(null);
   
   // Use real hooks for comments and likes (pass server-fetched like data)
-  const { comments, addComment, updateComment, deleteComment, loading: commentsLoading } = useAssetComments(asset.id);
+  const { comments, addComment, updateComment, deleteComment } = useAssetComments(asset.id);
   const { isLiked, likeCount, toggleLike } = useAssetLike(
     asset.id,
     asset.isLikedByCurrentUser ?? false,

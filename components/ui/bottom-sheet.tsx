@@ -3,7 +3,7 @@
 import * as React from "react";
 import { motion, AnimatePresence, PanInfo } from "framer-motion";
 import { cn } from "@/lib/utils";
-import { ANIMATION_DURATION, ANIMATION_EASING } from "@/lib/constants";
+import { ANIMATION_DURATION } from "@/lib/constants";
 
 interface BottomSheetProps {
   open: boolean;

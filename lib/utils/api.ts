@@ -147,7 +147,7 @@ export function getUserFriendlyErrorMessage(error: unknown): string {
 /**
  * Debounce function to prevent rapid repeated calls
  */
-export function debounce<T extends (...args: any[]) => any>(
+export function debounce<T extends (...args: unknown[]) => unknown>(
   func: T,
   wait: number
 ): (...args: Parameters<T>) => void {
@@ -169,7 +169,7 @@ export function debounce<T extends (...args: any[]) => any>(
 /**
  * Request deduplication - prevents multiple identical requests
  */
-const pendingRequests = new Map<string, Promise<any>>();
+const pendingRequests = new Map<string, Promise<unknown>>();
 
 export async function deduplicatedRequest<T>(
   key: string,

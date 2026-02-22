@@ -128,7 +128,7 @@ export default async function DropPage({ params }: DropPageProps) {
 
   // Get streams for posts
   const postIds = posts.map((p: any) => p.id);
-  let postStreams: Record<string, any[]> = {};
+  const postStreams: Record<string, any[]> = {};
   
   if (postIds.length > 0) {
     const { data: assetStreams } = await supabase

@@ -398,7 +398,7 @@ export function StreamDialog({
                 aria-live="polite"
               >
                 <WifiOff className="h-4 w-4" aria-hidden="true" />
-                <span>You're offline. Check your connection to {isEditMode ? 'save changes' : 'create streams'}.</span>
+                <span>You&apos;re offline. Check your connection to {isEditMode ? 'save changes' : 'create streams'}.</span>
               </div>
             )}
 

@@ -86,7 +86,7 @@ export function useTypingIndicator(assetId: string): UseTypingIndicatorReturn {
           // Skip current user
           if (userId === currentUser.id) return;
           
-          const presence = presences[0] as any;
+          const presence = presences[0] as { isTyping?: boolean; username?: string; display_name?: string };
           if (presence?.isTyping) {
             users.push({
               id: userId,

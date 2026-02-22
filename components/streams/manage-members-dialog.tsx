@@ -30,7 +30,7 @@ interface ManageMembersDialogProps {
   streamOwnerId: string;
 }
 
-interface SearchUser extends Pick<User, 'id' | 'username' | 'display_name' | 'avatar_url'> {}
+type SearchUser = Pick<User, 'id' | 'username' | 'display_name' | 'avatar_url'>;
 
 export function ManageMembersDialog({ 
   open, 

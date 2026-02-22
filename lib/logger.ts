@@ -29,7 +29,7 @@ interface LogEntry {
 }
 
 const isDev = process.env.NODE_ENV === 'development';
-const isServer = typeof window === 'undefined';
+const _isServer = typeof window === 'undefined';
 
 /**
  * Format a log entry for console output

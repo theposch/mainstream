@@ -8,11 +8,12 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import { 
-  ASSET_BASE_SELECT, 
-  parseAndValidateCursor, 
+import {
+  ASSET_BASE_SELECT,
+  parseAndValidateCursor,
   buildCompositeCursor,
-  NO_CACHE_HEADERS 
+  NO_CACHE_HEADERS,
+  type RawAssetFromDB,
 } from '@/lib/api/assets';
 
 // Force dynamic rendering to prevent caching
@@ -138,7 +139,7 @@ export async function GET(request: NextRequest) {
     // Batch fetch which assets the user has liked
     let userLikedAssetIds: Set<string> = new Set();
     if (currentUser && rawAssets.length > 0) {
-      const assetIds = rawAssets.map((a: any) => a.id);
+      const assetIds = rawAssets.map((a: RawAssetFromDB) => a.id);
       const { data: userLikes } = await supabase
         .from('asset_likes')
         .select('asset_id')
@@ -151,9 +152,9 @@ export async function GET(request: NextRequest) {
     }
     
     // Transform nested data to flat structure with like status
-    const transformedAssets = rawAssets.map((asset: any) => ({
+    const transformedAssets = rawAssets.map((asset: RawAssetFromDB) => ({
       ...asset,
-      streams: asset.asset_streams?.map((rel: any) => rel.streams).filter(Boolean) || [],
+      streams: asset.asset_streams?.map((rel) => rel.streams).filter(Boolean) || [],
       asset_streams: undefined,
       likeCount: asset.asset_likes?.[0]?.count || 0,
       asset_likes: undefined,

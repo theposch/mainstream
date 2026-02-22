@@ -61,8 +61,32 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       .eq("drop_id", id)
       .order("position", { ascending: true });
 
+    interface DropPostItem {
+      position: number;
+      display_mode: string | null;
+      crop_position_x: number | null;
+      crop_position_y: number | null;
+      asset?: {
+        id: string;
+        title: string;
+        description: string | null;
+        url: string;
+        thumbnail_url: string;
+        asset_type: string;
+        embed_provider: string | null;
+        created_at: string;
+        uploader?: { id: string; username: string; display_name: string; avatar_url: string | null };
+        [key: string]: unknown;
+      };
+    }
+
+    interface StreamRef {
+      id: string;
+      name: string;
+    }
+
     // Flatten posts and get streams for each
-    const posts = dropPosts?.map((dp: any) => ({
+    const posts = (dropPosts as DropPostItem[] | null)?.map((dp) => ({
       ...dp.asset,
       position: dp.position,
       display_mode: dp.display_mode,
@@ -71,8 +95,8 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     })).filter(Boolean) || [];
 
     // Get streams for all posts
-    const postIds = posts.map((p) => p.id);
-    let postStreams: Record<string, any[]> = {};
+    const postIds = posts.map((p) => (p as { id: string }).id);
+    const postStreams: Record<string, StreamRef[]> = {};
     
     if (postIds.length > 0) {
       const { data: assetStreams } = await supabase
@@ -166,7 +190,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     const body = await request.json();
     const { title, description, status } = body;
 
-    const updates: Record<string, any> = {};
+    const updates: Record<string, string | null> = {};
     if (title !== undefined) updates.title = title?.trim() || null;
     if (description !== undefined) updates.description = description?.trim() || null;
     

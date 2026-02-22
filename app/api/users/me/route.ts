@@ -182,7 +182,15 @@ export async function PUT(request: NextRequest) {
     }
 
     // Build update object (only include provided fields)
-    const updateData: Record<string, any> = {};
+    const updateData: {
+      display_name?: string;
+      username?: string;
+      email?: string;
+      bio?: string;
+      job_title?: string;
+      location?: string;
+      avatar_url?: string;
+    } = {};
     if (finalDisplayName !== undefined) updateData.display_name = finalDisplayName;
     if (username !== undefined) updateData.username = username;
     if (email !== undefined) updateData.email = email;

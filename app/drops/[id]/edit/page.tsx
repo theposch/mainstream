@@ -62,7 +62,7 @@ export default async function EditDropPage({ params }: EditDropPageProps) {
 
   // Fetch gallery images for gallery blocks
   const galleryBlockIds = blocks?.filter((b: any) => b.type === "image_gallery").map((b: any) => b.id) || [];
-  let galleryImagesMap: Record<string, any[]> = {};
+  const galleryImagesMap: Record<string, any[]> = {};
   
   if (galleryBlockIds.length > 0) {
     const { data: galleryImages } = await supabase

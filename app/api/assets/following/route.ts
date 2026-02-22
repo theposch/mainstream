@@ -8,10 +8,11 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import { 
-  ASSET_BASE_SELECT, 
-  parseAndValidateCursor, 
-  buildCompositeCursor 
+import {
+  ASSET_BASE_SELECT,
+  parseAndValidateCursor,
+  buildCompositeCursor,
+  type RawAssetFromDB,
 } from '@/lib/api/assets';
 
 export const dynamic = 'force-dynamic';
@@ -121,7 +122,7 @@ export async function GET(request: NextRequest) {
     // Then merge and deduplicate the results
     // Request limit + 1 to accurately detect if more data exists
     const fetchLimit = limit + 1;
-    const assetQueries: PromiseLike<any>[] = [];
+    const assetQueries: PromiseLike<{ data: RawAssetFromDB[] | null; error: unknown }>[] = [];
     
     // Query for assets from followed users
     // Filter by visibility (exclude unlisted drop-only images)
@@ -231,9 +232,9 @@ export async function GET(request: NextRequest) {
     );
 
     // Merge and deduplicate results by asset ID
-    const assetMap = new Map<string, any>();
+    const assetMap = new Map<string, RawAssetFromDB>();
     queryResults.forEach(result => {
-      result.data?.forEach((asset: any) => {
+      result.data?.forEach((asset: RawAssetFromDB) => {
         if (!assetMap.has(asset.id)) {
           assetMap.set(asset.id, asset);
         }
@@ -261,7 +262,7 @@ export async function GET(request: NextRequest) {
     // Batch fetch which assets the user has liked
     let userLikedAssetIds: Set<string> = new Set();
     if (rawAssets && rawAssets.length > 0) {
-      const assetIds = rawAssets.map((a: any) => a.id);
+      const assetIds = rawAssets.map((a: RawAssetFromDB) => a.id);
       const { data: userLikes } = await supabase
         .from('asset_likes')
         .select('asset_id')
@@ -274,9 +275,9 @@ export async function GET(request: NextRequest) {
     }
     
     // Transform nested data to flat structure with like status
-    const assets = (rawAssets || []).map((asset: any) => ({
+    const assets = (rawAssets || []).map((asset: RawAssetFromDB) => ({
       ...asset,
-      streams: asset.asset_streams?.map((rel: any) => rel.streams).filter(Boolean) || [],
+      streams: asset.asset_streams?.map((rel) => rel.streams).filter(Boolean) || [],
       asset_streams: undefined,
       likeCount: asset.asset_likes?.[0]?.count || 0,
       asset_likes: undefined,
