@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   Tooltip,
@@ -47,6 +47,8 @@ export function ContributorAvatars({
   size = "default",
   className,
 }: ContributorAvatarsProps) {
+  const router = useRouter();
+
   if (!contributors || contributors.length === 0) {
     return null;
   }
@@ -60,13 +62,18 @@ export function ContributorAvatars({
       {visibleContributors.map((contributor, index) => (
         <Tooltip key={contributor.id}>
           <TooltipTrigger asChild>
-            <Link
-              href={`/u/${contributor.username}`}
+            <button
+              type="button"
               className={cn(
                 "relative rounded-full ring-2 ring-background transition-transform hover:z-10 hover:scale-110 cursor-pointer",
                 index > 0 && overlapClasses[size]
               )}
               style={{ zIndex: visibleContributors.length - index }}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                router.push(`/u/${contributor.username}`);
+              }}
             >
               <Avatar className={sizeClasses[size]}>
                 <AvatarImage
@@ -77,7 +84,7 @@ export function ContributorAvatars({
                   {getInitials(contributor.display_name)}
                 </AvatarFallback>
               </Avatar>
-            </Link>
+            </button>
           </TooltipTrigger>
           <TooltipContent side="bottom" className="text-xs">
             {contributor.display_name}
