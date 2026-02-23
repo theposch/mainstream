@@ -89,7 +89,7 @@ mainstream/
 │   └── utils/                  # Utility functions (see Utils section)
 │
 ├── scripts/
-│   └── migrations/             # Numbered SQL migration files (001–040)
+│   └── migrations/             # Numbered SQL migration files (001–042)
 │
 ├── supabase/
 │   └── config.toml             # Supabase local config
@@ -331,7 +331,7 @@ Key constants to use:
 
 ## Database Migrations
 
-Migrations are in `scripts/migrations/` numbered `001` through `040`. They must be applied in order.
+Migrations are in `scripts/migrations/` numbered `001` through `042`. They must be applied in order.
 
 Key migration milestones:
 - 001–006: Initial schema, seed data, storage, stream follows/bookmarks, FK fixes
@@ -343,6 +343,8 @@ Key migration milestones:
 - 032–033: Stream members and visibility
 - 034–036: Platform roles and admin features
 - 037–040: Drop schedules (recurring drops) and cron
+- 041: Performance indexes (composite + partial)
+- 042: Slack integration (`slack_integration` singleton table, `slack_messages` tracking table, `slack_channel_id` on `drop_schedules` and `streams`)
 
 Run migrations:
 ```bash
