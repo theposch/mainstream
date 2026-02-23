@@ -66,6 +66,16 @@ const OPTIONAL_ENV_VARS: EnvConfig[] = [
     required: false,
     description: 'LiteLLM API key for AI features',
   },
+  {
+    name: 'SLACK_CLIENT_ID',
+    required: false,
+    description: 'Slack OAuth app Client ID',
+  },
+  {
+    name: 'SLACK_CLIENT_SECRET',
+    required: false,
+    description: 'Slack OAuth app Client Secret (server-only)',
+  },
 ];
 
 /**

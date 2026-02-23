@@ -36,9 +36,10 @@ import {
   generateVideoThumbnails,
   isFFmpegAvailable,
 } from '@/lib/utils/video-processing';
-import { createClient } from '@/lib/supabase/server';
+import { createClient, createAdminClient } from '@/lib/supabase/server';
 import { logger } from '@/lib/logger';
 import { rateLimit, RATE_LIMITS } from '@/lib/utils/rate-limit';
+import { decryptToken, postMessage, getBaseUrl } from '@/lib/utils/slack';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60; // Allow up to 60 seconds for large uploads
@@ -166,13 +167,14 @@ export async function POST(request: NextRequest) {
     }
 
     // Stream IDs are optional - if provided, verify they exist
+    let validatedStreams: Array<{ id: string; name: string; slack_channel_id: string | null }> = [];
     if (streamIds && streamIds.length > 0) {
       const { data: streams, error: streamError } = await supabase
         .from('streams')
-        .select('id')
+        .select('id, name, slack_channel_id')
         .eq('status', 'active')
         .in('id', streamIds);
-      
+
       if (streamError) {
         logger.error('upload', 'Error validating streams', streamError);
         return NextResponse.json(
@@ -180,11 +182,12 @@ export async function POST(request: NextRequest) {
           { status: 500 }
         );
       }
-      
+
       // Check all stream IDs are valid
-      const validStreamIds = streams?.map(s => s.id) || [];
+      validatedStreams = (streams || []) as typeof validatedStreams;
+      const validStreamIds = validatedStreams.map(s => s.id);
       const invalidStreamIds = streamIds.filter(id => !validStreamIds.includes(id));
-      
+
       if (invalidStreamIds.length > 0) {
         return NextResponse.json(
           { error: `Invalid stream IDs: ${invalidStreamIds.join(', ')}` },
@@ -368,7 +371,48 @@ export async function POST(request: NextRequest) {
         // Don't fail the upload, just log the error
       }
     }
-    
+
+    // Post Slack notifications for streams with a configured channel
+    const streamsWithSlack = validatedStreams.filter(s => s.slack_channel_id);
+    if (streamsWithSlack.length > 0) {
+      try {
+        const adminSupabase = await createAdminClient();
+        const { data: integration } = await adminSupabase
+          .from('slack_integration')
+          .select('bot_token')
+          .limit(1)
+          .maybeSingle();
+
+        if (integration) {
+          const botToken = decryptToken(integration.bot_token);
+          const baseUrl = getBaseUrl(request);
+          const assetUrl = `${baseUrl}/e/${insertedAsset.id}`;
+
+          for (const stream of streamsWithSlack) {
+            try {
+              await postMessage(botToken, stream.slack_channel_id!, {
+                text: `📸 *${insertedAsset.title}* was uploaded to *#${stream.name}* by *${user.displayName}*`,
+                blocks: [
+                  {
+                    type: "section",
+                    text: {
+                      type: "mrkdwn",
+                      text: `📸 *<${assetUrl}|${insertedAsset.title}>* was uploaded to *#${stream.name}* by *${user.displayName}*`,
+                    },
+                  },
+                ],
+                unfurl_links: false,
+              });
+            } catch (slackErr) {
+              logger.warn('upload', `Slack notification failed for stream ${stream.id}`, slackErr);
+            }
+          }
+        }
+      } catch (slackErr) {
+        logger.warn('upload', 'Slack notification setup failed (non-fatal)', slackErr);
+      }
+    }
+
     return NextResponse.json(
       { asset: insertedAsset },
       { status: 201 }

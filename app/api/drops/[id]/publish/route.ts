@@ -1,11 +1,12 @@
 import React from "react";
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, createAdminClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import { render } from "@react-email/render";
 import { Resend } from "resend";
 import { DropView } from "@/components/drops/drop-view";
 import { EmailDropView } from "@/components/drops/blocks/email-drop-view";
+import { decryptToken, postMessage, getBaseUrl } from "@/lib/utils/slack";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -29,7 +30,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     }
 
     const body = await request.json();
-    const { notify_team = false } = body;
+    const { notify_team = false, notify_slack = false, slack_channel_id = null } = body;
 
     const supabase = await createClient();
 
@@ -271,9 +272,59 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       }
     }
 
+    // Send Slack notification if requested
+    let slackSent = false;
+    if (notify_slack && slack_channel_id) {
+      try {
+        const adminSupabase = await createAdminClient();
+        const { data: integration } = await adminSupabase
+          .from("slack_integration")
+          .select("bot_token")
+          .limit(1)
+          .maybeSingle();
+
+        if (integration) {
+          const botToken = decryptToken(integration.bot_token);
+          const baseUrl = getBaseUrl(request);
+          const dropUrl = `${baseUrl}/drops/${dropId}`;
+
+          const messageTs = await postMessage(botToken, slack_channel_id, {
+            text: `📰 *${drop.title}* has been published`,
+            blocks: [
+              {
+                type: "section",
+                text: {
+                  type: "mrkdwn",
+                  text: `📰 *<${dropUrl}|${drop.title}>* has been published`,
+                },
+              },
+            ],
+            unfurl_links: false,
+          });
+
+          // Track the message for idempotency
+          await adminSupabase.from("slack_messages").upsert(
+            {
+              resource_type: "drop",
+              resource_id: dropId,
+              channel_id: slack_channel_id,
+              message_ts: messageTs,
+            },
+            { onConflict: "resource_type,resource_id,channel_id" }
+          );
+
+          slackSent = true;
+        }
+      } catch (slackError) {
+        console.error("[Drops Publish] Slack notification error:", slackError);
+        // Don't fail the publish if Slack fails
+      }
+    }
+
     return NextResponse.json({
       drop: updatedDrop,
       email_sent: emailSent,
+      slack_sent: slackSent,
     });
   } catch (error) {
     console.error("[Drops Publish] Error:", error);

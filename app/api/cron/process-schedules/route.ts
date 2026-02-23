@@ -22,6 +22,7 @@ import {
   groupAssetsByStream,
   buildDropBlocks,
 } from "@/lib/utils/drop-content";
+import { decryptToken, postMessage, getBaseUrl } from "@/lib/utils/slack";
 
 // Only POST - GET should not trigger side effects (REST best practice)
 export async function POST(request: NextRequest) {
@@ -46,7 +47,8 @@ export async function POST(request: NextRequest) {
   const supabase = await createAdminClient();
   const processedSchedules: string[] = [];
   const errors: string[] = [];
-  
+  const baseUrl = getBaseUrl(request);
+
   try {
     // Find all active schedules that are due
     const now = new Date().toISOString();
@@ -56,23 +58,23 @@ export async function POST(request: NextRequest) {
       .eq("status", "active")
       .not("next_run_at", "is", null)
       .lte("next_run_at", now);
-    
+
     if (fetchError) {
       console.error("Error fetching due schedules:", fetchError);
       return NextResponse.json({ error: "Failed to fetch schedules" }, { status: 500 });
     }
-    
+
     if (!dueSchedules || dueSchedules.length === 0) {
-      return NextResponse.json({ 
-        message: "No schedules due", 
-        processed: 0 
+      return NextResponse.json({
+        message: "No schedules due",
+        processed: 0
       });
     }
-    
+
     // Process each due schedule
     for (const schedule of dueSchedules) {
       try {
-        await processSchedule(supabase, schedule);
+        await processSchedule(supabase, schedule, baseUrl);
         processedSchedules.push(schedule.id);
       } catch (err) {
         const errorMsg = err instanceof Error ? err.message : "Unknown error";
@@ -94,7 +96,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-async function processSchedule(supabase: SupabaseClient, schedule: DropSchedule) {
+async function processSchedule(supabase: SupabaseClient, schedule: DropSchedule, baseUrl: string) {
   // Race condition protection: Immediately claim this schedule by setting next_run_at to null
   // This prevents other cron instances from processing it simultaneously
   const originalNextRunAt = schedule.next_run_at;
@@ -105,15 +107,15 @@ async function processSchedule(supabase: SupabaseClient, schedule: DropSchedule)
     .eq("next_run_at", schedule.next_run_at) // Only update if next_run_at hasn't changed
     .select("id")
     .single();
-  
+
   if (claimError || !claimResult) {
     // Another instance already claimed this schedule, skip it
     console.log(`[processSchedule] Schedule ${schedule.id} already claimed by another instance, skipping`);
     return;
   }
-  
+
   try {
-    await processScheduleContent(supabase, schedule);
+    await processScheduleContent(supabase, schedule, baseUrl);
   } catch (err) {
     // CRITICAL: Restore next_run_at on failure to prevent orphaned schedules
     // Without this, the schedule would be stuck with next_run_at = NULL forever
@@ -130,7 +132,7 @@ async function processSchedule(supabase: SupabaseClient, schedule: DropSchedule)
  * Internal function that processes the schedule content.
  * Separated from processSchedule to allow proper error recovery of the claiming mechanism.
  */
-async function processScheduleContent(supabase: SupabaseClient, schedule: DropSchedule) {
+async function processScheduleContent(supabase: SupabaseClient, schedule: DropSchedule, baseUrl: string) {
   // Calculate date range for content
   const dateEnd = new Date();
   let dateStart: Date;
@@ -281,6 +283,48 @@ async function processScheduleContent(supabase: SupabaseClient, schedule: DropSc
     // This is more serious - schedule won't advance to next run
     console.error('[processSchedule] Failed to update schedule:', updateError);
     throw new Error(`Failed to update schedule: ${updateError.message}`);
+  }
+
+  // Post Slack notification if the schedule has a default channel configured
+  if (schedule.slack_channel_id) {
+    try {
+      const { data: integration } = await supabase
+        .from("slack_integration")
+        .select("bot_token")
+        .limit(1)
+        .maybeSingle();
+
+      if (integration) {
+        const botToken = decryptToken(integration.bot_token);
+        const dropUrl = `${baseUrl}/drops/${drop.id}`;
+
+        const messageTs = await postMessage(botToken, schedule.slack_channel_id, {
+          text: `📋 *${schedule.name}* is ready to review`,
+          blocks: [
+            {
+              type: "section",
+              text: {
+                type: "mrkdwn",
+                text: `📋 *<${dropUrl}|${schedule.name}>* is ready to review`,
+              },
+            },
+          ],
+          unfurl_links: false,
+        });
+
+        await supabase.from("slack_messages").upsert(
+          {
+            resource_type: "drop_remind",
+            resource_id: drop.id,
+            channel_id: schedule.slack_channel_id,
+            message_ts: messageTs,
+          },
+          { onConflict: "resource_type,resource_id,channel_id" }
+        );
+      }
+    } catch (slackErr) {
+      console.warn('[processSchedule] Slack notification failed (non-fatal):', slackErr);
+    }
   }
 }
 

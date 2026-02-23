@@ -20,6 +20,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Loader2, Hash, Users, Clock, Calendar } from "lucide-react";
+import type { SlackChannel } from "@/lib/utils/slack";
 import { StreamPicker } from "@/components/streams/stream-picker";
 import { UserPicker } from "@/components/users/user-picker";
 import { 
@@ -59,6 +60,11 @@ export function EditSeriesDialog({
   const [selectedStreamIds, setSelectedStreamIds] = React.useState<string[]>(schedule.stream_ids || []);
   const [selectedUserIds, setSelectedUserIds] = React.useState<string[]>(schedule.user_ids || []);
 
+  // Slack channel state
+  const [slackConnected, setSlackConnected] = React.useState(false);
+  const [slackChannels, setSlackChannels] = React.useState<SlackChannel[]>([]);
+  const [slackChannelId, setSlackChannelId] = React.useState<string>(schedule.slack_channel_id ?? "");
+
   // Reset form when schedule changes or dialog opens
   React.useEffect(() => {
     if (open) {
@@ -72,7 +78,21 @@ export function EditSeriesDialog({
       setDateRangeDays(String(schedule.date_range_days ?? 7));
       setSelectedStreamIds(schedule.stream_ids || []);
       setSelectedUserIds(schedule.user_ids || []);
+      setSlackChannelId(schedule.slack_channel_id ?? "");
       setError(null);
+
+      // Check Slack status and load channels
+      fetch("/api/slack/status")
+        .then(r => r.json())
+        .then(d => {
+          setSlackConnected(!!d.connected);
+          if (d.connected) {
+            return fetch("/api/slack/channels").then(r => r.json()).then(cd => {
+              setSlackChannels(cd.channels ?? []);
+            });
+          }
+        })
+        .catch(() => setSlackConnected(false));
     }
   }, [open, schedule]);
 
@@ -123,6 +143,7 @@ export function EditSeriesDialog({
           user_ids: selectedUserIds,
           date_range_mode: dateRangeMode,
           date_range_days: parseInt(dateRangeDays),
+          slack_channel_id: slackChannelId || null,
         }),
       });
 
@@ -348,6 +369,32 @@ export function EditSeriesDialog({
               />
             </div>
           </div>
+
+          {/* Slack channel (only shown when Slack is connected) */}
+          {slackConnected && (
+            <div className="space-y-2">
+              <Label className="text-muted-foreground flex items-center gap-2">
+                <Hash className="h-4 w-4" />
+                Slack notification channel
+              </Label>
+              <select
+                value={slackChannelId}
+                onChange={(e) => setSlackChannelId(e.target.value)}
+                disabled={isLoading}
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
+              >
+                <option value="">None (disabled)</option>
+                {slackChannels.map((ch) => (
+                  <option key={ch.id} value={ch.id}>
+                    #{ch.name}
+                  </option>
+                ))}
+              </select>
+              <p className="text-xs text-muted-foreground">
+                Notify this channel when a new drop is ready to review.
+              </p>
+            </div>
+          )}
 
           {/* Error */}
           {error && (

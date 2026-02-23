@@ -172,6 +172,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     }
     if (body.stream_ids !== undefined) updates.stream_ids = body.stream_ids;
     if (body.user_ids !== undefined) updates.user_ids = body.user_ids;
+    if (body.slack_channel_id !== undefined) updates.slack_channel_id = body.slack_channel_id ?? null;
     if (body.date_range_mode !== undefined) {
       if (!['last_n_days', 'since_last'].includes(body.date_range_mode)) {
         return NextResponse.json({ error: "Invalid date_range_mode value" }, { status: 400 });

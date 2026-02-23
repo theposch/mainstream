@@ -152,13 +152,14 @@ export async function PUT(request: NextRequest, context: RouteContext) {
     }
 
     const body = await request.json();
-    const { name, description, is_private, cover_image_url } = body;
-    
+    const { name, description, is_private, cover_image_url, slack_channel_id } = body;
+
     const updates: {
       name?: string;
       description?: string | null;
       is_private?: boolean;
       cover_image_url?: string | null;
+      slack_channel_id?: string | null;
       updated_at?: string;
     } = {};
 
@@ -238,6 +239,10 @@ export async function PUT(request: NextRequest, context: RouteContext) {
 
     if (cover_image_url !== undefined) {
       updates.cover_image_url = cover_image_url || null;
+    }
+
+    if (slack_channel_id !== undefined) {
+      updates.slack_channel_id = slack_channel_id || null;
     }
 
     updates.updated_at = new Date().toISOString();

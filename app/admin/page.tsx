@@ -5,10 +5,11 @@ import { useUser } from "@/lib/auth/use-user";
 import { UserTable } from "@/components/admin/user-table";
 import { AnalyticsDashboard } from "@/components/admin/analytics-dashboard";
 import { StreamsTab } from "@/components/admin/streams-tab";
-import { Loader2, Shield, Users, BarChart3, Layers } from "lucide-react";
+import { SlackTab } from "@/components/admin/slack-tab";
+import { Loader2, Shield, Users, BarChart3, Layers, Slack } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-type AdminTab = "users" | "analytics" | "streams";
+type AdminTab = "users" | "analytics" | "streams" | "slack";
 
 export default function AdminPage() {
   const { user, loading } = useUser();
@@ -41,6 +42,7 @@ export default function AdminPage() {
     { id: "users" as const, label: "Users", icon: Users },
     { id: "streams" as const, label: "Streams", icon: Layers },
     { id: "analytics" as const, label: "Analytics", icon: BarChart3 },
+    { id: "slack" as const, label: "Slack", icon: Slack },
   ];
 
   return (
@@ -89,6 +91,7 @@ export default function AdminPage() {
       {activeTab === "users" && <UserTable currentUser={user} />}
       {activeTab === "streams" && <StreamsTab />}
       {activeTab === "analytics" && <AnalyticsDashboard />}
+      {activeTab === "slack" && <SlackTab />}
     </div>
   );
 }
