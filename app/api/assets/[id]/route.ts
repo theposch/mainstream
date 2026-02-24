@@ -401,12 +401,10 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
       );
     }
 
-    // Delete physical files from storage
-    // Extract filename from URL (e.g., /uploads/full/1234567890-abc123.jpg)
+    // Delete files from storage (Supabase Storage or legacy local path)
     try {
-      const filename = asset.url.split('/').pop();
-      if (filename) {
-        await deleteUploadedFiles(filename);
+      if (asset.url) {
+        await deleteUploadedFiles(asset.url);
       }
     } catch (fileError) {
       // Log but don't fail the request if file deletion fails

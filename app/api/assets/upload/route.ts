@@ -216,18 +216,18 @@ export async function POST(request: NextRequest) {
       const ffmpegAvailable = await isFFmpegAvailable();
       
       // Save the WebM file directly (no transcoding needed)
-      fullUrl = await saveImageToPublic(buffer, uniqueFilename, 'full', '.webm');
-      
+      fullUrl = await saveImageToPublic(buffer, uniqueFilename, 'full', '.webm', user.id);
+
       if (ffmpegAvailable) {
         try {
           // Generate thumbnail images from video (extract frame at 1 second)
           logger.debug('upload', 'Generating video thumbnails...');
           const { medium, thumbnail, metadata: videoMeta } = await generateVideoThumbnails(buffer, 1);
-          
+
           // Save thumbnail images (JPEG format)
           [mediumUrl, thumbnailUrl] = await Promise.all([
-            saveImageToPublic(medium, uniqueFilename, 'medium', '.jpg'),
-            saveImageToPublic(thumbnail, uniqueFilename, 'thumbnails', '.jpg'),
+            saveImageToPublic(medium, uniqueFilename, 'medium', '.jpg', user.id),
+            saveImageToPublic(thumbnail, uniqueFilename, 'thumbnails', '.jpg', user.id),
           ]);
           
           // Use video metadata for dimensions
@@ -287,16 +287,17 @@ export async function POST(request: NextRequest) {
         ]);
       }
 
-      // Save to filesystem
+      // Save to Supabase Storage
       // Note: For animated GIFs, thumbnails are JPEG (static first frame), so override extension
       [fullUrl, mediumUrl, thumbnailUrl] = await Promise.all([
-        saveImageToPublic(fullBuffer, uniqueFilename, 'full'),
-        saveImageToPublic(mediumBuffer, uniqueFilename, 'medium'),
+        saveImageToPublic(fullBuffer, uniqueFilename, 'full', undefined, user.id),
+        saveImageToPublic(mediumBuffer, uniqueFilename, 'medium', undefined, user.id),
         saveImageToPublic(
-          thumbnailBuffer, 
-          uniqueFilename, 
+          thumbnailBuffer,
+          uniqueFilename,
           'thumbnails',
-          metadata.isAnimated ? '.jpg' : undefined  // GIF thumbnails are JPEG
+          metadata.isAnimated ? '.jpg' : undefined, // GIF thumbnails are JPEG
+          user.id
         ),
       ]);
     }

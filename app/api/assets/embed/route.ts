@@ -33,31 +33,31 @@ export const dynamic = 'force-dynamic';
  * Downloads an image from a URL and saves it locally
  * Returns the local path or null if failed
  */
-async function downloadAndSaveThumbnail(imageUrl: string): Promise<string | null> {
+async function downloadAndSaveThumbnail(imageUrl: string, userId?: string): Promise<string | null> {
   try {
     logger.debug('embed', 'Downloading thumbnail', { imageUrl });
-    
+
     const response = await fetch(imageUrl);
     if (!response.ok) {
       logger.warn('embed', 'Failed to fetch thumbnail', { status: response.status });
       return null;
     }
-    
+
     const arrayBuffer = await response.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
-    
+
     // Process with Sharp - optimize and convert to JPEG
     const processed = await sharp(buffer)
       .resize(1200, 1200, { fit: 'inside', withoutEnlargement: true })
       .jpeg({ quality: 85 })
       .toBuffer();
-    
-    // Generate unique filename and save
+
+    // Generate unique filename and save to Supabase Storage
     const filename = generateUniqueFilename('embed-thumb.jpg');
-    const localPath = await saveImageToPublic(processed, filename, 'thumbnails');
-    
-    logger.debug('embed', 'Thumbnail saved', { localPath });
-    return localPath;
+    const storagePath = await saveImageToPublic(processed, filename, 'thumbnails', undefined, userId);
+
+    logger.debug('embed', 'Thumbnail saved', { storagePath });
+    return storagePath;
   } catch (error) {
     logger.error('embed', 'Failed to download and save thumbnail', error);
     return null;
@@ -229,7 +229,7 @@ export async function POST(request: NextRequest) {
     // Download and save thumbnail locally (never expires, fully under our control)
     let localThumbnailPath: string | null = null;
     if (thumbnailUrl) {
-      localThumbnailPath = await downloadAndSaveThumbnail(thumbnailUrl);
+      localThumbnailPath = await downloadAndSaveThumbnail(thumbnailUrl, user.id);
 
       if (localThumbnailPath) {
         thumbnailUrl = localThumbnailPath; // Use local path instead of CDN URL
