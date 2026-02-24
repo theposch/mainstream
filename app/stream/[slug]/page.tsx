@@ -235,13 +235,18 @@ export default async function StreamPage({ params }: StreamPageProps) {
   // Current user profile for permission checks
   const currentUserProfile = currentUserProfileResult.data as User | null;
 
+  const assetCreatedAts = streamAssets
+    .map((a: any) => a.created_at as string | undefined)
+    .filter((ts): ts is string => Boolean(ts));
+
   return (
     <div className="w-full min-h-screen">
-      <StreamHeader 
-        stream={stream} 
+      <StreamHeader
+        stream={stream}
         initialFollowData={initialFollowData}
         initialBookmarks={initialBookmarks}
         currentUser={currentUserProfile}
+        assetCreatedAts={assetCreatedAts}
       />
       
       <StreamPageContent assets={streamAssets} />

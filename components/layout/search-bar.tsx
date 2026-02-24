@@ -91,7 +91,7 @@ export function SearchBar() {
 
   return (
     <div ref={containerRef} className={cn(
-      "relative max-w-sm w-full mx-auto group transition-all duration-300 ease-out",
+      "relative max-w-sm w-full mx-auto group transition-all duration-500 [transition-timing-function:cubic-bezier(0.34,1.56,0.64,1)]",
       isInputFocused && "max-w-lg"
     )}>
       <form onSubmit={handleSubmit}>

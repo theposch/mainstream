@@ -1,4 +1,5 @@
 import React from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { CommentItem } from "./comment-item";
 import { useCommentLikesManager } from "@/lib/hooks/use-comment-likes-manager";
@@ -82,6 +83,30 @@ export const CommentList = React.memo(function CommentList({
     return { topLevelComments: topLevel, repliesMap, userMap };
   }, [comments]);
 
+  // Tracks which top-level comment threads have their replies expanded.
+  // Virtualized mode always shows replies; this state only affects non-virtualized rendering.
+  const [expandedThreads, setExpandedThreads] = React.useState<Set<string>>(new Set());
+
+  const toggleThread = React.useCallback((commentId: string) => {
+    setExpandedThreads(prev => {
+      const next = new Set(prev);
+      if (next.has(commentId)) next.delete(commentId);
+      else next.add(commentId);
+      return next;
+    });
+  }, []);
+
+  // Auto-expand the thread that contains the highlighted reply
+  React.useEffect(() => {
+    if (!highlightedCommentId) return;
+    for (const [parentId, replies] of repliesMap) {
+      if (replies.some(r => r.id === highlightedCommentId)) {
+        setExpandedThreads(prev => new Set([...prev, parentId]));
+        return;
+      }
+    }
+  }, [highlightedCommentId, repliesMap]);
+
   // Parent ref for virtualized scrolling
   const parentRef = React.useRef<HTMLDivElement>(null);
 
@@ -113,11 +138,36 @@ export const CommentList = React.memo(function CommentList({
     );
   }
 
-  // Render a single comment thread (parent + replies)
-  const renderCommentThread = (comment: Comment, _index: number) => {
+  // Render a single comment thread (parent + replies).
+  // When `animate` is true (non-virtualized), replies use a toggle + slide-down animation.
+  // When `animate` is false (virtualized), replies are always visible to keep row heights stable.
+  const renderCommentThread = (comment: Comment, _index: number, animate = false) => {
     const replies = repliesMap.get(comment.id) || [];
     const author = userMap.get(comment.user_id);
     const likeState = getLikeState(comment.id);
+    const isExpanded = !animate || expandedThreads.has(comment.id);
+
+    const replyList = (
+      <div className="pl-11 space-y-3 relative before:absolute before:left-[22px] before:top-0 before:bottom-4 before:w-px before:bg-border">
+        {replies.map((reply) => (
+          <CommentItem
+            key={reply.id}
+            comment={reply}
+            author={userMap.get(reply.user_id)}
+            currentUser={currentUser}
+            onReply={onReply}
+            onEdit={onEdit}
+            onStartEdit={onStartEdit}
+            onDelete={onDelete}
+            likeState={getLikeState(reply.id)}
+            onToggleLike={toggleLike}
+            isEditing={editingCommentId === reply.id}
+            onCancelEdit={onCancelEdit}
+            isHighlighted={highlightedCommentId === reply.id}
+          />
+        ))}
+      </div>
+    );
 
     return (
       <div key={comment.id} className="space-y-3">
@@ -139,35 +189,42 @@ export const CommentList = React.memo(function CommentList({
 
         {/* Replies */}
         {replies.length > 0 && (
-          <div className="pl-11 space-y-3 relative before:absolute before:left-[22px] before:top-0 before:bottom-4 before:w-px before:bg-border">
-            {replies.map((reply) => (
-              <CommentItem
-                key={reply.id}
-                comment={reply}
-                author={userMap.get(reply.user_id)}
-                currentUser={currentUser}
-                onReply={onReply}
-                onEdit={onEdit}
-                onStartEdit={onStartEdit}
-                onDelete={onDelete}
-                likeState={getLikeState(reply.id)}
-                onToggleLike={toggleLike}
-                isEditing={editingCommentId === reply.id}
-                onCancelEdit={onCancelEdit}
-                isHighlighted={highlightedCommentId === reply.id}
-              />
-            ))}
-          </div>
+          animate ? (
+            <>
+              <button
+                onClick={() => toggleThread(comment.id)}
+                className="ml-11 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
+              >
+                {isExpanded
+                  ? 'Hide replies'
+                  : `Show ${replies.length} ${replies.length === 1 ? 'reply' : 'replies'}`}
+              </button>
+              <AnimatePresence initial={false}>
+                {isExpanded && (
+                  <motion.div
+                    key="replies"
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.22, ease: 'easeInOut' }}
+                    className="overflow-hidden"
+                  >
+                    {replyList}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </>
+          ) : replyList
         )}
       </div>
     );
   };
 
-  // Non-virtualized rendering for small comment lists
+  // Non-virtualized rendering for small comment lists (animated replies)
   if (!shouldVirtualize) {
     return (
       <div className="space-y-6">
-        {topLevelComments.map((comment, index) => renderCommentThread(comment, index))}
+        {topLevelComments.map((comment, index) => renderCommentThread(comment, index, true))}
       </div>
     );
   }

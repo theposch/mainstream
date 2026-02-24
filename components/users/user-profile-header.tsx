@@ -5,7 +5,8 @@ import dynamic from "next/dynamic";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { useUserFollow } from "@/lib/hooks/use-user-follow";
-import { Pencil, UserPlus, UserMinus, MapPin, Briefcase } from "lucide-react";
+import { Pencil, UserPlus, MapPin, Briefcase, Check } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 
 // Dynamic import for EditProfileDialog - only loaded when opened
 const EditProfileDialog = dynamic(
@@ -107,24 +108,47 @@ export function UserProfileHeader({
               Edit Profile
             </Button>
           ) : (
-            <Button
-              variant={isFollowing ? "outline" : "default"}
-              onClick={toggleFollow}
-              disabled={loading}
-              className="gap-2 h-9 px-4 text-sm font-medium"
-            >
+            <AnimatePresence mode="wait">
               {isFollowing ? (
-                <>
-                  <UserMinus className="h-3.5 w-3.5" />
-                  Unfollow
-                </>
+                <motion.button
+                  key="following-pill"
+                  initial={{ opacity: 0, scale: 0.85 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.85 }}
+                  transition={{ type: "spring", stiffness: 420, damping: 26 }}
+                  onClick={toggleFollow}
+                  disabled={loading}
+                  className="inline-flex items-center gap-2 h-9 px-4 rounded-full border border-border bg-secondary text-sm font-medium text-secondary-foreground hover:bg-secondary/80 transition-colors disabled:opacity-50"
+                >
+                  <Avatar className="h-5 w-5 shrink-0">
+                    <AvatarImage src={user.avatar_url} />
+                    <AvatarFallback className="text-[10px]">
+                      {user.display_name?.substring(0, 1).toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                  <Check className="h-3.5 w-3.5 text-green-500 shrink-0" />
+                  Following
+                </motion.button>
               ) : (
-                <>
-                  <UserPlus className="h-3.5 w-3.5" />
-                  Follow
-                </>
+                <motion.div
+                  key="follow-btn"
+                  initial={{ opacity: 0, scale: 0.85 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.85 }}
+                  transition={{ type: "spring", stiffness: 420, damping: 26 }}
+                >
+                  <Button
+                    variant="default"
+                    onClick={toggleFollow}
+                    disabled={loading}
+                    className="gap-2 h-9 px-4 text-sm font-medium"
+                  >
+                    <UserPlus className="h-3.5 w-3.5" />
+                    Follow
+                  </Button>
+                </motion.div>
               )}
-            </Button>
+            </AnimatePresence>
           )}
         </div>
       </div>

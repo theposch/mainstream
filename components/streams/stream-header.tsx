@@ -17,6 +17,7 @@ import {
   Pencil,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { motion, AnimatePresence } from "framer-motion";
 import { useStreamFollow, type InitialFollowData } from "@/lib/hooks/use-stream-follow";
 import { useStreamBookmarks, extractDomain, getFaviconUrl, type BookmarkWithCreator } from "@/lib/hooks/use-stream-bookmarks";
 import { useStreamMembers, type InitialMembersData } from "@/lib/hooks/use-stream-members";
@@ -63,16 +64,46 @@ interface StreamHeaderProps {
   initialMembersData?: InitialMembersData;
   /** Server-prefetched current user - avoids client-side fetch */
   currentUser?: User | null;
+  /** ISO timestamps of assets in the stream, used to compute "new since last visit" count */
+  assetCreatedAts?: string[];
 }
 
-export const StreamHeader = React.memo(function StreamHeader({ 
-  stream, 
+export const StreamHeader = React.memo(function StreamHeader({
+  stream,
   initialFollowData,
   initialBookmarks,
   initialMembersData,
   currentUser,
+  assetCreatedAts,
 }: StreamHeaderProps) {
   const router = useRouter();
+
+  // ── "New since last visit" badge ───────────────────────────────────────────
+  const [newCount, setNewCount] = React.useState(0);
+  const [newCountDismissed, setNewCountDismissed] = React.useState(false);
+
+  React.useEffect(() => {
+    if (!assetCreatedAts?.length) return;
+    const key = `stream-last-visit-${stream.id}`;
+    const lastVisitStr = localStorage.getItem(key);
+    // Always update the stored timestamp on each visit
+    localStorage.setItem(key, new Date().toISOString());
+    if (!lastVisitStr) return; // First visit — no badge
+    const lastVisit = new Date(lastVisitStr);
+    const count = assetCreatedAts.filter(ts => new Date(ts) > lastVisit).length;
+    setNewCount(count);
+  }, [stream.id, assetCreatedAts]);
+
+  // Dismiss badge once the user scrolls past the header
+  React.useEffect(() => {
+    if (!newCount || newCountDismissed) return;
+    const onScroll = () => { if (window.scrollY > 160) setNewCountDismissed(true); };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, [newCount, newCountDismissed]);
+
+  const showNewBadge = newCount > 0 && !newCountDismissed;
+  // ───────────────────────────────────────────────────────────────────────────
   const [showDeleteDialog, setShowDeleteDialog] = React.useState(false);
   const [isDeleting, setIsDeleting] = React.useState(false);
   const [uploadDialogOpen, setUploadDialogOpen] = React.useState(false);
@@ -265,7 +296,21 @@ export const StreamHeader = React.memo(function StreamHeader({
             </span>
             <span>•</span>
             <span>{assetCount} {assetCount === 1 ? 'post' : 'posts'}</span>
-            
+
+            <AnimatePresence>
+              {showNewBadge && (
+                <motion.span
+                  initial={{ opacity: 0, scale: 0.75 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.75 }}
+                  transition={{ type: 'spring', stiffness: 400, damping: 22 }}
+                  className="inline-flex items-center px-2 py-0.5 rounded-full bg-primary text-primary-foreground text-[11px] font-semibold"
+                >
+                  {newCount} new
+                </motion.span>
+              )}
+            </AnimatePresence>
+
             {/* Archived Badge */}
             {stream.status === 'archived' && (
               <>

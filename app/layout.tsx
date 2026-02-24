@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { ConditionalNavbar } from "@/components/layout/conditional-navbar";
+import { GlobalFileDropOverlay } from "@/components/layout/global-file-drop-overlay";
 import { ErrorBoundary } from "@/components/error-boundary";
 import { SearchProvider } from "@/lib/contexts/search-context";
 import { QueryProvider } from "@/lib/providers/query-provider";
@@ -39,6 +40,7 @@ export default function RootLayout({
             Skip to main content
           </a>
           
+          <GlobalFileDropOverlay />
           <ConditionalNavbar />
           
           <ErrorBoundary>

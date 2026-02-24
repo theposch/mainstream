@@ -92,6 +92,16 @@ const NotificationItem = React.memo(function NotificationItem({
 export function NotificationsPopover() {
   const { notifications, unreadCount, markAsRead, markAllAsRead, loading } = useNotifications();
   const [isOpen, setIsOpen] = React.useState(false);
+  const [isRinging, setIsRinging] = React.useState(false);
+  const prevUnreadCountRef = React.useRef(unreadCount);
+
+  // Ring the bell whenever unread count increases
+  React.useEffect(() => {
+    if (unreadCount > prevUnreadCountRef.current) {
+      setIsRinging(true);
+    }
+    prevUnreadCountRef.current = unreadCount;
+  }, [unreadCount]);
 
   const handleMarkAsRead = React.useCallback(async (id: string) => {
     await markAsRead(id);
@@ -185,7 +195,10 @@ export function NotificationsPopover() {
     <Popover open={isOpen} onOpenChange={setIsOpen}>
       <PopoverTrigger asChild>
         <Button variant="ghost" size="icon" className="relative text-muted-foreground hover:text-foreground">
-          <Bell className="h-5 w-5" />
+          <Bell
+            className={cn("h-5 w-5 origin-top", isRinging && "animate-bell-ring")}
+            onAnimationEnd={() => setIsRinging(false)}
+          />
           {unreadCount > 0 && (
             <span className="absolute top-2 right-2 h-2 w-2 rounded-full bg-red-500 border-2 border-background" />
           )}

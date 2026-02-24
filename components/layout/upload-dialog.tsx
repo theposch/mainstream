@@ -21,9 +21,11 @@ interface UploadDialogProps {
   onOpenChange: (open: boolean) => void;
   /** Pre-select a stream when opening from a stream page */
   initialStreamId?: string;
+  /** Pre-load a file (e.g. from a global drag-and-drop) */
+  initialFile?: File;
 }
 
-export function UploadDialog({ open, onOpenChange, initialStreamId }: UploadDialogProps) {
+export function UploadDialog({ open, onOpenChange, initialStreamId, initialFile }: UploadDialogProps) {
   const router = useRouter();
   const [isLoading, setIsLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
@@ -76,7 +78,7 @@ export function UploadDialog({ open, onOpenChange, initialStreamId }: UploadDial
     }
   };
 
-  const handleFileSelect = (selectedFile: File) => {
+  const handleFileSelect = React.useCallback((selectedFile: File) => {
     setError(null);
 
     // Validate file type (images and WebM videos)
@@ -110,7 +112,14 @@ export function UploadDialog({ open, onOpenChange, initialStreamId }: UploadDial
       }
     };
     reader.readAsDataURL(selectedFile);
-  };
+  }, []);
+
+  // When opened with a pre-provided file (e.g. from global drag-and-drop), load it immediately
+  React.useEffect(() => {
+    if (open && initialFile) {
+      handleFileSelect(initialFile);
+    }
+  }, [open, initialFile, handleFileSelect]);
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
@@ -167,6 +176,8 @@ export function UploadDialog({ open, onOpenChange, initialStreamId }: UploadDial
     }
 
     setIsLoading(true);
+    // Signal masonry grids to show an upload skeleton while we wait
+    window.dispatchEvent(new CustomEvent('upload-start', { detail: { preview } }));
 
     try {
       // Create pending streams first using shared hook
@@ -213,7 +224,12 @@ export function UploadDialog({ open, onOpenChange, initialStreamId }: UploadDial
       // Success! Close dialog and refresh current page
       onOpenChange(false);
       triggerSmallConfetti();
-      
+
+      // Mark the new asset so its card drops in from above instead of below
+      if (data.asset?.id) {
+        try { sessionStorage.setItem('newAssetId', data.asset.id); } catch { /* ignore */ }
+      }
+
       // Dispatch custom event to notify other components of new upload
       window.dispatchEvent(new CustomEvent('asset-uploaded', { detail: { asset: data.asset } }));
       

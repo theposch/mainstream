@@ -73,6 +73,17 @@ export const ElementCard = React.memo(
     }
   }, [toggleLike, isLiked, asset.id, onLikeChange]);
 
+  // If this is the most recently uploaded asset, animate it dropping in from above
+  // instead of rising from below. The id is stored in sessionStorage by the upload dialog.
+  const isNewlyUploaded = React.useMemo(() => {
+    try {
+      return typeof sessionStorage !== 'undefined' &&
+        sessionStorage.getItem('newAssetId') === asset.id;
+    } catch {
+      return false;
+    }
+  }, [asset.id]);
+
   // Memoize relative time to prevent Date object creation on every render
   // Only recalculates when asset.created_at changes
   const relativeTime = React.useMemo(
@@ -146,9 +157,14 @@ export const ElementCard = React.memo(
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 20 }}
+      initial={{ opacity: 0, y: isNewlyUploaded ? -30 : 20 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3 }}
+      transition={{ duration: 0.35, ease: isNewlyUploaded ? [0.22, 1, 0.36, 1] : 'easeOut' }}
+      onAnimationComplete={() => {
+        if (isNewlyUploaded) {
+          try { sessionStorage.removeItem('newAssetId'); } catch { /* ignore */ }
+        }
+      }}
       className={cn(
         "relative group break-inside-avoid w-full",
         layout === 'detailed' && "flex flex-col gap-3 p-3 rounded-2xl border border-border bg-card/50 hover:bg-card hover:border-border/80 transition-colors",
