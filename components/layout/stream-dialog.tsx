@@ -6,12 +6,13 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Loader2, Lock, Globe, WifiOff, Hash, CheckCircle2, XCircle, Pencil } from "lucide-react";
+import { Loader2, Lock, Globe, WifiOff, Hash, CheckCircle2, XCircle, Pencil, Slack } from "lucide-react";
 import { STREAM_VALIDATION } from "@/lib/constants/streams";
 import { fetchWithRetry, getUserFriendlyErrorMessage, isOnline, deduplicatedRequest } from "@/lib/utils/api";
 import { isValidSlug } from "@/lib/utils/slug";
 import { createClient } from "@/lib/supabase/client";
 import type { Stream, User } from "@/lib/types/database";
+import type { SlackChannel } from "@/lib/utils/slack";
 
 interface StreamDialogProps {
   open: boolean;
@@ -57,6 +58,12 @@ export function StreamDialog({
 
   // Track original name for edit mode
   const originalName = React.useRef<string>("");
+
+  // Slack channel state (edit mode only)
+  const [slackConnected, setSlackConnected] = React.useState(false);
+  const [slackChannels, setSlackChannels] = React.useState<SlackChannel[]>([]);
+  const [slackChannelId, setSlackChannelId] = React.useState<string>("");
+  const [loadingSlackChannels, setLoadingSlackChannels] = React.useState(false);
 
   const isEditMode = mode === 'edit';
 
@@ -119,9 +126,31 @@ export function StreamDialog({
       setName(stream.name);
       setDescription(stream.description || "");
       setIsPrivate(stream.is_private);
+      setSlackChannelId(stream.slack_channel_id ?? "");
       originalName.current = stream.name;
       // Set initial validation state for edit mode
       setValidationState({ isValid: true, message: '', type: 'idle' });
+
+      // Load Slack status + channels for the channel picker
+      const loadSlack = async () => {
+        setLoadingSlackChannels(true);
+        try {
+          const statusRes = await fetch("/api/slack/status");
+          if (!statusRes.ok) return;
+          const statusData = await statusRes.json();
+          setSlackConnected(!!statusData.connected);
+          if (statusData.connected) {
+            const channelsRes = await fetch("/api/slack/channels");
+            if (channelsRes.ok) {
+              const channelsData = await channelsRes.json();
+              setSlackChannels(channelsData.channels ?? []);
+            }
+          }
+        } finally {
+          setLoadingSlackChannels(false);
+        }
+      };
+      loadSlack();
     }
   }, [open, isEditMode, stream]);
 
@@ -224,6 +253,9 @@ export function StreamDialog({
       setUserFetchError(false);
       setValidationState({ isValid: false, message: '', type: 'idle' });
       originalName.current = "";
+      setSlackConnected(false);
+      setSlackChannels([]);
+      setSlackChannelId("");
     }
   }, [open]);
 
@@ -282,6 +314,7 @@ export function StreamDialog({
               name: trimmedName,
               description: description.trim() || null,
               is_private: isPrivate,
+              slack_channel_id: slackChannelId || null,
             }),
           },
           {
@@ -518,9 +551,43 @@ export function StreamDialog({
               </button>
             </div>
 
+            {/* Slack Channel (edit mode only) */}
+            {isEditMode && slackConnected && (
+              <div className="grid gap-2">
+                <Label htmlFor="slack-channel" className="text-foreground flex items-center gap-2">
+                  <Slack className="h-4 w-4" />
+                  Slack Notifications
+                </Label>
+                {loadingSlackChannels ? (
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    Loading channels…
+                  </div>
+                ) : (
+                  <select
+                    id="slack-channel"
+                    value={slackChannelId}
+                    onChange={(e) => setSlackChannelId(e.target.value)}
+                    disabled={isLoading}
+                    className="flex h-9 w-full rounded-md border border-border bg-background px-3 py-1 text-sm text-foreground shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    <option value="">No channel (disabled)</option>
+                    {slackChannels.map((ch) => (
+                      <option key={ch.id} value={ch.id}>
+                        #{ch.name}
+                      </option>
+                    ))}
+                  </select>
+                )}
+                <p className="text-xs text-muted-foreground">
+                  Post to this channel when new assets are uploaded to this stream.
+                </p>
+              </div>
+            )}
+
             {/* Error Message */}
             {error && (
-              <div 
+              <div
                 className="rounded-md bg-destructive/10 p-3 text-sm text-destructive"
                 role="alert"
                 aria-live="assertive"

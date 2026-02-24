@@ -71,6 +71,7 @@ export async function POST(request: NextRequest) {
       date_range_mode = "last_n_days",
       date_range_days = 7,
       generate_now = false, // Option to generate first draft immediately
+      slack_channel_id = null,
     } = body;
     
     // Validate required fields
@@ -139,6 +140,7 @@ export async function POST(request: NextRequest) {
         date_range_days: validatedDateRangeDays,
         status: "active",
         next_run_at: nextRunAt.toISOString(),
+        slack_channel_id: slack_channel_id || null,
       })
       .select()
       .single();

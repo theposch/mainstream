@@ -1,14 +1,16 @@
 /**
  * Slack integration utilities
  *
- * Handles Slack OAuth, API calls, and bot token encryption/decryption.
- * The bot token is stored AES-256-GCM encrypted in the slack_integration table.
+ * Handles Slack OAuth, API calls, and bot token/credential encryption.
+ * Credentials can come from environment variables OR from the database
+ * (allowing admin-only configuration via the admin panel).
  */
 
 import crypto from "crypto";
 
-const SLACK_CLIENT_ID = process.env.SLACK_CLIENT_ID;
-const SLACK_CLIENT_SECRET = process.env.SLACK_CLIENT_SECRET;
+// Module-level env var fallbacks (used when DB config is not present)
+const ENV_CLIENT_ID = process.env.SLACK_CLIENT_ID;
+const ENV_CLIENT_SECRET = process.env.SLACK_CLIENT_SECRET;
 
 // ─── Error ────────────────────────────────────────────────────────────────────
 
@@ -23,14 +25,39 @@ export class SlackError extends Error {
   }
 }
 
-// ─── Config check ─────────────────────────────────────────────────────────────
+// ─── Credentials ──────────────────────────────────────────────────────────────
 
-/** Returns true if SLACK_CLIENT_ID and SLACK_CLIENT_SECRET are both set. */
-export function isSlackConfigured(): boolean {
-  return !!(SLACK_CLIENT_ID && SLACK_CLIENT_SECRET);
+export interface SlackCredentials {
+  clientId: string;
+  clientSecret: string;
 }
 
-// ─── Token encryption (AES-256-GCM) ──────────────────────────────────────────
+/**
+ * Returns true if the env-var credentials are set.
+ * Use isSlackCredentialsReady() to check including DB credentials.
+ */
+export function isSlackConfigured(): boolean {
+  return !!(ENV_CLIENT_ID && ENV_CLIENT_SECRET);
+}
+
+/**
+ * Resolves the active credentials — caller provides DB creds if available.
+ * Env vars take precedence so admins can always override via deployment config.
+ */
+export function resolveCredentials(dbCreds?: SlackCredentials | null): SlackCredentials {
+  if (ENV_CLIENT_ID && ENV_CLIENT_SECRET) {
+    return { clientId: ENV_CLIENT_ID, clientSecret: ENV_CLIENT_SECRET };
+  }
+  if (dbCreds?.clientId && dbCreds?.clientSecret) {
+    return dbCreds;
+  }
+  throw new SlackError(
+    "Slack credentials are not configured. Add SLACK_CLIENT_ID + SLACK_CLIENT_SECRET or configure via Admin → Slack.",
+    "missing_credentials"
+  );
+}
+
+// ─── Token / credential encryption (AES-256-GCM) ─────────────────────────────
 
 function getEncryptionKey(): Buffer {
   const key = process.env.ENCRYPTION_KEY;
@@ -43,7 +70,7 @@ function getEncryptionKey(): Buffer {
   return Buffer.from(key, "hex");
 }
 
-/** Encrypt a Slack bot token. Returns "iv:tag:ciphertext" (hex-encoded). */
+/** Encrypt a value (bot token or client secret). Returns "iv:tag:ciphertext" hex. */
 export function encryptToken(token: string): string {
   const key = getEncryptionKey();
   const iv = crypto.randomBytes(12); // 96-bit IV for GCM
@@ -53,7 +80,7 @@ export function encryptToken(token: string): string {
   return `${iv.toString("hex")}:${tag.toString("hex")}:${encrypted.toString("hex")}`;
 }
 
-/** Decrypt a previously encrypted token. Expects "iv:tag:ciphertext" (hex). */
+/** Decrypt a value encrypted with encryptToken(). */
 export function decryptToken(encrypted: string): string {
   const key = getEncryptionKey();
   const parts = encrypted.split(":");
@@ -73,10 +100,18 @@ export function decryptToken(encrypted: string): string {
 
 const SLACK_BOT_SCOPES = ["chat:write", "channels:read", "groups:read"].join(",");
 
-/** Build the Slack OAuth authorization URL. */
-export function buildOAuthUrl(redirectUri: string, state: string): string {
+/**
+ * Build the Slack OAuth authorization URL.
+ * Pass dbCreds when using credentials stored in the database.
+ */
+export function buildOAuthUrl(
+  redirectUri: string,
+  state: string,
+  dbCreds?: SlackCredentials | null
+): string {
+  const { clientId } = resolveCredentials(dbCreds);
   const params = new URLSearchParams({
-    client_id: SLACK_CLIENT_ID!,
+    client_id: clientId,
     scope: SLACK_BOT_SCOPES,
     redirect_uri: redirectUri,
     state,
@@ -90,14 +125,19 @@ export interface SlackOAuthResult {
   bot_user_id: string;
 }
 
-/** Exchange an OAuth authorization code for a bot access token. */
+/**
+ * Exchange an OAuth authorization code for a bot access token.
+ * Pass dbCreds when using credentials stored in the database.
+ */
 export async function exchangeCodeForToken(
   code: string,
-  redirectUri: string
+  redirectUri: string,
+  dbCreds?: SlackCredentials | null
 ): Promise<SlackOAuthResult> {
+  const { clientId, clientSecret } = resolveCredentials(dbCreds);
   const params = new URLSearchParams({
-    client_id: SLACK_CLIENT_ID!,
-    client_secret: SLACK_CLIENT_SECRET!,
+    client_id: clientId,
+    client_secret: clientSecret,
     code,
     redirect_uri: redirectUri,
   });
@@ -201,7 +241,12 @@ export async function postMessage(
 
 /** Build the absolute base URL from a Next.js request object. */
 export function getBaseUrl(request: { headers: { get(name: string): string | null } }): string {
-  const host = request.headers.get("x-forwarded-host") || request.headers.get("host") || "localhost:3000";
-  const proto = request.headers.get("x-forwarded-proto") || (host.includes("localhost") ? "http" : "https");
+  const host =
+    request.headers.get("x-forwarded-host") ||
+    request.headers.get("host") ||
+    "localhost:3000";
+  const proto =
+    request.headers.get("x-forwarded-proto") ||
+    (host.includes("localhost") ? "http" : "https");
   return `${proto}://${host}`;
 }

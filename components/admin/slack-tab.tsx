@@ -2,8 +2,21 @@
 
 import * as React from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { Loader2, Slack, CheckCircle2, AlertCircle, Unlink, ExternalLink } from "lucide-react";
+import {
+  Loader2,
+  Slack,
+  CheckCircle2,
+  AlertCircle,
+  Unlink,
+  ExternalLink,
+  Send,
+  Key,
+  RefreshCw,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import type { SlackChannel } from "@/lib/utils/slack";
 
 interface SlackIntegrationInfo {
   id: string;
@@ -16,20 +29,96 @@ interface SlackIntegrationInfo {
 }
 
 interface SlackStatusResponse {
-  app_configured: boolean;
+  credentials_configured: boolean;
+  credentials_from_env: boolean;
+  app_config: { client_id: string; updated_at?: string } | null;
   connected: boolean;
   integration: SlackIntegrationInfo | null;
 }
+
+// ─── Step card ──────────────────────────────────────────────────────────────
+
+function StepCard({
+  step,
+  title,
+  description,
+  complete,
+  locked,
+  children,
+}: {
+  step: number;
+  title: string;
+  description: string;
+  complete: boolean;
+  locked?: boolean;
+  children?: React.ReactNode;
+}) {
+  return (
+    <div
+      className={`rounded-lg border bg-card p-5 space-y-4 transition-colors ${
+        locked
+          ? "border-border/40 opacity-50"
+          : complete
+          ? "border-green-500/30"
+          : "border-border"
+      }`}
+    >
+      <div className="flex items-start gap-3">
+        <div
+          className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-sm font-semibold ${
+            complete
+              ? "bg-green-500/20 text-green-400"
+              : locked
+              ? "bg-muted text-muted-foreground"
+              : "bg-primary/10 text-primary"
+          }`}
+        >
+          {complete ? <CheckCircle2 className="h-4 w-4" /> : step}
+        </div>
+        <div className="flex-1 min-w-0">
+          <p
+            className={`font-medium text-sm ${
+              locked ? "text-muted-foreground" : "text-foreground"
+            }`}
+          >
+            {title}
+          </p>
+          <p className="text-xs text-muted-foreground mt-0.5">{description}</p>
+        </div>
+      </div>
+      {!locked && children && <div className="pl-10">{children}</div>}
+    </div>
+  );
+}
+
+// ─── Main component ──────────────────────────────────────────────────────────
 
 export function SlackTab() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
+  // Status state
   const [status, setStatus] = React.useState<SlackStatusResponse | null>(null);
   const [loading, setLoading] = React.useState(true);
-  const [disconnecting, setDisconnecting] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [successMsg, setSuccessMsg] = React.useState<string | null>(null);
+
+  // Credentials form state
+  const [showCredForm, setShowCredForm] = React.useState(false);
+  const [clientId, setClientId] = React.useState("");
+  const [clientSecret, setClientSecret] = React.useState("");
+  const [savingCreds, setSavingCreds] = React.useState(false);
+  const [deletingCreds, setDeletingCreds] = React.useState(false);
+
+  // Workspace disconnect
+  const [disconnecting, setDisconnecting] = React.useState(false);
+
+  // Test message state
+  const [testChannel, setTestChannel] = React.useState("");
+  const [channels, setChannels] = React.useState<SlackChannel[]>([]);
+  const [loadingChannels, setLoadingChannels] = React.useState(false);
+  const [sendingTest, setSendingTest] = React.useState(false);
+  const [testResult, setTestResult] = React.useState<string | null>(null);
 
   // Read OAuth redirect results from URL
   React.useEffect(() => {
@@ -38,17 +127,31 @@ export function SlackTab() {
 
     if (slackError) {
       setError(`Slack connection failed: ${decodeURIComponent(slackError)}`);
-      // Remove query param from URL without full reload
       const url = new URL(window.location.href);
       url.searchParams.delete("slack_error");
+      url.searchParams.delete("tab");
       router.replace(url.pathname + (url.search || ""), { scroll: false });
     } else if (slackConnected === "1") {
       setSuccessMsg("Slack workspace connected successfully!");
       const url = new URL(window.location.href);
       url.searchParams.delete("slack_connected");
+      url.searchParams.delete("tab");
       router.replace(url.pathname + (url.search || ""), { scroll: false });
     }
   }, [searchParams, router]);
+
+  const loadChannels = React.useCallback(async () => {
+    setLoadingChannels(true);
+    try {
+      const res = await fetch("/api/admin/slack/channels");
+      if (res.ok) {
+        const data = await res.json();
+        setChannels(data.channels ?? []);
+      }
+    } finally {
+      setLoadingChannels(false);
+    }
+  }, []);
 
   const fetchStatus = React.useCallback(async () => {
     setLoading(true);
@@ -57,25 +160,76 @@ export function SlackTab() {
       if (!res.ok) throw new Error("Failed to fetch Slack status");
       const data: SlackStatusResponse = await res.json();
       setStatus(data);
+      if (data.connected) {
+        loadChannels();
+      }
     } catch {
       setError("Failed to load Slack integration status.");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [loadChannels]);
 
   React.useEffect(() => {
     fetchStatus();
   }, [fetchStatus]);
 
+  // ── Credentials handlers ──────────────────────────────────────────────────
+
+  const handleSaveCredentials = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSavingCreds(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/admin/slack/config", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ client_id: clientId.trim(), client_secret: clientSecret.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Failed to save credentials");
+      setSuccessMsg("Credentials saved successfully.");
+      setShowCredForm(false);
+      setClientId("");
+      setClientSecret("");
+      await fetchStatus();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to save credentials");
+    } finally {
+      setSavingCreds(false);
+    }
+  };
+
+  const handleDeleteCredentials = async () => {
+    if (!confirm("Remove saved credentials? You will need to re-enter them to reconnect.")) return;
+    setDeletingCreds(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/admin/slack/config", { method: "DELETE" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Failed to remove credentials");
+      setSuccessMsg("Credentials removed.");
+      await fetchStatus();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to remove credentials");
+    } finally {
+      setDeletingCreds(false);
+    }
+  };
+
+  // ── Workspace handlers ────────────────────────────────────────────────────
+
   const handleDisconnect = async () => {
-    if (!confirm("Disconnect Slack? This will stop all Slack notifications.")) return;
+    if (!confirm("Disconnect Slack? This will stop all Slack notifications from Mainstream.")) return;
     setDisconnecting(true);
     setError(null);
     try {
       const res = await fetch("/api/admin/slack", { method: "DELETE" });
       if (!res.ok) throw new Error("Failed to disconnect");
       setSuccessMsg("Slack workspace disconnected.");
+      setChannels([]);
+      setTestChannel("");
+      setTestResult(null);
       await fetchStatus();
     } catch {
       setError("Failed to disconnect Slack. Please try again.");
@@ -83,6 +237,31 @@ export function SlackTab() {
       setDisconnecting(false);
     }
   };
+
+  // ── Test message ──────────────────────────────────────────────────────────
+
+  const handleSendTest = async () => {
+    if (!testChannel) return;
+    setSendingTest(true);
+    setTestResult(null);
+    setError(null);
+    try {
+      const res = await fetch("/api/admin/slack/test", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ channel_id: testChannel }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Failed to send test message");
+      setTestResult("Test message sent! Check your Slack channel.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to send test message");
+    } finally {
+      setSendingTest(false);
+    }
+  };
+
+  // ── Render ────────────────────────────────────────────────────────────────
 
   if (loading) {
     return (
@@ -92,14 +271,17 @@ export function SlackTab() {
     );
   }
 
+  const step1Complete = status?.credentials_configured ?? false;
+  const step2Complete = status?.connected ?? false;
+
   return (
     <div className="max-w-2xl space-y-6">
-      {/* Heading */}
+      {/* Header */}
       <div>
         <h2 className="text-lg font-semibold text-foreground">Slack Integration</h2>
         <p className="text-sm text-muted-foreground mt-1">
           Connect a Slack workspace to receive notifications when drops are published,
-          assets are uploaded, and scheduled drops are ready.
+          assets are uploaded, and scheduled drops are ready to review.
         </p>
       </div>
 
@@ -107,7 +289,14 @@ export function SlackTab() {
       {successMsg && (
         <div className="flex items-center gap-3 rounded-lg border border-green-500/30 bg-green-500/10 px-4 py-3 text-sm text-green-400">
           <CheckCircle2 className="h-4 w-4 shrink-0" />
-          {successMsg}
+          <span className="flex-1">{successMsg}</span>
+          <button
+            className="text-green-400/60 hover:text-green-400"
+            onClick={() => setSuccessMsg(null)}
+            aria-label="Dismiss"
+          >
+            ✕
+          </button>
         </div>
       )}
 
@@ -115,44 +304,172 @@ export function SlackTab() {
       {error && (
         <div className="flex items-center gap-3 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
           <AlertCircle className="h-4 w-4 shrink-0" />
-          {error}
+          <span className="flex-1">{error}</span>
+          <button
+            className="text-red-400/60 hover:text-red-400"
+            onClick={() => setError(null)}
+            aria-label="Dismiss"
+          >
+            ✕
+          </button>
         </div>
       )}
 
-      {!status?.app_configured ? (
-        /* App credentials not set */
-        <div className="rounded-lg border border-border bg-muted/30 p-6 space-y-3">
-          <div className="flex items-center gap-3">
-            <Slack className="h-8 w-8 text-muted-foreground" />
-            <div>
-              <p className="font-medium text-foreground">Slack credentials not configured</p>
-              <p className="text-sm text-muted-foreground">
-                Set <code className="text-xs font-mono bg-muted px-1 py-0.5 rounded">SLACK_CLIENT_ID</code> and{" "}
-                <code className="text-xs font-mono bg-muted px-1 py-0.5 rounded">SLACK_CLIENT_SECRET</code>{" "}
-                environment variables to enable Slack integration.
-              </p>
+      {/* ── Step 1: App credentials ─────────────────────────────────────── */}
+      <StepCard
+        step={1}
+        title="Create a Slack App & enter credentials"
+        description="Create a Slack App at api.slack.com/apps, add OAuth scopes, and paste your credentials below."
+        complete={step1Complete}
+      >
+        {status?.credentials_from_env ? (
+          /* Locked via env vars */
+          <div className="flex items-center gap-2 rounded-md border border-green-500/30 bg-green-500/10 px-3 py-2.5 text-sm text-green-400">
+            <CheckCircle2 className="h-4 w-4 shrink-0" />
+            <span>
+              Credentials are set via environment variables and cannot be edited here.
+            </span>
+          </div>
+        ) : step1Complete && !showCredForm ? (
+          /* Saved — show summary + update/remove actions */
+          <div className="space-y-3">
+            <div className="rounded-md border border-border bg-muted/30 px-3 py-2.5 text-sm">
+              <span className="text-xs text-muted-foreground block mb-0.5">Client ID</span>
+              <span className="font-mono">{status?.app_config?.client_id}</span>
+            </div>
+            <div className="flex gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  setClientId(status?.app_config?.client_id ?? "");
+                  setClientSecret("");
+                  setShowCredForm(true);
+                }}
+              >
+                <Key className="mr-1.5 h-3.5 w-3.5" />
+                Update credentials
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                className="text-red-400 border-red-500/30 hover:bg-red-500/10 hover:text-red-300"
+                onClick={handleDeleteCredentials}
+                disabled={deletingCreds}
+              >
+                {deletingCreds ? (
+                  <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                ) : null}
+                Remove
+              </Button>
             </div>
           </div>
-        </div>
-      ) : status.connected && status.integration ? (
-        /* Connected */
-        <div className="rounded-lg border border-border bg-card p-6 space-y-4">
-          <div className="flex items-center justify-between">
+        ) : (
+          /* Credentials form */
+          <form onSubmit={handleSaveCredentials} className="space-y-3">
+            <div className="rounded-md border border-border bg-muted/20 px-3 py-2.5 text-xs text-muted-foreground space-y-1">
+              <p className="font-medium text-foreground">Required OAuth scopes for your Slack App:</p>
+              <p>
+                <code className="font-mono bg-muted px-1 py-0.5 rounded">chat:write</code>{" "}
+                <code className="font-mono bg-muted px-1 py-0.5 rounded">channels:read</code>{" "}
+                <code className="font-mono bg-muted px-1 py-0.5 rounded">groups:read</code>
+              </p>
+              <p className="mt-1">
+                Set your redirect URL to:{" "}
+                <code className="font-mono bg-muted px-1 py-0.5 rounded">
+                  {typeof window !== "undefined" ? window.location.origin : ""}/api/admin/slack/callback
+                </code>
+              </p>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="slack-client-id" className="text-sm">
+                Client ID
+              </Label>
+              <Input
+                id="slack-client-id"
+                value={clientId}
+                onChange={(e) => setClientId(e.target.value)}
+                placeholder="1234567890.987654321"
+                disabled={savingCreds}
+                autoComplete="off"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="slack-client-secret" className="text-sm">
+                Client Secret
+              </Label>
+              <Input
+                id="slack-client-secret"
+                type="password"
+                value={clientSecret}
+                onChange={(e) => setClientSecret(e.target.value)}
+                placeholder="••••••••••••••••••••••••••••••••"
+                disabled={savingCreds}
+                autoComplete="new-password"
+              />
+              <p className="text-xs text-muted-foreground">
+                Stored with AES-256 encryption. The secret is never exposed after saving.
+              </p>
+            </div>
+
+            <div className="flex gap-2">
+              <Button
+                type="submit"
+                size="sm"
+                disabled={savingCreds || !clientId.trim() || !clientSecret.trim()}
+              >
+                {savingCreds ? (
+                  <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                ) : null}
+                Save credentials
+              </Button>
+              {showCredForm && step1Complete && (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    setShowCredForm(false);
+                    setClientId("");
+                    setClientSecret("");
+                  }}
+                >
+                  Cancel
+                </Button>
+              )}
+            </div>
+          </form>
+        )}
+      </StepCard>
+
+      {/* ── Step 2: Connect workspace ────────────────────────────────────── */}
+      <StepCard
+        step={2}
+        title="Connect your Slack workspace"
+        description="Authorize Mainstream to post messages to your workspace via Slack OAuth."
+        complete={step2Complete}
+        locked={!step1Complete}
+      >
+        {step2Complete && status?.integration ? (
+          /* Connected workspace summary */
+          <div className="space-y-4">
             <div className="flex items-center gap-3">
               {status.integration.workspace_icon ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
                   src={status.integration.workspace_icon}
                   alt={status.integration.workspace_name}
-                  className="h-10 w-10 rounded-lg"
+                  className="h-9 w-9 rounded-lg object-cover"
                 />
               ) : (
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#611f69]">
-                  <Slack className="h-5 w-5 text-white" />
+                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#611f69]">
+                  <Slack className="h-4 w-4 text-white" />
                 </div>
               )}
-              <div>
-                <p className="font-medium text-foreground">
+              <div className="flex-1 min-w-0">
+                <p className="font-medium text-sm text-foreground">
                   {status.integration.workspace_name}
                 </p>
                 <p className="text-xs text-muted-foreground">
@@ -162,22 +479,15 @@ export function SlackTab() {
                     day: "numeric",
                     year: "numeric",
                   })}
+                  {" · "}
+                  <span className="font-mono">{status.integration.workspace_id}</span>
                 </p>
               </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="flex items-center gap-1.5 text-xs text-green-400">
+              <span className="flex items-center gap-1.5 text-xs text-green-400 shrink-0">
                 <span className="h-2 w-2 rounded-full bg-green-400" />
-                Connected
+                Active
               </span>
             </div>
-          </div>
-
-          <div className="border-t border-border pt-4 flex items-center justify-between">
-            <p className="text-sm text-muted-foreground">
-              Workspace ID:{" "}
-              <span className="font-mono text-xs">{status.integration.workspace_id}</span>
-            </p>
             <Button
               variant="outline"
               size="sm"
@@ -190,32 +500,85 @@ export function SlackTab() {
               ) : (
                 <Unlink className="mr-1.5 h-3.5 w-3.5" />
               )}
-              Disconnect
+              Disconnect workspace
             </Button>
           </div>
-        </div>
-      ) : (
-        /* Not connected */
-        <div className="rounded-lg border border-border bg-card p-6 space-y-4">
-          <div className="flex items-center gap-3">
-            <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-[#611f69]">
-              <Slack className="h-6 w-6 text-white" />
-            </div>
-            <div>
-              <p className="font-medium text-foreground">Connect to Slack</p>
-              <p className="text-sm text-muted-foreground">
-                Authorize Mainstream to post messages to your workspace.
-              </p>
-            </div>
-          </div>
-
-          <Button asChild className="gap-2">
+        ) : step1Complete ? (
+          /* Connect button */
+          <Button asChild size="sm" className="gap-2">
             <a href="/api/admin/slack/connect">
               <ExternalLink className="h-4 w-4" />
               Connect Slack Workspace
             </a>
           </Button>
-        </div>
+        ) : null}
+      </StepCard>
+
+      {/* ── Step 3: Send a test message ──────────────────────────────────── */}
+      {step2Complete && (
+        <StepCard
+          step={3}
+          title="Send a test message"
+          description="Verify your integration is working by posting a test message to a channel."
+          complete={false}
+        >
+          {testResult && (
+            <div className="flex items-center gap-2 rounded-md border border-green-500/30 bg-green-500/10 px-3 py-2 text-sm text-green-400 mb-3">
+              <CheckCircle2 className="h-4 w-4 shrink-0" />
+              {testResult}
+            </div>
+          )}
+
+          <div className="flex gap-2 items-end">
+            <div className="flex-1 space-y-1.5">
+              <Label className="text-xs text-muted-foreground">Channel</Label>
+              {loadingChannels ? (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  Loading channels…
+                </div>
+              ) : channels.length === 0 ? (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <span>No channels available. Make sure the bot is added to at least one channel.</span>
+                  <button
+                    onClick={loadChannels}
+                    className="text-primary hover:underline text-xs flex items-center gap-1"
+                  >
+                    <RefreshCw className="h-3 w-3" /> Retry
+                  </button>
+                </div>
+              ) : (
+                <select
+                  value={testChannel}
+                  onChange={(e) => setTestChannel(e.target.value)}
+                  disabled={sendingTest}
+                  className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <option value="">Select a channel…</option>
+                  {channels.map((ch) => (
+                    <option key={ch.id} value={ch.id}>
+                      #{ch.name}
+                      {ch.is_private ? " 🔒" : ""}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
+            <Button
+              size="sm"
+              onClick={handleSendTest}
+              disabled={!testChannel || sendingTest || loadingChannels}
+              className="gap-2 shrink-0"
+            >
+              {sendingTest ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Send className="h-3.5 w-3.5" />
+              )}
+              Send test
+            </Button>
+          </div>
+        </StepCard>
       )}
 
       {/* Feature list */}

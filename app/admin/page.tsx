@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useSearchParams } from "next/navigation";
 import { useUser } from "@/lib/auth/use-user";
 import { UserTable } from "@/components/admin/user-table";
 import { AnalyticsDashboard } from "@/components/admin/analytics-dashboard";
@@ -11,9 +12,15 @@ import { cn } from "@/lib/utils";
 
 type AdminTab = "users" | "analytics" | "streams" | "slack";
 
+const VALID_TABS: AdminTab[] = ["users", "analytics", "streams", "slack"];
+
 export default function AdminPage() {
   const { user, loading } = useUser();
-  const [activeTab, setActiveTab] = React.useState<AdminTab>("users");
+  const searchParams = useSearchParams();
+  const tabParam = searchParams.get("tab") as AdminTab | null;
+  const [activeTab, setActiveTab] = React.useState<AdminTab>(
+    tabParam && VALID_TABS.includes(tabParam) ? tabParam : "users"
+  );
 
   if (loading) {
     return (
