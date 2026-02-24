@@ -29,14 +29,6 @@ const CONTENT_TYPES: Record<string, string> = {
 };
 
 /**
- * No-op kept for API compatibility.
- * Supabase Storage buckets are configured via migration 044.
- */
-export function ensureUploadDirectories(): void {
-  // No-op: buckets are pre-configured in the database migration.
-}
-
-/**
  * Generates a unique filename with timestamp and short UUID segment.
  * Format: {timestamp}-{uuid-segment}{extension}
  * Example: 1732545678901-a3f4b5c6.jpg
@@ -128,11 +120,12 @@ export async function deleteUploadedFiles(assetUrl: string): Promise<void> {
   const storagePath = assetUrl.slice(markerIdx + MARKER.length);
   if (!storagePath) return;
 
+  const adminClient = await createAdminClient();
+
   // storagePath: {userId}/{size}/{filename}
   const parts = storagePath.split('/');
   if (parts.length < 3) {
     // Non-standard path — delete only this file
-    const adminClient = await createAdminClient();
     await adminClient.storage.from(ASSETS_BUCKET).remove([storagePath]);
     return;
   }
@@ -153,7 +146,6 @@ export async function deleteUploadedFiles(assetUrl: string): Promise<void> {
     ...(ext !== '.jpg' ? [`${userId}/thumbnails/${base}.jpg`] : []),
   ]));
 
-  const adminClient = await createAdminClient();
   const { error } = await adminClient.storage
     .from(ASSETS_BUCKET)
     .remove(pathsToDelete);

@@ -30,8 +30,9 @@ import sharp from 'sharp';
 export const dynamic = 'force-dynamic';
 
 /**
- * Downloads an image from a URL and saves it locally
- * Returns the local path or null if failed
+ * Downloads an image from a URL, optimises it with Sharp, and saves it to
+ * Supabase Storage under the thumbnails size variant.
+ * Returns the public storage URL, or null if the download or upload failed.
  */
 async function downloadAndSaveThumbnail(imageUrl: string, userId?: string): Promise<string | null> {
   try {

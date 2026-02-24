@@ -19,7 +19,7 @@ VALUES (
   52428800,   -- 50 MB
   ARRAY[
     'image/jpeg', 'image/png', 'image/gif',
-    'image/webp', 'image/svg+xml', 'video/webm'
+    'image/webp', 'video/webm'
   ]
 )
 ON CONFLICT (id) DO UPDATE SET
