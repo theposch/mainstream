@@ -12,6 +12,8 @@ import {
   Send,
   Key,
   RefreshCw,
+  Copy,
+  Check,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -119,6 +121,49 @@ export function SlackTab() {
   const [loadingChannels, setLoadingChannels] = React.useState(false);
   const [sendingTest, setSendingTest] = React.useState(false);
   const [testResult, setTestResult] = React.useState<string | null>(null);
+
+  // Manifest copy state
+  const [copiedManifest, setCopiedManifest] = React.useState(false);
+
+  const generateManifest = React.useCallback((): string => {
+    const origin = typeof window !== "undefined" ? window.location.origin : "https://yourdomain.com";
+    return JSON.stringify(
+      {
+        _metadata: { major_version: 1, minor_version: 1 },
+        display_information: {
+          name: "Mainstream",
+          description: "Design asset collaboration and notifications",
+          background_color: "#09090b",
+        },
+        features: {
+          bot_user: {
+            display_name: "Mainstream",
+            always_online: false,
+          },
+        },
+        oauth_config: {
+          redirect_urls: [`${origin}/api/admin/slack/callback`],
+          scopes: {
+            bot: ["chat:write", "channels:read", "groups:read"],
+          },
+        },
+        settings: {
+          org_deploy_enabled: false,
+          socket_mode_enabled: false,
+          token_rotation_enabled: false,
+        },
+      },
+      null,
+      2
+    );
+  }, []);
+
+  const handleCopyManifest = React.useCallback(() => {
+    navigator.clipboard.writeText(generateManifest()).then(() => {
+      setCopiedManifest(true);
+      setTimeout(() => setCopiedManifest(false), 2000);
+    });
+  }, [generateManifest]);
 
   // Read OAuth redirect results from URL
   React.useEffect(() => {
@@ -365,80 +410,182 @@ export function SlackTab() {
             </div>
           </div>
         ) : (
-          /* Credentials form */
-          <form onSubmit={handleSaveCredentials} className="space-y-3">
-            <div className="rounded-md border border-border bg-muted/20 px-3 py-2.5 text-xs text-muted-foreground space-y-1">
-              <p className="font-medium text-foreground">Required OAuth scopes for your Slack App:</p>
-              <p>
-                <code className="font-mono bg-muted px-1 py-0.5 rounded">chat:write</code>{" "}
-                <code className="font-mono bg-muted px-1 py-0.5 rounded">channels:read</code>{" "}
-                <code className="font-mono bg-muted px-1 py-0.5 rounded">groups:read</code>
-              </p>
-              <p className="mt-1">
-                Set your redirect URL to:{" "}
-                <code className="font-mono bg-muted px-1 py-0.5 rounded">
-                  {typeof window !== "undefined" ? window.location.origin : ""}/api/admin/slack/callback
-                </code>
-              </p>
-            </div>
+          /* Guided setup: manifest → Slack → paste credentials */
+          <form onSubmit={handleSaveCredentials} className="space-y-5">
 
-            <div className="space-y-1.5">
-              <Label htmlFor="slack-client-id" className="text-sm">
-                Client ID
-              </Label>
-              <Input
-                id="slack-client-id"
-                value={clientId}
-                onChange={(e) => setClientId(e.target.value)}
-                placeholder="1234567890.987654321"
-                disabled={savingCreds}
-                autoComplete="off"
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <Label htmlFor="slack-client-secret" className="text-sm">
-                Client Secret
-              </Label>
-              <Input
-                id="slack-client-secret"
-                type="password"
-                value={clientSecret}
-                onChange={(e) => setClientSecret(e.target.value)}
-                placeholder="••••••••••••••••••••••••••••••••"
-                disabled={savingCreds}
-                autoComplete="new-password"
-              />
-              <p className="text-xs text-muted-foreground">
-                Stored with AES-256 encryption. The secret is never exposed after saving.
+            {/* Sub-step 1: Generate manifest */}
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
+                  1
+                </span>
+                <p className="text-sm font-medium text-foreground">
+                  Copy your app manifest
+                </p>
+              </div>
+              <p className="text-xs text-muted-foreground pl-7">
+                The manifest pre-configures all required OAuth scopes and your redirect URL automatically.
               </p>
-            </div>
 
-            <div className="flex gap-2">
-              <Button
-                type="submit"
-                size="sm"
-                disabled={savingCreds || !clientId.trim() || !clientSecret.trim()}
-              >
-                {savingCreds ? (
-                  <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-                ) : null}
-                Save credentials
-              </Button>
-              {showCredForm && step1Complete && (
+              {/* Manifest preview */}
+              <div className="rounded-md border border-border overflow-hidden pl-7">
+                <div className="flex items-center justify-between bg-muted/40 px-3 py-1.5 border-b border-border">
+                  <span className="text-xs font-mono text-muted-foreground">
+                    slack-app-manifest.json
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleCopyManifest}
+                    className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    {copiedManifest ? (
+                      <>
+                        <Check className="h-3.5 w-3.5 text-green-400" />
+                        <span className="text-green-400">Copied!</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="h-3.5 w-3.5" />
+                        Copy
+                      </>
+                    )}
+                  </button>
+                </div>
+                <pre className="px-3 py-2.5 text-xs font-mono text-muted-foreground overflow-x-auto max-h-40 leading-relaxed">
+                  {generateManifest()}
+                </pre>
+              </div>
+
+              <div className="flex gap-2 pl-7">
                 <Button
                   type="button"
                   size="sm"
-                  variant="outline"
-                  onClick={() => {
-                    setShowCredForm(false);
-                    setClientId("");
-                    setClientSecret("");
-                  }}
+                  onClick={handleCopyManifest}
+                  className="gap-2"
                 >
-                  Cancel
+                  {copiedManifest ? (
+                    <Check className="h-3.5 w-3.5" />
+                  ) : (
+                    <Copy className="h-3.5 w-3.5" />
+                  )}
+                  {copiedManifest ? "Copied!" : "Copy manifest"}
                 </Button>
-              )}
+                <Button type="button" size="sm" variant="outline" className="gap-2" asChild>
+                  <a
+                    href="https://api.slack.com/apps?new_app=1"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <ExternalLink className="h-3.5 w-3.5" />
+                    Open Slack
+                  </a>
+                </Button>
+              </div>
+            </div>
+
+            <div className="border-t border-border" />
+
+            {/* Sub-step 2: Create in Slack */}
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
+                  2
+                </span>
+                <p className="text-sm font-medium text-foreground">
+                  Create the app in Slack
+                </p>
+              </div>
+              <ol className="pl-7 space-y-1 text-xs text-muted-foreground list-decimal list-inside">
+                <li>
+                  Click <span className="font-medium text-foreground">Create New App</span>
+                </li>
+                <li>
+                  Choose <span className="font-medium text-foreground">From an app manifest</span>
+                </li>
+                <li>Select your workspace and paste the manifest</li>
+                <li>
+                  Review the settings and click{" "}
+                  <span className="font-medium text-foreground">Create</span>
+                </li>
+                <li>
+                  Go to <span className="font-medium text-foreground">Basic Information</span> and
+                  copy your <span className="font-medium text-foreground">Client ID</span> and{" "}
+                  <span className="font-medium text-foreground">Client Secret</span>
+                </li>
+              </ol>
+            </div>
+
+            <div className="border-t border-border" />
+
+            {/* Sub-step 3: Paste credentials */}
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
+                  3
+                </span>
+                <p className="text-sm font-medium text-foreground">
+                  Paste your credentials here
+                </p>
+              </div>
+
+              <div className="space-y-1.5 pl-7">
+                <Label htmlFor="slack-client-id" className="text-sm">
+                  Client ID
+                </Label>
+                <Input
+                  id="slack-client-id"
+                  value={clientId}
+                  onChange={(e) => setClientId(e.target.value)}
+                  placeholder="1234567890.987654321"
+                  disabled={savingCreds}
+                  autoComplete="off"
+                />
+              </div>
+
+              <div className="space-y-1.5 pl-7">
+                <Label htmlFor="slack-client-secret" className="text-sm">
+                  Client Secret
+                </Label>
+                <Input
+                  id="slack-client-secret"
+                  type="password"
+                  value={clientSecret}
+                  onChange={(e) => setClientSecret(e.target.value)}
+                  placeholder="••••••••••••••••••••••••••••••••"
+                  disabled={savingCreds}
+                  autoComplete="new-password"
+                />
+                <p className="text-xs text-muted-foreground pl-0">
+                  Stored with AES-256 encryption. The secret is never exposed after saving.
+                </p>
+              </div>
+
+              <div className="flex gap-2 pl-7">
+                <Button
+                  type="submit"
+                  size="sm"
+                  disabled={savingCreds || !clientId.trim() || !clientSecret.trim()}
+                >
+                  {savingCreds ? (
+                    <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                  ) : null}
+                  Save credentials
+                </Button>
+                {showCredForm && step1Complete && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      setShowCredForm(false);
+                      setClientId("");
+                      setClientSecret("");
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                )}
+              </div>
             </div>
           </form>
         )}
