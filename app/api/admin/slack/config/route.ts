@@ -91,15 +91,26 @@ export async function PUT(request: NextRequest) {
   const supabase = await createAdminClient();
 
   // Delete any existing row, then insert fresh (simpler than upsert without a known PK)
-  await supabase.from("slack_app_config").delete().neq("id", "");
+  const { error: deleteError } = await supabase.from("slack_app_config").delete().neq("id", "00000000-0000-0000-0000-000000000000");
+  if (deleteError) {
+    console.error("[PUT /api/admin/slack/config] delete error:", deleteError);
+    return NextResponse.json(
+      { error: `Database error: ${deleteError.message}. Ensure migration 043 has been applied.` },
+      { status: 500 }
+    );
+  }
+
   const { error } = await supabase.from("slack_app_config").insert({
     client_id: client_id.trim(),
     client_secret: encryptedSecret,
   });
 
   if (error) {
-    console.error("[PUT /api/admin/slack/config] DB error:", error);
-    return NextResponse.json({ error: "Failed to save credentials" }, { status: 500 });
+    console.error("[PUT /api/admin/slack/config] insert error:", error);
+    return NextResponse.json(
+      { error: `Database error: ${error.message}. Ensure migration 043 has been applied.` },
+      { status: 500 }
+    );
   }
 
   return NextResponse.json({ success: true });
