@@ -10,7 +10,6 @@ interface MoreMenuSheetProps {
   onOpenChange: (open: boolean) => void;
   onShare: () => void;
   onDownload: () => void;
-  onReport: () => void;
   onEdit?: () => void;
   canEdit?: boolean;
   onDelete?: () => void;
@@ -22,7 +21,6 @@ export function MoreMenuSheet({
   onOpenChange,
   onShare,
   onDownload,
-  onReport: _onReport,
   onEdit,
   canEdit = false,
   onDelete,

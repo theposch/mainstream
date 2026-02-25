@@ -666,10 +666,9 @@ function ActivityTab({
             {/* Activity items */}
             <div className="space-y-4">
               {dayActivities.map((activity, idx) => (
-                <TimelineItem 
-                  key={`${activity.type}-${activity.timestamp}-${idx}`} 
+                <TimelineItem
+                  key={`${activity.type}-${activity.timestamp}-${idx}`}
                   activity={activity}
-                  isLast={idx === dayActivities.length - 1}
                 />
               ))}
             </div>
@@ -714,7 +713,7 @@ function ActivityTab({
   );
 }
 
-function TimelineItem({ activity, isLast: _isLast }: { activity: UserActivity; isLast: boolean }) {
+function TimelineItem({ activity }: { activity: UserActivity }) {
   const ActivityIcon = activityIcons[activity.type];
   const time = format(new Date(activity.timestamp), "h:mm a");
   

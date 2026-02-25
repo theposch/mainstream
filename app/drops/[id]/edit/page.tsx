@@ -2,9 +2,76 @@ import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import { DropBlocksEditorClient } from "./drop-blocks-editor-client";
+import type { User } from "@/lib/types/database";
 
 interface EditDropPageProps {
   params: Promise<{ id: string }>;
+}
+
+// Shape returned by the drop_blocks select (partial, only what we use here)
+interface RawBlock {
+  id: string;
+  type: string;
+  position: number;
+  content?: string;
+  asset_id?: string;
+  display_mode?: string;
+  crop_position_x?: number;
+  crop_position_y?: number;
+  gallery_layout?: string;
+  gallery_featured_index?: number;
+  created_at: string;
+  updated_at: string;
+  asset?: {
+    id: string;
+    title: string;
+    description?: string;
+    url: string;
+    medium_url?: string;
+    thumbnail_url?: string;
+    asset_type?: string;
+    embed_provider?: string;
+    created_at: string;
+    uploader?: User | User[];
+  } | null;
+}
+
+// Shape returned by the drop_block_gallery_images select
+interface RawGalleryImage {
+  id: string;
+  block_id: string;
+  asset_id: string;
+  position: number;
+  asset?: {
+    id: string;
+    title: string;
+    url: string;
+    medium_url?: string;
+    thumbnail_url?: string;
+    asset_type?: string;
+    uploader?: User | User[];
+  } | null;
+}
+
+// Enriched block with gallery images merged in
+interface EnrichedBlock extends RawBlock {
+  gallery_images?: RawGalleryImage[];
+}
+
+// Shape returned by the assets select for the asset picker
+interface RawAvailableAsset {
+  id: string;
+  title: string;
+  description?: string;
+  type: string;
+  url: string;
+  medium_url?: string;
+  thumbnail_url?: string;
+  uploader_id: string;
+  asset_type?: string;
+  embed_provider?: string;
+  created_at: string;
+  uploader?: User | User[];
 }
 
 export default async function EditDropPage({ params }: EditDropPageProps) {
@@ -55,15 +122,15 @@ export default async function EditDropPage({ params }: EditDropPageProps) {
     `)
     .eq("drop_id", id)
     .order("position", { ascending: true });
-  
+
   if (blocksError) {
     console.error("Error fetching blocks:", blocksError);
   }
 
   // Fetch gallery images for gallery blocks
-  const galleryBlockIds = blocks?.filter((b: any) => b.type === "image_gallery").map((b: any) => b.id) || [];
-  const galleryImagesMap: Record<string, any[]> = {};
-  
+  const galleryBlockIds = (blocks as RawBlock[] | null)?.filter((b) => b.type === "image_gallery").map((b) => b.id) || [];
+  const galleryImagesMap: Record<string, RawGalleryImage[]> = {};
+
   if (galleryBlockIds.length > 0) {
     const { data: galleryImages } = await supabase
       .from("drop_block_gallery_images")
@@ -86,7 +153,7 @@ export default async function EditDropPage({ params }: EditDropPageProps) {
       .order("position", { ascending: true });
 
     // Group by block_id
-    galleryImages?.forEach((img: any) => {
+    (galleryImages as RawGalleryImage[] | null)?.forEach((img) => {
       if (!galleryImagesMap[img.block_id]) {
         galleryImagesMap[img.block_id] = [];
       }
@@ -95,21 +162,25 @@ export default async function EditDropPage({ params }: EditDropPageProps) {
   }
 
   // Enrich blocks with gallery images
-  const enrichedBlocks = blocks?.map((block: any) => ({
+  const enrichedBlocks: EnrichedBlock[] = (blocks as RawBlock[] | null)?.map((block) => ({
     ...block,
     gallery_images: block.type === "image_gallery" ? galleryImagesMap[block.id] || [] : undefined,
   })) || [];
 
   // Get contributors from blocks (including gallery images)
-  const contributorMap = new Map();
-  enrichedBlocks.forEach((block: any) => {
-    if (block.asset?.uploader && !contributorMap.has(block.asset.uploader.id)) {
-      contributorMap.set(block.asset.uploader.id, block.asset.uploader);
+  const contributorMap = new Map<string, User>();
+  enrichedBlocks.forEach((block) => {
+    const uploader = block.asset?.uploader;
+    const uploaderObj = Array.isArray(uploader) ? uploader[0] : uploader;
+    if (uploaderObj && !contributorMap.has(uploaderObj.id)) {
+      contributorMap.set(uploaderObj.id, uploaderObj);
     }
     // Also add contributors from gallery images
-    block.gallery_images?.forEach((img: any) => {
-      if (img.asset?.uploader && !contributorMap.has(img.asset.uploader.id)) {
-        contributorMap.set(img.asset.uploader.id, img.asset.uploader);
+    block.gallery_images?.forEach((img) => {
+      const imgUploader = img.asset?.uploader;
+      const imgUploaderObj = Array.isArray(imgUploader) ? imgUploader[0] : imgUploader;
+      if (imgUploaderObj && !contributorMap.has(imgUploaderObj.id)) {
+        contributorMap.set(imgUploaderObj.id, imgUploaderObj);
       }
     });
   });
@@ -139,10 +210,10 @@ export default async function EditDropPage({ params }: EditDropPageProps) {
 
   // Transform assets: Supabase returns uploader as array, unwrap to single object
   // Check array has elements to avoid undefined when empty
-  const availableAssets = (availableAssetsRaw || []).map((asset: any) => ({
+  const availableAssets = ((availableAssetsRaw as RawAvailableAsset[] | null) || []).map((asset) => ({
     ...asset,
-    uploader: Array.isArray(asset.uploader) && asset.uploader.length > 0 
-      ? asset.uploader[0] 
+    uploader: Array.isArray(asset.uploader) && asset.uploader.length > 0
+      ? asset.uploader[0]
       : asset.uploader,
   }));
 

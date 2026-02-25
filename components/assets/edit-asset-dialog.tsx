@@ -49,6 +49,9 @@ export function EditAssetDialog({
       streamSelection.reset({ streamIds: currentStreams.map(s => s.id) });
       setError(null);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // streamSelection is intentionally omitted: including the whole object would
+    // cause an infinite loop because reset() triggers a re-render of streamSelection.
   }, [open, asset, currentStreams]);
   
   // Detect changes

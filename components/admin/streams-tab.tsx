@@ -108,7 +108,7 @@ export function StreamsTab() {
   const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false);
   const [mergeDialogOpen, setMergeDialogOpen] = React.useState(false);
   const [mergeTarget, setMergeTarget] = React.useState<{ id: string; name: string } | null>(null);
-  const [_actionLoading, _setActionLoading] = React.useState(false);
+
 
   const searchTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
   

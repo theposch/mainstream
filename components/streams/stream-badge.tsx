@@ -4,9 +4,10 @@ import * as React from "react";
 import Link from "next/link";
 import { Hash, Lock } from "lucide-react";
 import { cn } from "@/lib/utils";
+import type { Stream } from "@/lib/types/database";
 
 interface StreamBadgeProps {
-  stream: any;  // Stream from database
+  stream: Stream;
   clickable?: boolean;
   className?: string;
 }

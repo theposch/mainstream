@@ -61,6 +61,7 @@ export function EmbedUrlDialog({ open, onOpenChange, initialStreamId }: EmbedUrl
   const streamSelection = useStreamSelection({
     initialStreamIds: initialStreamId ? [initialStreamId] : [],
   });
+  const { reset: resetStreamSelection, setStreamIds } = streamSelection;
 
   // Track if we've already initialized the stream for this dialog session
   const hasInitializedStreamRef = React.useRef(false);
@@ -68,10 +69,21 @@ export function EmbedUrlDialog({ open, onOpenChange, initialStreamId }: EmbedUrl
   // Pre-populate stream when initialStreamId is provided
   React.useEffect(() => {
     if (open && initialStreamId && !hasInitializedStreamRef.current) {
-      streamSelection.setStreamIds([initialStreamId]);
+      setStreamIds([initialStreamId]);
       hasInitializedStreamRef.current = true;
     }
-  }, [open, initialStreamId, streamSelection]);
+  }, [open, initialStreamId, setStreamIds]);
+
+  const resetForm = React.useCallback(() => {
+    setUrl("");
+    setTitle("");
+    setDescription("");
+    setProvider(null);
+    setIsValidUrl(false);
+    resetStreamSelection();
+    setError(null);
+    setIsLoading(false);
+  }, [resetStreamSelection]);
 
   // Reset form when dialog closes
   React.useEffect(() => {
@@ -79,7 +91,7 @@ export function EmbedUrlDialog({ open, onOpenChange, initialStreamId }: EmbedUrl
       resetForm();
       hasInitializedStreamRef.current = false;
     }
-  }, [open]);
+  }, [open, resetForm]);
 
   // Detect provider when URL changes
   React.useEffect(() => {
@@ -87,8 +99,11 @@ export function EmbedUrlDialog({ open, onOpenChange, initialStreamId }: EmbedUrl
       const detected = detectProvider(url);
       setProvider(detected);
       setIsValidUrl(isSupportedUrl(url));
-      
+
       // Auto-populate title from URL
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+      // title is intentionally omitted: including it would re-run this effect on
+      // every keystroke in the title field, causing unwanted provider re-detection.
       if (!title) {
         if (detected === 'figma') {
           const extractedTitle = getFigmaTitle(url);
@@ -102,7 +117,7 @@ export function EmbedUrlDialog({ open, onOpenChange, initialStreamId }: EmbedUrl
           }
         }
       }
-      
+
       // Clear error when user starts typing valid URL
       if (isSupportedUrl(url)) {
         setError(null);
@@ -111,18 +126,9 @@ export function EmbedUrlDialog({ open, onOpenChange, initialStreamId }: EmbedUrl
       setProvider(null);
       setIsValidUrl(false);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // title is intentionally omitted: see comment above.
   }, [url]);
-
-  const resetForm = () => {
-    setUrl("");
-    setTitle("");
-    setDescription("");
-    setProvider(null);
-    setIsValidUrl(false);
-    streamSelection.reset();
-    setError(null);
-    setIsLoading(false);
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

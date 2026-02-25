@@ -26,7 +26,7 @@ import { StreamBadge } from "@/components/streams/stream-badge";
 import { useUserFollow } from "@/lib/hooks/use-user-follow";
 import { formatRelativeTime } from "@/lib/utils/time";
 
-import type { Asset } from "@/lib/types/database";
+import type { Asset, Stream } from "@/lib/types/database";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -39,9 +39,9 @@ import {
 } from "@/components/ui/alert-dialog";
 
 interface AssetDetailMobileProps {
-  asset: any;  // Asset from database
+  asset: Asset;
   /** All assets in the current view for swipe navigation */
-  allAssets?: any[];
+  allAssets?: Asset[];
   /** Callback when modal should close (for overlay mode) */
   onClose?: () => void;
   /** Callback when navigating to another asset (for modal mode) */
@@ -144,7 +144,7 @@ export function AssetDetailMobile({ asset, allAssets: allAssetsProp, onClose, on
   
   // Get streams from asset (already joined in server query or passed from feed)
   // Use local state to allow optimistic updates from edit dialog
-  const [assetStreams, setAssetStreams] = React.useState<any[]>(currentAsset.streams || []);
+  const [assetStreams, setAssetStreams] = React.useState<Stream[]>(currentAsset.streams || []);
   
   // Sync streams when asset prop changes
   React.useEffect(() => {
@@ -285,11 +285,6 @@ export function AssetDetailMobile({ asset, allAssets: allAssetsProp, onClose, on
     } catch (error) {
       console.error('Error downloading asset:', error);
     }
-  };
-
-  const handleReport = () => {
-    setMoreMenuOpen(false);
-    // TODO: Implement report functionality
   };
 
   const handleDeleteClick = () => {
@@ -598,7 +593,6 @@ export function AssetDetailMobile({ asset, allAssets: allAssetsProp, onClose, on
         onOpenChange={setMoreMenuOpen}
         onShare={handleShare}
         onDownload={handleDownload}
-        onReport={handleReport}
         onEdit={handleEditClick}
         canEdit={canEdit}
         onDelete={handleDeleteClick}
