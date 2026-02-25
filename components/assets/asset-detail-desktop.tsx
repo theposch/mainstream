@@ -597,7 +597,7 @@ export function AssetDetailDesktop({ asset, previousAsset = null, nextAsset = nu
                 </h1>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon" className="shrink-0 text-muted-foreground hover:text-foreground">
+                    <Button variant="ghost" size="icon" aria-label="More options" className="shrink-0 text-muted-foreground hover:text-foreground">
                       <MoreHorizontal className="h-5 w-5" />
                     </Button>
                   </DropdownMenuTrigger>

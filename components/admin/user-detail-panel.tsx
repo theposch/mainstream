@@ -7,7 +7,10 @@ import { formatDistanceToNow, isToday, isYesterday, format } from "date-fns";
 import {
   Sheet,
   SheetContent,
+  SheetTitle,
+  SheetDescription,
 } from "@/components/ui/sheet";
+import * as VisuallyHidden from "@radix-ui/react-visually-hidden";
 import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -280,6 +283,10 @@ export function UserDetailPanel({
           side="right"
           className="w-full sm:max-w-[560px] p-0 bg-background border-border flex flex-col"
         >
+          <VisuallyHidden.Root>
+            <SheetTitle>User Details</SheetTitle>
+            <SheetDescription>Detailed information and management options for this user.</SheetDescription>
+          </VisuallyHidden.Root>
           {loading ? (
             <div className="flex items-center justify-center h-full">
               <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />

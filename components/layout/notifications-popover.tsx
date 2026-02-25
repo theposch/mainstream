@@ -194,7 +194,7 @@ export function NotificationsPopover() {
   return (
     <Popover open={isOpen} onOpenChange={setIsOpen}>
       <PopoverTrigger asChild>
-        <Button variant="ghost" size="icon" className="relative text-muted-foreground hover:text-foreground">
+        <Button variant="ghost" size="icon" aria-label="Notifications" className="relative text-muted-foreground hover:text-foreground">
           <Bell
             className={cn("h-5 w-5 origin-top", isRinging && "animate-bell-ring")}
             onAnimationEnd={() => setIsRinging(false)}
