@@ -347,6 +347,7 @@ export function UploadDialog({ open, onOpenChange, initialStreamId, initialFile 
         {/* File Selected State */}
         {file && preview && (
           <form onSubmit={handleSubmit} className="flex flex-col">
+            <DialogTitle className="sr-only">Upload Media</DialogTitle>
             {/* Preview Area */}
             <div className="p-6 pb-0">
               <div className="relative w-full aspect-[1.85/1] rounded-t-xl overflow-hidden bg-muted border border-border border-b-0">
