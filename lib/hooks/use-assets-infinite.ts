@@ -32,6 +32,8 @@ interface UseAssetsInfiniteReturn {
   loading: boolean;
   /** Remove an asset from the cache (for optimistic updates after deletion) */
   removeAsset: (assetId: string) => void;
+  /** Prepend a newly uploaded asset to the top of the feed without a full refetch */
+  prependAsset: (newAsset: Asset) => void;
 }
 
 const fetchRecentAssets = async ({ pageParam }: { pageParam: string | null }): Promise<AssetsResponse> => {
@@ -94,6 +96,26 @@ export function useAssetsInfinite(
     }
   }, [fetchNextPage, hasNextPage, isFetching]);
 
+  // Prepend a newly uploaded asset to the top of the feed
+  const prependAsset = useCallback((newAsset: Asset) => {
+    queryClient.setQueryData<{ pages: AssetsResponse[]; pageParams: (string | null)[] }>(
+      assetKeys.recent(),
+      (oldData) => {
+        if (!oldData || oldData.pages.length === 0) {
+          return {
+            pages: [{ assets: [newAsset], hasMore: false, cursor: null }],
+            pageParams: [null],
+          };
+        }
+        const [firstPage, ...rest] = oldData.pages;
+        return {
+          ...oldData,
+          pages: [{ ...firstPage, assets: [newAsset, ...firstPage.assets] }, ...rest],
+        };
+      }
+    );
+  }, [queryClient]);
+
   // Optimistically remove an asset from the cache
   const removeAsset = useCallback((assetId: string) => {
     queryClient.setQueryData<{ pages: AssetsResponse[]; pageParams: (string | null)[] }>(
@@ -117,5 +139,6 @@ export function useAssetsInfinite(
     hasMore: hasNextPage ?? true,
     loading: isFetching || isFetchingNextPage,
     removeAsset,
+    prependAsset,
   };
 }

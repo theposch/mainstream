@@ -38,7 +38,7 @@ export interface AssetDetailSidebarProps {
   highlightedCommentId: string | null;
   canEdit: boolean;
   canDelete: boolean;
-  commentsSectionRef: React.RefObject<HTMLDivElement>;
+  commentsSectionRef: React.RefObject<HTMLDivElement | null>;
   originalAssetId: string;
   onFollow: () => void;
   onAssetLike: () => void;

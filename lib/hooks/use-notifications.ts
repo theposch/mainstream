@@ -131,8 +131,13 @@ export function useNotifications(): UseNotificationsReturn {
             filter: `recipient_id=eq.${user.id}`,
           },
           () => {
-            // Invalidate query to refetch with new notification
-            queryClient.invalidateQueries({ queryKey: notificationKeys.list() });
+            // Increment unreadCount immediately without a refetch flash
+            queryClient.setQueryData<NotificationsResponse>(
+              notificationKeys.list(),
+              (old) => old ? { ...old, unreadCount: old.unreadCount + 1 } : old
+            );
+            // Mark stale so it refetches on next active access (no immediate flash)
+            queryClient.invalidateQueries({ queryKey: notificationKeys.list(), refetchType: 'none' });
           }
         )
         .on(

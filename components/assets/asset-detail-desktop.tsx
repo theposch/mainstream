@@ -4,6 +4,8 @@ import * as React from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { useAssetComments } from "@/lib/hooks/use-asset-comments";
 import { useAssetLike } from "@/lib/hooks/use-asset-like";
 import { useAssetView } from "@/lib/hooks/use-asset-view";
@@ -14,16 +16,7 @@ import { EditAssetDialog } from "./edit-asset-dialog";
 import { Button } from "@/components/ui/button";
 import { X } from "lucide-react";
 import { KEYS } from "@/lib/constants";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+import { assetKeys } from "@/lib/queries/asset-queries";
 import type { Asset, User, CommentUser } from "@/lib/types/database";
 
 interface AssetDetailDesktopProps {
@@ -57,12 +50,11 @@ export function AssetDetailDesktop({
     asset.likeCount ?? 0
   );
 
+  const queryClient = useQueryClient();
   const [replyingToId, setReplyingToId] = React.useState<string | null>(null);
   const [editingCommentId, setEditingCommentId] = React.useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [currentUser, setCurrentUser] = React.useState<User | null>(null);
-  const [showDeleteDialog, setShowDeleteDialog] = React.useState(false);
-  const [isDeleting, setIsDeleting] = React.useState(false);
   const [showEditDialog, setShowEditDialog] = React.useState(false);
   const [currentAsset, setCurrentAsset] = React.useState<Asset>(asset);
   const [assetStreams, setAssetStreams] = React.useState(asset.streams || []);
@@ -251,32 +243,48 @@ export function AssetDetailDesktop({
     };
   }, []);
 
-  const handleDelete = async () => {
-    if (isDeleting) return;
-    setIsDeleting(true);
-    try {
-      const response = await fetch(`/api/assets/${asset.id}`, {
-        method: "DELETE",
-      });
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.message || "Failed to delete asset");
+  const handleDeleteWithUndo = React.useCallback(() => {
+    // Close the modal immediately for instant feedback
+    if (onClose) onClose();
+    else router.push("/home");
+
+    // Optimistically remove from both feeds
+    onDelete?.(asset.id);
+
+    // Schedule the actual DELETE after 5s (cancellable)
+    const timerId = setTimeout(async () => {
+      try {
+        const response = await fetch(`/api/assets/${asset.id}`, { method: "DELETE" });
+        if (!response.ok) {
+          const data = await response.json().catch(() => ({}));
+          throw new Error(data.message || "Failed to delete asset");
+        }
+      } catch (error) {
+        console.error("Error deleting asset:", error);
+        // Restore feeds on failure
+        queryClient.invalidateQueries({ queryKey: assetKeys.recent() });
+        queryClient.invalidateQueries({ queryKey: assetKeys.following() });
+        toast.error("Failed to delete asset");
       }
-      onDelete?.(asset.id);
-      if (onClose) onClose();
-      else router.push("/home");
-    } catch (error) {
-      console.error("Error deleting asset:", error);
-      alert(
-        error instanceof Error ? error.message : "Failed to delete asset"
-      );
-      setIsDeleting(false);
-      setShowDeleteDialog(false);
-    }
-  };
+    }, 5000);
+
+    toast("Post deleted", {
+      description: "The post will be permanently removed in a moment.",
+      action: {
+        label: "Undo",
+        onClick: () => {
+          clearTimeout(timerId);
+          queryClient.invalidateQueries({ queryKey: assetKeys.recent() });
+          queryClient.invalidateQueries({ queryKey: assetKeys.following() });
+        },
+      },
+      duration: 5000,
+    });
+  }, [asset.id, onClose, router, onDelete, queryClient]);
 
   const handleShare = () => {
     navigator.clipboard.writeText(`${window.location.origin}/e/${asset.id}`);
+    toast.success("Link copied to clipboard");
   };
 
   const handleDownload = async () => {
@@ -293,6 +301,7 @@ export function AssetDetailDesktop({
       document.body.removeChild(a);
     } catch (error) {
       console.error("Error downloading asset:", error);
+      toast.error("Download failed");
     }
   };
 
@@ -368,7 +377,7 @@ export function AssetDetailDesktop({
           commentsSectionRef.current?.scrollIntoView({ behavior: "smooth" })
         }
         onEditClick={() => setShowEditDialog(true)}
-        onDeleteClick={() => setShowDeleteDialog(true)}
+        onDeleteClick={handleDeleteWithUndo}
         onShare={handleShare}
         onDownload={handleDownload}
         onAddComment={handleAddComment}
@@ -387,27 +396,6 @@ export function AssetDetailDesktop({
         onSuccess={handleEditSuccess}
       />
 
-      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
-        <AlertDialogContent className="z-[120]">
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete Asset?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete the
-              asset and all associated comments and likes.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleDelete}
-              disabled={isDeleting}
-              className="bg-destructive hover:bg-destructive/90"
-            >
-              {isDeleting ? "Deleting..." : "Delete"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   );
 }

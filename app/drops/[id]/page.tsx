@@ -4,7 +4,7 @@ import { getCurrentUser } from "@/lib/auth/get-user";
 import { DropView } from "@/components/drops/drop-view";
 import { DropBlocksView } from "@/components/drops/blocks/drop-blocks-view";
 import { PublishedDropHeader } from "@/components/drops/published-drop-header";
-import type { User, Asset } from "@/lib/types/database";
+import type { User } from "@/lib/types/database";
 
 interface DropPageProps {
   params: Promise<{ id: string }>;
@@ -179,7 +179,7 @@ export default async function DropPage({ params }: DropPageProps) {
           title={drop.title}
           description={drop.description}
           blocks={blocks || []}
-          contributors={contributors}
+          contributors={contributors as User[]}
           dateRangeStart={drop.date_range_start}
           dateRangeEnd={drop.date_range_end}
         />
@@ -272,7 +272,7 @@ export default async function DropPage({ params }: DropPageProps) {
         description={drop.description}
         dateRangeStart={drop.date_range_start}
         dateRangeEnd={drop.date_range_end}
-        posts={enrichedPosts as Asset[]}
+        posts={enrichedPosts as Parameters<typeof DropView>[0]['posts']}
         contributors={contributors as User[]}
       />
     </div>

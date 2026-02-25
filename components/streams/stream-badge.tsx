@@ -6,8 +6,10 @@ import { Hash, Lock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Stream } from "@/lib/types/database";
 
+type StreamLike = Pick<Stream, 'id' | 'name' | 'is_private'>;
+
 interface StreamBadgeProps {
-  stream: Stream;
+  stream: StreamLike;
   clickable?: boolean;
   className?: string;
 }

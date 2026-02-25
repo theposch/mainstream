@@ -198,7 +198,7 @@ function DraggableImage({
       )}
     >
       <Image
-        src={asset.medium_url || asset.url || asset.thumbnail_url}
+        src={asset.medium_url || asset.url || asset.thumbnail_url || ""}
         alt={asset.title}
         width={800}
         height={400}
@@ -289,7 +289,7 @@ function PostBlockView({ block, isEditing, onDisplayModeChange, onCropPositionCh
         ) : (
           <Link href={`/e/${asset.id}`}>
             <Image
-              src={asset.medium_url || asset.url || asset.thumbnail_url}
+              src={asset.medium_url || asset.url || asset.thumbnail_url || ""}
               alt={asset.title}
               width={800}
               height={400}
@@ -369,7 +369,7 @@ function FeaturedPostBlockView({ block, isEditing, onDisplayModeChange, onCropPo
         ) : (
           <Link href={`/e/${asset.id}`}>
             <Image
-              src={asset.medium_url || asset.url || asset.thumbnail_url}
+              src={asset.medium_url || asset.url || asset.thumbnail_url || ""}
               alt={asset.title}
               width={800}
               height={500}

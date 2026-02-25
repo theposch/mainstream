@@ -23,12 +23,12 @@ interface LikedQueryRow {
 interface AssetStreamRelation {
   stream_id: string;
   added_at: string;
-  assets: {
+  assets: Array<{
     id: string;
     url: string;
     thumbnail_url: string | null;
     title: string | null;
-  } | null;
+  }> | null;
 }
 
 interface StreamWithAssets extends Stream {
@@ -191,11 +191,12 @@ export default async function UserProfile({
       const entry = streamAssetMap.get(rel.stream_id);
       if (entry) {
         entry.count++;
-        if (entry.posts.length < 4 && rel.assets) {
+        const asset = Array.isArray(rel.assets) ? rel.assets[0] : rel.assets;
+        if (entry.posts.length < 4 && asset) {
           entry.posts.push({
-            id: rel.assets.id,
-            url: rel.assets.thumbnail_url || rel.assets.url || "",
-            title: rel.assets.title || "",
+            id: asset.id,
+            url: asset.thumbnail_url || asset.url || "",
+            title: asset.title || "",
           });
         }
       }

@@ -31,6 +31,8 @@ export const ElementCard = React.memo(
   function ElementCard({ asset, className, layout = "grid", onLikeChange, onClick }: ElementCardProps) {
   const [isHovered, setIsHovered] = React.useState(false);
   const [imageLoaded, setImageLoaded] = React.useState(false);
+  // D2: Track whether the GIF has been hovered at least once so it stays in DOM
+  const [hasHoveredGif, setHasHoveredGif] = React.useState(false);
   
   // Use pre-fetched like data from server
   const { isLiked, likeCount, toggleLike, loading } = useAssetLike(
@@ -45,6 +47,7 @@ export const ElementCard = React.memo(
   // Memoized callbacks for stable references - combine hover state with prefetch
   const handleMouseEnter = React.useCallback(() => {
     setIsHovered(true);
+    setHasHoveredGif(true); // D2: keep GIF in DOM after first hover
     prefetchOnEnter();
   }, [prefetchOnEnter]);
   
@@ -175,9 +178,12 @@ export const ElementCard = React.memo(
     >
       <Link href={`/e/${asset.id}`} className="block w-full" onClick={handleCardClick}>
         <div className="relative rounded-xl overflow-hidden bg-secondary cursor-zoom-in w-full">
-          {/* Aspect Ratio Container */}
-          <div 
-            className="relative w-full"
+          {/* Aspect Ratio Container - D1: shimmer while image loads */}
+          <div
+            className={cn(
+              "relative w-full",
+              !imageLoaded && !isVideo && !isEmbed && "bg-muted animate-pulse"
+            )}
             style={{ paddingBottom: isEmbed ? `${embedAspectRatio}%` : `${aspectRatio}%` }}
           >
             {/* Video asset (WebM) - autoplay, loop, muted like GIFs */}
@@ -222,14 +228,33 @@ export const ElementCard = React.memo(
                 </div>
                 <span className="text-sm font-medium text-muted-foreground">{providerInfo.name}</span>
               </div>
-            ) : isGif && isHovered ? (
-              // Animated GIF on hover - use img tag to ensure animation plays
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={animatedUrl}
-                alt={asset.title}
-                className="absolute inset-0 object-cover w-full h-full transition-transform duration-500 group-hover:scale-105"
-              />
+            ) : isGif ? (
+              // D2: Render both static thumbnail and animated GIF, toggle via CSS opacity
+              // This keeps the GIF in the DOM after first hover so animation doesn't restart
+              <>
+                <Image
+                  src={thumbnailUrl}
+                  alt={asset.title}
+                  fill
+                  className={cn(
+                    "absolute inset-0 object-cover w-full h-full transition-all duration-300",
+                    isHovered ? "opacity-0" : "opacity-100"
+                  )}
+                  sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                  onLoad={handleImageLoad}
+                />
+                {hasHoveredGif && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={animatedUrl}
+                    alt={asset.title}
+                    className={cn(
+                      "absolute inset-0 object-cover w-full h-full transition-all duration-300",
+                      isHovered ? "opacity-100" : "opacity-0"
+                    )}
+                  />
+                )}
+              </>
             ) : (
               <Image
                 src={displayUrl}
@@ -238,7 +263,6 @@ export const ElementCard = React.memo(
                 className="absolute inset-0 object-cover w-full h-full transition-transform duration-500 group-hover:scale-105"
                 sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                 onLoad={handleImageLoad}
-                unoptimized={isGif} // Don't optimize GIFs (preserves animation)
               />
             )}
           </div>

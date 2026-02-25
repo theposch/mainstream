@@ -2,7 +2,7 @@ import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import { DropBlocksEditorClient } from "./drop-blocks-editor-client";
-import type { User } from "@/lib/types/database";
+import type { User, DropBlockType, DropBlock, Asset } from "@/lib/types/database";
 
 interface EditDropPageProps {
   params: Promise<{ id: string }>;
@@ -11,7 +11,8 @@ interface EditDropPageProps {
 // Shape returned by the drop_blocks select (partial, only what we use here)
 interface RawBlock {
   id: string;
-  type: string;
+  drop_id: string;
+  type: DropBlockType;
   position: number;
   content?: string;
   asset_id?: string;
@@ -220,9 +221,9 @@ export default async function EditDropPage({ params }: EditDropPageProps) {
   return (
     <DropBlocksEditorClient
       drop={drop}
-      initialBlocks={enrichedBlocks}
+      initialBlocks={enrichedBlocks as unknown as DropBlock[]}
       initialContributors={contributors}
-      availableAssets={availableAssets}
+      availableAssets={availableAssets as unknown as Asset[]}
     />
   );
 }

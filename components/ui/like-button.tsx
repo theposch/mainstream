@@ -54,9 +54,11 @@ export function LikeButton({
   const textSize = size === "sm" ? "text-xs" : size === "lg" ? "text-lg" : "text-sm";
 
   return (
-    <button
+    <motion.button
       onClick={handleClick}
       disabled={isLoading}
+      whileTap={{ scale: 0.78 }}
+      transition={{ type: "spring", stiffness: 500, damping: 25 }}
       className={cn(
         "relative group flex items-center gap-1.5 transition-colors focus:outline-none cursor-pointer",
         variant === "solid" && "p-2.5 rounded-full backdrop-blur-md shadow-lg",
@@ -131,7 +133,7 @@ export function LikeButton({
           {likeCount}
         </span>
       )}
-    </button>
+    </motion.button>
   );
 }
 
