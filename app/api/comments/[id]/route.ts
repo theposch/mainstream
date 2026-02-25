@@ -9,6 +9,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { validateUUID, noContent } from '@/lib/utils/api-error';
 
 interface RouteContext {
   params: Promise<{
@@ -27,6 +28,9 @@ export async function PATCH(
 ) {
   try {
     const { id: commentId } = await context.params;
+    const invalid = validateUUID(commentId, 'Comment');
+    if (invalid) return invalid;
+
     const supabase = await createClient();
     
     // Check authentication
@@ -107,6 +111,9 @@ export async function DELETE(
 ) {
   try {
     const { id: commentId } = await context.params;
+    const invalid = validateUUID(commentId, 'Comment');
+    if (invalid) return invalid;
+
     const supabase = await createClient();
     
     // Check authentication
@@ -147,7 +154,7 @@ export async function DELETE(
       );
     }
 
-    return NextResponse.json({ success: true });
+    return noContent();
   } catch (error) {
     console.error('[DELETE /api/comments/[id]] Unexpected error:', error);
     return NextResponse.json(

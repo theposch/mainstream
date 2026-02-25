@@ -11,6 +11,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { noContent } from '@/lib/utils/api-error';
 
 export const dynamic = 'force-dynamic';
 
@@ -339,13 +340,7 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
       );
     }
 
-    return NextResponse.json(
-      { 
-        success: true,
-        message: 'Stream deleted successfully'
-      },
-      { status: 200 }
-    );
+    return noContent();
   } catch (error) {
     console.error('[DELETE /api/streams/:id] Error:', error);
     return NextResponse.json(

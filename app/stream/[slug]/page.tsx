@@ -1,9 +1,11 @@
 import { notFound } from "next/navigation";
-import { unstable_noStore as noStore } from 'next/cache';
 import { createClient } from "@/lib/supabase/server";
 import { StreamHeader } from "@/components/streams/stream-header";
 import { StreamPageContent } from "@/components/streams/stream-page-content";
 import type { User } from "@/lib/types/database";
+
+// Revalidate every 60s — like/follow state is kept fresh by React Query on the client.
+export const revalidate = 60;
 
 interface StreamPageProps {
   params: Promise<{
@@ -12,8 +14,6 @@ interface StreamPageProps {
 }
 
 export default async function StreamPage({ params }: StreamPageProps) {
-  // Opt out of caching to ensure fresh like status
-  noStore();
   
   const { slug } = await params;
   

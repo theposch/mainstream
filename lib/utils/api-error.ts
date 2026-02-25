@@ -5,11 +5,16 @@
  *
  * Usage:
  * ```ts
- * import { ApiErrors } from '@/lib/utils/api-error';
+ * import { ApiErrors, validateUUID, noContent } from '@/lib/utils/api-error';
  *
  * return ApiErrors.unauthorized();
  * return ApiErrors.badRequest('Title is required');
  * return ApiErrors.internal(error);
+ *
+ * const invalid = validateUUID(id, 'Asset');
+ * if (invalid) return invalid;
+ *
+ * return noContent(); // 204 for successful DELETE
  * ```
  */
 
@@ -62,3 +67,35 @@ export const ApiErrors = {
     return apiError('Internal server error', 500);
   },
 } as const;
+
+/**
+ * Returns a 204 No Content response for successful DELETE operations.
+ */
+export function noContent(): Response {
+  return new Response(null, { status: 204 });
+}
+
+/**
+ * UUID v4 regex — used to validate route parameters before hitting the DB.
+ */
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * Validates that a string is a well-formed UUID.
+ * Returns an error response if invalid, or null if valid.
+ *
+ * Usage:
+ * ```ts
+ * const invalid = validateUUID(id, 'Asset');
+ * if (invalid) return invalid;
+ * ```
+ */
+export function validateUUID(
+  value: string,
+  resourceName = 'Resource',
+): NextResponse<ApiErrorBody> | null {
+  if (!UUID_REGEX.test(value)) {
+    return ApiErrors.badRequest(`Invalid ${resourceName} ID format`);
+  }
+  return null;
+}

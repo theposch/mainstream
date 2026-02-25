@@ -111,10 +111,14 @@ export function useNotifications(): UseNotificationsReturn {
   useEffect(() => {
     const supabase = createClient();
     let channel: ReturnType<typeof supabase.channel> | null = null;
+    // Guard against the component unmounting before the async getUser() resolves.
+    // Without this, the cleanup runs before `channel` is assigned and the
+    // subscription leaks indefinitely.
+    let mounted = true;
 
     const setupSubscription = async () => {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!user || !mounted) return;
 
       channel = supabase
         .channel(`notifications:${user.id}`)
@@ -150,6 +154,7 @@ export function useNotifications(): UseNotificationsReturn {
     setupSubscription();
 
     return () => {
+      mounted = false;
       if (channel) {
         channel.unsubscribe();
       }

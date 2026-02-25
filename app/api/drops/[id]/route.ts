@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/auth/get-user";
+import { validateUUID, noContent } from "@/lib/utils/api-error";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -10,6 +11,9 @@ interface RouteParams {
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
     const { id } = await params;
+    const invalid = validateUUID(id, 'Drop');
+    if (invalid) return invalid;
+
     const supabase = await createClient();
     const user = await getCurrentUser();
 
@@ -157,6 +161,9 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 export async function PATCH(request: NextRequest, { params }: RouteParams) {
   try {
     const { id } = await params;
+    const invalid = validateUUID(id, 'Drop');
+    if (invalid) return invalid;
+
     const user = await getCurrentUser();
     
     if (!user) {
@@ -248,6 +255,9 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
   try {
     const { id } = await params;
+    const invalid = validateUUID(id, 'Drop');
+    if (invalid) return invalid;
+
     const user = await getCurrentUser();
     
     if (!user) {
@@ -293,7 +303,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    return NextResponse.json({ success: true });
+    return noContent();
   } catch (error) {
     console.error("[Drops API] Unexpected error:", error);
     return NextResponse.json(

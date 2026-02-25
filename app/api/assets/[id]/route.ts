@@ -11,6 +11,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { deleteUploadedFiles } from '@/lib/utils/file-storage';
+import { noContent } from '@/lib/utils/api-error';
 
 export const dynamic = 'force-dynamic';
 
@@ -411,13 +412,7 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
       console.error('[DELETE /api/assets/:id] Error deleting files:', fileError);
     }
 
-    return NextResponse.json(
-      { 
-        success: true,
-        message: 'Asset deleted successfully'
-      },
-      { status: 200 }
-    );
+    return noContent();
   } catch (error) {
     console.error('[DELETE /api/assets/:id] Error:', error);
     return NextResponse.json(

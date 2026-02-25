@@ -11,6 +11,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { shouldCreateNotification } from '@/lib/notifications/check-preferences';
 import { rateLimit, RATE_LIMITS } from '@/lib/utils/rate-limit';
+import { validateUUID } from '@/lib/utils/api-error';
 
 interface RouteContext {
   params: Promise<{
@@ -33,6 +34,9 @@ export async function GET(
 ) {
   try {
     const { id: assetId } = await context.params;
+    const invalid = validateUUID(assetId, 'Asset');
+    if (invalid) return invalid;
+
     const { searchParams } = request.nextUrl;
     const limit = Math.min(parseInt(searchParams.get('limit') || '50'), 100);
     const cursor = searchParams.get('cursor'); // ISO timestamp of the last fetched comment
@@ -128,8 +132,11 @@ export async function POST(
 ) {
   try {
     const { id: assetId } = await context.params;
+    const invalid = validateUUID(assetId, 'Asset');
+    if (invalid) return invalid;
+
     const supabase = await createClient();
-    
+
     // Check authentication
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     
