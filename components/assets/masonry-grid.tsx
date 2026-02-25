@@ -110,7 +110,7 @@ export const MasonryGrid = React.memo(function MasonryGrid({
       {uploadState && (
         <UploadSkeletonCard key="__upload-skeleton__" preview={uploadState.preview} />
       )}
-      {assets.map((asset) => (
+      {assets.map((asset, index) => (
         <ErrorBoundary
           key={asset.id}
           fallback={(error, reset) => (
@@ -127,6 +127,7 @@ export const MasonryGrid = React.memo(function MasonryGrid({
             layout={layout}
             onLikeChange={onLikeChange}
             onClick={onAssetClick}
+            priority={index < 8}
           />
         </ErrorBoundary>
       ))}

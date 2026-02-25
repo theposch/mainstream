@@ -16,6 +16,10 @@ import { Badge } from "@/components/ui/badge";
 import type { Asset } from "@/lib/types/database";
 import { formatDistanceToNow } from "date-fns";
 
+// Matches MASONRY_BREAKPOINTS: 640→1col, 768→2col, 1280→3col, 1600→4col, 1920+→5col
+const MASONRY_SIZES =
+  "(max-width: 640px) 100vw, (max-width: 768px) 50vw, (max-width: 1280px) 33vw, (max-width: 1600px) 25vw, 20vw";
+
 interface ElementCardProps {
   asset: Asset;
   className?: string;
@@ -25,10 +29,12 @@ interface ElementCardProps {
   onLikeChange?: (assetId: string, isLiked: boolean) => void;
   /** Callback when card is clicked - for modal overlay mode */
   onClick?: (asset: Asset) => void;
+  /** Mark as high-priority (preload) for above-the-fold cards */
+  priority?: boolean;
 }
 
 export const ElementCard = React.memo(
-  function ElementCard({ asset, className, layout = "grid", onLikeChange, onClick }: ElementCardProps) {
+  function ElementCard({ asset, className, layout = "grid", onLikeChange, onClick, priority = false }: ElementCardProps) {
   const [isHovered, setIsHovered] = React.useState(false);
   const [imageLoaded, setImageLoaded] = React.useState(false);
   // D2: Track whether the GIF has been hovered at least once so it stays in DOM
@@ -138,17 +144,13 @@ export const ElementCard = React.memo(
   const embedAspectRatio = embedDisplayInfo.ratio;
   const embedNeedsCrop = embedDisplayInfo.needsCrop;
 
-  // Progressive loading: use thumbnailUrl first, then upgrade to mediumUrl or full url
-  // For GIFs: thumbnail is static JPEG, medium/full are animated
-  // On hover for GIFs: show animated version
+  // GIFs: static JPEG thumbnail in grid, animated medium on hover
   const thumbnailUrl = asset.thumbnail_url || asset.url;
   const animatedUrl = asset.medium_url || asset.url;
-  
-  // For GIFs: show animated on hover, static otherwise
-  // For other images: normal progressive loading behavior
-  const displayUrl = isGif
-    ? (isHovered ? animatedUrl : thumbnailUrl)
-    : (imageLoaded ? (asset.medium_url || asset.url) : thumbnailUrl);
+
+  // For regular images always use full-res URL so Next.js Image optimization can
+  // serve the right srcset entry — avoids upscaling the 800px medium on retina.
+  const displayUrl = asset.url;
 
   // Get uploader from the asset (already joined from database query)
   const uploader = asset.uploader;
@@ -207,13 +209,14 @@ export const ElementCard = React.memo(
                     "absolute inset-0 w-full h-full transition-transform duration-500 group-hover:scale-105",
                     // For tall frames that need cropping: show top portion (hero area)
                     // For normal frames: contain the full image
-                    embedNeedsCrop 
-                      ? "object-cover object-top" 
-                      : asset.width && asset.height 
-                        ? "object-contain bg-muted" 
+                    embedNeedsCrop
+                      ? "object-cover object-top"
+                      : asset.width && asset.height
+                        ? "object-contain bg-muted"
                         : "object-cover"
                   )}
-                  sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                  sizes={MASONRY_SIZES}
+                  priority={priority}
                   onLoad={handleImageLoad}
                 />
               </>
@@ -240,7 +243,8 @@ export const ElementCard = React.memo(
                     "absolute inset-0 object-cover w-full h-full transition-all duration-300",
                     isHovered ? "opacity-0" : "opacity-100"
                   )}
-                  sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                  sizes={MASONRY_SIZES}
+                  priority={priority}
                   onLoad={handleImageLoad}
                 />
                 {hasHoveredGif && (
@@ -261,7 +265,8 @@ export const ElementCard = React.memo(
                 alt={asset.title}
                 fill
                 className="absolute inset-0 object-cover w-full h-full transition-transform duration-500 group-hover:scale-105"
-                sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                sizes={MASONRY_SIZES}
+                priority={priority}
                 onLoad={handleImageLoad}
               />
             )}
