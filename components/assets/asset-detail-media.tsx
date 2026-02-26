@@ -1,6 +1,5 @@
 "use client";
 
-import * as React from "react";
 import Image from "next/image";
 import { ExternalLink } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -14,13 +13,18 @@ import type { Asset } from "@/lib/types/database";
 
 /**
  * Progressive Image Component
- * Shows thumbnail/medium immediately (cached from feed), then upgrades to full res.
+ * Renders the full-resolution image with high priority so the browser preloads
+ * it immediately via <link rel="preload">.
  *
- * Pattern: Same as Pinterest - display low-res immediately, upgrade when high-res ready.
- * The thumbnail is already in browser cache from the feed, so it appears instantly.
+ * Note: A previous implementation used `new window.Image()` to prefetch fullSrc
+ * before swapping the Next.js Image src from thumbnail to full. That approach was
+ * ineffective because Next.js Image serves images via /_next/image?url=...&w=...
+ * (a different URL than the raw path), so the vanilla Image() prefetch never
+ * populated the correct browser-cache entry. The priority prop handles preloading
+ * correctly through Next.js's own link-preload mechanism.
  */
 export function ProgressiveImage({
-  thumbnailSrc,
+  thumbnailSrc: _thumbnailSrc,
   fullSrc,
   alt,
 }: {
@@ -28,35 +32,9 @@ export function ProgressiveImage({
   fullSrc: string;
   alt: string;
 }) {
-  const [currentSrc, setCurrentSrc] = React.useState(thumbnailSrc);
-
-  React.useEffect(() => {
-    if (thumbnailSrc === fullSrc) {
-      setCurrentSrc(fullSrc);
-      return;
-    }
-
-    setCurrentSrc(thumbnailSrc);
-
-    const img = new window.Image();
-    let cancelled = false;
-
-    img.onload = () => {
-      if (!cancelled) {
-        requestAnimationFrame(() => setCurrentSrc(fullSrc));
-      }
-    };
-    img.src = fullSrc;
-
-    return () => {
-      cancelled = true;
-      img.onload = null;
-    };
-  }, [fullSrc, thumbnailSrc]);
-
   return (
     <Image
-      src={currentSrc}
+      src={fullSrc}
       alt={alt}
       fill
       className="object-contain"

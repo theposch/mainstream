@@ -43,16 +43,8 @@ function checkCsrf(request: NextRequest): boolean {
   const origin = request.headers.get('origin');
   if (!origin) return true;
 
-  // Compare origin to the application URL.
-  const appUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-    ? request.nextUrl.origin
-    : null;
-
-  // Build the expected origin from the request itself — this handles any
-  // port/domain configuration without requiring an extra env var.
-  const expectedOrigin = request.nextUrl.origin;
-
-  return origin === expectedOrigin || (appUrl !== null && origin === appUrl);
+  // Reject requests whose Origin does not match the app's own origin.
+  return origin === request.nextUrl.origin;
 }
 
 export async function updateSession(request: NextRequest) {
