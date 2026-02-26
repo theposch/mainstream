@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Share2, Download, Flag, X, Trash2, Pencil } from "lucide-react";
+import { Share2, Download, Trash2, Pencil } from "lucide-react";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { cn } from "@/lib/utils";
 
@@ -10,7 +10,6 @@ interface MoreMenuSheetProps {
   onOpenChange: (open: boolean) => void;
   onShare: () => void;
   onDownload: () => void;
-  onReport: () => void;
   onEdit?: () => void;
   canEdit?: boolean;
   onDelete?: () => void;
@@ -22,7 +21,6 @@ export function MoreMenuSheet({
   onOpenChange,
   onShare,
   onDownload,
-  onReport,
   onEdit,
   canEdit = false,
   onDelete,

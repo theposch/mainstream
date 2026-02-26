@@ -21,13 +21,17 @@ interface UploadDialogProps {
   onOpenChange: (open: boolean) => void;
   /** Pre-select a stream when opening from a stream page */
   initialStreamId?: string;
+  /** Pre-load a file (e.g. from a global drag-and-drop) */
+  initialFile?: File;
 }
 
-export function UploadDialog({ open, onOpenChange, initialStreamId }: UploadDialogProps) {
+export function UploadDialog({ open, onOpenChange, initialStreamId, initialFile }: UploadDialogProps) {
   const router = useRouter();
   const [isLoading, setIsLoading] = React.useState(false);
+  const [uploadProgress, setUploadProgress] = React.useState<number | null>(null);
   const [error, setError] = React.useState<string | null>(null);
   const [isDragging, setIsDragging] = React.useState(false);
+  const [isDraggingInvalid, setIsDraggingInvalid] = React.useState(false);
   
   // File state
   const [file, setFile] = React.useState<File | null>(null);
@@ -71,12 +75,13 @@ export function UploadDialog({ open, onOpenChange, initialStreamId }: UploadDial
     streamSelection.reset();
     setError(null);
     setIsLoading(false);
+    setUploadProgress(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
   };
 
-  const handleFileSelect = (selectedFile: File) => {
+  const handleFileSelect = React.useCallback((selectedFile: File) => {
     setError(null);
 
     // Validate file type (images and WebM videos)
@@ -110,22 +115,41 @@ export function UploadDialog({ open, onOpenChange, initialStreamId }: UploadDial
       }
     };
     reader.readAsDataURL(selectedFile);
+  }, []);
+
+  // When opened with a pre-provided file (e.g. from global drag-and-drop), load it immediately
+  React.useEffect(() => {
+    if (open && initialFile) {
+      handleFileSelect(initialFile);
+    }
+  }, [open, initialFile, handleFileSelect]);
+
+  const isValidDragType = (items: DataTransferItemList) => {
+    const item = items[0];
+    if (!item) return true; // Allow if unknown
+    const isImage = item.type.startsWith('image/');
+    const isWebM = item.type === 'video/webm';
+    return isImage || isWebM;
   };
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
-    setIsDragging(true);
+    const valid = isValidDragType(e.dataTransfer.items);
+    setIsDragging(valid);
+    setIsDraggingInvalid(!valid);
   };
 
   const handleDragLeave = (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(false);
+    setIsDraggingInvalid(false);
   };
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(false);
-    
+    setIsDraggingInvalid(false);
+
     const droppedFile = e.dataTransfer.files[0];
     if (droppedFile) {
       handleFileSelect(droppedFile);
@@ -167,6 +191,8 @@ export function UploadDialog({ open, onOpenChange, initialStreamId }: UploadDial
     }
 
     setIsLoading(true);
+    // Signal masonry grids to show an upload skeleton while we wait
+    window.dispatchEvent(new CustomEvent('upload-start', { detail: { preview } }));
 
     try {
       // Create pending streams first using shared hook
@@ -193,27 +219,42 @@ export function UploadDialog({ open, onOpenChange, initialStreamId }: UploadDial
         formData.append('streamIds', JSON.stringify(allStreamIds));
       }
 
-      // Upload
-      const response = await fetch('/api/assets/upload', {
-        method: 'POST',
-        body: formData,
+      // Upload with XHR for progress tracking
+      const data = await new Promise<{ asset?: { id: string } }>((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', '/api/assets/upload');
+        xhr.upload.addEventListener('progress', (e) => {
+          if (e.lengthComputable) {
+            setUploadProgress(Math.round((e.loaded / e.total) * 100));
+          }
+        });
+        xhr.addEventListener('load', () => {
+          let parsed: { asset?: { id: string }; error?: string; message?: string };
+          try {
+            parsed = JSON.parse(xhr.responseText);
+          } catch {
+            reject(new Error(`Server error (${xhr.status}): Unable to parse response`));
+            return;
+          }
+          if (xhr.status >= 200 && xhr.status < 300) {
+            resolve(parsed);
+          } else {
+            reject(new Error(parsed.error || parsed.message || `Upload failed (${xhr.status})`));
+          }
+        });
+        xhr.addEventListener('error', () => reject(new Error('Network error during upload')));
+        xhr.send(formData);
       });
-
-      let data;
-      try {
-        data = await response.json();
-      } catch {
-        throw new Error(`Server error (${response.status}): Unable to parse response`);
-      }
-
-      if (!response.ok) {
-        throw new Error(data.error || data.message || `Upload failed (${response.status})`);
-      }
 
       // Success! Close dialog and refresh current page
       onOpenChange(false);
       triggerSmallConfetti();
-      
+
+      // Mark the new asset so its card drops in from above instead of below
+      if (data.asset?.id) {
+        try { sessionStorage.setItem('newAssetId', data.asset.id); } catch { /* ignore */ }
+      }
+
       // Dispatch custom event to notify other components of new upload
       window.dispatchEvent(new CustomEvent('asset-uploaded', { detail: { asset: data.asset } }));
       
@@ -250,16 +291,24 @@ export function UploadDialog({ open, onOpenChange, initialStreamId }: UploadDial
                   className={`
                     border-2 border-dashed rounded-lg p-8 text-center cursor-pointer
                     transition-colors
-                    ${isDragging 
-                      ? 'border-primary bg-primary/5' 
-                      : 'border-border hover:border-primary/50 hover:bg-accent/50'
+                    ${isDraggingInvalid
+                      ? 'border-destructive bg-destructive/5'
+                      : isDragging
+                        ? 'border-primary bg-primary/5'
+                        : 'border-border hover:border-primary/50 hover:bg-accent/50'
                     }
                   `}
                 >
-                  <Upload className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
-                  <p className="text-sm text-muted-foreground mb-2">
-                    Drag and drop a file here, or click to browse
-                  </p>
+                  <Upload className={`mx-auto h-12 w-12 mb-4 ${isDraggingInvalid ? 'text-destructive' : 'text-muted-foreground'}`} />
+                  {isDraggingInvalid ? (
+                    <p className="text-sm text-destructive mb-2 font-medium">
+                      File type not supported
+                    </p>
+                  ) : (
+                    <p className="text-sm text-muted-foreground mb-2">
+                      Drag and drop a file here, or click to browse
+                    </p>
+                  )}
                   <p className="text-xs text-muted-foreground">
                     Images: 10MB max (JPG, PNG, GIF, WebP) • Videos: 50MB max (WebM)
                   </p>
@@ -298,6 +347,7 @@ export function UploadDialog({ open, onOpenChange, initialStreamId }: UploadDial
         {/* File Selected State */}
         {file && preview && (
           <form onSubmit={handleSubmit} className="flex flex-col">
+            <DialogTitle className="sr-only">Upload Media</DialogTitle>
             {/* Preview Area */}
             <div className="p-6 pb-0">
               <div className="relative w-full aspect-[1.85/1] rounded-t-xl overflow-hidden bg-muted border border-border border-b-0">
@@ -376,17 +426,27 @@ export function UploadDialog({ open, onOpenChange, initialStreamId }: UploadDial
                     <ChevronDown className="ml-2 h-3 w-3 opacity-50" />
                   </Button>
 
-                  <Button 
-                    type="submit" 
-                    disabled={isLoading}
-                    className="h-9 px-4 font-medium"
-                  >
-                    {isLoading ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      'Post'
+                  <div className="flex flex-col items-end gap-1">
+                    <Button
+                      type="submit"
+                      disabled={isLoading}
+                      className="h-9 px-4 font-medium"
+                    >
+                      {isLoading ? (
+                        uploadProgress !== null ? `${uploadProgress}%` : <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        'Post'
+                      )}
+                    </Button>
+                    {isLoading && uploadProgress !== null && (
+                      <div className="w-16 h-1 rounded-full bg-muted overflow-hidden">
+                        <div
+                          className="h-full bg-primary rounded-full transition-all duration-200"
+                          style={{ width: `${uploadProgress}%` }}
+                        />
+                      </div>
                     )}
-                  </Button>
+                  </div>
                 </div>
               </div>
             </div>

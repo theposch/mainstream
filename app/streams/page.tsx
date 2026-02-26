@@ -35,7 +35,7 @@ export default async function StreamsPage() {
   }
 
   // Single batch query: get all asset relations for all streams at once (with uploader info)
-  let assetRelationsMap = new Map<string, { count: number; posts: any[]; contributorIds: Set<string>; contributors: any[] }>();
+  const assetRelationsMap = new Map<string, { count: number; posts: any[]; contributorIds: Set<string>; contributors: any[] }>();
   
   if (streamIds.length > 0) {
     const { data: allAssetRelations } = await supabase
@@ -100,7 +100,7 @@ export default async function StreamsPage() {
   }
 
   // Fetch follower counts for all streams
-  let followerCountsMap = new Map<string, number>();
+  const followerCountsMap = new Map<string, number>();
   if (streamIds.length > 0) {
     const { data: followerCounts } = await supabase
       .from('stream_follows')

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/auth/get-user";
+import { validateUUID, noContent } from "@/lib/utils/api-error";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -10,6 +11,9 @@ interface RouteParams {
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
     const { id } = await params;
+    const invalid = validateUUID(id, 'Drop');
+    if (invalid) return invalid;
+
     const supabase = await createClient();
     const user = await getCurrentUser();
 
@@ -61,8 +65,32 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       .eq("drop_id", id)
       .order("position", { ascending: true });
 
+    interface DropPostItem {
+      position: number;
+      display_mode: string | null;
+      crop_position_x: number | null;
+      crop_position_y: number | null;
+      asset?: {
+        id: string;
+        title: string;
+        description: string | null;
+        url: string;
+        thumbnail_url: string;
+        asset_type: string;
+        embed_provider: string | null;
+        created_at: string;
+        uploader?: { id: string; username: string; display_name: string; avatar_url: string | null };
+        [key: string]: unknown;
+      };
+    }
+
+    interface StreamRef {
+      id: string;
+      name: string;
+    }
+
     // Flatten posts and get streams for each
-    const posts = dropPosts?.map((dp: any) => ({
+    const posts = (dropPosts as DropPostItem[] | null)?.map((dp) => ({
       ...dp.asset,
       position: dp.position,
       display_mode: dp.display_mode,
@@ -71,8 +99,8 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     })).filter(Boolean) || [];
 
     // Get streams for all posts
-    const postIds = posts.map((p) => p.id);
-    let postStreams: Record<string, any[]> = {};
+    const postIds = posts.map((p) => (p as { id: string }).id);
+    const postStreams: Record<string, StreamRef[]> = {};
     
     if (postIds.length > 0) {
       const { data: assetStreams } = await supabase
@@ -89,7 +117,9 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
             postStreams[as.asset_id] = [];
           }
           if (as.stream) {
-            postStreams[as.asset_id].push(as.stream);
+            // Supabase may return the join as an array or single object
+            const streams = Array.isArray(as.stream) ? as.stream : [as.stream];
+            streams.forEach((s) => postStreams[as.asset_id].push(s as StreamRef));
           }
         });
       }
@@ -98,7 +128,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     // Enrich posts with streams
     const enrichedPosts = posts.map((post) => ({
       ...post,
-      streams: postStreams[post.id] || [],
+      streams: postStreams[(post as { id?: string }).id ?? ''] || [],
     }));
 
     // Get unique contributors
@@ -131,6 +161,9 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 export async function PATCH(request: NextRequest, { params }: RouteParams) {
   try {
     const { id } = await params;
+    const invalid = validateUUID(id, 'Drop');
+    if (invalid) return invalid;
+
     const user = await getCurrentUser();
     
     if (!user) {
@@ -166,7 +199,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     const body = await request.json();
     const { title, description, status } = body;
 
-    const updates: Record<string, any> = {};
+    const updates: Record<string, string | null> = {};
     if (title !== undefined) updates.title = title?.trim() || null;
     if (description !== undefined) updates.description = description?.trim() || null;
     
@@ -222,6 +255,9 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
   try {
     const { id } = await params;
+    const invalid = validateUUID(id, 'Drop');
+    if (invalid) return invalid;
+
     const user = await getCurrentUser();
     
     if (!user) {
@@ -267,7 +303,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    return NextResponse.json({ success: true });
+    return noContent();
   } catch (error) {
     console.error("[Drops API] Unexpected error:", error);
     return NextResponse.json(

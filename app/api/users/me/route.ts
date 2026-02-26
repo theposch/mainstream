@@ -168,12 +168,13 @@ export async function PUT(request: NextRequest) {
     // Validate avatar_url if provided - only allow safe, whitelisted patterns
     // Avatar changes should primarily go through /api/users/me/avatar endpoint
     if (finalAvatarUrl !== undefined) {
-      const isLocalUpload = finalAvatarUrl.startsWith('/uploads/avatars/');
-      const isVercelAvatar = finalAvatarUrl.startsWith('https://avatar.vercel.sh/');
-      const isGravatar = finalAvatarUrl.startsWith('https://www.gravatar.com/avatar/');
-      const isGitHubAvatar = finalAvatarUrl.startsWith('https://avatars.githubusercontent.com/');
-      
-      if (!isLocalUpload && !isVercelAvatar && !isGravatar && !isGitHubAvatar) {
+      const isLocalUpload    = finalAvatarUrl.startsWith('/uploads/avatars/');
+      const isStorageUpload  = finalAvatarUrl.includes('/storage/v1/object/public/avatars/');
+      const isVercelAvatar   = finalAvatarUrl.startsWith('https://avatar.vercel.sh/');
+      const isGravatar       = finalAvatarUrl.startsWith('https://www.gravatar.com/avatar/');
+      const isGitHubAvatar   = finalAvatarUrl.startsWith('https://avatars.githubusercontent.com/');
+
+      if (!isLocalUpload && !isStorageUpload && !isVercelAvatar && !isGravatar && !isGitHubAvatar) {
         return NextResponse.json(
           { error: 'Invalid avatar URL. Only local uploads and approved avatar services are allowed.' },
           { status: 400 }
@@ -182,7 +183,15 @@ export async function PUT(request: NextRequest) {
     }
 
     // Build update object (only include provided fields)
-    const updateData: Record<string, any> = {};
+    const updateData: {
+      display_name?: string;
+      username?: string;
+      email?: string;
+      bio?: string;
+      job_title?: string;
+      location?: string;
+      avatar_url?: string;
+    } = {};
     if (finalDisplayName !== undefined) updateData.display_name = finalDisplayName;
     if (username !== undefined) updateData.username = username;
     if (email !== undefined) updateData.email = email;

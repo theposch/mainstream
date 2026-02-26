@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Upload, Loader2, Users, LayoutGrid, Rows } from "lucide-react";
+import { Upload, Users, LayoutGrid, Rows } from "lucide-react";
 import { useQueryState } from "nuqs";
 import { useQuery } from "@tanstack/react-query";
 import { FeedTabs } from "./feed-tabs";
@@ -16,10 +16,28 @@ import { useFollowingAssets } from "@/lib/hooks/use-following-assets";
 import { assetKeys, fetchAssetById } from "@/lib/queries/asset-queries";
 import { UploadDialog } from "@/components/layout/upload-dialog";
 import { groupAssetsByWeek } from "@/lib/utils/week-grouping";
+import { CACHE_TIMES } from "@/lib/constants/cache";
 import type { Asset } from "@/lib/types/database";
 
 interface DashboardFeedProps {
   initialAssets: Asset[];
+}
+
+// Fixed aspect ratios so skeletons match typical card heights without Math.random()
+const SKELETON_RATIOS = [75, 100, 60, 90, 120, 75, 100, 60];
+
+function LoadingSkeletons({ count = 8 }: { count?: number }) {
+  return (
+    <div className="columns-2 sm:columns-3 lg:columns-4 gap-3">
+      {Array.from({ length: count }).map((_, i) => (
+        <div
+          key={i}
+          className="break-inside-avoid mb-3 rounded-xl bg-muted animate-pulse"
+          style={{ paddingBottom: `${SKELETON_RATIOS[i % SKELETON_RATIOS.length]}%` }}
+        />
+      ))}
+    </div>
+  );
 }
 
 export const DashboardFeed = React.memo(function DashboardFeed({ initialAssets }: DashboardFeedProps) {
@@ -43,7 +61,7 @@ export const DashboardFeed = React.memo(function DashboardFeed({ initialAssets }
   }, []);
   
   // Infinite scroll hook for recent feed
-  const { assets, loadMore, hasMore, loading, removeAsset } = useAssetsInfinite(initialAssets);
+  const { assets, loadMore, hasMore, loading, removeAsset, prependAsset } = useAssetsInfinite(initialAssets);
   
   // Hook for following feed
   const { 
@@ -60,6 +78,22 @@ export const DashboardFeed = React.memo(function DashboardFeed({ initialAssets }
       loadMoreFollowing();
     }
   }, [activeTab, followingAssets.length, loadingFollowing, loadMoreFollowing]);
+
+  // C4: Scroll to top when switching tabs for clean navigation
+  const handleTabChange = React.useCallback((tab: "recent" | "following") => {
+    setActiveTab(tab);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }, []);
+
+  // A1: Listen for newly uploaded assets and prepend them to the feed instantly
+  React.useEffect(() => {
+    const handleAssetUploaded = (e: Event) => {
+      const asset = (e as CustomEvent<{ asset: Asset }>).detail?.asset;
+      if (asset) prependAsset(asset);
+    };
+    window.addEventListener("asset-uploaded", handleAssetUploaded);
+    return () => window.removeEventListener("asset-uploaded", handleAssetUploaded);
+  }, [prependAsset]);
   
   // Intersection Observer for infinite scroll
   const sentinelRef = React.useRef<HTMLDivElement>(null);
@@ -132,7 +166,7 @@ export const DashboardFeed = React.memo(function DashboardFeed({ initialAssets }
     queryKey: assetKeys.detail(selectedAssetId || ""),
     queryFn: () => fetchAssetById(selectedAssetId!),
     enabled: !!selectedAssetId && !assetFromCache, // Only fetch if not in cache
-    staleTime: 5 * 60 * 1000,
+    staleTime: CACHE_TIMES.STALE_TIME,
   });
 
   // Use cached asset if available, otherwise use fetched asset
@@ -183,7 +217,7 @@ export const DashboardFeed = React.memo(function DashboardFeed({ initialAssets }
         
         {/* Right: Tabs and layout toggle */}
         <div className="flex items-center gap-3">
-          <FeedTabs activeTab={activeTab} onTabChange={setActiveTab} />
+          <FeedTabs activeTab={activeTab} onTabChange={handleTabChange} />
           
           <div className="hidden md:flex items-center gap-1">
             <button
@@ -213,7 +247,10 @@ export const DashboardFeed = React.memo(function DashboardFeed({ initialAssets }
       </div>
 
       <div className="mt-6">
-        {isEmpty ? (
+        {isEmpty && currentLoading ? (
+          // B3: Show skeletons during initial load (e.g. following tab first load)
+          <LoadingSkeletons />
+        ) : isEmpty ? (
           activeTab === "following" ? (
             // Empty state for Following tab
             <div className="flex flex-col items-center justify-center py-20 text-center">
@@ -286,16 +323,11 @@ export const DashboardFeed = React.memo(function DashboardFeed({ initialAssets }
             </div>
             
             {/* Infinite scroll sentinel */}
-            <div ref={sentinelRef} className="w-full py-8 flex items-center justify-center">
-              {currentLoading && (
-                <div className="flex items-center gap-2 text-muted-foreground">
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                  <span className="text-sm">Loading more designs...</span>
-                </div>
-              )}
+            <div ref={sentinelRef} className="w-full">
+              {currentLoading && <LoadingSkeletons count={4} />}
               {!currentHasMore && displayedAssets.length > 0 && (
-                <p className="text-sm text-muted-foreground">
-                  You've reached the end!
+                <p className="text-sm text-muted-foreground text-center py-8">
+                  You&apos;ve reached the end!
                 </p>
               )}
             </div>

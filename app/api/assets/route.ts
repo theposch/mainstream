@@ -8,11 +8,12 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import { 
-  ASSET_BASE_SELECT, 
-  parseAndValidateCursor, 
+import {
+  ASSET_BASE_SELECT,
+  parseAndValidateCursor,
   buildCompositeCursor,
-  NO_CACHE_HEADERS 
+  NO_CACHE_HEADERS,
+  type RawAssetFromDB,
 } from '@/lib/api/assets';
 
 // Force dynamic rendering to prevent caching
@@ -93,32 +94,7 @@ export async function GET(request: NextRequest) {
     
     query = query.limit(fetchLimit);
     
-    let { data: assets, error } = await query;
-    
-    // Only fallback if error is specifically "column not found" (code 42703)
-    const isColumnNotFoundError = error?.code === '42703' || error?.message?.includes('visibility');
-    if (error && isColumnNotFoundError) {
-      let fallbackQuery = supabase
-        .from('assets')
-        .select(ASSET_BASE_SELECT)
-        .order('created_at', { ascending: false })
-        .order('id', { ascending: false });
-      
-      if (cursorTimestamp) {
-        if (cursorId) {
-          // Timestamp values must be quoted for proper PostgREST parsing
-          fallbackQuery = fallbackQuery.or(
-            `created_at.lt."${cursorTimestamp}",and(created_at.eq."${cursorTimestamp}",id.lt.${cursorId})`
-          );
-        } else {
-          fallbackQuery = fallbackQuery.lt('created_at', cursorTimestamp);
-        }
-      }
-      
-      const fallback = await fallbackQuery.limit(fetchLimit);
-      assets = fallback.data;
-      error = fallback.error;
-    }
+    const { data: assets, error } = await query;
 
     if (error) {
       console.error('[GET /api/assets] Database error:', error);
@@ -138,7 +114,7 @@ export async function GET(request: NextRequest) {
     // Batch fetch which assets the user has liked
     let userLikedAssetIds: Set<string> = new Set();
     if (currentUser && rawAssets.length > 0) {
-      const assetIds = rawAssets.map((a: any) => a.id);
+      const assetIds = rawAssets.map((a: RawAssetFromDB) => a.id);
       const { data: userLikes } = await supabase
         .from('asset_likes')
         .select('asset_id')
@@ -151,9 +127,9 @@ export async function GET(request: NextRequest) {
     }
     
     // Transform nested data to flat structure with like status
-    const transformedAssets = rawAssets.map((asset: any) => ({
+    const transformedAssets = rawAssets.map((asset: RawAssetFromDB) => ({
       ...asset,
-      streams: asset.asset_streams?.map((rel: any) => rel.streams).filter(Boolean) || [],
+      streams: asset.asset_streams?.map((rel) => rel.streams).filter(Boolean) || [],
       asset_streams: undefined,
       likeCount: asset.asset_likes?.[0]?.count || 0,
       asset_likes: undefined,

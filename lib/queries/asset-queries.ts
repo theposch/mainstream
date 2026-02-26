@@ -7,6 +7,7 @@
 
 import type { QueryClient } from "@tanstack/react-query";
 import type { Asset, Comment } from "@/lib/types/database";
+import { CACHE_TIMES } from "@/lib/constants/cache";
 
 // Re-export Comment type for backwards compatibility
 export type { Comment };
@@ -75,8 +76,7 @@ export async function prefetchAssetComments(
   await queryClient.prefetchQuery({
     queryKey: assetKeys.comments(assetId),
     queryFn: () => fetchAssetComments(assetId),
-    // Don't refetch if data is less than 5 minutes old
-    staleTime: 5 * 60 * 1000,
+    staleTime: CACHE_TIMES.STALE_TIME,
   });
 }
 

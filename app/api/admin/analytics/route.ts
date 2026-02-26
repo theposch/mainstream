@@ -11,6 +11,11 @@ import type { AnalyticsApiResponse, TopContributor } from '@/lib/types/admin';
 
 export const dynamic = 'force-dynamic';
 
+// Simple server-side cache — analytics data is expensive to compute and
+// does not need to be real-time. Cache for 5 minutes.
+const CACHE_TTL_MS = 5 * 60 * 1000;
+let cachedAnalytics: { data: AnalyticsApiResponse; expiresAt: number } | null = null;
+
 function formatBytes(bytes: number): string {
   if (bytes === 0) return '0 Bytes';
   if (bytes < 0) return 'Invalid size';
@@ -42,6 +47,13 @@ export async function GET() {
         { error: 'Admin access required' },
         { status: 403 }
       );
+    }
+
+    // Serve from cache if still valid
+    if (cachedAnalytics && cachedAnalytics.expiresAt > Date.now()) {
+      return NextResponse.json(cachedAnalytics.data, {
+        headers: { 'X-Cache': 'HIT', 'Cache-Control': 'private, max-age=300' },
+      });
     }
 
     const supabase = await createAdminClient();
@@ -189,8 +201,12 @@ export async function GET() {
     });
 
     // Count likes received (on user's assets)
-    (assetLikes || []).forEach((like: any) => {
-      const uploaderId = like.assets?.uploader_id;
+    // Supabase returns joined rows as an array even for inner joins
+    (assetLikes || []).forEach((like: { assets?: { uploader_id?: string }[] | { uploader_id?: string } | null }) => {
+      const assets = like.assets;
+      const uploaderId = Array.isArray(assets)
+        ? assets[0]?.uploader_id
+        : assets?.uploader_id;
       if (uploaderId) {
         const stats = userStats.get(uploaderId);
         if (stats) stats.likes++;
@@ -243,7 +259,12 @@ export async function GET() {
       topContributors,
     };
 
-    return NextResponse.json(analytics);
+    // Populate cache
+    cachedAnalytics = { data: analytics, expiresAt: Date.now() + CACHE_TTL_MS };
+
+    return NextResponse.json(analytics, {
+      headers: { 'X-Cache': 'MISS', 'Cache-Control': 'private, max-age=300' },
+    });
   } catch (error) {
     console.error('[GET /api/admin/analytics] Error:', error);
     return NextResponse.json(

@@ -7,7 +7,10 @@ import { formatDistanceToNow, isToday, isYesterday, format } from "date-fns";
 import {
   Sheet,
   SheetContent,
+  SheetTitle,
+  SheetDescription,
 } from "@/components/ui/sheet";
+import * as VisuallyHidden from "@radix-ui/react-visually-hidden";
 import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -36,7 +39,6 @@ import {
   Eye,
   HardDrive,
   Calendar,
-  Mail,
   Briefcase,
   MapPin,
   ExternalLink,
@@ -281,6 +283,10 @@ export function UserDetailPanel({
           side="right"
           className="w-full sm:max-w-[560px] p-0 bg-background border-border flex flex-col"
         >
+          <VisuallyHidden.Root>
+            <SheetTitle>User Details</SheetTitle>
+            <SheetDescription>Detailed information and management options for this user.</SheetDescription>
+          </VisuallyHidden.Root>
           {loading ? (
             <div className="flex items-center justify-center h-full">
               <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -569,7 +575,7 @@ function ActivityTab({
   // How many to currently show
   const [displayCount, setDisplayCount] = React.useState(30);
   const [loading, setLoading] = React.useState(false);
-  const [hasFetchedAll, setHasFetchedAll] = React.useState(false);
+  const [, setHasFetchedAll] = React.useState(false);
   
   // Track which user we last fetched for to prevent unnecessary re-fetches
   const lastFetchedUserId = React.useRef<string | null>(null);
@@ -660,10 +666,9 @@ function ActivityTab({
             {/* Activity items */}
             <div className="space-y-4">
               {dayActivities.map((activity, idx) => (
-                <TimelineItem 
-                  key={`${activity.type}-${activity.timestamp}-${idx}`} 
+                <TimelineItem
+                  key={`${activity.type}-${activity.timestamp}-${idx}`}
                   activity={activity}
-                  isLast={idx === dayActivities.length - 1}
                 />
               ))}
             </div>
@@ -708,7 +713,7 @@ function ActivityTab({
   );
 }
 
-function TimelineItem({ activity, isLast }: { activity: UserActivity; isLast: boolean }) {
+function TimelineItem({ activity }: { activity: UserActivity }) {
   const ActivityIcon = activityIcons[activity.type];
   const time = format(new Date(activity.timestamp), "h:mm a");
   
@@ -762,7 +767,7 @@ function TimelineItem({ activity, isLast }: { activity: UserActivity; isLast: bo
             </p>
             {activity.type === "comment" && activity.details.commentContent && (
               <p className="text-xs text-muted-foreground mt-1 line-clamp-2 bg-muted/50 rounded px-2 py-1">
-                "{activity.details.commentContent}"
+                &quot;{activity.details.commentContent}&quot;
               </p>
             )}
           </div>

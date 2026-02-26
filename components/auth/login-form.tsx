@@ -13,6 +13,7 @@ import {
   FieldLabel,
 } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
+import Image from "next/image"
 import { createClient } from "@/lib/supabase/client"
 
 // Validate redirect URL to prevent open redirect attacks
@@ -135,10 +136,11 @@ export function LoginForm({
             </FieldGroup>
           </form>
           <div className="relative hidden md:block">
-            <img
+            <Image
               src="/auth-bg.jpg"
               alt="Ethereal clouds"
-              className="absolute inset-0 h-full w-full object-cover"
+              fill
+              className="object-cover"
             />
           </div>
         </CardContent>

@@ -62,15 +62,33 @@ export function CreateDialog({ children }: { children: React.ReactNode }) {
   
   // Stream selection
   const streamSelection = useStreamSelection();
-  
+  const { reset: resetStreamSelection } = streamSelection;
+
   const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+  const resetForm = React.useCallback(() => {
+    setMode('initial');
+    setFile(null);
+    setPreview(null);
+    setUrl("");
+    setTitle("");
+    setDescription("");
+    setProvider(null);
+    setIsValidUrl(false);
+    resetStreamSelection();
+    setError(null);
+    setIsLoading(false);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  }, [resetStreamSelection]);
 
   // Reset form when dialog closes
   React.useEffect(() => {
     if (!open) {
       resetForm();
     }
-  }, [open]);
+  }, [open, resetForm]);
 
   // Detect provider when URL changes
   React.useEffect(() => {
@@ -79,7 +97,7 @@ export function CreateDialog({ children }: { children: React.ReactNode }) {
       setProvider(detected);
       const valid = isSupportedUrl(url);
       setIsValidUrl(valid);
-      
+
       if (valid) {
         // Auto-populate title from URL (only if title is empty)
         if (!title) {
@@ -108,23 +126,6 @@ export function CreateDialog({ children }: { children: React.ReactNode }) {
       }
     }
   }, [url, mode, title]);
-
-  const resetForm = () => {
-    setMode('initial');
-    setFile(null);
-    setPreview(null);
-    setUrl("");
-    setTitle("");
-    setDescription("");
-    setProvider(null);
-    setIsValidUrl(false);
-    streamSelection.reset();
-    setError(null);
-    setIsLoading(false);
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
-    }
-  };
 
   const handleFileSelect = (selectedFile: File) => {
     setError(null);

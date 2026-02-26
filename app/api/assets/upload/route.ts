@@ -36,7 +36,10 @@ import {
   generateVideoThumbnails,
   isFFmpegAvailable,
 } from '@/lib/utils/video-processing';
-import { createClient } from '@/lib/supabase/server';
+import { createClient, createAdminClient } from '@/lib/supabase/server';
+import { logger } from '@/lib/logger';
+import { rateLimit, RATE_LIMITS } from '@/lib/utils/rate-limit';
+import { decryptToken, postMessage, getBaseUrl } from '@/lib/utils/slack';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60; // Allow up to 60 seconds for large uploads
@@ -72,6 +75,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Rate limit by user ID to prevent upload spam
+    const rl = rateLimit(request, RATE_LIMITS.upload, `upload:${authUser.id}`);
+    if (!rl.success) {
+      return NextResponse.json({ error: 'Too many uploads, please slow down' }, { status: 429 });
+    }
+
     // Get user profile
     const { data: userProfile } = await supabase
       .from('users')
@@ -96,7 +105,7 @@ export async function POST(request: NextRequest) {
     try {
       formData = await request.formData();
     } catch (formError) {
-      console.error('[POST /api/assets/upload] Failed to parse form data:', formError);
+      logger.error('upload', 'Failed to parse form data', formError);
       return NextResponse.json(
         { error: 'Failed to parse upload. File may be too large.' },
         { status: 413 }
@@ -117,7 +126,7 @@ export async function POST(request: NextRequest) {
       try {
         streamIds = JSON.parse(streamIdsRaw as string);
       } catch (error) {
-        console.warn('[POST /api/assets/upload] Failed to parse streamIds, defaulting to empty array');
+        logger.warn('upload', 'Failed to parse streamIds, defaulting to empty array', error);
         streamIds = [];
       }
     }
@@ -130,7 +139,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log(`[POST /api/assets/upload] File received: ${file.name}, size: ${(file.size / 1024 / 1024).toFixed(2)} MB, type: ${file.type}`);
+    logger.debug('upload', `File received: ${file.name}`, { size: `${(file.size / 1024 / 1024).toFixed(2)} MB`, type: file.type });
 
     // Validate file type (images and WebM videos)
     const isImage = file.type.startsWith('image/');
@@ -158,25 +167,27 @@ export async function POST(request: NextRequest) {
     }
 
     // Stream IDs are optional - if provided, verify they exist
+    let validatedStreams: Array<{ id: string; name: string; slack_channel_id: string | null }> = [];
     if (streamIds && streamIds.length > 0) {
       const { data: streams, error: streamError } = await supabase
         .from('streams')
-        .select('id')
+        .select('id, name, slack_channel_id')
         .eq('status', 'active')
         .in('id', streamIds);
-      
+
       if (streamError) {
-        console.error('[POST /api/assets/upload] Error validating streams:', streamError);
+        logger.error('upload', 'Error validating streams', streamError);
         return NextResponse.json(
           { error: 'Failed to validate streams' },
           { status: 500 }
         );
       }
-      
+
       // Check all stream IDs are valid
-      const validStreamIds = streams?.map(s => s.id) || [];
+      validatedStreams = (streams || []) as typeof validatedStreams;
+      const validStreamIds = validatedStreams.map(s => s.id);
       const invalidStreamIds = streamIds.filter(id => !validStreamIds.includes(id));
-      
+
       if (invalidStreamIds.length > 0) {
         return NextResponse.json(
           { error: `Invalid stream IDs: ${invalidStreamIds.join(', ')}` },
@@ -199,24 +210,24 @@ export async function POST(request: NextRequest) {
 
     if (isWebM) {
       // WebM video: save video + generate thumbnail images
-      console.log(`[POST /api/assets/upload] Processing WebM video (${(file.size / 1024 / 1024).toFixed(2)} MB)`);
+      logger.debug('upload', `Processing WebM video`, { size: `${(file.size / 1024 / 1024).toFixed(2)} MB` });
       
       // Check if FFmpeg is available for thumbnail generation
       const ffmpegAvailable = await isFFmpegAvailable();
       
       // Save the WebM file directly (no transcoding needed)
-      fullUrl = await saveImageToPublic(buffer, uniqueFilename, 'full', '.webm');
-      
+      fullUrl = await saveImageToPublic(buffer, uniqueFilename, 'full', '.webm', user.id);
+
       if (ffmpegAvailable) {
         try {
           // Generate thumbnail images from video (extract frame at 1 second)
-          console.log(`[POST /api/assets/upload] Generating video thumbnails...`);
+          logger.debug('upload', 'Generating video thumbnails...');
           const { medium, thumbnail, metadata: videoMeta } = await generateVideoThumbnails(buffer, 1);
-          
+
           // Save thumbnail images (JPEG format)
           [mediumUrl, thumbnailUrl] = await Promise.all([
-            saveImageToPublic(medium, uniqueFilename, 'medium', '.jpg'),
-            saveImageToPublic(thumbnail, uniqueFilename, 'thumbnails', '.jpg'),
+            saveImageToPublic(medium, uniqueFilename, 'medium', '.jpg', user.id),
+            saveImageToPublic(thumbnail, uniqueFilename, 'thumbnails', '.jpg', user.id),
           ]);
           
           // Use video metadata for dimensions
@@ -226,16 +237,16 @@ export async function POST(request: NextRequest) {
             isAnimated: true,
           };
           
-          console.log(`[POST /api/assets/upload] Video thumbnails generated successfully`);
+          logger.debug('upload', 'Video thumbnails generated successfully');
         } catch (thumbError) {
-          console.error('[POST /api/assets/upload] Failed to generate video thumbnails:', thumbError);
+          logger.error('upload', 'Failed to generate video thumbnails', thumbError);
           // Fall back to video URL (better than failing the upload)
           mediumUrl = fullUrl;
           thumbnailUrl = fullUrl;
           metadata = { isAnimated: true };
         }
       } else {
-        console.warn('[POST /api/assets/upload] FFmpeg not available, skipping video thumbnail generation');
+        logger.warn('upload', 'FFmpeg not available, skipping video thumbnail generation');
         // Use video URL as fallback
         mediumUrl = fullUrl;
         thumbnailUrl = fullUrl;
@@ -261,7 +272,7 @@ export async function POST(request: NextRequest) {
 
       if (metadata.isAnimated) {
         // Animated GIF: preserve animation for full and medium, static thumbnail
-        console.log(`[POST /api/assets/upload] Processing animated GIF (${metadata.pages} frames)`);
+        logger.debug('upload', `Processing animated GIF`, { frames: metadata.pages });
         [fullBuffer, mediumBuffer, thumbnailBuffer] = await Promise.all([
           optimizeAnimatedGif(buffer),      // Animated - all frames preserved
           generateAnimatedMedium(buffer),   // Animated - smaller size
@@ -276,16 +287,17 @@ export async function POST(request: NextRequest) {
         ]);
       }
 
-      // Save to filesystem
+      // Save to Supabase Storage
       // Note: For animated GIFs, thumbnails are JPEG (static first frame), so override extension
       [fullUrl, mediumUrl, thumbnailUrl] = await Promise.all([
-        saveImageToPublic(fullBuffer, uniqueFilename, 'full'),
-        saveImageToPublic(mediumBuffer, uniqueFilename, 'medium'),
+        saveImageToPublic(fullBuffer, uniqueFilename, 'full', undefined, user.id),
+        saveImageToPublic(mediumBuffer, uniqueFilename, 'medium', undefined, user.id),
         saveImageToPublic(
-          thumbnailBuffer, 
-          uniqueFilename, 
+          thumbnailBuffer,
+          uniqueFilename,
           'thumbnails',
-          metadata.isAnimated ? '.jpg' : undefined  // GIF thumbnails are JPEG
+          metadata.isAnimated ? '.jpg' : undefined, // GIF thumbnails are JPEG
+          user.id
         ),
       ]);
     }
@@ -310,7 +322,7 @@ export async function POST(request: NextRequest) {
         });
 
       if (userCreateError) {
-        console.error('[POST /api/assets/upload] Failed to create user profile:', userCreateError);
+        logger.error('upload', 'Failed to create user profile', userCreateError);
       }
     }
 
@@ -336,7 +348,7 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (insertError || !insertedAsset) {
-      console.error('[POST /api/assets/upload] Database insert failed:', insertError);
+      logger.error('upload', 'Database insert failed', insertError);
       return NextResponse.json(
         { error: 'Failed to save asset to database', details: insertError?.message },
         { status: 500 }
@@ -356,17 +368,58 @@ export async function POST(request: NextRequest) {
         .insert(streamAssociations);
 
       if (streamError) {
-        console.error('[POST /api/assets/upload] Failed to create stream associations:', streamError);
+        logger.error('upload', 'Failed to create stream associations', streamError);
         // Don't fail the upload, just log the error
       }
     }
-    
+
+    // Post Slack notifications for streams with a configured channel
+    const streamsWithSlack = validatedStreams.filter(s => s.slack_channel_id);
+    if (streamsWithSlack.length > 0) {
+      try {
+        const adminSupabase = await createAdminClient();
+        const { data: integration } = await adminSupabase
+          .from('slack_integration')
+          .select('bot_token')
+          .limit(1)
+          .maybeSingle();
+
+        if (integration) {
+          const botToken = decryptToken(integration.bot_token);
+          const baseUrl = getBaseUrl(request);
+          const assetUrl = `${baseUrl}/e/${insertedAsset.id}`;
+
+          for (const stream of streamsWithSlack) {
+            try {
+              await postMessage(botToken, stream.slack_channel_id!, {
+                text: `📸 *${insertedAsset.title}* was uploaded to *#${stream.name}* by *${user.displayName}*`,
+                blocks: [
+                  {
+                    type: "section",
+                    text: {
+                      type: "mrkdwn",
+                      text: `📸 *<${assetUrl}|${insertedAsset.title}>* was uploaded to *#${stream.name}* by *${user.displayName}*`,
+                    },
+                  },
+                ],
+                unfurl_links: false,
+              });
+            } catch (slackErr) {
+              logger.warn('upload', `Slack notification failed for stream ${stream.id}`, slackErr);
+            }
+          }
+        }
+      } catch (slackErr) {
+        logger.warn('upload', 'Slack notification setup failed (non-fatal)', slackErr);
+      }
+    }
+
     return NextResponse.json(
       { asset: insertedAsset },
       { status: 201 }
     );
   } catch (error) {
-    console.error('Error uploading asset:', error);
+    logger.error('upload', 'Unhandled error uploading asset', error);
     return NextResponse.json(
       { 
         error: 'Failed to upload asset',

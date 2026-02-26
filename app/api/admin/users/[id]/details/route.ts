@@ -255,8 +255,8 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     // Get like and comment counts for recent uploads
     const uploadIds = (recentUploadsResult.data || []).map(u => u.id);
     
-    let likeCounts: Record<string, number> = {};
-    let commentCounts: Record<string, number> = {};
+    const likeCounts: Record<string, number> = {};
+    const commentCounts: Record<string, number> = {};
     
     if (uploadIds.length > 0) {
       const [likeCountsResult, commentCountsResult] = await Promise.all([
@@ -304,13 +304,18 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     // Build activity timeline
     const activities: UserActivity[] = [];
 
+    type StreamJoin = { id: string; name: string }[] | { id: string; name: string } | null;
+
     // Add uploads to timeline
-    (recentUploadsResult.data || []).forEach((upload: any) => {
+    (recentUploadsResult.data || []).forEach((upload: { id: string; title: string; thumbnail_url?: string | null; created_at: string; asset_streams?: Array<{ stream?: StreamJoin }> }) => {
       // Extract streams from nested asset_streams relation
+      // Supabase returns joined stream rows as arrays for to-many relations
       const streams = (upload.asset_streams || [])
-        .map((as: any) => as.stream)
-        .filter((s: any) => s !== null)
-        .map((s: any) => ({ id: s.id, name: s.name }));
+        .flatMap((as) => {
+          if (!as.stream) return [];
+          return Array.isArray(as.stream) ? as.stream : [as.stream];
+        })
+        .map((s) => ({ id: s.id, name: s.name }));
 
       activities.push({
         type: 'upload',
@@ -324,31 +329,36 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       });
     });
 
+    type AssetJoin = { id: string; title: string; thumbnail_url?: string | null }[] | { id: string; title: string; thumbnail_url?: string | null } | null;
+    const resolveAsset = (a: AssetJoin) => (Array.isArray(a) ? a[0] ?? null : a);
+
     // Add likes to timeline
-    (recentLikesResult.data || []).forEach((like: any) => {
-      if (like.asset) {
+    (recentLikesResult.data || []).forEach((like: { created_at: string; asset?: AssetJoin }) => {
+      const asset = like.asset ? resolveAsset(like.asset) : null;
+      if (asset) {
         activities.push({
           type: 'like',
           timestamp: like.created_at,
           details: {
-            assetId: like.asset.id,
-            assetTitle: like.asset.title,
-            assetThumbnail: like.asset.thumbnail_url || undefined,
+            assetId: asset.id,
+            assetTitle: asset.title,
+            assetThumbnail: asset.thumbnail_url || undefined,
           },
         });
       }
     });
 
     // Add comments to timeline
-    (recentCommentsResult.data || []).forEach((comment: any) => {
-      if (comment.asset) {
+    (recentCommentsResult.data || []).forEach((comment: { created_at: string; content: string; asset?: AssetJoin }) => {
+      const asset = comment.asset ? resolveAsset(comment.asset) : null;
+      if (asset) {
         activities.push({
           type: 'comment',
           timestamp: comment.created_at,
           details: {
-            assetId: comment.asset.id,
-            assetTitle: comment.asset.title,
-            assetThumbnail: comment.asset.thumbnail_url || undefined,
+            assetId: asset.id,
+            assetTitle: asset.title,
+            assetThumbnail: asset.thumbnail_url || undefined,
             commentContent: comment.content,
           },
         });
@@ -356,7 +366,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     });
 
     // Add stream creations to timeline
-    (recentStreamsResult.data || []).forEach((stream: any) => {
+    (recentStreamsResult.data || []).forEach((stream: { id: string; name: string; cover_image_url?: string | null; created_at: string }) => {
       activities.push({
         type: 'stream',
         timestamp: stream.created_at,

@@ -10,6 +10,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { shouldCreateNotification } from '@/lib/notifications/check-preferences';
+import { rateLimit, RATE_LIMITS } from '@/lib/utils/rate-limit';
+import { validateUUID } from '@/lib/utils/api-error';
 
 interface RouteContext {
   params: Promise<{
@@ -19,8 +21,12 @@ interface RouteContext {
 
 /**
  * GET /api/assets/[id]/comments
- * 
- * Fetches all comments for an asset with nested replies, like counts, and user's like status
+ *
+ * Fetches comments for an asset with nested replies, like counts, and user's like status.
+ *
+ * Query parameters:
+ * - limit: number of comments per page (default: 50, max: 100)
+ * - cursor: ISO timestamp cursor for pagination (created_at of the last seen comment)
  */
 export async function GET(
   request: NextRequest,
@@ -28,20 +34,31 @@ export async function GET(
 ) {
   try {
     const { id: assetId } = await context.params;
+    const invalid = validateUUID(assetId, 'Asset');
+    if (invalid) return invalid;
+
+    const { searchParams } = request.nextUrl;
+    const limit = Math.min(parseInt(searchParams.get('limit') || '50'), 100);
+    const cursor = searchParams.get('cursor'); // ISO timestamp of the last fetched comment
+
     const supabase = await createClient();
 
     // Get current user
     const { data: { user: currentUser } } = await supabase.auth.getUser();
 
-    // Fetch all comments with user information
-    const { data: comments, error } = await supabase
+    // Fetch comments with optional cursor pagination
+    let query = supabase
       .from('asset_comments')
-      .select(`
-        *,
-        user:users!user_id(*)
-      `)
+      .select(`*, user:users!user_id(*)`)
       .eq('asset_id', assetId)
-      .order('created_at', { ascending: true });
+      .order('created_at', { ascending: true })
+      .limit(limit + 1); // fetch one extra to detect hasMore
+
+    if (cursor) {
+      query = query.gt('created_at', cursor);
+    }
+
+    const { data: rawComments, error } = await query;
 
     if (error) {
       console.error('[GET /api/assets/[id]/comments] Error:', error);
@@ -51,10 +68,15 @@ export async function GET(
       );
     }
 
+    const hasMore = (rawComments?.length || 0) > limit;
+    const comments = (rawComments || []).slice(0, limit);
+
     // Early return if no comments
-    if (!comments || comments.length === 0) {
-      return NextResponse.json({ comments: [] });
+    if (comments.length === 0) {
+      return NextResponse.json({ comments: [], hasMore: false, cursor: null });
     }
+
+    const nextCursor = hasMore ? comments[comments.length - 1].created_at : null;
 
     const commentIds = comments.map(c => c.id);
 
@@ -89,7 +111,7 @@ export async function GET(
       has_liked: userLikedCommentIds.has(comment.id),
     }));
 
-    return NextResponse.json({ comments: enhancedComments });
+    return NextResponse.json({ comments: enhancedComments, hasMore, cursor: nextCursor });
   } catch (error) {
     console.error('[GET /api/assets/[id]/comments] Unexpected error:', error);
     return NextResponse.json(
@@ -110,8 +132,11 @@ export async function POST(
 ) {
   try {
     const { id: assetId } = await context.params;
+    const invalid = validateUUID(assetId, 'Asset');
+    if (invalid) return invalid;
+
     const supabase = await createClient();
-    
+
     // Check authentication
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     
@@ -120,6 +145,11 @@ export async function POST(
         { error: 'Authentication required' },
         { status: 401 }
       );
+    }
+
+    const rl = rateLimit(request, RATE_LIMITS.write, `comment:${user.id}`);
+    if (!rl.success) {
+      return NextResponse.json({ error: 'Too many requests, please slow down' }, { status: 429 });
     }
 
     const body = await request.json();

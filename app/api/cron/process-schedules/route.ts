@@ -12,29 +12,43 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import crypto from "crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createAdminClient } from "@/lib/supabase/server";
 import { calculateNextRun } from "@/lib/utils/schedule-helpers";
 import type { DropSchedule } from "@/lib/types/database";
+import {
+  buildAssetStreamMap,
+  groupAssetsByStream,
+  buildDropBlocks,
+} from "@/lib/utils/drop-content";
+import { decryptToken, postMessage, getBaseUrl } from "@/lib/utils/slack";
 
 // Only POST - GET should not trigger side effects (REST best practice)
 export async function POST(request: NextRequest) {
-  // Always require CRON_SECRET - endpoint is disabled if not configured
+  // Always require CRON_SECRET — endpoint is disabled if not configured
   const cronSecret = process.env.CRON_SECRET;
   if (!cronSecret) {
     console.error("[POST /api/cron/process-schedules] CRON_SECRET not configured - endpoint disabled");
     return NextResponse.json({ error: "Endpoint not configured" }, { status: 503 });
   }
-  
-  const authHeader = request.headers.get("authorization");
-  if (authHeader !== `Bearer ${cronSecret}`) {
+
+  // Use timing-safe comparison to prevent timing-oracle attacks
+  const authHeader = request.headers.get("authorization") ?? "";
+  const expected = `Bearer ${cronSecret}`;
+  const isValid =
+    authHeader.length === expected.length &&
+    crypto.timingSafeEqual(Buffer.from(authHeader), Buffer.from(expected));
+
+  if (!isValid) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   
   const supabase = await createAdminClient();
   const processedSchedules: string[] = [];
   const errors: string[] = [];
-  
+  const baseUrl = getBaseUrl(request);
+
   try {
     // Find all active schedules that are due
     const now = new Date().toISOString();
@@ -44,23 +58,23 @@ export async function POST(request: NextRequest) {
       .eq("status", "active")
       .not("next_run_at", "is", null)
       .lte("next_run_at", now);
-    
+
     if (fetchError) {
       console.error("Error fetching due schedules:", fetchError);
       return NextResponse.json({ error: "Failed to fetch schedules" }, { status: 500 });
     }
-    
+
     if (!dueSchedules || dueSchedules.length === 0) {
-      return NextResponse.json({ 
-        message: "No schedules due", 
-        processed: 0 
+      return NextResponse.json({
+        message: "No schedules due",
+        processed: 0
       });
     }
-    
+
     // Process each due schedule
     for (const schedule of dueSchedules) {
       try {
-        await processSchedule(supabase, schedule);
+        await processSchedule(supabase, schedule, baseUrl);
         processedSchedules.push(schedule.id);
       } catch (err) {
         const errorMsg = err instanceof Error ? err.message : "Unknown error";
@@ -82,7 +96,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-async function processSchedule(supabase: SupabaseClient, schedule: DropSchedule) {
+async function processSchedule(supabase: SupabaseClient, schedule: DropSchedule, baseUrl: string) {
   // Race condition protection: Immediately claim this schedule by setting next_run_at to null
   // This prevents other cron instances from processing it simultaneously
   const originalNextRunAt = schedule.next_run_at;
@@ -93,15 +107,15 @@ async function processSchedule(supabase: SupabaseClient, schedule: DropSchedule)
     .eq("next_run_at", schedule.next_run_at) // Only update if next_run_at hasn't changed
     .select("id")
     .single();
-  
+
   if (claimError || !claimResult) {
     // Another instance already claimed this schedule, skip it
     console.log(`[processSchedule] Schedule ${schedule.id} already claimed by another instance, skipping`);
     return;
   }
-  
+
   try {
-    await processScheduleContent(supabase, schedule);
+    await processScheduleContent(supabase, schedule, baseUrl);
   } catch (err) {
     // CRITICAL: Restore next_run_at on failure to prevent orphaned schedules
     // Without this, the schedule would be stuck with next_run_at = NULL forever
@@ -118,7 +132,7 @@ async function processSchedule(supabase: SupabaseClient, schedule: DropSchedule)
  * Internal function that processes the schedule content.
  * Separated from processSchedule to allow proper error recovery of the claiming mechanism.
  */
-async function processScheduleContent(supabase: SupabaseClient, schedule: DropSchedule) {
+async function processScheduleContent(supabase: SupabaseClient, schedule: DropSchedule, baseUrl: string) {
   // Calculate date range for content
   const dateEnd = new Date();
   let dateStart: Date;
@@ -201,118 +215,20 @@ async function processScheduleContent(supabase: SupabaseClient, schedule: DropSc
     filteredAssetIds = [...new Set(streamAssets?.map((sa: { asset_id: string }) => sa.asset_id) || [])];
   }
 
-  // Get stream associations for grouping
-  const assetStreamMap: Record<string, { streamId: string; streamName: string }[]> = {};
-  const streamNames: Record<string, string> = {};
-  
-  if (filteredAssetIds.length > 0) {
-    const { data: assetStreams } = await supabase
-      .from("asset_streams")
-      .select(`asset_id, stream:streams(id, name)`)
-      .in("asset_id", filteredAssetIds);
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase join type inference issue
-    assetStreams?.forEach((as: any) => {
-      if (!assetStreamMap[as.asset_id]) {
-        assetStreamMap[as.asset_id] = [];
-      }
-      if (as.stream) {
-        assetStreamMap[as.asset_id].push({
-          streamId: as.stream.id,
-          streamName: as.stream.name,
-        });
-        streamNames[as.stream.id] = as.stream.name;
-      }
-    });
-  }
-
-  // Group assets by stream
-  const assetsByStream: Record<string, string[]> = {};
-  const uncategorized: string[] = [];
-  
-  filteredAssetIds.forEach((assetId: string) => {
-    const streams = assetStreamMap[assetId];
-    if (streams && streams.length > 0) {
-      let groupingStream = streams[0];
-      if (filter_stream_ids?.length) {
-        for (const filteredId of filter_stream_ids) {
-          const match = streams.find(s => s.streamId === filteredId);
-          if (match) {
-            groupingStream = match;
-            break;
-          }
-        }
-      }
-      if (!assetsByStream[groupingStream.streamId]) {
-        assetsByStream[groupingStream.streamId] = [];
-      }
-      assetsByStream[groupingStream.streamId].push(assetId);
-    } else {
-      uncategorized.push(assetId);
-    }
-  });
-
-  // Create blocks
-  const blocks: Array<{
-    drop_id: string;
-    type: string;
-    content?: string;
-    heading_level?: number;
-    asset_id?: string;
-    position: number;
-  }> = [];
-  
-  let position = 0;
-  const streamOrder = filter_stream_ids?.length 
-    ? filter_stream_ids.filter((id: string) => assetsByStream[id])
-    : Object.keys(assetsByStream);
-  
-  for (const streamId of Object.keys(assetsByStream)) {
-    if (!streamOrder.includes(streamId)) {
-      streamOrder.push(streamId);
-    }
-  }
-  
-  for (const streamId of streamOrder) {
-    const assetIds = assetsByStream[streamId];
-    if (!assetIds || assetIds.length === 0) continue;
-    
-    blocks.push({
-      drop_id: drop.id,
-      type: "heading",
-      content: streamNames[streamId],
-      heading_level: 2,
-      position: position++,
-    });
-
-    for (const assetId of assetIds) {
-      blocks.push({
-        drop_id: drop.id,
-        type: "post",
-        asset_id: assetId,
-        position: position++,
-      });
-    }
-  }
-
-  if (uncategorized.length > 0) {
-    blocks.push({
-      drop_id: drop.id,
-      type: "heading",
-      content: "Other",
-      heading_level: 2,
-      position: position++,
-    });
-
-    for (const assetId of uncategorized) {
-      blocks.push({
-        drop_id: drop.id,
-        type: "post",
-        asset_id: assetId,
-        position: position++,
-      });
-    }
-  }
+  // Build stream associations and group assets — uses shared utility
+  const { assetStreamMap, streamNames } = await buildAssetStreamMap(supabase, filteredAssetIds);
+  const { assetsByStream, uncategorized } = groupAssetsByStream(
+    filteredAssetIds,
+    assetStreamMap,
+    filter_stream_ids,
+  );
+  const blocks = buildDropBlocks(
+    drop.id,
+    assetsByStream,
+    uncategorized,
+    streamNames,
+    filter_stream_ids,
+  );
 
   if (blocks.length > 0) {
     const { error: blocksError } = await supabase
@@ -367,6 +283,48 @@ async function processScheduleContent(supabase: SupabaseClient, schedule: DropSc
     // This is more serious - schedule won't advance to next run
     console.error('[processSchedule] Failed to update schedule:', updateError);
     throw new Error(`Failed to update schedule: ${updateError.message}`);
+  }
+
+  // Post Slack notification if the schedule has a default channel configured
+  if (schedule.slack_channel_id) {
+    try {
+      const { data: integration } = await supabase
+        .from("slack_integration")
+        .select("bot_token")
+        .limit(1)
+        .maybeSingle();
+
+      if (integration) {
+        const botToken = decryptToken(integration.bot_token);
+        const dropUrl = `${baseUrl}/drops/${drop.id}`;
+
+        const messageTs = await postMessage(botToken, schedule.slack_channel_id, {
+          text: `📋 *${schedule.name}* is ready to review`,
+          blocks: [
+            {
+              type: "section",
+              text: {
+                type: "mrkdwn",
+                text: `📋 *<${dropUrl}|${schedule.name}>* is ready to review`,
+              },
+            },
+          ],
+          unfurl_links: false,
+        });
+
+        await supabase.from("slack_messages").upsert(
+          {
+            resource_type: "drop_remind",
+            resource_id: drop.id,
+            channel_id: schedule.slack_channel_id,
+            message_ts: messageTs,
+          },
+          { onConflict: "resource_type,resource_id,channel_id" }
+        );
+      }
+    } catch (slackErr) {
+      console.warn('[processSchedule] Slack notification failed (non-fatal):', slackErr);
+    }
   }
 }
 

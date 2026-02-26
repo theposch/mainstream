@@ -13,8 +13,9 @@
  * - Returns 202 Accepted for fire-and-forget pattern
  */
 
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { rateLimit, RATE_LIMITS } from '@/lib/utils/rate-limit';
 
 interface RouteContext {
   params: Promise<{
@@ -38,12 +39,12 @@ interface RecordViewResult {
  * Uses atomic RPC to ensure consistency between view record and count.
  */
 export async function POST(
-  _request: Request,
+  request: NextRequest,
   context: RouteContext
 ) {
   try {
     const { id: assetId } = await context.params;
-    
+
     // Validate UUID format to fail fast
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     if (!uuidRegex.test(assetId)) {
@@ -54,15 +55,21 @@ export async function POST(
     }
 
     const supabase = await createClient();
-    
+
     // Check authentication
     const { data: { user }, error: authError } = await supabase.auth.getUser();
-    
+
     if (authError || !user) {
       return NextResponse.json(
         { error: 'Authentication required' },
         { status: 401 }
       );
+    }
+
+    // Rate limit view tracking per user to prevent count manipulation
+    const rl = rateLimit(request, RATE_LIMITS.view, `view:${user.id}`);
+    if (!rl.success) {
+      return NextResponse.json({ success: true, counted: false }, { status: 202 });
     }
 
     // Call atomic stored procedure

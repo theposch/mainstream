@@ -46,6 +46,8 @@ services:
     depends_on:
       kong:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/"]
       interval: 30s
@@ -118,6 +120,29 @@ services:
       - max_slot_wal_keep_size=1024MB
       - -c
       - max_connections=200
+    networks:
+      - mainstream-network
+
+  # ===========================================
+  # Database Migration Runner
+  # ===========================================
+  # One-shot service: runs all SQL migrations in sorted order before the
+  # mainstream app container is allowed to start.  Uses the same Postgres
+  # image as `db` so psql is available without an extra dependency.
+  # restart: "no" ensures it does not loop after completion.
+  migrate:
+    image: supabase/postgres:15.1.1.78
+    container_name: mainstream-migrate
+    restart: "no"
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./scripts/migrations:/migrations:ro
+      - ./docker/migrate.sh:/migrate.sh:ro
+    environment:
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+    command: ["bash", "/migrate.sh"]
     networks:
       - mainstream-network
 

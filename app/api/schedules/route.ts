@@ -9,6 +9,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import { calculateNextRun, VALIDATION, isValidTimezone } from "@/lib/utils/schedule-helpers";
+import {
+  buildAssetStreamMap,
+  groupAssetsByStream,
+  buildDropBlocks,
+} from "@/lib/utils/drop-content";
 
 /**
  * GET /api/schedules
@@ -66,6 +71,7 @@ export async function POST(request: NextRequest) {
       date_range_mode = "last_n_days",
       date_range_days = 7,
       generate_now = false, // Option to generate first draft immediately
+      slack_channel_id = null,
     } = body;
     
     // Validate required fields
@@ -134,6 +140,7 @@ export async function POST(request: NextRequest) {
         date_range_days: validatedDateRangeDays,
         status: "active",
         next_run_at: nextRunAt.toISOString(),
+        slack_channel_id: slack_channel_id || null,
       })
       .select()
       .single();
@@ -211,118 +218,20 @@ export async function POST(request: NextRequest) {
           filteredAssetIds = [...new Set(streamAssets?.map((sa) => sa.asset_id) || [])];
         }
 
-        // Get stream associations for grouping
-        const assetStreamMap: Record<string, { streamId: string; streamName: string }[]> = {};
-        const streamNames: Record<string, string> = {};
-        
-        if (filteredAssetIds.length > 0) {
-          const { data: assetStreams } = await adminClient
-            .from("asset_streams")
-            .select(`asset_id, stream:streams(id, name)`)
-            .in("asset_id", filteredAssetIds);
-
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase join type inference issue
-          assetStreams?.forEach((as: any) => {
-            if (!assetStreamMap[as.asset_id]) {
-              assetStreamMap[as.asset_id] = [];
-            }
-            if (as.stream) {
-              assetStreamMap[as.asset_id].push({
-                streamId: as.stream.id,
-                streamName: as.stream.name,
-              });
-              streamNames[as.stream.id] = as.stream.name;
-            }
-          });
-        }
-
-        // Group assets by stream
-        const assetsByStream: Record<string, string[]> = {};
-        const uncategorized: string[] = [];
-        
-        filteredAssetIds.forEach((assetId) => {
-          const streams = assetStreamMap[assetId];
-          if (streams && streams.length > 0) {
-            let groupingStream = streams[0];
-            if (filter_stream_ids?.length) {
-              for (const filteredId of filter_stream_ids) {
-                const match = streams.find(s => s.streamId === filteredId);
-                if (match) {
-                  groupingStream = match;
-                  break;
-                }
-              }
-            }
-            if (!assetsByStream[groupingStream.streamId]) {
-              assetsByStream[groupingStream.streamId] = [];
-            }
-            assetsByStream[groupingStream.streamId].push(assetId);
-          } else {
-            uncategorized.push(assetId);
-          }
-        });
-
-        // Create blocks
-        const blocks: Array<{
-          drop_id: string;
-          type: string;
-          content?: string;
-          heading_level?: number;
-          asset_id?: string;
-          position: number;
-        }> = [];
-        
-        let position = 0;
-        const streamOrder = filter_stream_ids?.length 
-          ? filter_stream_ids.filter((id: string) => assetsByStream[id])
-          : Object.keys(assetsByStream);
-        
-        for (const streamId of Object.keys(assetsByStream)) {
-          if (!streamOrder.includes(streamId)) {
-            streamOrder.push(streamId);
-          }
-        }
-        
-        for (const streamId of streamOrder) {
-          const assetIds = assetsByStream[streamId];
-          if (!assetIds || assetIds.length === 0) continue;
-          
-          blocks.push({
-            drop_id: drop.id,
-            type: "heading",
-            content: streamNames[streamId],
-            heading_level: 2,
-            position: position++,
-          });
-
-          for (const assetId of assetIds) {
-            blocks.push({
-              drop_id: drop.id,
-              type: "post",
-              asset_id: assetId,
-              position: position++,
-            });
-          }
-        }
-
-        if (uncategorized.length > 0) {
-          blocks.push({
-            drop_id: drop.id,
-            type: "heading",
-            content: "Other",
-            heading_level: 2,
-            position: position++,
-          });
-
-          for (const assetId of uncategorized) {
-            blocks.push({
-              drop_id: drop.id,
-              type: "post",
-              asset_id: assetId,
-              position: position++,
-            });
-          }
-        }
+        // Build stream associations and group assets — uses shared utility
+        const { assetStreamMap, streamNames } = await buildAssetStreamMap(adminClient, filteredAssetIds);
+        const { assetsByStream, uncategorized } = groupAssetsByStream(
+          filteredAssetIds,
+          assetStreamMap,
+          filter_stream_ids,
+        );
+        const blocks = buildDropBlocks(
+          drop.id,
+          assetsByStream,
+          uncategorized,
+          streamNames,
+          filter_stream_ids,
+        );
 
         if (blocks.length > 0) {
           const { error: blocksError } = await adminClient.from("drop_blocks").insert(blocks);

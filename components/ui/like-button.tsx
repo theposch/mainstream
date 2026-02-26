@@ -27,10 +27,22 @@ export function LikeButton({
   className 
 }: LikeButtonProps) {
   const [showParticles, setShowParticles] = React.useState(false);
+  const [particleData, setParticleData] = React.useState(() =>
+    [...Array(6)].map(() => ({
+      x: (Math.random() - 0.5) * 40,
+      y: -20 - Math.random() * 30,
+      delay: Math.random() * 0.1,
+    }))
+  );
 
   const handleClick = (e: React.MouseEvent) => {
     // Only trigger animation on "Like" (not unlike)
     if (!isLiked) {
+      setParticleData([...Array(6)].map(() => ({
+        x: (Math.random() - 0.5) * 40,
+        y: -20 - Math.random() * 30,
+        delay: Math.random() * 0.1,
+      })));
       setShowParticles(true);
       // Reset after animation
       setTimeout(() => setShowParticles(false), 1000);
@@ -42,9 +54,11 @@ export function LikeButton({
   const textSize = size === "sm" ? "text-xs" : size === "lg" ? "text-lg" : "text-sm";
 
   return (
-    <button
+    <motion.button
       onClick={handleClick}
       disabled={isLoading}
+      whileTap={{ scale: 0.78 }}
+      transition={{ type: "spring", stiffness: 500, damping: 25 }}
       className={cn(
         "relative group flex items-center gap-1.5 transition-colors focus:outline-none cursor-pointer",
         variant === "solid" && "p-2.5 rounded-full backdrop-blur-md shadow-lg",
@@ -73,20 +87,20 @@ export function LikeButton({
         <AnimatePresence>
           {showParticles && (
             <>
-              {[...Array(6)].map((_, i) => (
+              {particleData.map((particle, i) => (
                 <motion.div
                   key={i}
                   initial={{ opacity: 0, scale: 0, x: 0, y: 0 }}
-                  animate={{ 
-                    opacity: [0, 1, 0], 
-                    scale: [0, 1.2, 0], 
-                    x: (Math.random() - 0.5) * 40,
-                    y: -20 - Math.random() * 30
+                  animate={{
+                    opacity: [0, 1, 0],
+                    scale: [0, 1.2, 0],
+                    x: particle.x,
+                    y: particle.y,
                   }}
-                  transition={{ 
-                    duration: 0.8, 
+                  transition={{
+                    duration: 0.8,
                     ease: "easeOut",
-                    delay: Math.random() * 0.1
+                    delay: particle.delay,
                   }}
                   className="absolute inset-0 flex items-center justify-center pointer-events-none"
                 >
@@ -119,7 +133,7 @@ export function LikeButton({
           {likeCount}
         </span>
       )}
-    </button>
+    </motion.button>
   );
 }
 

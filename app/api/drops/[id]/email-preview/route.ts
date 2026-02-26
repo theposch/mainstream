@@ -40,8 +40,56 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     // Check if using blocks
     const useBlocks = drop.use_blocks ?? false;
 
+    interface Uploader {
+      id: string;
+      username: string;
+      display_name: string;
+      avatar_url: string | null;
+      created_at?: string;
+      [key: string]: unknown;
+    }
+
+    interface GalleryImageRecord {
+      id: string;
+      block_id: string;
+      asset_id: string;
+      position: number;
+      asset?: {
+        id: string;
+        title: string;
+        url: string;
+        medium_url: string;
+        thumbnail_url: string;
+        asset_type: string;
+        uploader?: Uploader;
+      };
+    }
+
+    interface BlockRecord {
+      id: string;
+      drop_id: string;
+      type: string;
+      position: number;
+      created_at: string;
+      updated_at: string;
+      asset?: {
+        id: string;
+        title: string;
+        description: string | null;
+        url: string;
+        medium_url: string;
+        thumbnail_url: string;
+        asset_type: string;
+        embed_provider: string | null;
+        created_at: string;
+        uploader?: Uploader;
+      };
+      gallery_images?: GalleryImageRecord[];
+      [key: string]: unknown;
+    }
+
     let emailHtml: string;
-    let contributors: any[] = [];
+    let contributors: Uploader[] = [];
 
     if (useBlocks) {
       // Fetch blocks with assets
@@ -66,8 +114,8 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         .order("position", { ascending: true });
 
       // Fetch gallery images for image_gallery blocks
-      const galleryBlockIds = blocks?.filter((b: any) => b.type === "image_gallery").map((b: any) => b.id) || [];
-      let galleryImagesMap: Record<string, any[]> = {};
+      const galleryBlockIds = (blocks as BlockRecord[] | null)?.filter((b) => b.type === "image_gallery").map((b) => b.id) || [];
+      const galleryImagesMap: Record<string, GalleryImageRecord[]> = {};
       
       if (galleryBlockIds.length > 0) {
         const { data: galleryImages } = await supabase
@@ -90,7 +138,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
           .order("position", { ascending: true });
 
         // Group by block_id
-        galleryImages?.forEach((img: any) => {
+        (galleryImages as GalleryImageRecord[] | null)?.forEach((img) => {
           if (!galleryImagesMap[img.block_id]) {
             galleryImagesMap[img.block_id] = [];
           }
@@ -99,19 +147,19 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       }
 
       // Enrich blocks with gallery images
-      const enrichedBlocks = blocks?.map((block: any) => ({
+      const enrichedBlocks: BlockRecord[] = (blocks as BlockRecord[] | null)?.map((block) => ({
         ...block,
         gallery_images: block.type === "image_gallery" ? galleryImagesMap[block.id] || [] : undefined,
       })) || [];
 
       // Get contributors from blocks (including gallery images)
-      const contributorMap = new Map();
-      enrichedBlocks.forEach((block: any) => {
+      const contributorMap = new Map<string, Uploader>();
+      enrichedBlocks.forEach((block) => {
         if (block.asset?.uploader && !contributorMap.has(block.asset.uploader.id)) {
           contributorMap.set(block.asset.uploader.id, block.asset.uploader);
         }
         // Also get contributors from gallery images
-        block.gallery_images?.forEach((img: any) => {
+        block.gallery_images?.forEach((img) => {
           if (img.asset?.uploader && !contributorMap.has(img.asset.uploader.id)) {
             contributorMap.set(img.asset.uploader.id, img.asset.uploader);
           }
@@ -124,8 +172,10 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         React.createElement(EmailDropView, {
           title: drop.title,
           description: drop.description,
-          blocks: enrichedBlocks,
-          contributors,
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any -- BlockRecord shape matches DropBlock at runtime; cast needed due to strict enum/null mismatches
+          blocks: enrichedBlocks as any,
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          contributors: contributors as any,
           dateRangeStart: drop.date_range_start,
           dateRangeEnd: drop.date_range_end,
         })
@@ -155,8 +205,27 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         .eq("drop_id", dropId)
         .order("position", { ascending: true });
 
+      interface DropPostRecord {
+        position: number;
+        display_mode: string | null;
+        crop_position_x: number | null;
+        crop_position_y: number | null;
+        asset?: {
+          id: string;
+          title: string;
+          description: string | null;
+          url: string;
+          medium_url: string;
+          thumbnail_url: string;
+          asset_type: string;
+          embed_provider: string | null;
+          created_at: string;
+          uploader?: Uploader;
+        };
+      }
+
       // Convert posts to block format for unified rendering
-      const blocks = dropPosts?.map((dp: any, index: number) => ({
+      const blocks: BlockRecord[] = (dropPosts as DropPostRecord[] | null)?.map((dp, index) => ({
         id: `post-${index}`,
         drop_id: dropId,
         type: "post" as const,
@@ -168,11 +237,11 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         crop_position_y: dp.crop_position_y,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
-      })).filter((b: any) => b.asset) || [];
+      })).filter((b) => b.asset) || [];
 
       // Get contributors
-      const contributorMap = new Map();
-      blocks.forEach((block: any) => {
+      const contributorMap = new Map<string, Uploader>();
+      blocks.forEach((block) => {
         if (block.asset?.uploader && !contributorMap.has(block.asset.uploader.id)) {
           contributorMap.set(block.asset.uploader.id, block.asset.uploader);
         }
@@ -184,8 +253,10 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         React.createElement(EmailDropView, {
           title: drop.title,
           description: drop.description,
-          blocks,
-          contributors,
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any -- BlockRecord shape matches DropBlock at runtime; cast needed due to strict enum/null mismatches
+          blocks: blocks as any,
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          contributors: contributors as any,
           dateRangeStart: drop.date_range_start,
           dateRangeEnd: drop.date_range_end,
         })

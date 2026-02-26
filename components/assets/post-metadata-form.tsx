@@ -8,7 +8,6 @@ import { StreamMentionDropdown } from "@/components/streams/stream-mention-dropd
 import { StreamPicker } from "@/components/streams/stream-picker";
 import { useStreamMentions } from "@/lib/hooks/use-stream-mentions";
 import type { UseStreamSelectionReturn } from "@/lib/hooks/use-stream-selection";
-import type { Stream } from "@/lib/types/database";
 
 interface PostMetadataFormProps {
   title: string;

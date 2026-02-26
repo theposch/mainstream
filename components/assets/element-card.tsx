@@ -16,6 +16,10 @@ import { Badge } from "@/components/ui/badge";
 import type { Asset } from "@/lib/types/database";
 import { formatDistanceToNow } from "date-fns";
 
+// Matches MASONRY_BREAKPOINTS: 640→1col, 768→2col, 1280→3col, 1600→4col, 1920+→5col
+const MASONRY_SIZES =
+  "(max-width: 640px) 100vw, (max-width: 768px) 50vw, (max-width: 1280px) 33vw, (max-width: 1600px) 25vw, 20vw";
+
 interface ElementCardProps {
   asset: Asset;
   className?: string;
@@ -25,12 +29,16 @@ interface ElementCardProps {
   onLikeChange?: (assetId: string, isLiked: boolean) => void;
   /** Callback when card is clicked - for modal overlay mode */
   onClick?: (asset: Asset) => void;
+  /** Mark as high-priority (preload) for above-the-fold cards */
+  priority?: boolean;
 }
 
 export const ElementCard = React.memo(
-  function ElementCard({ asset, className, layout = "grid", onLikeChange, onClick }: ElementCardProps) {
+  function ElementCard({ asset, className, layout = "grid", onLikeChange, onClick, priority = false }: ElementCardProps) {
   const [isHovered, setIsHovered] = React.useState(false);
   const [imageLoaded, setImageLoaded] = React.useState(false);
+  // D2: Track whether the GIF has been hovered at least once so it stays in DOM
+  const [hasHoveredGif, setHasHoveredGif] = React.useState(false);
   
   // Use pre-fetched like data from server
   const { isLiked, likeCount, toggleLike, loading } = useAssetLike(
@@ -45,6 +53,7 @@ export const ElementCard = React.memo(
   // Memoized callbacks for stable references - combine hover state with prefetch
   const handleMouseEnter = React.useCallback(() => {
     setIsHovered(true);
+    setHasHoveredGif(true); // D2: keep GIF in DOM after first hover
     prefetchOnEnter();
   }, [prefetchOnEnter]);
   
@@ -72,6 +81,17 @@ export const ElementCard = React.memo(
       onLikeChange?.(asset.id, !wasLiked);
     }
   }, [toggleLike, isLiked, asset.id, onLikeChange]);
+
+  // If this is the most recently uploaded asset, animate it dropping in from above
+  // instead of rising from below. The id is stored in sessionStorage by the upload dialog.
+  const isNewlyUploaded = React.useMemo(() => {
+    try {
+      return typeof sessionStorage !== 'undefined' &&
+        sessionStorage.getItem('newAssetId') === asset.id;
+    } catch {
+      return false;
+    }
+  }, [asset.id]);
 
   // Memoize relative time to prevent Date object creation on every render
   // Only recalculates when asset.created_at changes
@@ -124,17 +144,13 @@ export const ElementCard = React.memo(
   const embedAspectRatio = embedDisplayInfo.ratio;
   const embedNeedsCrop = embedDisplayInfo.needsCrop;
 
-  // Progressive loading: use thumbnailUrl first, then upgrade to mediumUrl or full url
-  // For GIFs: thumbnail is static JPEG, medium/full are animated
-  // On hover for GIFs: show animated version
+  // GIFs: static JPEG thumbnail in grid, animated medium on hover
   const thumbnailUrl = asset.thumbnail_url || asset.url;
   const animatedUrl = asset.medium_url || asset.url;
-  
-  // For GIFs: show animated on hover, static otherwise
-  // For other images: normal progressive loading behavior
-  const displayUrl = isGif
-    ? (isHovered ? animatedUrl : thumbnailUrl)
-    : (imageLoaded ? (asset.medium_url || asset.url) : thumbnailUrl);
+
+  // For regular images always use full-res URL so Next.js Image optimization can
+  // serve the right srcset entry — avoids upscaling the 800px medium on retina.
+  const displayUrl = asset.url;
 
   // Get uploader from the asset (already joined from database query)
   const uploader = asset.uploader;
@@ -146,9 +162,14 @@ export const ElementCard = React.memo(
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 20 }}
+      initial={{ opacity: 0, y: isNewlyUploaded ? -30 : 20 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3 }}
+      transition={{ duration: 0.35, ease: isNewlyUploaded ? [0.22, 1, 0.36, 1] : 'easeOut' }}
+      onAnimationComplete={() => {
+        if (isNewlyUploaded) {
+          try { sessionStorage.removeItem('newAssetId'); } catch { /* ignore */ }
+        }
+      }}
       className={cn(
         "relative group break-inside-avoid w-full",
         layout === 'detailed' && "flex flex-col gap-3 p-3 rounded-2xl border border-border bg-card/50 hover:bg-card hover:border-border/80 transition-colors",
@@ -159,9 +180,12 @@ export const ElementCard = React.memo(
     >
       <Link href={`/e/${asset.id}`} className="block w-full" onClick={handleCardClick}>
         <div className="relative rounded-xl overflow-hidden bg-secondary cursor-zoom-in w-full">
-          {/* Aspect Ratio Container */}
-          <div 
-            className="relative w-full"
+          {/* Aspect Ratio Container - D1: shimmer while image loads */}
+          <div
+            className={cn(
+              "relative w-full",
+              !imageLoaded && !isVideo && !isEmbed && "bg-muted animate-pulse"
+            )}
             style={{ paddingBottom: isEmbed ? `${embedAspectRatio}%` : `${aspectRatio}%` }}
           >
             {/* Video asset (WebM) - autoplay, loop, muted like GIFs */}
@@ -185,13 +209,14 @@ export const ElementCard = React.memo(
                     "absolute inset-0 w-full h-full transition-transform duration-500 group-hover:scale-105",
                     // For tall frames that need cropping: show top portion (hero area)
                     // For normal frames: contain the full image
-                    embedNeedsCrop 
-                      ? "object-cover object-top" 
-                      : asset.width && asset.height 
-                        ? "object-contain bg-muted" 
+                    embedNeedsCrop
+                      ? "object-cover object-top"
+                      : asset.width && asset.height
+                        ? "object-contain bg-muted"
                         : "object-cover"
                   )}
-                  sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                  sizes={MASONRY_SIZES}
+                  priority={priority}
                   onLoad={handleImageLoad}
                 />
               </>
@@ -206,23 +231,43 @@ export const ElementCard = React.memo(
                 </div>
                 <span className="text-sm font-medium text-muted-foreground">{providerInfo.name}</span>
               </div>
-            ) : isGif && isHovered ? (
-              // Animated GIF on hover - use img tag to ensure animation plays
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={animatedUrl}
-                alt={asset.title}
-                className="absolute inset-0 object-cover w-full h-full transition-transform duration-500 group-hover:scale-105"
-              />
+            ) : isGif ? (
+              // D2: Render both static thumbnail and animated GIF, toggle via CSS opacity
+              // This keeps the GIF in the DOM after first hover so animation doesn't restart
+              <>
+                <Image
+                  src={thumbnailUrl}
+                  alt={asset.title}
+                  fill
+                  className={cn(
+                    "absolute inset-0 object-cover w-full h-full transition-all duration-300",
+                    isHovered ? "opacity-0" : "opacity-100"
+                  )}
+                  sizes={MASONRY_SIZES}
+                  priority={priority}
+                  onLoad={handleImageLoad}
+                />
+                {hasHoveredGif && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={animatedUrl}
+                    alt={asset.title}
+                    className={cn(
+                      "absolute inset-0 object-cover w-full h-full transition-all duration-300",
+                      isHovered ? "opacity-100" : "opacity-0"
+                    )}
+                  />
+                )}
+              </>
             ) : (
               <Image
                 src={displayUrl}
                 alt={asset.title}
                 fill
                 className="absolute inset-0 object-cover w-full h-full transition-transform duration-500 group-hover:scale-105"
-                sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                sizes={MASONRY_SIZES}
+                priority={priority}
                 onLoad={handleImageLoad}
-                unoptimized={isGif} // Don't optimize GIFs (preserves animation)
               />
             )}
           </div>

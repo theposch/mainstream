@@ -146,14 +146,14 @@ export const DropCard = React.memo(function DropCard({
         {drop.preview_images && drop.preview_images.length > 0 && (
           <div className="px-4 pb-4">
             <div className="flex gap-1.5">
-              {drop.preview_images.slice(0, 3).map((url, index) => (
+              {drop.preview_images.slice(0, 3).map((url) => (
                 <div
-                  key={index}
+                  key={url}
                   className="relative flex-1 aspect-[4/3] bg-muted rounded-lg overflow-hidden"
                 >
                   <Image
                     src={url}
-                    alt=""
+                    alt="Drop preview"
                     fill
                     className="object-cover"
                   />

@@ -111,10 +111,14 @@ export function useNotifications(): UseNotificationsReturn {
   useEffect(() => {
     const supabase = createClient();
     let channel: ReturnType<typeof supabase.channel> | null = null;
+    // Guard against the component unmounting before the async getUser() resolves.
+    // Without this, the cleanup runs before `channel` is assigned and the
+    // subscription leaks indefinitely.
+    let mounted = true;
 
     const setupSubscription = async () => {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!user || !mounted) return;
 
       channel = supabase
         .channel(`notifications:${user.id}`)
@@ -127,8 +131,13 @@ export function useNotifications(): UseNotificationsReturn {
             filter: `recipient_id=eq.${user.id}`,
           },
           () => {
-            // Invalidate query to refetch with new notification
-            queryClient.invalidateQueries({ queryKey: notificationKeys.list() });
+            // Increment unreadCount immediately without a refetch flash
+            queryClient.setQueryData<NotificationsResponse>(
+              notificationKeys.list(),
+              (old) => old ? { ...old, unreadCount: old.unreadCount + 1 } : old
+            );
+            // Mark stale so it refetches on next active access (no immediate flash)
+            queryClient.invalidateQueries({ queryKey: notificationKeys.list(), refetchType: 'none' });
           }
         )
         .on(
@@ -150,6 +159,7 @@ export function useNotifications(): UseNotificationsReturn {
     setupSubscription();
 
     return () => {
+      mounted = false;
       if (channel) {
         channel.unsubscribe();
       }

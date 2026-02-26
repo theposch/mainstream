@@ -128,7 +128,7 @@ export function useUndoRedo<T>(
     setHistory(prev => {
       // If there was a pending burst, save it to history first
       let currentPast = prev.past;
-      let currentPresent = prev.present;
+      const currentPresent = prev.present;
       
       if (hadPendingBurst && burstStartState !== null) {
         // Add the burst start state to past, then undo from current

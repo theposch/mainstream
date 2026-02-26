@@ -16,6 +16,7 @@ import { useEffect, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import { assetKeys, fetchAssetComments, type Comment } from "@/lib/queries/asset-queries";
+import { CACHE_TIMES } from "@/lib/constants/cache";
 
 interface UseAssetCommentsReturn {
   comments: Comment[];
@@ -34,7 +35,7 @@ export function useAssetComments(assetId: string): UseAssetCommentsReturn {
   const { data: comments = [], isLoading, error } = useQuery({
     queryKey,
     queryFn: () => fetchAssetComments(assetId),
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: CACHE_TIMES.STALE_TIME,
   });
 
   // Subscribe to real-time comment updates

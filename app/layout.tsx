@@ -1,12 +1,15 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import "./globals.css";
 import { ConditionalNavbar } from "@/components/layout/conditional-navbar";
+import { GlobalFileDropOverlay } from "@/components/layout/global-file-drop-overlay";
 import { ErrorBoundary } from "@/components/error-boundary";
 import { SearchProvider } from "@/lib/contexts/search-context";
 import { QueryProvider } from "@/lib/providers/query-provider";
 import { ThemeProvider } from "@/lib/providers/theme-provider";
 import { NuqsAdapter } from "nuqs/adapters/next/app";
 import { Toaster } from "@/components/ui/sonner";
+import { NavigationProgress } from "@/components/ui/navigation-progress";
 
 // Validate environment variables at startup (server-side only)
 import "./env-validation";
@@ -31,6 +34,9 @@ export default function RootLayout({
         <NuqsAdapter>
         <SearchProvider>
           <Toaster position="bottom-right" />
+          <Suspense fallback={null}>
+            <NavigationProgress />
+          </Suspense>
           {/* Skip to main content link for accessibility */}
           <a
             href="#main-content"
@@ -39,6 +45,7 @@ export default function RootLayout({
             Skip to main content
           </a>
           
+          <GlobalFileDropOverlay />
           <ConditionalNavbar />
           
           <ErrorBoundary>

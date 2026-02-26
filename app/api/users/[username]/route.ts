@@ -59,11 +59,13 @@ export async function GET(
     // Get assets count (only public assets, not unlisted drop-only images)
     // Try with visibility filter, fallback if column doesn't exist
     // Use compound OR to ensure AND semantics: (uploader_id = X AND visibility IS NULL) OR (uploader_id = X AND visibility = public)
-    let { count: assetsCount, error: countError } = await supabase
+    const assetsCountResult = await supabase
       .from('assets')
       .select('*', { count: 'exact', head: true })
       .or(`and(uploader_id.eq.${user.id},visibility.is.null),and(uploader_id.eq.${user.id},visibility.eq.public)`);
-    
+    let assetsCount = assetsCountResult.count;
+    const countError = assetsCountResult.error;
+
     // Only fallback if error is specifically "column not found" (code 42703)
     // Other errors (network, permissions) should not expose unlisted assets
     const isColumnNotFoundError = countError?.code === '42703' || countError?.message?.includes('visibility');

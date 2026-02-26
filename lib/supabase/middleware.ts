@@ -23,8 +23,40 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
+/**
+ * CSRF protection for API mutation requests.
+ *
+ * Verifies that the Origin header matches the application's own origin so that
+ * cross-site requests using the user's cookies are rejected.
+ * Requests without an Origin header (e.g. server-to-server, curl) are allowed
+ * through — they cannot carry browser cookies.
+ */
+function checkCsrf(request: NextRequest): boolean {
+  const method = request.method.toUpperCase();
+  const isMutation = ['POST', 'PUT', 'PATCH', 'DELETE'].includes(method);
+  if (!isMutation) return true;
+
+  const pathname = request.nextUrl.pathname;
+  if (!pathname.startsWith('/api/')) return true;
+
+  // Server-to-server requests won't have an Origin header — allow them through.
+  const origin = request.headers.get('origin');
+  if (!origin) return true;
+
+  // Reject requests whose Origin does not match the app's own origin.
+  return origin === request.nextUrl.origin;
+}
+
 export async function updateSession(request: NextRequest) {
-  let supabaseResponse = NextResponse.next({
+  // Reject cross-origin mutation requests early
+  if (!checkCsrf(request)) {
+    return NextResponse.json(
+      { error: 'Forbidden: cross-site request rejected' },
+      { status: 403 }
+    );
+  }
+
+  const supabaseResponse = NextResponse.next({
     request,
   });
 

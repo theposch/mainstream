@@ -45,7 +45,7 @@ export const AvatarGroup = React.memo(function AvatarGroup({
         if (!React.isValidElement(avatar)) return null;
 
         return (
-          <div key={index} className="-ml-2 hover:z-10 relative">
+          <div key={(avatar as React.ReactElement).key ?? index} className="-ml-2 hover:z-10 relative">
             {React.cloneElement(avatar as React.ReactElement<AvatarProps>, {
               className: cn("ring-2 ring-background", (avatar as React.ReactElement<AvatarProps>).props.className),
             })}

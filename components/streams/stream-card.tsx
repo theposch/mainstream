@@ -45,7 +45,7 @@ export const StreamCard = React.memo(function StreamCard({ stream }: StreamCardP
         )}
         
         <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity">
-          <Button variant="ghost" size="icon" className="bg-background/50 backdrop-blur-md">
+          <Button variant="ghost" size="icon" aria-label="Stream options" className="bg-background/50 backdrop-blur-md">
             <MoreHorizontal className="h-4 w-4" />
           </Button>
         </div>

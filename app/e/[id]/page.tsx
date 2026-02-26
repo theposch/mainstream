@@ -1,7 +1,10 @@
 import { notFound } from "next/navigation";
-import { unstable_noStore as noStore } from 'next/cache';
 import { createClient } from "@/lib/supabase/server";
 import { AssetDetail } from "@/components/assets/asset-detail";
+
+// Revalidate every 60s — like status and comment counts are kept fresh
+// by React Query on the client, so we don't need to bust the full page cache.
+export const revalidate = 60;
 
 interface AssetPageProps {
   params: Promise<{
@@ -10,8 +13,6 @@ interface AssetPageProps {
 }
 
 export default async function AssetPage({ params }: AssetPageProps) {
-  // Opt out of caching to ensure fresh like status
-  noStore();
   
   const { id } = await params;
   

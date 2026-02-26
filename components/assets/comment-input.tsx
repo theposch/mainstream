@@ -5,10 +5,11 @@ import { Loader2, Type, Smile, AtSign, Send } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { User } from "@/lib/types/database";
 import { useTypingIndicator } from "@/lib/hooks/use-typing-indicator";
+import { useDebounce } from "@/lib/hooks/use-debounce";
 import { TypingIndicator } from "./typing-indicator";
 
 interface CommentInputProps {
-  currentUser: any; // User from database with snake_case fields
+  currentUser: { id: string; username?: string | null; display_name?: string | null; avatar_url?: string | null } | null;
   onSubmit: (content: string) => Promise<void>;
   isSubmitting?: boolean;
   placeholder?: string;
@@ -40,14 +41,27 @@ export const CommentInput = React.memo(function CommentInput({
   const [mentionQuery, setMentionQuery] = React.useState("");
   const [mentionIndex, setMentionIndex] = React.useState(-1);
   const [selectedMentionIndex, setSelectedMentionIndex] = React.useState(0);
+  const [filteredUsers, setFilteredUsers] = React.useState<User[]>([]);
+
+  const debouncedMentionQuery = useDebounce(mentionQuery, 200);
+
+  // Fetch users matching the mention query from the existing users search API
+  React.useEffect(() => {
+    if (!showMentions || debouncedMentionQuery.length === 0) {
+      setFilteredUsers([]);
+      return;
+    }
+    let cancelled = false;
+    fetch(`/api/users?search=${encodeURIComponent(debouncedMentionQuery)}&limit=8`)
+      .then(r => r.json())
+      .then(data => {
+        if (!cancelled) setFilteredUsers(data.users ?? []);
+      })
+      .catch(() => { if (!cancelled) setFilteredUsers([]); });
+    return () => { cancelled = true; };
+  }, [debouncedMentionQuery, showMentions]);
 
   const useIsomorphicLayoutEffect = typeof window !== 'undefined' ? React.useLayoutEffect : React.useEffect;
-
-  // Filter users for mentions - TODO: Replace with API call
-  const filteredUsers = React.useMemo((): User[] => {
-    // For now, return empty array until we implement user search API
-    return [];
-  }, [mentionQuery]);
 
   // Auto-expand textarea
   useIsomorphicLayoutEffect(() => {
@@ -208,7 +222,7 @@ export const CommentInput = React.memo(function CommentInput({
         )}
 
         <Avatar className="h-8 w-8 shrink-0 border border-border">
-            <AvatarImage src={currentUser?.avatar_url} alt={currentUser?.display_name} />
+            <AvatarImage src={currentUser?.avatar_url ?? undefined} alt={currentUser?.display_name ?? undefined} />
             <AvatarFallback>{currentUser?.username?.charAt(0).toUpperCase() || 'U'}</AvatarFallback>
         </Avatar>
         
@@ -248,11 +262,26 @@ export const CommentInput = React.memo(function CommentInput({
                         >
                             <Smile className="h-4 w-4" />
                         </button>
-                        <button 
-                            type="button" 
-                            disabled 
-                            className="p-1.5 text-muted-foreground/50 hover:text-muted-foreground transition-colors cursor-not-allowed"
-                            title="Mention (coming soon)"
+                        <button
+                            type="button"
+                            className="p-1.5 text-muted-foreground hover:text-foreground transition-colors"
+                            title="Mention someone"
+                            onClick={() => {
+                              if (!textareaRef.current) return;
+                              const pos = textareaRef.current.selectionStart;
+                              const before = content.slice(0, pos);
+                              const after = content.slice(pos);
+                              const needsSpace = before.length > 0 && !/\s$/.test(before);
+                              const insertion = (needsSpace ? ' @' : '@');
+                              setContent(before + insertion + after);
+                              setTimeout(() => {
+                                if (textareaRef.current) {
+                                  const newPos = pos + insertion.length;
+                                  textareaRef.current.focus();
+                                  textareaRef.current.setSelectionRange(newPos, newPos);
+                                }
+                              }, 0);
+                            }}
                         >
                             <AtSign className="h-4 w-4" />
                         </button>

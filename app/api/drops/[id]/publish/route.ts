@@ -1,11 +1,12 @@
 import React from "react";
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, createAdminClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import { render } from "@react-email/render";
 import { Resend } from "resend";
 import { DropView } from "@/components/drops/drop-view";
 import { EmailDropView } from "@/components/drops/blocks/email-drop-view";
+import { decryptToken, postMessage, getBaseUrl } from "@/lib/utils/slack";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -29,7 +30,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     }
 
     const body = await request.json();
-    const { notify_team = false } = body;
+    const { notify_team = false, notify_slack = false, slack_channel_id = null } = body;
 
     const supabase = await createClient();
 
@@ -86,8 +87,52 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         const emails = users?.map((u) => u.email).filter(Boolean) || [];
 
         if (emails.length > 0) {
+          interface Uploader {
+            id: string;
+            username: string;
+            display_name: string;
+            avatar_url: string | null;
+            created_at?: string;
+            [key: string]: unknown;
+          }
+
+          interface GalleryImageBlock {
+            id: string;
+            position: number;
+            asset?: {
+              id: string;
+              title: string;
+              url: string;
+              medium_url: string;
+              thumbnail_url: string;
+              asset_type: string;
+              embed_provider: string | null;
+              uploader?: Uploader;
+            };
+          }
+
+          interface BlockRecord {
+            id: string;
+            type: string;
+            position: number;
+            asset?: {
+              id: string;
+              title: string;
+              description: string | null;
+              url: string;
+              medium_url: string;
+              thumbnail_url: string;
+              asset_type: string;
+              embed_provider: string | null;
+              created_at: string;
+              uploader?: Uploader;
+            };
+            gallery_images?: GalleryImageBlock[];
+            [key: string]: unknown;
+          }
+
           let emailHtml: string;
-          let contributors: any[] = [];
+          let contributors: Uploader[] = [];
 
           // Check if drop uses blocks or legacy posts
           if (drop.use_blocks) {
@@ -112,12 +157,12 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
               .order("position", { ascending: true });
 
             // Get contributors from blocks and gallery images
-            const contributorMap = new Map();
-            blocks?.forEach((block: any) => {
+            const contributorMap = new Map<string, Uploader>();
+            (blocks as BlockRecord[] | null)?.forEach((block) => {
               if (block.asset?.uploader && !contributorMap.has(block.asset.uploader.id)) {
                 contributorMap.set(block.asset.uploader.id, block.asset.uploader);
               }
-              block.gallery_images?.forEach((galleryImage: any) => {
+              block.gallery_images?.forEach((galleryImage) => {
                 if (galleryImage.asset?.uploader && !contributorMap.has(galleryImage.asset.uploader.id)) {
                   contributorMap.set(galleryImage.asset.uploader.id, galleryImage.asset.uploader);
                 }
@@ -130,8 +175,10 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
               React.createElement(EmailDropView, {
                 title: drop.title,
                 description: drop.description,
-                blocks: blocks || [],
-                contributors,
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any -- BlockRecord matches DropBlock shape at runtime
+                blocks: (blocks || []) as any,
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                contributors: contributors as any,
               })
             );
           } else {
@@ -152,17 +199,30 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
               .eq("drop_id", dropId)
               .order("position", { ascending: true });
 
-            const posts = dropPosts?.map((dp: any) => ({
+            interface DropPostRecord {
+              position: number;
+              asset?: {
+                id: string;
+                title: string;
+                description: string | null;
+                url: string;
+                thumbnail_url: string;
+                uploader?: Uploader;
+              };
+            }
+
+            const posts = (dropPosts as DropPostRecord[] | null)?.map((dp) => ({
               ...dp.asset,
               position: dp.position,
               streams: [],
             })).filter(Boolean) || [];
 
             // Get contributors
-            const contributorMap = new Map();
-            posts.forEach((post: any) => {
-              if (post.uploader && !contributorMap.has(post.uploader.id)) {
-                contributorMap.set(post.uploader.id, post.uploader);
+            const contributorMap = new Map<string, Uploader>();
+            posts.forEach((post) => {
+              const p = post as { uploader?: Uploader };
+              if (p.uploader && !contributorMap.has(p.uploader.id)) {
+                contributorMap.set(p.uploader.id, p.uploader);
               }
             });
             contributors = Array.from(contributorMap.values());
@@ -174,8 +234,10 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
                 description: drop.description,
                 dateRangeStart: drop.date_range_start,
                 dateRangeEnd: drop.date_range_end,
-                posts,
-                contributors,
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                posts: posts as any,
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                contributors: contributors as any,
               })
             );
           }
@@ -210,9 +272,59 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       }
     }
 
+    // Send Slack notification if requested
+    let slackSent = false;
+    if (notify_slack && slack_channel_id) {
+      try {
+        const adminSupabase = await createAdminClient();
+        const { data: integration } = await adminSupabase
+          .from("slack_integration")
+          .select("bot_token")
+          .limit(1)
+          .maybeSingle();
+
+        if (integration) {
+          const botToken = decryptToken(integration.bot_token);
+          const baseUrl = getBaseUrl(request);
+          const dropUrl = `${baseUrl}/drops/${dropId}`;
+
+          const messageTs = await postMessage(botToken, slack_channel_id, {
+            text: `📰 *${drop.title}* has been published`,
+            blocks: [
+              {
+                type: "section",
+                text: {
+                  type: "mrkdwn",
+                  text: `📰 *<${dropUrl}|${drop.title}>* has been published`,
+                },
+              },
+            ],
+            unfurl_links: false,
+          });
+
+          // Track the message for idempotency
+          await adminSupabase.from("slack_messages").upsert(
+            {
+              resource_type: "drop",
+              resource_id: dropId,
+              channel_id: slack_channel_id,
+              message_ts: messageTs,
+            },
+            { onConflict: "resource_type,resource_id,channel_id" }
+          );
+
+          slackSent = true;
+        }
+      } catch (slackError) {
+        console.error("[Drops Publish] Slack notification error:", slackError);
+        // Don't fail the publish if Slack fails
+      }
+    }
+
     return NextResponse.json({
       drop: updatedDrop,
       email_sent: emailSent,
+      slack_sent: slackSent,
     });
   } catch (error) {
     console.error("[Drops Publish] Error:", error);

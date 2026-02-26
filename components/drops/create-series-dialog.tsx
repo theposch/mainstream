@@ -21,7 +21,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Loader2, Hash, Users, Clock, Calendar } from "lucide-react";
+import { Loader2, Hash, Users, Clock, Calendar, Slack } from "lucide-react";
 import { StreamPicker } from "@/components/streams/stream-picker";
 import { UserPicker } from "@/components/users/user-picker";
 import { 
@@ -32,6 +32,7 @@ import {
   getOrdinalSuffix 
 } from "@/lib/utils/schedule-helpers";
 import type { ScheduleFrequency, DateRangeMode } from "@/lib/types/database";
+import type { SlackChannel } from "@/lib/utils/slack";
 
 interface CreateSeriesDialogProps {
   open: boolean;
@@ -62,6 +63,12 @@ export function CreateSeriesDialog({
   const [selectedUserIds, setSelectedUserIds] = React.useState<string[]>([]);
   const [generateNow, setGenerateNow] = React.useState(true);
 
+  // Slack channel state
+  const [slackConnected, setSlackConnected] = React.useState(false);
+  const [slackChannels, setSlackChannels] = React.useState<SlackChannel[]>([]);
+  const [slackChannelId, setSlackChannelId] = React.useState<string>("");
+  const [loadingSlackChannels, setLoadingSlackChannels] = React.useState(false);
+
   // Reset form when dialog opens
   React.useEffect(() => {
     if (open) {
@@ -76,7 +83,33 @@ export function CreateSeriesDialog({
       setSelectedStreamIds([]);
       setSelectedUserIds([]);
       setGenerateNow(true);
+      setSlackChannelId("");
       setError(null);
+
+      // Load Slack status + channels
+      const loadSlack = async () => {
+        setLoadingSlackChannels(true);
+        try {
+          const statusRes = await fetch("/api/slack/status");
+          if (!statusRes.ok) return;
+          const statusData = await statusRes.json();
+          setSlackConnected(!!statusData.connected);
+          if (statusData.connected) {
+            const channelsRes = await fetch("/api/slack/channels");
+            if (channelsRes.ok) {
+              const channelsData = await channelsRes.json();
+              setSlackChannels(channelsData.channels ?? []);
+            }
+          }
+        } finally {
+          setLoadingSlackChannels(false);
+        }
+      };
+      loadSlack();
+    } else {
+      setSlackConnected(false);
+      setSlackChannels([]);
+      setSlackChannelId("");
     }
   }, [open]);
 
@@ -129,6 +162,7 @@ export function CreateSeriesDialog({
           date_range_mode: dateRangeMode,
           date_range_days: parseInt(dateRangeDays),
           generate_now: generateNow,
+          slack_channel_id: slackChannelId || null,
         }),
       });
 
@@ -368,6 +402,41 @@ export function CreateSeriesDialog({
               />
             </div>
           </div>
+
+          {/* Slack Channel */}
+          {slackConnected && (
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Slack className="h-4 w-4" />
+                <span>Slack notifications</span>
+              </div>
+              {loadingSlackChannels ? (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  Loading channels…
+                </div>
+              ) : (
+                <>
+                  <select
+                    value={slackChannelId}
+                    onChange={(e) => setSlackChannelId(e.target.value)}
+                    disabled={isLoading}
+                    className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    <option value="">No channel (disabled)</option>
+                    {slackChannels.map((ch) => (
+                      <option key={ch.id} value={ch.id}>
+                        #{ch.name}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="text-xs text-muted-foreground">
+                    Post to this channel when a scheduled drop is ready to review.
+                  </p>
+                </>
+              )}
+            </div>
+          )}
 
           {/* Generate Now Option */}
           <div className="flex items-center space-x-2">

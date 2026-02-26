@@ -4,9 +4,12 @@ import * as React from "react";
 import Link from "next/link";
 import { Hash, Lock } from "lucide-react";
 import { cn } from "@/lib/utils";
+import type { Stream } from "@/lib/types/database";
+
+type StreamLike = Pick<Stream, 'id' | 'name' | 'is_private'>;
 
 interface StreamBadgeProps {
-  stream: any;  // Stream from database
+  stream: StreamLike;
   clickable?: boolean;
   className?: string;
 }

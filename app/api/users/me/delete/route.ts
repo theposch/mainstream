@@ -8,9 +8,6 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient, createAdminClient } from '@/lib/supabase/server';
-import { unlink } from 'fs/promises';
-import { existsSync } from 'fs';
-import path from 'path';
 
 export const dynamic = 'force-dynamic';
 
@@ -133,16 +130,16 @@ export async function DELETE(request: NextRequest) {
       .eq('id', authUser.id)
       .single();
 
-    if (userProfile?.avatar_url?.startsWith('/uploads/avatars/')) {
-      try {
-        const relativePath = userProfile.avatar_url.slice(1); // Strip leading slash
-        const filepath = path.join(process.cwd(), 'public', relativePath);
-        if (existsSync(filepath)) {
-          await unlink(filepath);
-        }
-      } catch (e) {
-        // Non-critical: log but continue with deletion
-        console.error('[DELETE /api/users/me/delete] Failed to delete avatar file:', e);
+    // Delete avatar from Supabase Storage if it was uploaded there (best-effort)
+    const avatarUrl = userProfile?.avatar_url ?? '';
+    const AVATAR_MARKER = '/storage/v1/object/public/avatars/';
+    const markerIdx = avatarUrl.indexOf(AVATAR_MARKER);
+    if (markerIdx !== -1) {
+      const storagePath = avatarUrl.slice(markerIdx + AVATAR_MARKER.length);
+      if (storagePath) {
+        await adminSupabase.storage.from('avatars').remove([storagePath]).catch((e: unknown) => {
+          console.error('[DELETE /api/users/me/delete] Failed to delete avatar from storage:', e);
+        });
       }
     }
 

@@ -4,6 +4,19 @@ import { DropsPageClient } from "./drops-page-client";
 import { SeriesTabContent } from "@/components/drops/series-tab-content";
 import type { DropSchedule } from "@/lib/types/database";
 
+// Shape of a drop_blocks row returned by the post-count select
+interface RawDropBlockRow {
+  drop_id: string;
+  type: string;
+  asset?: { thumbnail_url?: string | null } | null;
+}
+
+// Shape of a drop_posts row returned by the post-count select
+interface RawDropPostRow {
+  drop_id: string;
+  asset?: { thumbnail_url?: string | null } | null;
+}
+
 export default async function DropsPage({
   searchParams,
 }: {
@@ -64,7 +77,7 @@ export default async function DropsPage({
         .in("type", ["post", "featured_post"])
         .order("position", { ascending: true });
 
-      dropBlocks?.forEach((db: any) => {
+      (dropBlocks as RawDropBlockRow[] | null)?.forEach((db) => {
         const data = dropData[db.drop_id];
         if (data) {
           data.count++;

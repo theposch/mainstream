@@ -4,9 +4,103 @@ import { getCurrentUser } from "@/lib/auth/get-user";
 import { DropView } from "@/components/drops/drop-view";
 import { DropBlocksView } from "@/components/drops/blocks/drop-blocks-view";
 import { PublishedDropHeader } from "@/components/drops/published-drop-header";
+import type { User } from "@/lib/types/database";
 
 interface DropPageProps {
   params: Promise<{ id: string }>;
+}
+
+// Shape of an uploader sub-select (partial user)
+type UploaderRow = Pick<User, 'id' | 'username' | 'display_name' | 'avatar_url'>;
+
+// Shape of a block row from drop_blocks select (blocks view)
+interface RawDropBlock {
+  id: string;
+  drop_id: string;
+  type: string;
+  position: number;
+  content?: string;
+  asset_id?: string;
+  display_mode?: string;
+  crop_position_x?: number;
+  crop_position_y?: number;
+  gallery_layout?: string;
+  gallery_featured_index?: number;
+  created_at: string;
+  updated_at: string;
+  asset?: {
+    id: string;
+    title: string;
+    description?: string;
+    url: string;
+    medium_url?: string;
+    thumbnail_url?: string;
+    asset_type?: string;
+    embed_provider?: string;
+    created_at: string;
+    uploader?: UploaderRow;
+  } | null;
+  gallery_images?: Array<{
+    id: string;
+    position: number;
+    asset?: {
+      id: string;
+      title: string;
+      url: string;
+      medium_url?: string;
+      thumbnail_url?: string;
+      asset_type?: string;
+      embed_provider?: string;
+      uploader?: UploaderRow;
+    } | null;
+  }>;
+}
+
+// Shape of a drop_post join row (legacy mode)
+interface RawDropPost {
+  position: number;
+  display_mode: string;
+  crop_position_x: number;
+  crop_position_y: number;
+  asset?: {
+    id: string;
+    title: string;
+    description?: string;
+    url: string;
+    thumbnail_url?: string;
+    asset_type?: string;
+    embed_provider?: string;
+    created_at: string;
+    uploader?: UploaderRow;
+  } | null;
+}
+
+// Flattened post (asset fields + display fields)
+interface FlatPost {
+  id: string;
+  title: string;
+  description?: string;
+  url: string;
+  thumbnail_url?: string;
+  asset_type?: string;
+  embed_provider?: string;
+  created_at: string;
+  uploader?: UploaderRow;
+  position: number;
+  display_mode: string;
+  crop_position_x: number;
+  crop_position_y: number;
+}
+
+// Enriched post with streams
+interface EnrichedPost extends FlatPost {
+  streams: Array<{ id: string; name: string }>;
+}
+
+// asset_streams join row for stream lookup
+interface AssetStreamRow {
+  asset_id: string;
+  stream?: { id: string; name: string } | null;
 }
 
 export default async function DropPage({ params }: DropPageProps) {
@@ -62,12 +156,12 @@ export default async function DropPage({ params }: DropPageProps) {
       .order("position", { ascending: true });
 
     // Get contributors from blocks and gallery images
-    const contributorMap = new Map();
-    blocks?.forEach((block: any) => {
+    const contributorMap = new Map<string, UploaderRow>();
+    (blocks as RawDropBlock[] | null)?.forEach((block) => {
       if (block.asset?.uploader && !contributorMap.has(block.asset.uploader.id)) {
         contributorMap.set(block.asset.uploader.id, block.asset.uploader);
       }
-      block.gallery_images?.forEach((galleryImage: any) => {
+      block.gallery_images?.forEach((galleryImage) => {
         if (galleryImage.asset?.uploader && !contributorMap.has(galleryImage.asset.uploader.id)) {
           contributorMap.set(galleryImage.asset.uploader.id, galleryImage.asset.uploader);
         }
@@ -85,7 +179,7 @@ export default async function DropPage({ params }: DropPageProps) {
           title={drop.title}
           description={drop.description}
           blocks={blocks || []}
-          contributors={contributors}
+          contributors={contributors as User[]}
           dateRangeStart={drop.date_range_start}
           dateRangeEnd={drop.date_range_end}
         />
@@ -118,18 +212,21 @@ export default async function DropPage({ params }: DropPageProps) {
     .order("position", { ascending: true });
 
   // Flatten posts
-  const posts = dropPosts?.map((dp: any) => ({
-    ...dp.asset,
-    position: dp.position,
-    display_mode: dp.display_mode,
-    crop_position_x: dp.crop_position_x,
-    crop_position_y: dp.crop_position_y,
-  })).filter(Boolean) || [];
+  const posts: FlatPost[] = ((dropPosts as RawDropPost[] | null)?.map((dp) => {
+    if (!dp.asset) return null;
+    return {
+      ...dp.asset,
+      position: dp.position,
+      display_mode: dp.display_mode,
+      crop_position_x: dp.crop_position_x,
+      crop_position_y: dp.crop_position_y,
+    };
+  }).filter((p): p is FlatPost => p !== null) || []);
 
   // Get streams for posts
-  const postIds = posts.map((p: any) => p.id);
-  let postStreams: Record<string, any[]> = {};
-  
+  const postIds = posts.map((p) => p.id);
+  const postStreams: Record<string, Array<{ id: string; name: string }>> = {};
+
   if (postIds.length > 0) {
     const { data: assetStreams } = await supabase
       .from("asset_streams")
@@ -139,7 +236,7 @@ export default async function DropPage({ params }: DropPageProps) {
       `)
       .in("asset_id", postIds);
 
-    assetStreams?.forEach((as: any) => {
+    (assetStreams as AssetStreamRow[] | null)?.forEach((as) => {
       if (!postStreams[as.asset_id]) {
         postStreams[as.asset_id] = [];
       }
@@ -150,14 +247,14 @@ export default async function DropPage({ params }: DropPageProps) {
   }
 
   // Enrich posts with streams
-  const enrichedPosts = posts.map((post: any) => ({
+  const enrichedPosts: EnrichedPost[] = posts.map((post) => ({
     ...post,
     streams: postStreams[post.id] || [],
   }));
 
   // Get unique contributors
-  const contributorMap = new Map();
-  posts.forEach((post: any) => {
+  const contributorMap = new Map<string, UploaderRow>();
+  posts.forEach((post) => {
     if (post.uploader && !contributorMap.has(post.uploader.id)) {
       contributorMap.set(post.uploader.id, post.uploader);
     }
@@ -175,8 +272,8 @@ export default async function DropPage({ params }: DropPageProps) {
         description={drop.description}
         dateRangeStart={drop.date_range_start}
         dateRangeEnd={drop.date_range_end}
-        posts={enrichedPosts}
-        contributors={contributors}
+        posts={enrichedPosts as Parameters<typeof DropView>[0]['posts']}
+        contributors={contributors as User[]}
       />
     </div>
     </>

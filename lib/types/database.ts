@@ -67,6 +67,8 @@ export interface Stream {
   cover_image_url?: string;
   created_at: string;
   updated_at?: string;
+  // Slack integration
+  slack_channel_id?: string | null;
 }
 
 // Asset type with optional pre-fetched relationships
@@ -214,7 +216,10 @@ export interface DropSchedule {
   status: ScheduleStatus;
   next_run_at: string | null;
   last_run_at: string | null;
-  
+
+  // Slack integration
+  slack_channel_id?: string | null;
+
   created_at: string;
   updated_at: string;
 }
@@ -305,7 +310,36 @@ export interface DropBlock {
   gallery_layout?: GalleryLayout;
   gallery_featured_index?: number;
   gallery_images?: DropBlockGalleryImage[]; // Joined data
-  
+
   created_at: string;
   updated_at: string;
+}
+
+// ─── Slack integration ────────────────────────────────────────────────────────
+
+/** Platform-level Slack workspace connection (singleton per instance). */
+export interface SlackIntegration {
+  id: string;
+  workspace_id: string;
+  workspace_name: string;
+  workspace_icon?: string | null;
+  /** AES-256-GCM encrypted bot token: "iv:tag:ciphertext" (hex). */
+  bot_token: string;
+  bot_user_id: string;
+  installed_by?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export type SlackResourceType = 'drop' | 'asset' | 'drop_remind';
+
+/** Tracks Slack message timestamps per resource for idempotency. */
+export interface SlackMessage {
+  id: string;
+  resource_type: SlackResourceType;
+  resource_id: string;
+  channel_id: string;
+  /** Slack message timestamp returned by chat.postMessage (e.g. "1234567890.123456"). */
+  message_ts: string;
+  created_at: string;
 }

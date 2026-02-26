@@ -40,7 +40,7 @@ export const ASSET_BASE_SELECT = `
 /**
  * Raw asset data from Supabase before transformation
  */
-interface RawAssetFromDB {
+export interface RawAssetFromDB {
   id: string;
   title: string;
   description?: string;

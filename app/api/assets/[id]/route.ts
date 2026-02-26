@@ -11,6 +11,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { deleteUploadedFiles } from '@/lib/utils/file-storage';
+import { noContent } from '@/lib/utils/api-error';
 
 export const dynamic = 'force-dynamic';
 
@@ -401,25 +402,17 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
       );
     }
 
-    // Delete physical files from storage
-    // Extract filename from URL (e.g., /uploads/full/1234567890-abc123.jpg)
+    // Delete files from storage (Supabase Storage or legacy local path)
     try {
-      const filename = asset.url.split('/').pop();
-      if (filename) {
-        await deleteUploadedFiles(filename);
+      if (asset.url) {
+        await deleteUploadedFiles(asset.url);
       }
     } catch (fileError) {
       // Log but don't fail the request if file deletion fails
       console.error('[DELETE /api/assets/:id] Error deleting files:', fileError);
     }
 
-    return NextResponse.json(
-      { 
-        success: true,
-        message: 'Asset deleted successfully'
-      },
-      { status: 200 }
-    );
+    return noContent();
   } catch (error) {
     console.error('[DELETE /api/assets/:id] Error:', error);
     return NextResponse.json(

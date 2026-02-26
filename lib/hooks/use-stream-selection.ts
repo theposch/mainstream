@@ -114,12 +114,16 @@ export function useStreamSelection(
     return { created, failed };
   }, [pendingStreamNames]);
   
+  // Capture initial values in refs so reset() has a stable identity
+  const initialStreamIdsRef = React.useRef(initialStreamIds);
+  const initialPendingNamesRef = React.useRef(initialPendingNames);
+
   // Reset state
   const reset = React.useCallback((resetOptions?: { streamIds?: string[]; pendingNames?: string[] }) => {
-    setStreamIds(resetOptions?.streamIds ?? initialStreamIds);
-    setPendingStreamNames(resetOptions?.pendingNames ?? initialPendingNames);
+    setStreamIds(resetOptions?.streamIds ?? initialStreamIdsRef.current);
+    setPendingStreamNames(resetOptions?.pendingNames ?? initialPendingNamesRef.current);
     setExcludedStreamNames([]);
-  }, [initialStreamIds, initialPendingNames]);
+  }, []); // stable — uses refs, no deps needed
   
   return {
     // State

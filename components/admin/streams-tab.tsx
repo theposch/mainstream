@@ -52,7 +52,6 @@ import {
   Globe,
   Users,
   Image as ImageIcon,
-  ArrowRight,
   Plus,
 } from "lucide-react";
 
@@ -109,7 +108,7 @@ export function StreamsTab() {
   const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false);
   const [mergeDialogOpen, setMergeDialogOpen] = React.useState(false);
   const [mergeTarget, setMergeTarget] = React.useState<{ id: string; name: string } | null>(null);
-  const [actionLoading, setActionLoading] = React.useState(false);
+
 
   const searchTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
   
